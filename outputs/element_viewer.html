@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IFC Element Viewer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .stats {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .search {
+            margin: 20px 0;
+            padding: 10px;
+            width: 100%;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #4CAF50;
+            color: white;
+            position: sticky;
+            top: 0;
+        }
+        tr:hover {
+            background: #f5f5f5;
+        }
+        .type {
+            color: #1976D2;
+            font-weight: bold;
+        }
+        .id {
+            color: #666;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏗️ IFC Building Elements Viewer</h1>
+        <div class="stats">
+            <strong>Source:</strong> Architectural.ifc<br>
+            <strong>Total Elements:</strong> <span id="totalCount">0</span>
+        </div>
+        
+        <input type="text" id="searchBox" class="search" placeholder="Search by type, name, or ID...">
+        
+        <table id="elementTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Type</th>
+                    <th>Name</th>
+                    <th>Global ID</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+            </tbody>
+        </table>
+    </div>
+    
+    <script>
+        // Load JSON data
+        fetch('building_elements.json')
+            .then(response => response.json())
+            .then(data => {
+                window.elementsData = data;
+                renderTable(data);
+                document.getElementById('totalCount').textContent = data.length;
+            })
+            .catch(error => {
+                console.error('Error loading data:', error);
+                document.getElementById('tableBody').innerHTML = 
+                    '<tr><td colspan="4">Error loading data. Make sure the JSON file is in the same directory.</td></tr>';
+            });
+        
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            
+            data.forEach(elem => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td class="id">#${elem.id}</td>
+                    <td class="type">${elem.type}</td>
+                    <td>${elem.name || '-'}</td>
+                    <td class="id">${elem.global_id || '-'}</td>
+                `;
+            });
+        }
+        
+        // Search functionality
+        document.getElementById('searchBox').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const filtered = window.elementsData.filter(elem => 
+                elem.type.toLowerCase().includes(searchTerm) ||
+                (elem.name && elem.name.toLowerCase().includes(searchTerm)) ||
+                elem.id.toString().includes(searchTerm) ||
+                (elem.global_id && elem.global_id.toLowerCase().includes(searchTerm))
+            );
+            renderTable(filtered);
+        });
+    </script>
+</body>
+</html>
