@@ -1,0 +1,14 @@
+# AEC Agent Test Scenarios
+# Use this file to simulate site logs and user queries.
+
+- name: "Scenario 1: Standard Topological Query"
+  description: "Test if the agent can find furniture inside a specific room."
+  input: "Report: I noticed a scratch on the kitchen furniture located in the living room."
+
+- name: "Scenario 2: Ambiguous Location"
+  description: "Test how the agent handles queries without a clear room context."
+  input: "Check the damage on the wall."
+
+- name: "Scenario 3: Compliance Check Simulation"
+  description: "Test extracting detailed properties for a specific element."
+  input: "Get the material details for the element with GUID '2e9pghUJbBqR4jTInsONQT' to check against fire rating compliance."

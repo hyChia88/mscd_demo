@@ -1,0 +1,11 @@
+ifcopenshell>=0.7
+python-dotenv>=1.0
+pydantic>=2.0
+colorama>=0.4.6
+google-generativeai==0.8.5
+openai==2.8.1
+distro==1.9.0
+jiter==0.12.0
+langchain>=0.1.0
+langchain-core>=0.1.0
+langchain-google-genai>=0.0.1
