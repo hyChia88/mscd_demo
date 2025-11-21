@@ -1,14 +1,34 @@
-# AEC Agent Test Scenarios
-# Use this file to simulate site logs and user queries.
+# AEC Agent Test Scenarios for BasicHouse.ifc
+# 2 Complete scenarios showcasing the full capability of the Interpreter Layer
 
-- name: "Scenario 1: Standard Topological Query"
-  description: "Test if the agent can find furniture inside a specific room."
-  input: "Report: I noticed a scratch on the kitchen furniture located in the living room."
+- name: "Scenario 1: Site Damage Report → GUID Identification"
+  description: |
+    A construction inspector found water damage on a cabinet and needs to identify it in the IFC model.
+    The Agent must:
+    1. Query using get_elements_by_room with the location mentioned in the report
+    2. Find all furniture/cabinet elements in the results
+    3. For matching elements, extract GUIDs and call get_element_details
+    4. Return a comprehensive report with all matches
+  input: |
+    "DAMAGE REPORT: Water damage observed on a base cabinet with double doors located on Floor 0.
 
-- name: "Scenario 2: Ambiguous Location"
-  description: "Test how the agent handles queries without a clear room context."
-  input: "Check the damage on the wall."
+    ACTION REQUIRED:
+    - Call get_elements_by_room with 'floor 0' (the location mentioned in the report)
+    - Search the returned elements for cabinets (names containing 'Cabinet' or 'Base Cabinet')
+    - For each cabinet found, extract its GUID and call get_element_details
+    - Provide a structured report: [Element Name] | [Type] | [GUID] | [Properties]"
 
-- name: "Scenario 3: Compliance Check Simulation"
-  description: "Test extracting detailed properties for a specific element."
-  input: "Get the material details for the element with GUID '2e9pghUJbBqR4jTInsONQT' to check against fire rating compliance."
+- name: "Scenario 2: Building Facade Inspection & Compliance Verification"
+  description: |
+    A building auditor needs to verify exterior wall specifications for compliance.
+    The Agent must:
+    1. Call get_elements_by_room("Floor 0") to retrieve all Floor 0 elements
+    2. Filter for walls containing "Yttervägg" (exterior wall) or "Wall" in name
+    3. For each wall found, call get_element_details(guid)
+    4. Compile a structured compliance report with all walls
+  input: |
+    "COMPLIANCE AUDIT: Annual inspection of external facade.
+    REQUIRED ACTION: Query Floor 0 using get_elements_by_room("Floor 0").
+    Find all exterior walls (search for 'Yttervägg' or 'Wall' in element names).
+    For each wall found, use get_element_details(guid) to extract Type, Material, Fire Rating.
+    DELIVERABLE: Table with [Element Name] | [Type] | [GUID] | [Material] | [Fire Rating]"

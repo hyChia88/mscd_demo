@@ -1,0 +1,9 @@
+[2025-11-21 14:35:02] [Site Foreman - John Tan]: @BIM_Coord_Sarah Hi Sarah, urgent issue spotted at Block A, Level 3, Unit 03-05.
+[2025-11-21 14:35:15] [Site Foreman - John Tan]: We found a nasty vertical crack in the Kitchen area.
+[2025-11-21 14:35:45] [Site Foreman - John Tan]: It's on the main partition wall, right behind the installed base cabinets. Looks structural.
+[2025-11-21 14:36:01] [Site Foreman - John Tan]: Sending photo evidence now.
+[2025-11-21 14:36:05] [Site Foreman - John Tan]: <Attachment: evidence_01.jpg>
+[2025-11-21 14:38:12] [BIM Coordinator - Sarah Lee]: Received, John. That looks concerning.
+[2025-11-21 14:38:30] [BIM Coordinator - Sarah Lee]: Is that part of the PPVC module or in-situ work?
+[2025-11-21 14:39:15] [Site Foreman - John Tan]: Should be the PPVC wall panel. Can you check the IFC model quickly? We need to identify the exact element GUID to log a defect report and check its material specs (Psets) for load-bearing status.
+[2025-11-21 14:40:00] [BIM Coordinator - Sarah Lee]: On it. I'll feed this info and the photo into the Agent to locate the element GUID and pull the specs. Stay tuned.

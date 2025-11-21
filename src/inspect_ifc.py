@@ -8,7 +8,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.ifc_engine import IFCEngine
 
 # 路径配置 (根据你终端里的路径调整)
-IFC_PATH = "data/Building-Architecture.ifc"
+IFC_PATH = "data/BasicHouse.ifc"
 
 def inspect():
     if not os.path.exists(IFC_PATH):

@@ -1,14 +1,10 @@
 import os
-import yaml  # 新增：用于读取 yaml
-import time  # 新增：用于演示时的停顿
+import yaml
+import time
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain_core.prompts import ChatPromptTemplate
-from colorama import Fore, Style, init
+from langgraph.prebuilt import create_react_agent
 
-# 初始化颜色输出
-init(autoreset=True)
 load_dotenv()
 
 from agent_tools import tools
@@ -16,14 +12,14 @@ from agent_tools import tools
 def load_scenarios(file_path="test.yaml"):
     """读取测试剧本"""
     if not os.path.exists(file_path):
-        print(f"{Fore.RED}Error: Configuration file '{file_path}' not found.{Style.RESET_ALL}")
+        print(f"❌ Error: Configuration file '{file_path}' not found.")
         return []
-    
+
     with open(file_path, "r", encoding="utf-8") as f:
         try:
             return yaml.safe_load(f)
         except yaml.YAMLError as e:
-            print(f"{Fore.RED}Error parsing YAML: {e}{Style.RESET_ALL}")
+            print(f"❌ Error parsing YAML: {e}")
             return []
 
 def main():
@@ -36,61 +32,86 @@ def main():
 
     # 2. 设计 Agent Persona
     system_prompt = """
-    You are an advanced AI "Interpreter Layer" for AEC.
-    Your mission is to bridge unstructured site data with the structured IFC Graph.
+    You are an advanced AI "Interpreter Layer" for AEC projects.
+    Your mission is to bridge unstructured site reports with the structured IFC building model.
 
-    WORKFLOW:
-    1. **Contextualize**: Identify the location (Room/Space).
-    2. **Topological Query**: Use `get_elements_by_room` to retrieve the IFC graph subset.
-    3. **Semantic Filtering**: Reason to find the specific element.
-    4. **Verification**: Use `get_element_details` if needed.
-    5. **Output**: Return a structured summary including the unique GUID.
+    YOU HAVE ACCESS TO:
+    - IFC database organized by Floors: "Floor 0" (residential level with 123 elements), "Floor 1" (roof level)
+    - Tools:
+      1. get_elements_by_room(floor_name) - Returns ALL elements on that floor
+      2. get_element_details(guid) - Returns properties like Type, Name, ObjectType for compliance checks
+      3. generate_3d_view(guid) - Returns a render path for visual verification
 
-    Constraints:
-    - If you cannot find the room, ask for clarification.
-    - Always output the GUID if identified.
+    CRITICAL WORKFLOW FOR EVERY USER REPORT:
+    1. **Always Start Here**: Extract the floor name from the report (e.g., "Floor 0", "Floor 1")
+    2. **Query the Floor**: Call get_elements_by_room with the floor name
+    3. **Semantic Filtering**: Search the results for:
+       - Element names containing keywords (e.g., "Cabinet", "Wall", "Door", "Yttervägg", "Innerdörr")
+       - Element types (IfcWall, IfcDoor, IfcWindow, IfcFurniture, IfcSlab, etc.)
+    4. **Compliance Check**: Call get_element_details(guid) for each identified element
+    5. **Comprehensive Report**: List all found elements with:
+       - Element Name
+       - Element Type
+       - GUID
+       - Key Properties (Material, Fire Rating, etc. from get_element_details)
+
+    KEY FACTS ABOUT THIS MODEL:
+    - Floor 0 contains: walls (outer & inner), doors, windows, furniture (cabinets, beds, tables, etc.)
+    - Floor 1 contains: roof structure, slabs
+    - Element names include Swedish names like "Yttervägg" (exterior wall), "Innerdörr" (interior door)
+    - Furniture items start with "M_" (e.g., "M_Base Cabinet", "M_Bed")
+
+    ALWAYS FOLLOW THIS PATTERN:
+    User mentions "Floor 0" → Call get_elements_by_room("floor 0") → Search results → Call get_element_details for matches → Report
     """
 
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", system_prompt),
-        ("human", "{input}"),
-        ("placeholder", "{agent_scratchpad}"),
-    ])
+    # 3. 组装 Agent (使用 LangGraph ReAct agent)
+    # Prepend system prompt to the LLM
+    from langchain_core.messages import SystemMessage
 
-    # 3. 组装 Agent
-    agent = create_tool_calling_agent(llm, tools, prompt)
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+    agent_executor = create_react_agent(
+        llm.bind(system=system_prompt),
+        tools
+    )
 
     # 4. 加载并执行测试剧本
     scenarios = load_scenarios()
-    
-    print(f"{Fore.CYAN}=== Agent initialized. Loaded {len(scenarios)} scenarios. ==={Style.RESET_ALL}")
+
+    print(f"\n✅ === Agent initialized. Loaded {len(scenarios)} scenarios. ===\n")
 
     for i, scenario in enumerate(scenarios, 1):
-        print(f"\n{Fore.WHITE}{'='*60}{Style.RESET_ALL}")
-        print(f"{Fore.CYAN}Running Scenario {i}: {scenario['name']}{Style.RESET_ALL}")
-        print(f"{Style.DIM}Description: {scenario['description']}{Style.RESET_ALL}")
-        
+        print(f"\n{'='*70}")
+        print(f"📋 Scenario {i}: {scenario['name']}")
+        print(f"{'='*70}")
+        print(f"Description: {scenario['description']}\n")
+
         user_input = scenario['input']
-        print(f"\n{Fore.YELLOW}>>> Input: {user_input}{Style.RESET_ALL}")
-        
+        print(f"📥 Input:\n{user_input}\n")
+
         try:
             # 记录开始时间
             start_time = time.time()
-            
-            response = agent_executor.invoke({"input": user_input})
-            
+
+            response = agent_executor.invoke({"messages": [("user", user_input)]})
+
             elapsed = time.time() - start_time
-            
-            print(f"\n{Fore.GREEN}>>> Final Response ({elapsed:.2f}s):{Style.RESET_ALL}")
-            print(response['output'])
-            
+
+            print(f"\n📤 Final Response ({elapsed:.2f}s):")
+            print("-" * 70)
+            # Extract the response from the message
+            if "messages" in response:
+                output = response["messages"][-1].content
+            else:
+                output = str(response)
+            print(output)
+            print("-" * 70)
+
         except Exception as e:
-            print(f"{Fore.RED}Error during execution: {e}")
-        
-        # 演示时的戏剧性停顿（可选，方便面试官看清楚输出）
+            print(f"\n❌ Error during execution: {e}")
+
+        # 演示时的停顿
         if i < len(scenarios):
-            print(f"\n{Fore.BLUE}...Proceeding to next scenario in 3 seconds...{Style.RESET_ALL}")
+            print(f"\n⏳ ...Proceeding to next scenario in 3 seconds...")
             time.sleep(3)
 
 if __name__ == "__main__":
