@@ -86,6 +86,25 @@ def identify_element_visually(site_photo_path: str, candidate_guids_str: str) ->
     # In production: Would compare with rendered images using CLIP
     return f"Best visual match: {guids[0]} (confidence: 0.87)"
 
+@tool
+def list_available_spaces() -> str:
+    """
+    Use this tool to discover what rooms/floors/spaces are available in the IFC model.
+    This is helpful when you don't know the exact room names to search.
+    Returns a list of available space names that can be used with get_elements_by_room.
+    """
+    available_spaces = list(engine.spatial_index.keys())
+    if not available_spaces:
+        return "No spaces found in the IFC model."
+
+    # Also show how many elements in each space
+    details = []
+    for space in available_spaces:
+        count = len(engine.spatial_index[space])
+        details.append(f"'{space}' ({count} elements)")
+
+    return "Available spaces:\n" + "\n".join(f"  - {d}" for d in details)
+
 
 # 导出工具列表
-tools = [get_elements_by_room, get_element_details, generate_3d_view]
+tools = [list_available_spaces, get_elements_by_room, get_element_details, generate_3d_view]

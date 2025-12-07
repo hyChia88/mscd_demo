@@ -9,3 +9,9 @@ jiter==0.12.0
 langchain>=0.1.0
 langchain-core>=0.1.0
 langchain-google-genai>=0.0.1
+langgraph>=0.1.0
+pyyaml>=6.0
+transformers>=4.30.0
+torch>=2.0.0
+numpy>=1.24.0
+open3d>=0.17.0

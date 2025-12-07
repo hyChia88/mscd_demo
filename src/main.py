@@ -5,6 +5,64 @@ from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.prebuilt import create_react_agent
 
+def load_system_prompt(prompt_file="prompts/system_prompt.yaml"):
+    """Load system prompt from YAML file"""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    prompt_path = os.path.join(base_dir, prompt_file)
+
+    if not os.path.exists(prompt_path):
+        raise FileNotFoundError(f"Prompt file not found: {prompt_path}")
+
+    with open(prompt_path, "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+
+    return config.get("system_prompt", "")
+
+"""
+Purpose: Demonstrate how an AI Agent processes building inspection reports
+
+5 Key Steps:
+
+1. Initialize LLM (lines 27-31)
+- Use Google Gemini 2.5 Flash model
+- Temperature set to 0 (deterministic responses)
+
+2. Define Agent Persona (lines 33-66)
+- Tell Agent: You are an "Interpreter Layer"
+- You have these tools: get_elements_by_room, get_element_details, generate_3d_view
+- This is your workflow: Extract location from report → Query IFC → Filter results → Extract details → Output report
+
+3. Create Agent (lines 72-75)
+- Assemble Agent with: LLM + Tools + System Prompt
+- This way Agent knows what to do
+
+4. Load Test Scenarios (lines 77-78)
+- Read 2 real-world scenarios from test.yaml
+
+5. Execute Scenarios in Loop (line 80+)
+- For each scenario:
+    - Print input question
+    - Agent thinks + calls tools
+    - Print Agent's final answer
+    - Wait 3 seconds, move to next scenario
+
+Simple Flow Diagram:
+
+Start main.py
+↓
+Initialize Gemini LLM
+↓
+Create Agent (give it tools + system prompt)
+↓
+Read test.yaml (2 scenarios)
+↓
+[Loop] For each scenario:
+Scenario 1 → Agent thinks → Calls tools → Outputs result
+Scenario 2 → Agent thinks → Calls tools → Outputs result
+↓
+Done!
+"""
+
 load_dotenv()
 
 from agent_tools import tools
@@ -30,40 +88,13 @@ def main():
         max_retries=2,
     )
 
-    # 2. 设计 Agent Persona
-    system_prompt = """
-    You are an advanced AI "Interpreter Layer" for AEC projects.
-    Your mission is to bridge unstructured site reports with the structured IFC building model.
-
-    YOU HAVE ACCESS TO:
-    - IFC database organized by Floors: "Floor 0" (residential level with 123 elements), "Floor 1" (roof level)
-    - Tools:
-      1. get_elements_by_room(floor_name) - Returns ALL elements on that floor
-      2. get_element_details(guid) - Returns properties like Type, Name, ObjectType for compliance checks
-      3. generate_3d_view(guid) - Returns a render path for visual verification
-
-    CRITICAL WORKFLOW FOR EVERY USER REPORT:
-    1. **Always Start Here**: Extract the floor name from the report (e.g., "Floor 0", "Floor 1")
-    2. **Query the Floor**: Call get_elements_by_room with the floor name
-    3. **Semantic Filtering**: Search the results for:
-       - Element names containing keywords (e.g., "Cabinet", "Wall", "Door", "Yttervägg", "Innerdörr")
-       - Element types (IfcWall, IfcDoor, IfcWindow, IfcFurniture, IfcSlab, etc.)
-    4. **Compliance Check**: Call get_element_details(guid) for each identified element
-    5. **Comprehensive Report**: List all found elements with:
-       - Element Name
-       - Element Type
-       - GUID
-       - Key Properties (Material, Fire Rating, etc. from get_element_details)
-
-    KEY FACTS ABOUT THIS MODEL:
-    - Floor 0 contains: walls (outer & inner), doors, windows, furniture (cabinets, beds, tables, etc.)
-    - Floor 1 contains: roof structure, slabs
-    - Element names include Swedish names like "Yttervägg" (exterior wall), "Innerdörr" (interior door)
-    - Furniture items start with "M_" (e.g., "M_Base Cabinet", "M_Bed")
-
-    ALWAYS FOLLOW THIS PATTERN:
-    User mentions "Floor 0" → Call get_elements_by_room("floor 0") → Search results → Call get_element_details for matches → Report
-    """
+    # 2. Load System Prompt from YAML
+    try:
+        system_prompt = load_system_prompt()
+    except FileNotFoundError as e:
+        print(f"⚠️  Warning: {e}")
+        print("Using fallback system prompt...")
+        system_prompt = "You are a helpful BIM inspection assistant. Use the available tools to help users query the IFC model."
 
     # 3. 组装 Agent (使用 LangGraph ReAct agent)
     # Prepend system prompt to the LLM

@@ -1,0 +1,239 @@
+# Tool Descriptions and Usage Guidelines
+# Reference for developers and documentation
+
+tools:
+  list_available_spaces:
+    name: "list_available_spaces"
+    signature: "list_available_spaces() -> str"
+    description: |
+      Use this tool to discover what rooms/floors/spaces are available in the IFC model.
+      This is helpful when you don't know the exact room names to search.
+      Returns a list of available space names that can be used with get_elements_by_room.
+
+    when_to_use:
+      - User asks "What rooms are there?"
+      - User asks "What spaces exist?"
+      - User asks "List all floors"
+      - You need to know what spaces exist before querying
+      - A query fails and you need to see what's available
+
+    example_queries:
+      - "What spaces are available?"
+      - "List all rooms"
+      - "What floors are in this building?"
+
+    example_output: |
+      Available spaces:
+        - 'floor 0' (123 elements)
+        - 'floor 1' (45 elements)
+
+  get_elements_by_room:
+    name: "get_elements_by_room"
+    signature: "get_elements_by_room(room_name: str) -> str"
+    description: |
+      Use this tool to find BIM objects located in a specific room or space.
+      Input: The name of the room (e.g., 'floor 0', 'kitchen').
+      Output: A list of elements with their names, types, and GUIDs.
+
+    parameters:
+      room_name:
+        type: str
+        required: true
+        format: "Must be lowercase, exact match from spatial_index"
+        examples:
+          - "floor 0"
+          - "floor 1"
+        note: "Space names are case-sensitive and usually lowercase"
+
+    when_to_use:
+      - User asks "What's on Floor 0?"
+      - User wants to see elements in a specific room
+      - You need to search for specific element types in a space
+
+    example_queries:
+      - "What's on floor 0?"
+      - "Show me everything in the kitchen"
+      - "Find all elements on floor 1"
+
+    example_output: |
+      [
+        {'guid': 'abc123...', 'type': 'IfcWall', 'name': 'Yttervägg', 'description': ''},
+        {'guid': 'def456...', 'type': 'IfcDoor', 'name': 'Innerdörr', 'description': ''},
+        ...
+      ]
+
+    limitations:
+      - Returns max 30 elements to prevent token overflow
+      - Requires exact space name (use list_available_spaces first if unsure)
+      - Uses substring matching on lowercase keys
+
+  get_element_details:
+    name: "get_element_details"
+    signature: "get_element_details(guid: str) -> str"
+    description: |
+      Use this tool to get detailed technical properties (Psets) of a specific element by its GUID.
+      Useful for compliance checking (checking material, fire rating, etc.).
+
+    parameters:
+      guid:
+        type: str
+        required: true
+        format: "IFC GlobalId format (22 characters, base64-like)"
+        examples:
+          - "3cJh4vCKb06wZ6$sKPKYTS"
+          - "2O2Fr$t4X7Zf8NOew3FLOH"
+        note: "Must be exact GUID from the IFC model"
+
+    when_to_use:
+      - User asks for details about a specific element
+      - Need to verify compliance properties
+      - Want to check material, fire rating, or other Psets
+      - Follow-up after finding elements with get_elements_by_room
+
+    example_queries:
+      - "Show details for GUID abc123"
+      - "What are the properties of element xyz?"
+      - "Get specifications for that cabinet"
+
+    example_output: |
+      {
+        'GlobalId': '3cJh4vCKb06wZ6$sKPKYTS',
+        'Name': 'M_Base Cabinet',
+        'Type': 'IfcFurniture',
+        'PredefinedType': 'Kitchen Cabinet'
+      }
+
+    limitations:
+      - Currently returns basic properties only (MVP)
+      - Full Pset extraction (Pset_WallCommon, etc.) not yet implemented
+      - Returns "Element not found" if GUID doesn't exist
+
+  generate_3d_view:
+    name: "generate_3d_view"
+    signature: "generate_3d_view(guid: str) -> str"
+    description: |
+      Generates a visual verification snapshot (render) of the element.
+      Use this when the user asks to 'see' or 'visualize' the defect.
+
+    parameters:
+      guid:
+        type: str
+        required: true
+        format: "IFC GlobalId"
+        note: "Element must exist in the IFC model"
+
+    when_to_use:
+      - User asks "Show me that element"
+      - User wants visual verification
+      - Creating documentation or reports
+      - Insurance claims or work orders
+
+    example_queries:
+      - "Can you show me what that looks like?"
+      - "Generate a 3D view"
+      - "I need a visual of that cabinet"
+
+    example_output: |
+      /server/renders/abc123_inspection_view.png
+
+    limitations:
+      - Currently MOCKED (MVP) - returns fake path
+      - In production, would trigger headless Blender rendering
+      - See blender_service.py for production implementation
+
+    production_notes: |
+      In full implementation:
+      1. Calls blender_service.run_blender_render()
+      2. Blender extracts element geometry from IFC
+      3. Renders to PNG with proper camera angle
+      4. Returns actual file path
+
+  identify_element_visually:
+    name: "identify_element_visually"
+    signature: "identify_element_visually(site_photo_path: str, candidate_guids_str: str) -> str"
+    description: |
+      Advanced Tool: Identifies the correct element from a list of candidates by visually comparing
+      the site photo with generated BIM renders using CLIP embeddings.
+
+    status: "NOT EXPORTED - Tool defined but not available to agent"
+
+    parameters:
+      site_photo_path:
+        type: str
+        description: "Path to the user's uploaded photo"
+
+      candidate_guids_str:
+        type: str
+        description: "Comma-separated string of GUIDs to check"
+        example: "GUID1,GUID2,GUID3"
+
+    when_to_use:
+      - User uploads a site photo and asks "What is this?"
+      - Need to match photo to BIM element
+      - Multiple candidates and need visual confirmation
+
+    limitations:
+      - Currently NOT in tools export list
+      - Would require CLIP model (transformers, torch)
+      - MVP implementation is mocked
+
+    future_implementation:
+      - Load visual_matcher.VisualAligner
+      - Generate renders for each candidate GUID
+      - Compare embeddings using CLIP
+      - Return best match with confidence score
+
+# Workflow patterns
+workflows:
+  basic_room_query:
+    steps:
+      - "User asks about a room/floor"
+      - "Call get_elements_by_room(room_name)"
+      - "Display results"
+
+    example: |
+      User: "What's on floor 0?"
+      Agent: get_elements_by_room("floor 0") → Show results
+
+  element_detail_inspection:
+    steps:
+      - "User provides GUID or references element from previous query"
+      - "Call get_element_details(guid)"
+      - "Display properties"
+      - "Optionally call generate_3d_view(guid) for visualization"
+
+    example: |
+      User: "Show details for that cabinet"
+      Agent: get_element_details("abc123") → Show properties
+
+  discovery_then_query:
+    steps:
+      - "User asks vague question without knowing space names"
+      - "Call list_available_spaces() first"
+      - "Then call get_elements_by_room(space) based on user intent"
+      - "Filter results for keywords"
+
+    example: |
+      User: "Find all cabinets"
+      Agent:
+        1. list_available_spaces() → See 'floor 0', 'floor 1'
+        2. get_elements_by_room("floor 0") → Get all elements
+        3. Filter for 'cabinet' in name → Return matches
+
+  compliance_check:
+    steps:
+      - "User asks about compliance for element type"
+      - "Call get_elements_by_room(floor) to get all elements"
+      - "Filter for specific type (e.g., IfcDoor)"
+      - "For each element, call get_element_details(guid)"
+      - "Check for required properties"
+      - "Report any missing/incomplete data"
+
+    example: |
+      User: "Check fire rating compliance for all doors on floor 0"
+      Agent:
+        1. get_elements_by_room("floor 0")
+        2. Filter for type='IfcDoor'
+        3. For each door: get_element_details(guid)
+        4. Check if 'FireRating' property exists
+        5. Report compliant vs non-compliant doors

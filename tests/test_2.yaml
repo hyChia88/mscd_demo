@@ -1,0 +1,253 @@
+# Comprehensive Test Scenarios for BIM Inspection Agent
+# These scenarios demonstrate all tools: get_elements_by_room, get_element_details, generate_3d_view
+
+# ============================================================================
+# BASIC SCENARIOS - Single Tool Usage
+# ============================================================================
+
+- name: "Test 1: Simple Room Query"
+  description: "Basic usage of get_elements_by_room to explore a floor"
+  input: |
+    I need to see what's on Floor 0. Can you list all elements there?
+
+- name: "Test 2: Element Detail Lookup"
+  description: "Query specific element details by GUID (replace with actual GUID from your model)"
+  input: |
+    I have an element with GUID "3cJh4vCKb06wZ6$sKPKYTS".
+    What are its properties?
+
+- name: "Test 3: Visual Verification Request"
+  description: "Request 3D render for visual inspection"
+  input: |
+    Can you generate a 3D view of the element with GUID "3cJh4vCKb06wZ6$sKPKYTS"
+    so I can visually inspect it?
+
+# ============================================================================
+# REAL-WORLD INSPECTION SCENARIOS
+# ============================================================================
+
+- name: "Scenario 1: Water Damage in Kitchen"
+  description: "Inspector found water damage and needs to identify affected cabinets"
+  input: |
+    INCIDENT REPORT - Date: 2024-12-07
+    Location: Floor 0, Kitchen area
+    Issue: Water leak from sink damaged multiple base cabinets
+
+    Tasks:
+    1. Find all kitchen cabinets on Floor 0
+    2. Provide their GUIDs and types for maintenance work order
+    3. Get detailed properties of each cabinet found
+
+- name: "Scenario 2: Fire Safety Audit - Doors"
+  description: "Annual fire safety inspection of all doors"
+  input: |
+    FIRE SAFETY AUDIT
+    Scope: All doors on Floor 0
+
+    Requirements:
+    - List all doors on Floor 0
+    - Extract GUID, Name, and Type for each door
+    - Get detailed properties to verify fire rating compliance
+    - Report any doors with missing specifications
+
+- name: "Scenario 3: Exterior Wall Weatherproofing Check"
+  description: "Seasonal maintenance check of exterior walls"
+  input: |
+    MAINTENANCE REQUEST
+    Task: Pre-winter weatherproofing inspection
+
+    Please identify all exterior walls (Yttervägg) on Floor 0.
+    I need:
+    - Complete list with GUIDs
+    - Material specifications
+    - Current condition properties
+
+    This is for our weatherproofing contractor.
+
+- name: "Scenario 4: Furniture Inventory for Office Move"
+  description: "Facilities management needs furniture count"
+  input: |
+    FACILITIES REQUEST
+    Project: Office reconfiguration - Floor 0
+
+    Need complete furniture inventory:
+    - All furniture items (beds, tables, cabinets, chairs)
+    - Include item names and GUIDs
+    - Categorize by furniture type
+
+    This will help us plan the move.
+
+- name: "Scenario 5: Window Replacement Project"
+  description: "Contractor needs window specifications for replacement"
+  input: |
+    CONTRACTOR INQUIRY
+    Project: Window replacement - entire building
+
+    Phase 1: Floor 0 assessment
+    Please provide:
+    - Total window count on Floor 0
+    - GUID for each window
+    - Detailed specifications (dimensions, type, material)
+    - Generate visual reference for at least one window
+
+- name: "Scenario 6: Defect Localization - Cracked Wall"
+  description: "Inspector needs to pinpoint specific wall for repair"
+  input: |
+    DEFECT REPORT
+    Location: Floor 0, appears to be an interior wall near bedroom
+    Issue: Structural crack observed, approximately 2m long
+
+    Help needed:
+    - List all walls on Floor 0
+    - Filter for interior walls (Innerdörr or similar)
+    - Provide details so we can coordinate with structural engineer
+    - Can you generate a 3D view once we identify the likely wall?
+
+# ============================================================================
+# ADVANCED MULTI-STEP SCENARIOS
+# ============================================================================
+
+- name: "Scenario 7: Complete Room Assessment"
+  description: "Comprehensive inspection combining all tools"
+  input: |
+    COMPREHENSIVE INSPECTION - Floor 0
+
+    A potential buyer wants complete information about Floor 0:
+
+    Step 1: Get all elements on Floor 0
+    Step 2: Categorize by type (walls, doors, windows, furniture, slabs)
+    Step 3: Pick one representative element from each category
+    Step 4: Get detailed properties for these representative elements
+    Step 5: Suggest generating 3D views for the key structural elements
+
+    Provide a structured report with counts and samples.
+
+- name: "Scenario 8: Compliance Cross-Check"
+  description: "Multi-element compliance verification"
+  input: |
+    BUILDING COMPLIANCE AUDIT
+    Standard: Fire safety & structural integrity
+    Scope: Floor 0
+
+    Check sequence:
+    1. All walls → verify Type and PredefinedType are defined
+    2. All doors → verify ObjectType is specified
+    3. All slabs → verify structural properties exist
+
+    Report any elements with missing or incomplete data.
+    Flag GUIDs that need manual review.
+
+- name: "Scenario 9: Maintenance Prioritization"
+  description: "Identify elements needing inspection based on type"
+  input: |
+    PREVENTIVE MAINTENANCE PLANNING
+
+    Help us prioritize inspections for Floor 0:
+
+    Priority 1 (High):
+    - Exterior walls (Yttervägg) - need weatherproofing check
+    - List all with GUIDs
+
+    Priority 2 (Medium):
+    - All doors - hardware inspection
+    - Count and list
+
+    Priority 3 (Low):
+    - Furniture - general condition check
+    - Summary count only
+
+    Provide a prioritized maintenance checklist.
+
+# ============================================================================
+# EDGE CASES & ERROR HANDLING
+# ============================================================================
+
+- name: "Test 10: Query Non-existent Floor"
+  description: "Test agent behavior with invalid floor name"
+  input: |
+    Can you show me all elements on Floor 5?
+    (This floor doesn't exist - how does the agent handle it?)
+
+- name: "Test 11: Vague Location Query"
+  description: "Test semantic understanding with unclear location"
+  input: |
+    I noticed some damage in the residential area.
+    Can you help me figure out what elements might be there?
+
+- name: "Test 12: Multi-Floor Query"
+  description: "Request spanning multiple floors"
+  input: |
+    I need a complete building inventory.
+    Show me elements from both Floor 0 and Floor 1.
+    Compare the element counts between floors.
+
+# ============================================================================
+# TOOL COMBINATION SCENARIOS
+# ============================================================================
+
+- name: "Scenario 13: Search → Detail → Visualize Pipeline"
+  description: "Complete workflow using all three tools in sequence"
+  input: |
+    TASK: Identify damaged cabinet for insurance claim
+
+    Background: Inspector reports "a cabinet near the kitchen sink" has water damage.
+
+    Workflow:
+    1. Search Floor 0 for all cabinets using get_elements_by_room
+    2. Pick the first base cabinet from results
+    3. Get its detailed properties using get_element_details
+    4. Generate a 3D view for photo documentation using generate_3d_view
+
+    Provide the complete chain of outputs for the insurance claim.
+
+- name: "Scenario 14: Batch Element Analysis"
+  description: "Analyze multiple elements of same type"
+  input: |
+    QUALITY CONTROL CHECK
+    Element type: All doors on Floor 0
+
+    Process:
+    1. Get all elements on Floor 0
+    2. Filter for IfcDoor type elements
+    3. For the first 3 doors found:
+       - Extract detailed properties
+       - Note any missing specifications
+    4. Provide summary: "X doors found, Y have complete specs, Z need review"
+
+- name: "Scenario 15: Comparative Analysis"
+  description: "Compare element properties across types"
+  input: |
+    RESEARCH QUERY
+
+    I'm studying the building design. Can you:
+    1. Find one example of each: IfcWall, IfcDoor, IfcFurniture on Floor 0
+    2. Get detailed properties for each
+    3. Compare what properties are available for different element types
+
+    This helps me understand the IFC data quality.
+
+# ============================================================================
+# NATURAL LANGUAGE VARIATIONS
+# ============================================================================
+
+- name: "Test 16: Casual Language"
+  description: "Test with informal query style"
+  input: |
+    Hey, what kind of stuff is on the ground floor?
+    Also, can you show me more about the cabinets?
+
+- name: "Test 17: Technical Language"
+  description: "Test with BIM/IFC technical terminology"
+  input: |
+    Query IfcSpace decomposition for spatial container 'Floor 0'.
+    Extract all IfcBuildingElement instances.
+    Return GlobalId, ObjectType, and PredefinedType attributes.
+
+- name: "Test 18: Question Chain"
+  description: "Multiple related questions"
+  input: |
+    I have several questions about Floor 0:
+    - How many walls are there?
+    - What types of furniture exist?
+    - Are there any slabs?
+    - Can you show me details for one wall as an example?

@@ -60,10 +60,19 @@ pip install -r requirements.txt
 
 ### Running the Agent
 
-Execute the main script to simulate receiving unstructured text from a construction site:
-
+Execute the main script to simulate receiving unstructured text from a construction site, run with test.yaml:
 ```bash
 python src/main.py
+```
+
+- start agent clt
+```bash
+python src/chat_cli.py
+```
+
+- inspect ifc with graph style
+```bash
+python src/inspect_ifc.py
 ```
 
 ### Example Workflow

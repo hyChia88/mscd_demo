@@ -23,12 +23,12 @@
     A building auditor needs to verify exterior wall specifications for compliance.
     The Agent must:
     1. Call get_elements_by_room("Floor 0") to retrieve all Floor 0 elements
-    2. Filter for walls containing "Yttervägg" (exterior wall) or "Wall" in name
+    2. Filter for walls containing "Innervägg" (exterior wall) or "Wall" in name
     3. For each wall found, call get_element_details(guid)
     4. Compile a structured compliance report with all walls
   input: |
     "COMPLIANCE AUDIT: Annual inspection of external facade.
     REQUIRED ACTION: Query Floor 0 using get_elements_by_room("Floor 0").
-    Find all exterior walls (search for 'Yttervägg' or 'Wall' in element names).
+    Find all exterior walls (search for 'Innervägg' or 'Wall' in element names).
     For each wall found, use get_element_details(guid) to extract Type, Material, Fire Rating.
     DELIVERABLE: Table with [Element Name] | [Type] | [GUID] | [Material] | [Fire Rating]"
