@@ -61,17 +61,22 @@ def generate_3d_view(guid: str) -> str:
     return f"/server/renders/{guid}_inspection_view.png"
 
 @tool
-def identify_element_visually(site_photo_path: str, candidate_guids_str: str) -> str:
+def identify_element_visually(site_description_or_photo: str, candidate_guids_str: str) -> str:
     """
     Advanced Tool: Identifies the correct element from a list of candidates by visually comparing
-    the site photo with generated BIM renders using CLIP embeddings.
+    the site description/photo with BIM element descriptions using CLIP embeddings.
 
     Args:
-        site_photo_path: Path to the user's uploaded photo.
-        candidate_guids_str: A comma-separated string of GUIDs to check (e.g. "GUID1,GUID2,GUID3").
+        site_description_or_photo: Either a text description (e.g., "white kitchen cabinet")
+                                   or a file path to a photo (e.g., "data/site_photos/evidence_01.jpg").
+        candidate_guids_str: A comma-separated string of GUIDs to check (e.g., "GUID1,GUID2,GUID3").
 
     Returns:
         The GUID of the best visual match with confidence score.
+
+    Example usage:
+        - identify_element_visually("white cabinet with wood countertop", "guid1,guid2,guid3")
+        - identify_element_visually("data/site_photos/cabinet.jpg", "guid1,guid2,guid3")
     """
     guids = [g.strip() for g in candidate_guids_str.split(",")]
 
@@ -82,9 +87,41 @@ def identify_element_visually(site_photo_path: str, candidate_guids_str: str) ->
     if not aligner:
         return f"Visual matching not available. Top candidate by order: {guids[0]}"
 
-    # For MVP: Return first candidate with mock confidence
-    # In production: Would compare with rendered images using CLIP
-    return f"Best visual match: {guids[0]} (confidence: 0.87)"
+    # Get descriptions for each candidate element
+    candidate_descriptions = []
+    for guid in guids:
+        try:
+            # Get element from IFC file
+            element = engine.file.by_id(guid)
+            if element:
+                name = element.Name if element.Name else "Unnamed"
+                elem_type = element.is_a()
+                desc = f"{name} - {elem_type}"
+                candidate_descriptions.append(desc)
+            else:
+                candidate_descriptions.append(f"Element {guid}")
+        except:
+            candidate_descriptions.append(f"Element {guid}")
+
+    # Check if input is a file path or text description
+    import os
+    is_file = os.path.exists(site_description_or_photo)
+
+    if is_file:
+        # For MVP: Mock image processing
+        # In production: Would load image and use CLIP image encoder
+        query_text = f"Visual features from photo: {os.path.basename(site_description_or_photo)}"
+    else:
+        query_text = site_description_or_photo
+
+    # Use VisualAligner to find best match
+    try:
+        best_idx, score, best_match = aligner.find_best_match(query_text, candidate_descriptions)
+        matched_guid = guids[best_idx]
+        return f"Best visual match: {matched_guid}\nElement: {best_match}\nConfidence: {score:.2f}"
+    except Exception as e:
+        # Fallback to first candidate if alignment fails
+        return f"Visual matching error: {str(e)}. Returning top candidate: {guids[0]}"
 
 @tool
 def list_available_spaces() -> str:
@@ -107,4 +144,4 @@ def list_available_spaces() -> str:
 
 
 # 导出工具列表
-tools = [list_available_spaces, get_elements_by_room, get_element_details, generate_3d_view]
+tools = [list_available_spaces, get_elements_by_room, get_element_details, generate_3d_view, identify_element_visually]

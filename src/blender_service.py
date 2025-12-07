@@ -6,8 +6,9 @@ def run_blender_render(ifc_path, target_guid):
     启动 Headless Blender 子进程来渲染指定 GUID。
     """
     # 1. 路径配置 (请修改为你的真实路径)
-    BLENDER_EXE = "C:/Program Files/Blender Foundation/Blender 4.2/blender.exe" # Windows 示例
+    # BLENDER_EXE = "C:/Program Files/Blender Foundation/Blender 4.2/blender.exe" # Windows 示例
     # BLENDER_EXE = "/Applications/Blender.app/Contents/MacOS/Blender" # Mac 示例
+    BLENDER_EXR = "/mnt/d/Program Files/Blender Foundation/Blender 5.0/blender.exe"
     
     PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
     SCRIPT_PATH = os.path.join(PROJECT_ROOT, "blender_scripts", "render_worker.py")
