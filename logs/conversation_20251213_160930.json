@@ -1,0 +1,12 @@
+{
+  "session_start": "2025-12-13T16:09:30.695347",
+  "messages": [
+    {
+      "timestamp": "2025-12-13T16:09:30.773097",
+      "role": "assistant",
+      "content": "Agent initialized with 0 scenarios"
+    }
+  ],
+  "summary": "Completed 0 test scenarios",
+  "session_end": "2025-12-13T16:09:30.773902"
+}

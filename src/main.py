@@ -66,6 +66,7 @@ Done!
 load_dotenv()
 
 from agent_tools import tools
+from chat_logger import ConversationLogger
 
 def load_scenarios(file_path="test.yaml"):
     """读取测试剧本"""
@@ -81,6 +82,9 @@ def load_scenarios(file_path="test.yaml"):
             return []
 
 def main():
+    # Initialize conversation logger
+    logger = ConversationLogger()
+
     # 1. 设置 LLM
     llm = ChatGoogleGenerativeAI(
         model="gemini-2.5-flash",
@@ -109,6 +113,7 @@ def main():
     scenarios = load_scenarios()
 
     print(f"\n✅ === Agent initialized. Loaded {len(scenarios)} scenarios. ===\n")
+    logger.log_agent_message(f"Agent initialized with {len(scenarios)} scenarios")
 
     for i, scenario in enumerate(scenarios, 1):
         print(f"\n{'='*70}")
@@ -118,6 +123,9 @@ def main():
 
         user_input = scenario['input']
         print(f"📥 Input:\n{user_input}\n")
+
+        # Log user message
+        logger.log_user_message(user_input)
 
         try:
             # 记录开始时间
@@ -132,18 +140,39 @@ def main():
             # Extract the response from the message
             if "messages" in response:
                 output = response["messages"][-1].content
+
+                # Try to extract tool calls from intermediate messages
+                tool_calls = []
+                for msg in response["messages"]:
+                    if hasattr(msg, 'tool_calls') and msg.tool_calls:
+                        for tool_call in msg.tool_calls:
+                            tool_calls.append({
+                                "name": tool_call.get("name", "unknown"),
+                                "args": tool_call.get("args", {})
+                            })
             else:
                 output = str(response)
+                tool_calls = []
+
             print(output)
             print("-" * 70)
 
+            # Log agent response
+            logger.log_agent_message(output, tool_calls=tool_calls if tool_calls else None)
+
         except Exception as e:
-            print(f"\n❌ Error during execution: {e}")
+            error_msg = f"Error during execution: {e}"
+            print(f"\n❌ {error_msg}")
+            logger.log_agent_message(f"ERROR: {error_msg}")
 
         # 演示时的停顿
         if i < len(scenarios):
             print(f"\n⏳ ...Proceeding to next scenario in 3 seconds...")
             time.sleep(3)
+
+    # Save conversation summary
+    logger.save_summary(f"Completed {len(scenarios)} test scenarios")
+    print(f"\n📊 Session complete. Check logs/ directory for conversation history.")
 
 if __name__ == "__main__":
     main()
