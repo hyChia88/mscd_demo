@@ -1,0 +1,32 @@
+# MCP Server Configuration
+# This file defines which MCP servers to connect to and their settings
+
+servers:
+  ifc_query:
+    name: "IFC Query Service"
+    description: "Spatial queries and element retrieval from IFC/BIM models"
+    command: "python"
+    args:
+      - "mcp_servers/ifc_server.py"
+    enabled: true
+    environment:
+      IFC_MODEL_PATH: "data/BasicHouse.ifc"
+
+  visual_matching:
+    name: "Visual Matching Service"
+    description: "CLIP-based semantic matching for BIM elements"
+    command: "python"
+    args:
+      - "mcp_servers/visual_server.py"
+    enabled: true
+    environment:
+      IFC_MODEL_PATH: "data/BasicHouse.ifc"
+
+# Optional: Additional servers can be added here
+# rendering:
+#   name: "3D Rendering Service"
+#   description: "Headless Blender rendering for visual verification"
+#   command: "python"
+#   args:
+#     - "mcp_servers/rendering_server.py"
+#   enabled: false

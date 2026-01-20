@@ -1,0 +1,12 @@
+{
+  "session_start": "2026-01-17T12:02:28.620931",
+  "messages": [
+    {
+      "timestamp": "2026-01-17T12:02:37.012159",
+      "role": "assistant",
+      "content": "MCP-based agent initialized with 6 tools"
+    }
+  ],
+  "summary": "Completed 0 test scenarios using MCP architecture",
+  "session_end": "2026-01-17T12:02:37.013288"
+}

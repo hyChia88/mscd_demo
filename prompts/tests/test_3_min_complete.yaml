@@ -1,0 +1,91 @@
+# ============================================================================
+# MSCD THESIS DEMO: AI INTERPRETER LAYER (PPVC & IFC-SG)
+# Focus: Bridging unstructured site data with structured regulatory schemas.
+# ============================================================================
+
+# ============================================================================
+# 1. THE GOLDEN PATH (End-to-End Demo)
+# ============================================================================
+
+- name: "Thesis Main Demo: PPVC Defect Resolution"
+  description: "RQ1-3 Complete Pipeline: Visual Retrieval -> Schema Check -> BCF Handoff"
+  input: |
+    [CONTEXT] 
+    Project: PPVC High-Rise Residential
+    Current Location: Module 04-A, Master Bedroom
+    Visual Evidence: <Image_001.png> (Features: White wall, vertical crack, adjacent to window)
+    
+    [USER REQUEST]
+    "I am inspecting the Master Bedroom in Module 04-A. 
+    I see a crack in the wall near the window. 
+    1. Identify this specific element.
+    2. Check if it is LoadBearing.
+    3. Verify if it complies with IFC-SG FireRating requirements.
+    4. If data is missing, set FireRating to '2 Hours' and generate a BCF issue."
+
+# ============================================================================
+# 2. UNIT TESTS (RQ1: Retrieval & Graph Logic)
+# ============================================================================
+
+- name: "RQ1 Test: Topological Localization (Module Logic)"
+  description: "Testing if agent can navigate RelAggregates (Module -> Space -> Element)"
+  input: |
+    I am inside "Module 04-A".
+    List all 'IfcSpace' entities contained within this module assembly.
+    Then, find all 'IfcWall' elements inside the "Master Bedroom" space.
+
+- name: "RQ1 Test: Disambiguation (Human-in-the-Loop)"
+  description: "Testing agent capability to ask for clarification when candidates are similar"
+  input: |
+    I am in the Master Bedroom. 
+    I see a wall.
+    (Note: There are 4 walls. Agent should ask: 'Which wall? The one near the door or the window?')
+
+# ============================================================================
+# 3. UNIT TESTS (RQ2: Schema Mapping & Validation)
+# ============================================================================
+
+- name: "RQ2 Test: Pset Verification (Load Bearing)"
+  description: "Checking implicit property extraction"
+  input: |
+    Check the element with GUID "2O2Fr$tXH7..." (Replace with your Wall GUID).
+    Is the 'LoadBearing' property true or false? 
+    Which Property Set (Pset) did you find this information in?
+
+- name: "RQ2 Test: IFC-SG Gap Analysis"
+  description: "Simulating a regulatory compliance failure"
+  input: |
+    Validate the element "2O2Fr$tXH7..." against the IFC-SG Fire Safety schema.
+    Specifically, look for 'FireRating' and 'AcousticRating'.
+    Report which fields are MISSING in the current model.
+
+# ============================================================================
+# 4. UNIT TESTS (RQ3: Action & Handoff)
+# ============================================================================
+
+- name: "RQ3 Test: Staged Write & BCF Generation"
+  description: "Simulating the 'Write Back' capability without corrupting the file"
+  input: |
+    The element "2O2Fr$tXH7..." is missing critical data.
+    Please stage the following update:
+    - FireRating: "2 Hours"
+    - AcousticRating: "50 STC"
+    
+    Format this as a JSON object suitable for BCF export. Do not overwrite the IFC file yet.
+
+# ============================================================================
+# 5. EDGE CASES (Defense Prep)
+# ============================================================================
+
+- name: "Edge Case: Opaque Geometry"
+  description: "What happens if the photo is unclear?"
+  input: |
+    [CONTEXT] Location: Module 04-A.
+    [USER] "Inspect this." (Image is blurry/dark).
+    
+    (Expected: Agent should request: 'I cannot identify specific features. Please provide the Room Name or Element ID.')
+
+- name: "Edge Case: Invalid Module ID"
+  description: "Testing hallucination resistance"
+  input: |
+    Inspect the wall in "Module 99-Z" (Does not exist).
