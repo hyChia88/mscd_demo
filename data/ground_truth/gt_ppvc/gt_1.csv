@@ -1,0 +1,4 @@
+Image_ID,Context_ID,Query_Text,Target_GUID,Target_Name,Expected_Reasoning,RQ_Category
+img_mockup_crack.png,case_001,"Check if this staining is within tolerance.",0qPq0uZ5vABQlKT8FAVXQn,Basic Wall:MockUp Exterior...,"Context(VMU) -> Locates Mockup Wall. Visual analysis confirms staining.",RQ1
+img_mockup_clean.png,case_002,"Verify height against 'SGPset_Safety' requirements.",0qPq0uZ5vABQlKT8FAVXQn,Basic Wall:MockUp Exterior...,"Role(RTO) -> Focus on Geometry compliance. Validates Height=3500mm.",RQ2
+img_highrise_window.png,case_003,"Log defect for this window frame.",1KMtYLyv9CyfGv8UjnMB3W,BALANS Fixed Single Window...,"Weak Signal(L20 Task Active + Gondola) -> Disambiguates specific L20 window.",RQ3

@@ -1,0 +1,196 @@
+[
+  {
+    "id": "GT_001_RQ1_Visual_Mockup",
+    "image_file": ["img_gt_001_1.png"],
+    "context_payload": {
+      "meta": {
+        "timestamp": "2026-02-12T09:15:00+08:00",
+        "sender_id": "U_AH_MENG",
+        "sender_role": "Site Supervisor (Main Con)",
+        "project_phase": "Visual Mockup Unit (VMU) Review",
+        "4d_task_status": "TASK_101: VMU Exterior Finishing - INSPECTION PENDING"
+      },
+      "chat_history": [
+        {
+          "role": "PM (Developer)",
+          "text": "Ah Meng, Architect says the concrete texture at the mockup area is not consistent. Client is coming at 2pm."
+        },
+        {
+          "role": "Site Supervisor",
+          "text": "Checking now boss. I am at the Ground Floor mockup zone."
+        },
+        {
+          "role": "Site Supervisor",
+          "text": "Found a few hairline cracks and some water staining on the main corner. See attached.<img_gt_001_1.png>"
+        }
+      ]
+    },
+    "query_text": "Check this crack and staining.",
+    "ground_truth": {
+      "target_guid": "0qPq0uZ5vABQlKT8FAVXQn",
+      "target_name": "Basic Wall:MockUp Exterior Ground Floor:525446",
+      "expected_reasoning": "Visual(Crack/Stain) + Phase(VMU Review) + Role(Site Super) -> Disambiguates to Ground Floor Mockup Wall. Distinguishes from high-rise structural walls.",
+      "action_required": "Retrieve_IFC_Properties(Pset_ConcreteElementGeneral); Identify_Material_Type",
+      "rq_category": "RQ1"
+    }
+  },
+  {
+    "id": "GT_002_RQ1_Window_QA",
+    "image_file": ["img_gt_002_1.png"],
+    "context_payload": {
+      "meta": {
+        "timestamp": "2026-03-05T11:20:00+08:00",
+        "sender_id": "U_SARAH_BIM",
+        "sender_role": "QC Officer",
+        "project_phase": "Internal QA/QC Inspection",
+        "4d_task_status": "TASK_302: Window Frame Installation - COMPLETED"
+      },
+      "chat_history": [
+        {
+          "role": "QC Officer",
+          "text": "Starting internal QA for the typical unit types."
+        },
+        {
+          "role": "Site Supervisor",
+          "text": "Window frames for the master bedroom already up. Can check the sealant."
+        },
+        {
+          "role": "QC Officer",
+          "text": "Window frame installation fine, but there are rubbish ard. Clean it asap <img_gt_002_1.png>"
+        }
+      ]
+    },
+    "query_text": "Inspect site environment.",
+    "ground_truth": {
+      "target_guid": "1KMtYLyv9CyfGv8UjnMB3W",
+      "target_name": "BALANS Fixed Single Window:BALANS 20M FLOOR...",
+      "expected_reasoning": "Visual(Frame installed completed, messy site) + Role(QC Officer) -> Targets the specific IfcWindow element in the current space context.",
+      "action_required": "Retrieve_Element_Metadata; Log_Defect_Report",
+      "rq_category": "RQ1"
+    }
+  },
+  {
+    "id": "GT_004_RQ2_Entrance_Compliance",
+    "image_file": ["img_gt_004_1.png"],
+    "context_payload": {
+      "meta": {
+        "timestamp": "2026-02-15T10:30:00+08:00",
+        "sender_id": "U_RTO_TAN",
+        "sender_role": "RTO (Resident Technical Officer)",
+        "project_phase": "Accessibility Submission Review",
+        "4d_task_status": "TASK_088: L1 Main Entrance Finishing - ACTIVE"
+      },
+      "chat_history": [
+        {
+          "role": "Qualified Person (QP)",
+          "text": "RTO Tan, please verify if the L1 entrance clear opening matches the approved Universal Design plans."
+        },
+        {
+          "role": "RTO",
+          "text": "At the L1 Main Entrance now. Measuring the clear width."
+        }
+      ]
+    },
+    "query_text": "Verify entrance clear opening and ramp slope.",
+    "ground_truth": {
+      "target_guid": "ENTRANCE_DOOR_GUID_L1",
+      "target_name": "Door:MainEntrance_L1",
+      "expected_reasoning": "Role(RTO) + Query(Clear Opening/Ramp) -> Triggers regulatory check against IFC-SG Accessibility Schema (SGPset_Accessibility).",
+      "action_required": "Get_Geometry_Properties(OverallWidth); Validate_IFC_SG(Accessibility_Code)",
+      "rq_category": "RQ2"
+    }
+  },
+  {
+    "id": "GT_005_RQ2_Fire_Door_Rating",
+    "image_file": ["img_gt_005_1.png", "img_gt_005_2.png"],
+    "context_payload": {
+      "meta": {
+        "timestamp": "2026-04-10T14:45:00+08:00",
+        "sender_id": "U_FIRE_ENG",
+        "sender_role": "Fire Safety Engineer",
+        "project_phase": "TOP Inspection Preparation",
+        "4d_task_status": "TASK_901: Fire Safety Systems Verification"
+      },
+      "chat_history": [
+        {
+          "role": "PM",
+          "text": "SCDF inspection is in 2 weeks. All fire doors must have the correct rating tags."
+        },
+        {
+          "role": "Fire Safety Engineer",
+          "text": "Checking the corridor fire doors now. This one is missing the physical tag."
+        }
+      ]
+    },
+    "query_text": "Check FireRating against code.",
+    "ground_truth": {
+      "target_guid": "FIRE_DOOR_GUID_CORRIDOR",
+      "target_name": "Door:Single-Flush:FireDoor:1000x2100",
+      "expected_reasoning": "Intent(Fire Safety) + Role(Engineer) -> Agent must fetch 'FireRating' property from IfcDoor to compare with CP83 Fire Code requirements.",
+      "action_required": "Retrieve_Property(Pset_DoorCommon.FireRating); Check_Regulatory_Alignment",
+      "rq_category": "RQ2"
+    }
+  },
+  {
+    "id": "GT_007_RQ3_HighRise_Abductive",
+    "image_file": ["img_gt_007_1.png"],
+    "context_payload": {
+      "meta": {
+        "timestamp": "2026-06-20T14:00:00+08:00",
+        "sender_id": "U_FACADE_SUB",
+        "sender_role": "Façade Specialist",
+        "project_phase": "Superstructure Cycle (Level 6)",
+        "4d_task_status": "TASK_505: Module Installation L6 - ACTIVE"
+      },
+      "chat_history": [
+        {
+          "role": "BIM Coord",
+          "text": "All, we are closing the RFI for the Level 6 Master Bedroom types."
+        },
+        {
+          "role": "Façade Specialist",
+          "text": "Noted. I am on the gondola outside."
+        }
+      ]
+    },
+    "query_text": "Is the sealant leaking here?",
+    "ground_truth": {
+      "target_guid": "1KMtYLyv9CyfGv8UjnMB3W",
+      "target_name": "BALANS Fixed Single Window:L6",
+      "expected_reasoning": "Visual(Sky/No ground) + 4D Task(L6 Active) + Role(Gondola) -> Abductive reasoning eliminates L01-L5 options despite identical geometry.",
+      "action_required": "Spatial_Filter(Level 6); Retrieve_Property(Pset_WindowCommon.Status)",
+      "rq_category": "RQ3"
+    }
+  },
+  {
+    "id": "GT_008_RQ3_Ground_Abductive",
+    "image_file": ["img_gt_008_1.png", "img_gt_008_2.png"],
+    "context_payload": {
+      "meta": {
+        "timestamp": "2026-02-10T11:00:00+08:00",
+        "sender_id": "U_MAINCON_SUP",
+        "sender_role": "Main Con Supervisor",
+        "project_phase": "L1 Module Finishing",
+        "4d_task_status": "TASK_045: Ground Level Cladding - IN PROGRESS"
+      },
+      "chat_history": [
+        {
+          "role": "Main Con Supervisor",
+          "text": "Working on the unit at the park-facing side (L1)."
+        },
+        {
+          "role": "Main Con Supervisor",
+          "text": "I'm looking at the corner joint, seems to be a gap. See full view and close up."
+        }
+      ]
+    },
+    "query_text": "The corner joint is loose.",
+    "ground_truth": {
+      "target_guid": "1KMtYLyv9CyfGv8UjnMB3W_L01",
+      "target_name": "BALANS Fixed Single Window:L01",
+      "expected_reasoning": "Multi-Image Fusion: img_full shows trees (Level 1) + img_closeup shows defect detail. Combined with 4D Task(L1) -> Target locked to Level 1 Window.",
+      "action_required": "Cross_Reference_Visual_Cues; Spatial_Filter(Level 1); Create_BCF_Issue",
+      "rq_category": "RQ3"
+    }
+  }
+]

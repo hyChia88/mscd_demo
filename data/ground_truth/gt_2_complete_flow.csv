@@ -1,0 +1,19 @@
+Query_ID,Query_Text,Location,Target_Element,Element_Type,Target_GUID,Expected_Properties,Query_Type,RQ_Category
+Q001,"I see a crack in the wall near the window in the Master Bedroom",Module 04-A / Master Bedroom,Wall_MasterBedroom_Window,IfcWall,2O2Fr$tXH7Zf8NOew3FLOH,"LoadBearing:True;FireRating:2 Hours",Visual_Retrieval,RQ1
+Q002,"Water pooling on the kitchen floor slab",Module 04-A / Kitchen,Slab_Kitchen_Floor,IfcSlab,3O3Gs$uYI8Ag9OPfx4GMPI,"WaterProofing:Required",Spatial_Query,RQ1
+Q003,"Inspect the bathroom door - it doesn't close properly",Module 04-A / Bathroom,Door_Bathroom_Entry,IfcDoor,4P4Ht$vZJ9Bh0PQgy5HNQJ,"FireRating:30 Min;AcousticRating:35 STC",Element_Inspection,RQ1
+Q004,"Check all walls in the Living Room",Module 04-A / Living Room,Wall_LivingRoom_*,IfcWall,MULTIPLE,"LoadBearing:Varies",Bulk_Query,RQ1
+Q005,"The window in the Master Bedroom has condensation issues",Module 04-A / Master Bedroom,Window_MasterBedroom_01,IfcWindow,5Q5Iu$wAK0Ci1QRhz6IORK,"ThermalTransmittance:1.4 W/m2K",Visual_Retrieval,RQ1
+Q006,"Verify FireRating compliance for Wall_MasterBedroom_Window",Module 04-A / Master Bedroom,Wall_MasterBedroom_Window,IfcWall,2O2Fr$tXH7Zf8NOew3FLOH,"FireRating:2 Hours;Required:IFC-SG",Schema_Validation,RQ2
+Q007,"Check LoadBearing status of element 2O2Fr$tXH7Zf8NOew3FLOH",Module 04-A / Master Bedroom,Wall_MasterBedroom_Window,IfcWall,2O2Fr$tXH7Zf8NOew3FLOH,"LoadBearing:True;Pset:Pset_WallCommon",Property_Extraction,RQ2
+Q008,"Validate AcousticRating for the partition wall between bedrooms",Module 04-A / Master Bedroom,Wall_Partition_Bedroom,IfcWall,6R6Jv$xBL1Dj2RSi07JPSL,"AcousticRating:50 STC;Required:IFC-SG",Gap_Analysis,RQ2
+Q009,"Report missing IFC-SG fields for kitchen slab",Module 04-A / Kitchen,Slab_Kitchen_Floor,IfcSlab,3O3Gs$uYI8Ag9OPfx4GMPI,"MISSING:FireRating;MISSING:AcousticRating",Compliance_Check,RQ2
+Q010,"Stage FireRating update for Wall_MasterBedroom_Window to 2 Hours",Module 04-A / Master Bedroom,Wall_MasterBedroom_Window,IfcWall,2O2Fr$tXH7Zf8NOew3FLOH,"FireRating:2 Hours;Action:STAGED",BCF_Generation,RQ3
+Q011,"Generate BCF issue for missing AcousticRating on bathroom door",Module 04-A / Bathroom,Door_Bathroom_Entry,IfcDoor,4P4Ht$vZJ9Bh0PQgy5HNQJ,"AcousticRating:MISSING;BCF:REQUIRED",Issue_Handoff,RQ3
+Q012,"Update element properties: FireRating=2 Hours and AcousticRating=50 STC",Module 04-A / Master Bedroom,Wall_MasterBedroom_Window,IfcWall,2O2Fr$tXH7Zf8NOew3FLOH,"FireRating:2 Hours;AcousticRating:50 STC",Staged_Write,RQ3
+Q013,"I see a wall (ambiguous - 4 walls in room)",Module 04-A / Master Bedroom,AMBIGUOUS,IfcWall,CLARIFICATION_NEEDED,"Candidates:4;Action:ASK_USER",Disambiguation,RQ1_Edge
+Q014,"Inspect this (blurry image provided)",Module 04-A,UNKNOWN,Unknown,INSUFFICIENT_DATA,"Action:REQUEST_DETAILS",Opaque_Geometry,Edge_Case
+Q015,"Check the wall in Module 99-Z",Module 99-Z (INVALID),NOT_FOUND,IfcWall,INVALID_LOCATION,"Error:Module_Not_Found",Invalid_Module,Edge_Case
+Q016,"White wall with vertical crack adjacent to window",Module 04-A / Master Bedroom,Wall_MasterBedroom_Window,IfcWall,2O2Fr$tXH7Zf8NOew3FLOH,"Visual:White;Feature:Crack;Adjacent:Window",CLIP_Matching,RQ1
+Q017,"List all IfcSpace in Module 04-A",Module 04-A,Space_*,IfcSpace,MULTIPLE,"Count:4;Spaces:Kitchen+LivingRoom+MasterBedroom+Bathroom",Topology_Query,RQ1
+Q018,"Find all IfcWall inside Master Bedroom space",Module 04-A / Master Bedroom,Wall_MasterBedroom_*,IfcWall,MULTIPLE,"Count:4;Types:External+Internal+Partition",RelAggregates_Nav,RQ1

@@ -1,0 +1,103 @@
+[
+  {
+    "id": "case_001_RQ1_Visual",
+    "image_file": "img_mockup_crack.png",
+    "context_payload": {
+      "meta": {
+        "timestamp": "2026-02-12T09:15:00+08:00",
+        "sender_id": "U_SITE_01",
+        "sender_role": "Site Supervisor (Main Con)",
+        "project_phase": "Visual Mockup Unit (VMU) Review",
+        "4d_task_status": "Task_ID_102: VMU Inspection - IN PROGRESS"
+      },
+      "chat_history": [
+        {
+          "role": "PM (Dev)",
+          "text": "Eh, make sure the external finish for the VMU is approved by Arch today. Client coming 2pm."
+        },
+        {
+          "role": "Site Supervisor",
+          "text": "Checking now. The precast joint abit rough."
+        },
+        {
+          "role": "Site Supervisor",
+          "text": "See this photo. The texture got staining also. Acceptable or not?"
+        }
+      ]
+    },
+    "query_text": "Check if this staining is within tolerance.",
+    "ground_truth": {
+      "target_guid": "0qPq0uZ5vABQlKT8FAVXQn",
+      "target_name": "Basic Wall:MockUp Exterior Ground Floor:525446",
+      "expected_reasoning": "Context(VMU Review) + Visual(Rough Concrete/Stain) -> Locates 'MockUp Exterior' wall. Ignores high-rise elements.",
+      "action_required": "Retrieve_Pset(Pset_ConcreteElementGeneral); Compare_Tolerance",
+      "rq_category": "RQ1"
+    }
+  },
+  {
+    "id": "case_002_RQ2_Compliance",
+    "image_file": "img_mockup_clean.png",
+    "context_payload": {
+      "meta": {
+        "timestamp": "2026-02-12T10:30:00+08:00",
+        "sender_id": "U_RTO_05",
+        "sender_role": "RTO (Resident Technical Officer)",
+        "project_phase": "VMU Structural Sign-off",
+        "4d_task_status": "Task_ID_102: VMU Inspection - IN PROGRESS"
+      },
+      "chat_history": [
+        {
+          "role": "RTO",
+          "text": "Referencing the external boundary wall at the Mockup area."
+        },
+        {
+          "role": "RTO",
+          "text": "The height looks insufficient for a safety barrier under BCA regs."
+        }
+      ]
+    },
+    "query_text": "Verify height against 'SGPset_Safety' requirements.",
+    "ground_truth": {
+      "target_guid": "0qPq0uZ5vABQlKT8FAVXQn",
+      "target_name": "Basic Wall:MockUp Exterior Ground Floor:525446",
+      "expected_reasoning": "Role(RTO) + Intent(Compliance) -> Fetch geometry #40025 (Height=3500). Check against Rule: Barrier > 1000mm.",
+      "action_required": "Get_Quantities; Validation_IFC_SG",
+      "rq_category": "RQ2"
+    }
+  },
+  {
+    "id": "case_003_RQ3_Abductive",
+    "image_file": "img_highrise_window.png",
+    "context_payload": {
+      "meta": {
+        "timestamp": "2026-06-20T14:00:00+08:00",
+        "sender_id": "U_FACADE_SUB",
+        "sender_role": "Façade Specialist",
+        "project_phase": "Superstructure Cycle (Level 20)",
+        "4d_task_status": "Task_ID_505: Module Installation L20 - ACTIVE"
+      },
+      "chat_history": [
+        {
+          "role": "BIM Coord",
+          "text": "All, we are closing the RFI for the Level 20 Master Bedroom types."
+        },
+        {
+          "role": "Façade Specialist",
+          "text": "Noted. I am on the gondola outside."
+        },
+        {
+          "role": "Façade Specialist",
+          "text": "The sealant joint here looks loose. Can you flag it?"
+        }
+      ]
+    },
+    "query_text": "Log defect for this window frame.",
+    "ground_truth": {
+      "target_guid": "1KMtYLyv9CyfGv8UjnMB3W",
+      "target_name": "BALANS Fixed Single Window:BALANS 20M FLOOR...",
+      "expected_reasoning": "Context(Level 20 Task Active) + Role(Facade/Gondola) + Visual(Sky/Window) -> Infers specific L20 Window GUID despite generic image.",
+      "action_required": "Spatial_Filter(Level 20); Create_BCF_Issue",
+      "rq_category": "RQ3"
+    }
+  }
+]
