@@ -1,0 +1,15 @@
+{
+  "experiment": "baseline_redundancy",
+  "scenario": "GT_007_RQ3_HighRise_Abductive",
+  "metrics": {
+    "total_windows": 263,
+    "balans_windows": 263,
+    "level_6_windows": 3,
+    "redundancy_without_context": 263,
+    "redundancy_with_partial": 263,
+    "redundancy_with_full_context": 3,
+    "precision_no_context": 0.0038022813688212928,
+    "precision_with_context": 0.3333333333333333
+  },
+  "conclusion": "4D context reduces search space by 98.9%"
+}

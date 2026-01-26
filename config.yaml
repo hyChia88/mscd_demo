@@ -1,0 +1,60 @@
+# =============================================================================
+# MSCD Demo Configuration
+# =============================================================================
+# Centralized configuration for all paths and settings.
+# Modify this file to switch between different IFC models and test datasets.
+
+# -----------------------------------------------------------------------------
+# IFC Model Configuration
+# -----------------------------------------------------------------------------
+ifc:
+  # Path to the IFC model file (relative to project root)
+  model_path: "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+
+# -----------------------------------------------------------------------------
+# Neo4j Graph Database Configuration
+# -----------------------------------------------------------------------------
+neo4j:
+  # Connection URI (bolt protocol)
+  uri: "bolt://localhost:7687"
+  # Authentication
+  user: "neo4j"
+  password: "password"
+  # Enable graph-based queries in agent (requires Neo4j running)
+  enabled: false
+
+# -----------------------------------------------------------------------------
+# Ground Truth Test Configuration
+# -----------------------------------------------------------------------------
+ground_truth:
+  # Path to ground truth JSON file (relative to project root)
+  file: "data/ground_truth/gt_1/gt_1.json"
+  # Path to ground truth images directory (relative to project root)
+  image_dir: "data/ground_truth/gt_1/imgs"
+
+# -----------------------------------------------------------------------------
+# LLM Configuration
+# -----------------------------------------------------------------------------
+llm:
+  # Model name (supports: gemini-2.5-flash, gemini-2.0-pro, etc.)
+  model: "gemini-2.5-flash"
+  temperature: 0
+  max_retries: 2
+
+# -----------------------------------------------------------------------------
+# Agent Configuration
+# -----------------------------------------------------------------------------
+agent:
+  # Delay between test cases (seconds)
+  delay_between_tests: 3
+  # System prompt file (relative to project root)
+  system_prompt_file: "prompts/system_prompt.yaml"
+
+# -----------------------------------------------------------------------------
+# Output Configuration
+# -----------------------------------------------------------------------------
+output:
+  # Directory for evaluation results (relative to project root)
+  evaluations_dir: "logs/evaluations"
+  # Directory for conversation logs (relative to project root)
+  logs_dir: "logs"

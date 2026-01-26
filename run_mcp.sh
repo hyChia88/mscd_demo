@@ -38,6 +38,8 @@ fi
 
 # Set environment variables
 export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
+# IFC_MODEL_PATH is now read from config.yaml (can still override via env var)
+# export IFC_MODEL_PATH="$(pwd)/data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
 
 # Run the MCP-based agent
 echo "🚀 Starting MCP-based agent..."

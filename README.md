@@ -1,22 +1,27 @@
-# AI-AEC Interpreter Layer
+# MSCD Demo: 4D-Context BIM Disambiguation System
 
-> Bridge unstructured construction site reports to structured BIM models using AI agents.
-
-**Master Thesis MVP** - Computational Design
+> Master Thesis MVP - Using 4D construction context to disambiguate BIM element queries
 
 ---
 
-## What is This?
+## Overview
 
-This system translates natural language site reports into specific BIM element references:
+This system translates natural language site reports into precise BIM element references by leveraging **4D task context** (spatial + temporal).
 
-**Input:** _"Water pooling on kitchen floor slab"_
-**Output:** `Element: Slab_05, Type: IfcSlab, GUID: 2O2Fr$t4X7Zf8NOew3FLOH`
+**Problem:** "Which window?" → 263 candidates (0.38% precision)
+**Solution:** "Which window on 6th floor where Module Installation is active?" → 3 candidates (33.33% precision)
 
-Instead of keyword search, it uses:
-- **Spatial Graph Navigation** - Follows IFC topology (Site → Floor → Room → Elements)
-- **AI Agent Tool Calling** - LLM selects appropriate query tools
-- **Visual Matching** - CLIP embeddings for photo-to-BIM matching
+**Result:** Correct element found in reduced set. 98.9% search space reduction.
+
+---
+
+## Research Questions Addressed
+
+| RQ | Focus | Implementation |
+|----|-------|----------------|
+| **RQ1** | Visual + Context Disambiguation | Spatial indexing by storey/room |
+| **RQ2** | Compliance Reasoning | Property extraction (Pset_*, SGPset_*) |
+| **RQ3** | Abductive Reasoning | 4D task context filtering |
 
 ---
 
@@ -24,54 +29,53 @@ Instead of keyword search, it uses:
 
 ### 1. Install Dependencies
 ```bash
-conda activate mscd_demo  # or your environment
+conda activate mscd_demo
 pip install -r requirements.txt
 ```
 
-### 2. Configure API Key
+### 2. Configure
 ```bash
-# Create .env file
-echo "GOOGLE_API_KEY=your_key_here" > .env
+cp .env.example .env
+# Edit .env with your GOOGLE_API_KEY
 ```
 
-### 3. Run the Agent
-
-**MCP Architecture (Production):**
+### 3. Run MCP Server
 ```bash
-./run_mcp.sh
-```
-
-**Legacy Version (Simple):**
-```bash
-python src/legacy/main.py
+python mcp_servers/ifc_server.py
 ```
 
 ---
 
-## Architecture Overview
-
-### MCP-based (New - Production Ready)
+## Architecture
 
 ```
-Agent (Gemini) → MCP Client → [IFC Server | Visual Server]
-                                     ↓              ↓
-                               IFC Engine    CLIP Model
+┌─────────────────────────────────────────────────────────────┐
+│                     MCP Client (Agent)                      │
+│                   (Gemini / Claude / etc.)                  │
+└─────────────────────────┬───────────────────────────────────┘
+                          │ MCP Protocol
+┌─────────────────────────▼───────────────────────────────────┐
+│                    ifc_server.py                            │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │              IFCEngine (Singleton)                  │    │
+│  │  • Spatial Index (storey → elements)                │    │
+│  │  • Property Extraction                              │    │
+│  │  • Neo4j Export (optional)                          │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                                                             │
+│  MCP Tools:                                                 │
+│  • get_element_by_guid()                                    │
+│  • get_elements_by_storey()    ← 4D context filtering       │
+│  • search_elements_by_type()                                │
+│  • list_available_spaces()                                  │
+└─────────────────────────────────────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────────┐
+│              AdvancedProject.ifc                            │
+│  • 10 Storeys (e.g., "6 - Sixth Floor")                     │
+│  • 263 Windows, 126 Doors, 304 Walls                        │
+└─────────────────────────────────────────────────────────────┘
 ```
-
-**Benefits:**
-- ✅ Reusable across Claude Desktop, VS Code, other apps
-- ✅ Microservices deployment ready
-- ✅ Industry standard protocol
-
-### Legacy (Original - MVP)
-
-```
-Agent (Gemini) → LangChain Tools → IFC Engine + CLIP
-```
-
-**Benefits:**
-- ✅ Simple, single-file setup
-- ✅ Good for prototyping
 
 ---
 
@@ -79,208 +83,223 @@ Agent (Gemini) → LangChain Tools → IFC Engine + CLIP
 
 ```
 mscd_demo/
-├── mcp_servers/           # MCP microservices
-│   ├── ifc_server.py      # BIM query service
-│   └── visual_server.py   # Visual matching service
+├── config.yaml              # Centralized configuration
+├── mcp_servers/
+│   └── ifc_server.py        # MCP server with IFCEngine singleton
 │
 ├── src/
-│   ├── main_mcp.py        # MCP orchestrator
-│   ├── ifc_engine.py      # IFC graph indexing
-│   ├── visual_matcher.py  # CLIP embeddings
-│   └── legacy/            # Original implementation
+│   └── ifc_engine.py        # Core IFC processing engine
 │
 ├── data/
-│   └── BasicHouse.ifc     # Sample BIM model
+│   ├── ifc/AdvancedProject/ # BIM model (10 storeys, 263 windows)
+│   └── ground_truth/gt_1/   # Evaluation test cases
 │
-├── config/
-│   └── mcp_servers.yaml   # Server configuration
+├── script/
+│   └── baseline_experiment.py  # Redundancy quantification
 │
-└── README/                # Detailed documentation
-    ├── MCP_MIGRATION_GUIDE.md
-    ├── MCP_ARCHITECTURE_DIAGRAM.md
-    ├── WORKFLOW_EXAMPLE.md
-    └── ...
+└── logs/experiments/        # Experiment results
 ```
 
 ---
 
 ## Core Components
 
-### 1. IFC Engine ([src/ifc_engine.py](src/ifc_engine.py))
-- Parses IFC files with IfcOpenShell
-- Builds spatial topology graph
-- Provides semantic query interface
+### 1. IFCEngine ([src/ifc_engine.py](src/ifc_engine.py))
 
-### 2. Agent Tools (MCP or Legacy)
-- `list_available_spaces()` - Discover rooms
-- `get_elements_by_room(name)` - Query by location
-- `get_element_details(guid)` - Property inspection
-- `identify_element_visually(desc, guids)` - CLIP matching
+Central data gateway for all IFC operations:
 
-### 3. Visual Matcher ([src/visual_matcher.py](src/visual_matcher.py))
-- Uses CLIP (clip-vit-base-patch32)
-- Text → Embedding → Similarity search
-- Matches site descriptions to BIM elements
+| Method | Purpose |
+|--------|---------|
+| `find_elements_in_space(storey)` | Get elements on a specific floor |
+| `get_element_by_guid(guid)` | Retrieve element by GlobalId |
+| `get_element_properties(guid)` | Extract Pset_* property sets |
+| `export_to_neo4j()` | Optional graph database export |
+
+**Key Fix:** Spatial index now uses `IfcRelContainedInSpatialStructure` for accurate storey-to-element mapping.
+
+### 2. MCP Server ([mcp_servers/ifc_server.py](mcp_servers/ifc_server.py))
+
+Exposes IFCEngine as MCP tools:
+
+```python
+@mcp.tool()
+def get_elements_by_storey(storey_name: str) -> str:
+    """Find all BIM elements on a specific building storey.
+    Example: "6 - Sixth Floor" → returns 3 windows, 12 doors, etc.
+    """
+```
+
+### 3. Ground Truth ([data/ground_truth/gt_1/gt_1.json](data/ground_truth/gt_1/gt_1.json))
+
+Validated test cases with real GUIDs:
+
+| ID | Scenario | Target Element | Target Storey |
+|----|----------|----------------|---------------|
+| GT_001 | Crack on wall | `0cRoQU_sD5R8MkkMkeodzx` | Level 1 |
+| GT_002 | Broken window | `1KMtYLyv9CyfGv8UjnMBSN` | 1 - First Floor |
+| GT_007 | Module installation window | `0Um_J2ClP45uPRcRbJqhxe` | 6 - Sixth Floor |
+
+---
+
+## Baseline Experiment Results
+
+**Scenario:** GT_007 - Find window for module installation on 6th floor
+
+| Condition | Candidates | Precision | Recall |
+|-----------|------------|-----------|--------|
+| No context (all windows) | 263 | 0.38% | 100% |
+| With 4D context (6th floor) | 3 | 33.33% | 100% |
+
+**Key Insight:** Target element included in both cases (Recall=100%), but precision improves 87x with 4D context.
+
+Results stored in: [logs/experiments/baseline_gt007_results.json](logs/experiments/baseline_gt007_results.json)
+
+---
+
+## Configuration
+
+All settings in [config.yaml](config.yaml):
+
+```yaml
+ifc:
+  model_path: "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+
+neo4j:
+  uri: "bolt://localhost:7687"
+  enabled: false  # Set true to enable graph database
+
+ground_truth:
+  file: "data/ground_truth/gt_1/gt_1.json"
+
+llm:
+  provider: "google"
+  model: "gemini-2.5-flash"
+```
+
+---
+
+## Available Storeys in Model
+
+The AdvancedProject.ifc model contains:
+
+| Storey Name | Windows | Doors |
+|-------------|---------|-------|
+| Level 1 | 0 | 0 |
+| 1 - First Floor | 30 | 14 |
+| 2 - Second Floor | 30 | 14 |
+| ... | ... | ... |
+| 6 - Sixth Floor | 3 | 14 |
+| ... | ... | ... |
+| Roof | 0 | 0 |
+
+---
+
+## Optional: Neo4j Integration
+
+For graph-based reasoning (RQ2/RQ3):
+
+```bash
+# Start Neo4j container
+docker run -d --name neo4j \
+  -p 7474:7474 -p 7687:7687 \
+  -e NEO4J_AUTH=neo4j/password123 \
+  neo4j:latest
+
+# Export IFC to Neo4j
+python script/ifc_to_neo4j.py
+
+# Query via browser
+open http://localhost:7474
+```
 
 ---
 
 ## Usage Examples
 
-### Interactive Chat
+### Run Agent with Test Scenarios
 ```bash
-python src/chat_cli.py
+# Run MCP-based agent with test scenarios
+python src/main_mcp.py  # Uses prompts/tests/test_2.yaml
+
+# Run legacy agent
+python src/legacy/main.py  # Uses test.yaml
 ```
 
-### Inspect IFC Structure
+Test scenarios are defined in YAML files:
+- [prompts/tests/test_2.yaml](prompts/tests/test_2.yaml) - 18 comprehensive scenarios
+- [prompts/tests/test_3_min_complete.yaml](prompts/tests/test_3_min_complete.yaml) - Minimal complete flow
+
+### Run Baseline Experiment
 ```bash
-python src/inspect_ifc.py
+python script/baseline_experiment.py
+# Output: logs/experiments/baseline_gt007_results.json
 ```
 
-### Test Individual MCP Servers
+### Direct IFCEngine Usage
+```python
+from src.ifc_engine import IFCEngine
+
+engine = IFCEngine("data/ifc/AdvancedProject/IFC/AdvancedProject.ifc")
+windows = engine.find_elements_in_space("6 - sixth floor")
+print(f"Found {len(windows)} elements on 6th floor")
+```
+
+### Start MCP Server Standalone
 ```bash
-cd mcp_servers
-./test_server.sh ifc     # Test IFC server
-./test_server.sh visual  # Test visual server
+python mcp_servers/ifc_server.py
 ```
-
----
-
-## Integration with Other Tools
-
-### Claude Desktop
-Add to `claude_desktop_config.json`:
-```json
-{
-  "mcpServers": {
-    "ifc-bim": {
-      "command": "python",
-      "args": ["/full/path/to/mcp_servers/ifc_server.py"]
-    }
-  }
-}
-```
-
-### VS Code / Cursor
-See [MCP Migration Guide](README/MCP_MIGRATION_GUIDE.md) for setup.
-
----
-
-## Documentation
-
-### Getting Started
-- **[OVERVIEW.md](README/OVERVIEW.md)** - System concept and design
-- **[WORKFLOW_EXAMPLE.md](README/WORKFLOW_EXAMPLE.md)** - Step-by-step walkthrough
-
-### MCP Architecture
-- **[MCP_MIGRATION_GUIDE.md](README/MCP_MIGRATION_GUIDE.md)** - Full migration guide
-- **[MCP_ARCHITECTURE_DIAGRAM.md](README/MCP_ARCHITECTURE_DIAGRAM.md)** - Visual diagrams
-- **[MCP_REFACTORING_SUMMARY.md](README/MCP_REFACTORING_SUMMARY.md)** - Technical summary
-
-### Advanced Features
-- **[VISUAL_MATCHING_GUIDE.md](README/VISUAL_MATCHING_GUIDE.md)** - CLIP integration
-- **[PHOTO_MATCHING_EXAMPLE.md](README/PHOTO_MATCHING_EXAMPLE.md)** - Photo-to-BIM matching
-- **[TEST_QUERIES.md](README/TEST_QUERIES.md)** - Example queries
 
 ---
 
 ## Technical Stack
 
-**AI/LLM:**
-- LangChain + LangGraph (Orchestration)
-- Google Gemini 2.5 Flash (LLM)
-- OpenAI CLIP (Visual matching)
-
-**BIM Processing:**
-- IfcOpenShell (IFC parsing)
-- Custom spatial graph indexing
-
-**MCP Integration:**
-- FastMCP (Server framework)
-- MCP Protocol (Tool communication)
+| Component | Technology |
+|-----------|------------|
+| IFC Processing | IfcOpenShell |
+| Spatial Indexing | Custom graph (storey → elements) |
+| MCP Server | FastMCP |
+| LLM Agent | Google Gemini 2.5 Flash |
+| Graph Database | Neo4j (optional) |
+| Visual Matching | OpenAI CLIP |
 
 ---
 
-## Comparison: Legacy vs MCP
+## Current Progress
 
-| Feature | Legacy | MCP |
-|---------|--------|-----|
-| Setup | Simple | Requires MCP install |
-| Reusability | Single app | Cross-platform |
-| Deployment | Monolith | Microservices |
-| Tool Discovery | Hardcoded | Dynamic |
-| Production Ready | Prototype | Yes |
-
-**Use Legacy if:** Quick prototype, single app, learning the concept
-**Use MCP if:** Production deployment, cross-platform tools, scalability
-
----
-
-## Roadmap
-
-- ✅ Spatial graph-based querying
-- ✅ Visual matching with CLIP
-- ✅ MCP architecture
-- 🚧 CORENET-X compliance checking
-- 🚧 BCF issue writing
-- 🚧 Blender rendering service
-
----
-
-## Thesis Context
-
-This MVP demonstrates:
-1. **Graph-RAG** for structured BIM data (vs. vector search)
-2. **LLM Tool Calling** for precise element retrieval
-3. **Multimodal AI** for photo-to-BIM matching
-4. **Production Architecture** with MCP microservices
-
-**Key Innovation:** Using IFC's native spatial topology instead of embedding all data.
+- [x] Centralized configuration (config.yaml)
+- [x] IFCEngine with accurate spatial indexing
+- [x] MCP server with 4D context tools
+- [x] Ground truth test cases with real GUIDs
+- [x] Baseline experiment (98.9% redundancy reduction)
+- [x] Neo4j export support (optional)
+- [ ] Full evaluation pipeline
+- [ ] CORENET-X compliance checking
+- [ ] BCF issue generation
 
 ---
 
 ## Troubleshooting
 
-**"MCP dependencies not installed"**
-```bash
-pip install fastmcp mcp
-```
+**"No elements found for storey"**
+- Use exact storey names: `"6 - Sixth Floor"` not `"Level 6"`
+- Check available storeys: `engine.list_spaces()`
 
-**"IFC file not found"**
-```bash
-# Check data/BasicHouse.ifc exists
-ls data/BasicHouse.ifc
-```
+**"Neo4j connection refused"**
+- Ensure Docker container is running
+- Wait 30 seconds after container start
 
-**"GOOGLE_API_KEY not set"**
-```bash
-# Create .env file with your key
-echo "GOOGLE_API_KEY=your_key" > .env
-```
-
-**Want to use legacy version?**
-```bash
-python src/legacy/main.py
-```
+**"GUID not found"**
+- Verify GUID exists in model: `engine.get_element_by_guid(guid)`
 
 ---
 
-## Support
+## References
 
-- 📖 **Documentation:** See [README/](README/) folder
-- 🐛 **Issues:** Check test output and logs/ directory
-- 💡 **Questions:** Review [MCP_MIGRATION_GUIDE.md](README/MCP_MIGRATION_GUIDE.md)
-
----
-
-## License & Credits
-
-**Thesis Project** - Master of Science, Computational Design
-**IFC Processing:** IfcOpenShell
-**AI Framework:** LangChain, Google Gemini
-**Visual AI:** OpenAI CLIP
-**MCP Protocol:** Anthropic
+- IFC Schema: [buildingSMART IFC4](https://standards.buildingsmart.org/IFC/RELEASE/IFC4/ADD2_TC1/HTML/)
+- MCP Protocol: [Model Context Protocol](https://modelcontextprotocol.io/)
+- IfcOpenShell: [Documentation](https://ifcopenshell.org/)
 
 ---
 
 **Last Updated:** January 2026
-**Status:** Production-ready MCP architecture ✅
+**Status:** Baseline experiment complete, MCP architecture validated
