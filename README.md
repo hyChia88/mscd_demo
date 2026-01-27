@@ -8,7 +8,7 @@
 
 This system translates natural language site reports into precise BIM element references by leveraging **4D task context** (spatial + temporal).
 
-**Problem:** "Which window?" → 263 candidates (0.38% precision)
+**Problem:** "Which window?" → 263 candidates (0.38% precision)  
 **Solution:** "Which window on 6th floor where Module Installation is active?" → 3 candidates (33.33% precision)
 
 **Result:** Correct element found in reduced set. 98.9% search space reduction.
@@ -39,10 +39,26 @@ cp .env.example .env
 # Edit .env with your GOOGLE_API_KEY
 ```
 
-### 3. Run MCP Server
+### 3. Run the Agent
+
+**Interactive Chat Mode (Recommended for Testing):**
 ```bash
-python mcp_servers/ifc_server.py
+python src/chat_cli.py
+
+# Or pre-load a test scenario:
+python src/chat_cli.py --scenario GT_007
 ```
+
+**Automated Evaluation Mode:**
+```bash
+python src/main_mcp.py
+```
+
+This automatically:
+- Spawns the MCP server (`ifc_server.py`) as a subprocess
+- Connects to it via MCP protocol
+- Runs evaluation against ground truth test cases
+- Outputs results to `logs/evaluations/`
 
 ---
 
@@ -96,13 +112,19 @@ mscd_demo/
 │   │   ├── metrics.py       # Metric functions (top1_hit, RQ2 metrics, etc.)
 │   │   └── runner.py        # run_one_scenario() with RQ2 post-processing
 │   │
-│   └── rq2_schema/          # RQ2 Schema-Aware Validation Pipeline
+│   ├── rq2_schema/          # RQ2 Schema-Aware Validation Pipeline
+│   │   ├── __init__.py
+│   │   ├── extract_final_json.py  # Parse FINAL_JSON from agent output
+│   │   ├── schema_registry.py     # Load and manage JSON Schema
+│   │   ├── mapping.py             # Deterministic mapping to submission JSON
+│   │   ├── validators.py          # JSON Schema + domain validation
+│   │   └── pipeline.py            # run_rq2_postprocess() orchestration
+│   │
+│   └── handoff/             # P2: BCF Issue Generation & Handoff
 │       ├── __init__.py
-│       ├── extract_final_json.py  # Parse FINAL_JSON from agent output
-│       ├── schema_registry.py     # Load and manage JSON Schema
-│       ├── mapping.py             # Deterministic mapping to submission JSON
-│       ├── validators.py          # JSON Schema + domain validation
-│       └── pipeline.py            # run_rq2_postprocess() orchestration
+│       ├── trace.py         # Trace building and GUID extraction
+│       ├── bcf_lite.py      # BCF-lite JSON issue output
+│       └── bcf_zip.py       # BCFzip 2.1 generation
 │
 ├── schemas/
 │   └── corenetx_min/
@@ -115,7 +137,13 @@ mscd_demo/
 ├── script/
 │   ├── baseline_experiment.py    # Redundancy quantification
 │   ├── eval_pipeline.py          # Unified evaluation pipeline CLI
-│   └── rq2_schema_smoke_test.py  # RQ2 component smoke test
+│   ├── rq2_schema_smoke_test.py  # RQ2 component smoke test
+│   └── test_bcf_generation.py    # BCF handoff sanity test
+│
+├── outputs/                 # P2: Handoff artifacts (generated)
+│   ├── traces/<run_id>/     # Per-case trace JSON files
+│   ├── issues/<run_id>/     # BCF-lite issue.json files
+│   └── bcf/<run_id>/        # BCFzip 2.1 files
 │
 └── logs/
     ├── experiments/         # Baseline experiment results
@@ -242,10 +270,29 @@ open http://localhost:7474
 
 ## Usage Examples
 
-### Run Agent with Test Scenarios
+### Interactive Chat (Recommended for Testing)
 ```bash
-# Run MCP-based agent with test scenarios
-python src/main_mcp.py  # Uses prompts/tests/test_2.yaml
+# Start interactive session
+python src/chat_cli.py
+
+# Pre-load a specific test scenario
+python src/chat_cli.py --scenario GT_007
+```
+
+**Commands in interactive mode:**
+| Command | Description |
+|---------|-------------|
+| `quit` / `q` | Exit the chat |
+| `clear` | Clear conversation history |
+| `tools` | List available MCP tools |
+| `scenarios` | List available test scenarios |
+| `load <id>` | Load a scenario (e.g., `load GT_007`) |
+| `send` | Send the original query from loaded scenario |
+
+### Run Automated Evaluation
+```bash
+# Run MCP-based agent with ground truth test cases
+python src/main_mcp.py
 
 # Run legacy agent
 python src/legacy/main.py  # Uses test.yaml
@@ -289,10 +336,16 @@ windows = engine.find_elements_in_space("6 - sixth floor")
 print(f"Found {len(windows)} elements on 6th floor")
 ```
 
-### Start MCP Server Standalone
+### Start MCP Server Standalone (Advanced)
 ```bash
+# For development/debugging with interactive inspector:
+fastmcp dev mcp_servers/ifc_server.py
+
+# Or run standalone (requires separate MCP client to connect):
 python mcp_servers/ifc_server.py
 ```
+
+> **Note:** For normal usage, just run `python src/main_mcp.py` - it spawns the server automatically.
 
 ---
 
@@ -452,6 +505,108 @@ python script/rq2_schema_smoke_test.py
 
 ---
 
+## P2: BCF Issue Generation & Handoff
+
+The BCF handoff pipeline generates interoperable issue files for BIM collaboration tools.
+
+### Architecture
+
+```
+Evaluation Result (from main_mcp.py)
+        │
+        ▼
+┌───────────────────────────────────────────┐
+│  trace.py (build_trace)                   │
+│  • Extract GUID from agent response       │
+│  • Combine inputs, tool calls, eval result│
+│  • Write trace.json (Single Source of Truth)│
+└───────────────────────────────────────────┘
+        │
+        ├──────────────────┬────────────────┐
+        ▼                  ▼                ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│ BCF-lite JSON   │ │ BCFzip 2.1      │ │ Trace JSON      │
+│ (issue.json)    │ │ (.bcfzip)       │ │ (.trace.json)   │
+│ • Human-readable│ │ • BIM-tool ready│ │ • Reproducibility│
+│ • Evidence refs │ │ • markup.bcf    │ │ • Full context  │
+│ • Trace URI     │ │ • viewpoint.bcfv│ │                 │
+└─────────────────┘ └─────────────────┘ └─────────────────┘
+```
+
+### Output Structure
+
+After running `python src/main_mcp.py`, handoff artifacts are generated:
+
+```
+outputs/
+├── traces/20260127_120000/
+│   ├── GT_001.trace.json
+│   ├── GT_002.trace.json
+│   └── ...
+├── issues/20260127_120000/
+│   ├── GT_001.issue.json
+│   ├── GT_002.issue.json
+│   └── ...
+└── bcf/20260127_120000/
+    ├── GT_001.bcfzip
+    ├── GT_002.bcfzip
+    └── ...
+```
+
+### BCFzip Structure
+
+Each `.bcfzip` file is BCF 2.1 compliant:
+
+```
+GT_001.bcfzip
+├── bcf.version              # BCF version declaration (2.1)
+└── <topic_guid>/
+    ├── markup.bcf           # Topic metadata, viewpoint refs
+    └── viewpoints/
+        ├── viewpoint.bcfv   # Component selection (IfcGuid)
+        └── snapshot.png     # Evidence image (if available)
+```
+
+### BCF-lite Issue JSON
+
+Lightweight JSON format for downstream systems:
+
+```json
+{
+  "issue_id": "d2436fb0-f1a6-48ac-8403-a6136b71f64b",
+  "case_id": "GT_001",
+  "title": "GT_001: Basic Wall:Interior",
+  "element_guid": "0cRoQU_sD5R8MkkMkeodzx",
+  "guid_source": "regex_from_agent_response",
+  "bim_reference": {
+    "element_guid": "0cRoQU_sD5R8MkkMkeodzx",
+    "ifc_class": "IfcWall",
+    "storey_name": "Level 1"
+  },
+  "schema": {
+    "validation": {"passed": true, "fill_rate": 1.0}
+  },
+  "evidence": ["data/ground_truth/gt_1/imgs/img_gt_001.png"],
+  "trace_uri": "outputs/traces/20260127_120000/GT_001.trace.json"
+}
+```
+
+### Sanity Test
+
+```bash
+# Run BCF generation sanity test (no MCP required)
+python script/test_bcf_generation.py
+
+# Expected output:
+# ✅ TEST 1 PASSED (IFC GUID extraction)
+# ✅ TEST 2 PASSED (Trace building)
+# ✅ TEST 3 PASSED (Trace JSON writing)
+# ✅ TEST 4 PASSED (BCF-lite issue JSON)
+# ✅ TEST 5 PASSED (BCFzip generation)
+```
+
+---
+
 ## Technical Stack
 
 | Component | Technology |
@@ -462,6 +617,7 @@ python script/rq2_schema_smoke_test.py
 | LLM Agent | Google Gemini 2.5 Flash |
 | Data Contracts | Pydantic v2 |
 | Schema Validation | jsonschema (Draft 2020-12) |
+| BCF Generation | stdlib zipfile + xml.etree (BCF 2.1) |
 | Graph Database | Neo4j (optional) |
 | Visual Matching | OpenAI CLIP |
 
@@ -486,7 +642,13 @@ python script/rq2_schema_smoke_test.py
   - Domain validation (GUID exists, storey valid)
   - Integrated into unified eval pipeline
   - RQ2 metrics in summary output
-- [ ] BCF issue generation
+- [x] **P2: BCF Issue Generation & Handoff**
+  - Trace builder with GUID extraction fallback chain
+  - BCF-lite issue.json for lightweight handoff
+  - BCFzip 2.1 with markup.bcf + viewpoint.bcfv
+  - Component selection (IfcGuid) in viewpoints
+  - Snapshot images from evidence
+  - Integrated into main_mcp.py evaluation loop
 - [ ] Visual matching with CLIP embeddings
 
 ---
@@ -515,4 +677,4 @@ python script/rq2_schema_smoke_test.py
 ---
 
 **Last Updated:** January 2026
-**Status:** Unified Evaluation Pipeline with RQ2 Schema Validation complete
+**Status:** Unified Evaluation Pipeline with RQ2 Schema Validation and BCF Handoff complete

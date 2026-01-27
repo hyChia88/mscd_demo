@@ -58,6 +58,11 @@ from rq2_schema.extract_final_json import extract_final_json
 from rq2_schema.schema_registry import SchemaRegistry
 from rq2_schema.pipeline import run_rq2_postprocess
 
+# P2: BCF handoff - trace, issue, and BCFzip generation
+from handoff.trace import build_trace, write_trace_json
+from handoff.bcf_lite import write_issue_json
+from handoff.bcf_zip import write_bcfzip
+
 
 def load_config(config_file="config.yaml"):
     """Load centralized configuration from YAML file"""
@@ -328,6 +333,9 @@ async def main_async():
             print(f"✅ Agent initialized. Loaded {len(test_cases)} ground truth test cases.\n")
             logger.log_agent_message(f"MCP-based agent initialized with {len(langchain_tools)} tools")
 
+            # P2: Create run_id for this evaluation session (shared across all cases)
+            run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+
             # Track evaluation results
             evaluation_results = []
 
@@ -411,12 +419,47 @@ async def main_async():
                     eval_result["elapsed_time"] = elapsed
                     eval_result["tool_calls"] = tool_calls
                     eval_result["rq2"] = rq2_result  # Attach RQ2 results (may be None for non-RQ2 cases)
+
+                    # P2: Build trace and generate handoff artifacts
+                    # Prepare rq2_result for trace (convert to dict format if needed)
+                    eval_result_for_trace = dict(eval_result)
+                    if rq2_result:
+                        eval_result_for_trace["rq2_result"] = rq2_result
+
+                    trace = build_trace(
+                        run_id=run_id,
+                        case_id=case_id,
+                        test_case=case,
+                        agent_response=output,
+                        tool_calls=tool_calls,
+                        eval_result=eval_result_for_trace,
+                        config=config
+                    )
+
+                    # Write trace, issue.json, and bcfzip
+                    trace_path = write_trace_json(trace, out_dir=str(base_dir / "outputs/traces"))
+                    issue_path = write_issue_json(out_dir=str(base_dir / "outputs/issues"), trace=trace)
+                    bcf_path = write_bcfzip(out_dir=str(base_dir / "outputs/bcf"), trace=trace)
+
+                    # Add handoff paths to eval_result
+                    eval_result["handoff"] = {
+                        "trace": trace_path,
+                        "issue_json": issue_path,
+                        "bcfzip": bcf_path
+                    }
+
                     evaluation_results.append(eval_result)
 
                     # Print evaluation results
                     print(f"\n📊 Evaluation:")
                     for detail in eval_result["details"]:
                         print(f"   {detail}")
+
+                    # P2: Print handoff artifact paths
+                    print(f"\n📁 Handoff Artifacts:")
+                    print(f"   Trace:  {trace_path}")
+                    print(f"   Issue:  {issue_path}")
+                    print(f"   BCFzip: {bcf_path}")
 
                 except Exception as e:
                     error_msg = f"Error during execution: {e}"
@@ -490,6 +533,12 @@ async def main_async():
                 }, f, indent=2)
 
             print(f"\n   Results saved to: {results_file}")
+
+            # P2: Print handoff summary
+            print(f"\n   Handoff Artifacts (run_id: {run_id}):")
+            print(f"      Traces:  outputs/traces/{run_id}/")
+            print(f"      Issues:  outputs/issues/{run_id}/")
+            print(f"      BCFzips: outputs/bcf/{run_id}/")
 
             # Save conversation summary
             logger.save_summary(f"Completed {len(test_cases)} ground truth test cases using MCP architecture")
