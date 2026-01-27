@@ -20,9 +20,20 @@ from .contracts import (
     CandidateElement,
     EvalTrace,
     InterpreterOutput,
+    RQ2Result,
+    RQCategory,
     ScenarioInput,
     ToolStepRecord,
 )
+
+# RQ2 imports (optional - only used if rq2_schema is available)
+try:
+    from rq2_schema.extract_final_json import extract_final_json
+    from rq2_schema.pipeline import run_rq2_postprocess
+
+    RQ2_AVAILABLE = True
+except ImportError:
+    RQ2_AVAILABLE = False
 
 
 def format_scenario_input(scenario: ScenarioInput) -> str:
@@ -278,6 +289,10 @@ async def run_one_scenario(
     agent_executor: Any,
     engine: Any = None,
     run_id: Optional[str] = None,
+    rq2_enabled: bool = False,
+    rq2_schema: Optional[Dict[str, Any]] = None,
+    rq2_schema_id: Optional[str] = None,
+    tool_by_name: Optional[Dict[str, Any]] = None,
 ) -> EvalTrace:
     """
     Execute a single evaluation scenario and return complete trace.
@@ -288,12 +303,17 @@ async def run_one_scenario(
     3. Captures tool calls with timestamps
     4. Parses the response
     5. Computes matches against ground truth
+    6. (For RQ2) Runs schema validation post-processing
 
     Args:
         scenario: ScenarioInput with ground truth
         agent_executor: LangGraph agent executor
         engine: Optional IFC engine for pool size computation
         run_id: Optional run identifier (generated if not provided)
+        rq2_enabled: Whether to run RQ2 post-processing
+        rq2_schema: JSON Schema dict for RQ2 validation
+        rq2_schema_id: Schema identifier string
+        tool_by_name: Dict mapping tool name -> LangChain tool (for RQ2)
 
     Returns:
         Complete EvalTrace with all execution data
@@ -393,12 +413,63 @@ async def run_one_scenario(
             name_parts.lower() in final_response.lower() if name_parts else False
         )
 
-        # Storey match
+        # TODO
+        # Storey match 
         trace.storey_match = (
             gt.target_storey.lower() in final_response.lower()
             if gt.target_storey
             else False
         )
+
+        # RQ2: Schema validation post-processing (only for RQ2 cases)
+        if (
+            rq2_enabled
+            and RQ2_AVAILABLE
+            and scenario.ground_truth.rq_category == RQCategory.RQ2
+            and rq2_schema is not None
+            and tool_by_name is not None
+        ):
+            try:
+                # Parse FINAL_JSON from agent output
+                agent_final, parse_err = extract_final_json(final_response)
+
+                # Build evidence list
+                evidence = [
+                    {
+                        "type": "chat",
+                        "ref": scenario.id,
+                        "note": "ground truth chat context + query",
+                    }
+                ]
+                for img_path in scenario.image_paths:
+                    evidence.append(
+                        {"type": "image", "ref": img_path, "note": "ground truth image"}
+                    )
+
+                rq2_context = {
+                    "storey_name": (
+                        agent_final.get("selected_storey_name", "")
+                        if agent_final
+                        else ""
+                    ),
+                    "evidence": evidence,
+                }
+
+                rq2_raw_result = await run_rq2_postprocess(
+                    schema_id=rq2_schema_id,
+                    schema=rq2_schema,
+                    agent_final=agent_final,
+                    parse_error=parse_err,
+                    rq2_context=rq2_context,
+                    tool_by_name=tool_by_name,
+                )
+
+                # Convert to typed RQ2Result
+                trace.rq2_result = RQ2Result.from_pipeline_result(rq2_raw_result)
+
+            except Exception as rq2_err:
+                # Log but don't fail the trace
+                trace.error = f"RQ2 post-processing error: {rq2_err}"
 
         trace.success = True
 

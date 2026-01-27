@@ -13,6 +13,10 @@ from .contracts import (
     GroundTruth,
     CandidateElement,
     RQCategory,
+    RQ2Result,
+    RQ2Submission,
+    RQ2ValidationMetadata,
+    RQ2Uncertainty,
 )
 from .metrics import (
     top1_hit,
@@ -35,6 +39,10 @@ __all__ = [
     "GroundTruth",
     "CandidateElement",
     "RQCategory",
+    "RQ2Result",
+    "RQ2Submission",
+    "RQ2ValidationMetadata",
+    "RQ2Uncertainty",
     # Metrics
     "top1_hit",
     "topk_hit",

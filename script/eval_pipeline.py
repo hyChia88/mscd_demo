@@ -52,6 +52,14 @@ from eval.contracts import EvalTrace, MetricsSummary, ScenarioInput
 from eval.metrics import compute_summary
 from eval.runner import run_one_scenario
 
+# RQ2 Schema modules
+try:
+    from rq2_schema.schema_registry import SchemaRegistry
+
+    RQ2_AVAILABLE = True
+except ImportError:
+    RQ2_AVAILABLE = False
+
 
 def load_config(config_path: str) -> dict:
     """Load configuration from YAML file"""
@@ -145,6 +153,18 @@ def write_csv_summary(
             writer.writerow([tool, count])
         writer.writerow([])
 
+        # RQ2 Schema validation metrics
+        if summary.rq2_total > 0:
+            writer.writerow(["=== RQ2 SCHEMA VALIDATION ===", ""])
+            writer.writerow(["Metric", "Value"])
+            writer.writerow(["RQ2 Total Scenarios", summary.rq2_total])
+            writer.writerow(["RQ2 Validation Passed", summary.rq2_validation_passed])
+            writer.writerow(
+                ["RQ2 Validation Pass Rate", f"{summary.rq2_validation_pass_rate:.2%}"]
+            )
+            writer.writerow(["RQ2 Avg Fill Rate", f"{summary.rq2_avg_fill_rate:.2%}"])
+            writer.writerow([])
+
         # Per-scenario results
         writer.writerow(["=== PER-SCENARIO RESULTS ===", ""])
         writer.writerow(
@@ -157,6 +177,8 @@ def write_csv_summary(
                 "Tool Calls",
                 "Latency (ms)",
                 "Pool Reduction",
+                "RQ2 Valid",
+                "RQ2 Fill Rate",
                 "Error",
             ]
         )
@@ -166,6 +188,15 @@ def write_csv_summary(
             if trace.initial_pool_size and trace.final_pool_size:
                 reduction = 1 - (trace.final_pool_size / trace.initial_pool_size)
                 pool_reduction = f"{reduction:.2%}"
+
+            # RQ2 validation info
+            rq2_valid = ""
+            rq2_fill = ""
+            if trace.rq2_result:
+                rq2_valid = (
+                    "Yes" if trace.rq2_result.submission.validation_metadata.passed else "No"
+                )
+                rq2_fill = f"{trace.rq2_result.submission.validation_metadata.required_fill_rate:.2%}"
 
             writer.writerow(
                 [
@@ -177,6 +208,8 @@ def write_csv_summary(
                     len(trace.tool_steps),
                     f"{trace.total_latency_ms:.1f}",
                     pool_reduction,
+                    rq2_valid,
+                    rq2_fill,
                     trace.error or "",
                 ]
             )
@@ -241,6 +274,25 @@ async def run_pipeline(args):
         agent_config.get("system_prompt_file", "prompts/system_prompt.yaml"), base_dir
     )
 
+    # RQ2 Schema setup
+    rq2_cfg = config.get("rq2", {})
+    rq2_enabled = rq2_cfg.get("enabled", False) and RQ2_AVAILABLE
+    rq2_schema = None
+    rq2_schema_id = None
+
+    if rq2_enabled:
+        rq2_schema_path = base_dir / rq2_cfg.get(
+            "schema_path", "schemas/corenetx_min/v0.schema.json"
+        )
+        if rq2_schema_path.exists():
+            schema_registry = SchemaRegistry(str(rq2_schema_path))
+            rq2_schema = schema_registry.schema
+            rq2_schema_id = schema_registry.schema_id
+            print(f"[RQ2] Schema loaded: {rq2_schema_id}")
+        else:
+            print(f"[RQ2] Schema not found: {rq2_schema_path}, disabling RQ2")
+            rq2_enabled = False
+
     # MCP server setup
     python_exe = sys.executable
     ifc_server_path = str(base_dir / "mcp_servers" / "ifc_server.py")
@@ -273,7 +325,11 @@ async def run_pipeline(args):
                 langchain_tools = convert_mcp_to_langchain_tools(
                     tools_result.tools, session
                 )
-                print(f"[MCP] Loaded {len(langchain_tools)} tools\n")
+                print(f"[MCP] Loaded {len(langchain_tools)} tools")
+
+                # Build tool_by_name mapping for RQ2 post-processing
+                tool_by_name = {t.name: t for t in langchain_tools}
+                print()
 
                 # Create agent
                 agent_executor = create_react_agent(
@@ -294,7 +350,13 @@ async def run_pipeline(args):
 
                     # Run evaluation
                     trace = await run_one_scenario(
-                        scenario=scenario, agent_executor=agent_executor, run_id=timestamp
+                        scenario=scenario,
+                        agent_executor=agent_executor,
+                        run_id=timestamp,
+                        rq2_enabled=rq2_enabled,
+                        rq2_schema=rq2_schema,
+                        rq2_schema_id=rq2_schema_id,
+                        tool_by_name=tool_by_name,
                     )
 
                     traces.append(trace)
@@ -308,9 +370,16 @@ async def run_pipeline(args):
                     else:
                         status = "FAIL"
 
+                    # Add RQ2 validation status if applicable
+                    rq2_info = ""
+                    if trace.rq2_result:
+                        rq2_passed = trace.rq2_result.submission.validation_metadata.passed
+                        rq2_fill = trace.rq2_result.submission.validation_metadata.required_fill_rate
+                        rq2_info = f", RQ2: {'VALID' if rq2_passed else 'INVALID'} ({rq2_fill:.0%})"
+
                     print(
                         f"         -> {status} ({trace.total_latency_ms:.0f}ms, "
-                        f"{len(trace.tool_steps)} tool calls)"
+                        f"{len(trace.tool_steps)} tool calls{rq2_info})"
                     )
 
                     # Rate limiting
@@ -344,6 +413,15 @@ async def run_pipeline(args):
         print(
             f"    {rq}: {stats['top1_hits']}/{stats['total']} ({stats['top1_accuracy']:.1%})"
         )
+
+    # RQ2 Schema validation summary
+    if summary.rq2_total > 0:
+        print(f"\n  RQ2 Schema Validation:")
+        print(
+            f"    Validation Pass:   {summary.rq2_validation_passed}/{summary.rq2_total} "
+            f"({summary.rq2_validation_pass_rate:.1%})"
+        )
+        print(f"    Avg Fill Rate:     {summary.rq2_avg_fill_rate:.1%}")
 
     print(f"\n  Outputs:")
     print(f"    JSONL: {jsonl_path}")

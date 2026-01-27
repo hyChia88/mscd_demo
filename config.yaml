@@ -51,6 +51,15 @@ agent:
   system_prompt_file: "prompts/system_prompt.yaml"
 
 # -----------------------------------------------------------------------------
+# RQ2: Schema-Aware Mapping & Validation
+# -----------------------------------------------------------------------------
+rq2:
+  # Enable RQ2 post-processing pipeline
+  enabled: true
+  # Path to JSON Schema for submission validation (relative to project root)
+  schema_path: "schemas/corenetx_min/v0.schema.json"
+
+# -----------------------------------------------------------------------------
 # Output Configuration
 # -----------------------------------------------------------------------------
 output:

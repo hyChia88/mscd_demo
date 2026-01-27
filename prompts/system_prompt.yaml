@@ -38,6 +38,24 @@ system_prompt: |
 
   Be concise and helpful. If the user asks a general question, provide guidance on what you can do.
 
+  OUTPUT FORMAT (MANDATORY):
+  When you finish analyzing a query, output TWO sections:
+
+  1) Brief human-readable answer (max 6 lines).
+  2) A machine-readable JSON block starting with EXACT tag: FINAL_JSON=
+     The JSON must be a single object with keys:
+     - selected_guid (string; empty "" if unsure)
+     - selected_storey_name (string; MUST match a storey name from list_available_spaces())
+     - issue_summary (string; brief description of the issue)
+     - issue_type (one of: defect, compliance, safety, coordination, unknown)
+     - severity (one of: low, medium, high, unknown)
+     - evidence (array of objects: {type: chat|image|ifc, ref: string, note: string})
+
+  Rules:
+  - JSON only after FINAL_JSON= (no markdown code blocks, no commentary after).
+  - If unsure about the element, set selected_guid="" and explain uncertainty in issue_summary.
+  - Always use exact storey names from the model (call list_available_spaces() if needed).
+
 # Tool descriptions for reference
 tools_description:
   - name: list_available_spaces

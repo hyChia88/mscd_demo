@@ -271,4 +271,19 @@ def compute_summary(traces: List[EvalTrace], topk: int = 3) -> MetricsSummary:
             "escalation_rate": escalation_rate(rq_traces),
         }
 
+    # RQ2: Schema validation metrics
+    rq2_traces = [t for t in traces if t.rq2_result is not None]
+    if rq2_traces:
+        summary.rq2_total = len(rq2_traces)
+        summary.rq2_validation_passed = sum(
+            1 for t in rq2_traces if t.rq2_result.submission.validation_metadata.passed
+        )
+        summary.rq2_validation_pass_rate = (
+            summary.rq2_validation_passed / summary.rq2_total
+        )
+        summary.rq2_avg_fill_rate = sum(
+            t.rq2_result.submission.validation_metadata.required_fill_rate
+            for t in rq2_traces
+        ) / len(rq2_traces)
+
     return summary

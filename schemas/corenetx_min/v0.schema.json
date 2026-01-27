@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "corenetx-like-minimal/v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "submission_id",
+    "issue",
+    "bim_reference",
+    "validation_metadata"
+  ],
+  "properties": {
+    "submission_id": { "type": "string", "minLength": 1 },
+
+    "issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["issue_type", "severity", "issue_summary"],
+      "properties": {
+        "issue_type": { "type": "string", "enum": ["defect", "compliance", "safety", "coordination", "unknown"] },
+        "severity":   { "type": "string", "enum": ["low", "medium", "high", "unknown"] },
+        "issue_summary": { "type": "string", "minLength": 1, "maxLength": 800 }
+      }
+    },
+
+    "bim_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["element_guid", "ifc_class", "storey_name"],
+      "properties": {
+        "element_guid": { "type": "string", "minLength": 8 },
+        "ifc_class":    { "type": "string", "minLength": 3 },
+        "storey_name":  { "type": "string", "minLength": 1 },
+        "pset_snapshot": { "type": "object" }
+      }
+    },
+
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "ref", "note"],
+        "properties": {
+          "type": { "type": "string", "enum": ["chat", "image", "ifc"] },
+          "ref":  { "type": "string" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+
+    "validation_metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["schema_id", "required_fill_rate", "passed"],
+      "properties": {
+        "schema_id": { "type": "string" },
+        "required_fill_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "passed": { "type": "boolean" },
+        "errors": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "provenance": { "type": "object" }
+      }
+    }
+  }
+}

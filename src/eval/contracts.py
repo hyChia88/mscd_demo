@@ -185,6 +185,77 @@ class InterpreterOutput(BaseModel):
     fields_populated: Dict[str, bool] = Field(default_factory=dict)
 
 
+class RQ2ValidationMetadata(BaseModel):
+    """Validation metadata from RQ2 schema validation."""
+
+    schema_id: str
+    required_fill_rate: float = 0.0
+    passed: bool = False
+    errors: List[str] = Field(default_factory=list)
+    provenance: Dict[str, str] = Field(default_factory=dict)
+
+
+class RQ2Submission(BaseModel):
+    """RQ2 submission structure conforming to CORENET-X-like schema."""
+
+    submission_id: str
+    issue: Dict[str, Any] = Field(default_factory=dict)
+    bim_reference: Dict[str, Any] = Field(default_factory=dict)
+    evidence: List[Dict[str, Any]] = Field(default_factory=list)
+    validation_metadata: RQ2ValidationMetadata
+
+
+class RQ2Uncertainty(BaseModel):
+    """Uncertainty/escalation info for RQ2."""
+
+    escalated: bool = False
+    reason: str = ""
+    confidence: float = 0.0
+
+
+class RQ2Result(BaseModel):
+    """
+    Complete RQ2 post-processing result.
+    Includes schema validation, submission JSON, and uncertainty.
+    """
+
+    schema_id: str
+    final_json_parse_error: str = ""
+    agent_final: Dict[str, Any] = Field(default_factory=dict)
+    submission: RQ2Submission
+    uncertainty: RQ2Uncertainty
+
+    @classmethod
+    def from_pipeline_result(cls, result: Dict[str, Any]) -> "RQ2Result":
+        """Create from run_rq2_postprocess() output dict."""
+        submission_data = result.get("submission", {})
+        validation_meta = submission_data.get("validation_metadata", {})
+
+        return cls(
+            schema_id=result.get("schema_id", ""),
+            final_json_parse_error=result.get("final_json_parse_error", ""),
+            agent_final=result.get("agent_final", {}),
+            submission=RQ2Submission(
+                submission_id=submission_data.get("submission_id", ""),
+                issue=submission_data.get("issue", {}),
+                bim_reference=submission_data.get("bim_reference", {}),
+                evidence=submission_data.get("evidence", []),
+                validation_metadata=RQ2ValidationMetadata(
+                    schema_id=validation_meta.get("schema_id", ""),
+                    required_fill_rate=validation_meta.get("required_fill_rate", 0.0),
+                    passed=validation_meta.get("passed", False),
+                    errors=validation_meta.get("errors", []),
+                    provenance=validation_meta.get("provenance", {}),
+                ),
+            ),
+            uncertainty=RQ2Uncertainty(
+                escalated=result.get("uncertainty", {}).get("escalated", False),
+                reason=result.get("uncertainty", {}).get("reason", ""),
+                confidence=result.get("uncertainty", {}).get("confidence", 0.0),
+            ),
+        )
+
+
 class EvalTrace(BaseModel):
     """
     Complete evaluation trace for a single scenario.
@@ -214,6 +285,9 @@ class EvalTrace(BaseModel):
     # Pool sizes for search-space reduction
     initial_pool_size: Optional[int] = None
     final_pool_size: Optional[int] = None
+
+    # RQ2: Schema validation result (only for RQ2 cases)
+    rq2_result: Optional[RQ2Result] = None
 
     # Error tracking
     error: Optional[str] = None
@@ -256,6 +330,12 @@ class MetricsSummary(BaseModel):
 
     # By RQ category
     by_rq_category: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+
+    # RQ2: Schema validation metrics
+    rq2_total: int = 0
+    rq2_validation_passed: int = 0
+    rq2_validation_pass_rate: float = 0.0
+    rq2_avg_fill_rate: float = 0.0
 
     # Timing
     avg_latency_ms: float = 0.0

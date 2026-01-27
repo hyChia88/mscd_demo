@@ -53,6 +53,11 @@ except ImportError:
 
 from chat_logger import ConversationLogger
 
+# RQ2: Schema-aware mapping and validation
+from rq2_schema.extract_final_json import extract_final_json
+from rq2_schema.schema_registry import SchemaRegistry
+from rq2_schema.pipeline import run_rq2_postprocess
+
 
 def load_config(config_file="config.yaml"):
     """Load centralized configuration from YAML file"""
@@ -221,6 +226,23 @@ async def main_async():
     config = load_config()
     base_dir = Path(__file__).parent.parent
 
+    # RQ2: Load schema configuration
+    rq2_cfg = config.get("rq2", {})
+    rq2_enabled = rq2_cfg.get("enabled", True)
+    rq2_schema_path = str(base_dir / rq2_cfg.get("schema_path", "schemas/corenetx_min/v0.schema.json"))
+    schema_registry = None
+    rq2_schema = None
+    rq2_schema_id = None
+    if rq2_enabled:
+        try:
+            schema_registry = SchemaRegistry(rq2_schema_path)
+            rq2_schema = schema_registry.schema
+            rq2_schema_id = schema_registry.schema_id
+            print(f"[RQ2] Schema loaded: {rq2_schema_id}")
+        except FileNotFoundError as e:
+            print(f"⚠️  Warning: RQ2 schema not found: {e}")
+            rq2_enabled = False
+
     # Initialize conversation logger
     logger = ConversationLogger()
 
@@ -288,6 +310,9 @@ async def main_async():
 
             # Convert MCP tools to LangChain tools
             langchain_tools = convert_mcp_to_langchain_tools(tools_result.tools, session)
+
+            # RQ2: Build tool lookup map for post-processing
+            tool_by_name = {t.name: t for t in langchain_tools}
 
             print(f"\n✅ {len(langchain_tools)} tools loaded from MCP server")
             print("="*70 + "\n")
@@ -357,11 +382,35 @@ async def main_async():
 
                     logger.log_agent_message(output, tool_calls=tool_calls if tool_calls else None)
 
+                    # RQ2: Parse FINAL_JSON and run post-processing
+                    agent_final, parse_err = extract_final_json(output)
+
+                    # Build evidence list
+                    evidence = [{"type": "chat", "ref": case_id, "note": "ground truth chat context + query"}]
+                    for p in image_paths:
+                        evidence.append({"type": "image", "ref": p, "note": "ground truth image"})
+
+                    rq2_result = None
+                    if rq2_enabled and rq_category == "RQ2" and rq2_schema is not None:
+                        rq2_context = {
+                            "storey_name": agent_final.get("selected_storey_name", "") if agent_final else "",
+                            "evidence": evidence
+                        }
+                        rq2_result = await run_rq2_postprocess(
+                            schema_id=rq2_schema_id,
+                            schema=rq2_schema,
+                            agent_final=agent_final,
+                            parse_error=parse_err,
+                            rq2_context=rq2_context,
+                            tool_by_name=tool_by_name
+                        )
+
                     # Evaluate response against ground truth
                     eval_result = evaluate_response(output, case.get("ground_truth", {}))
                     eval_result["case_id"] = case_id
                     eval_result["elapsed_time"] = elapsed
                     eval_result["tool_calls"] = tool_calls
+                    eval_result["rq2"] = rq2_result  # Attach RQ2 results (may be None for non-RQ2 cases)
                     evaluation_results.append(eval_result)
 
                     # Print evaluation results
@@ -412,6 +461,15 @@ async def main_async():
             for rq, stats in sorted(rq_stats.items()):
                 pct = 100 * stats["guid_match"] / stats["total"] if stats["total"] > 0 else 0
                 print(f"      {rq}: {stats['guid_match']}/{stats['total']} ({pct:.1f}%)")
+
+            # RQ2 summary
+            rq2_rows = [r for r in evaluation_results if r.get("rq_category") == "RQ2" and r.get("rq2")]
+            if rq2_rows:
+                passed = sum(1 for r in rq2_rows if r["rq2"]["submission"]["validation_metadata"]["passed"])
+                avg_fill = sum(r["rq2"]["submission"]["validation_metadata"]["required_fill_rate"] for r in rq2_rows) / len(rq2_rows)
+                print(f"\n   RQ2 Schema Validation:")
+                print(f"      Validation Pass: {passed}/{len(rq2_rows)} ({100*passed/len(rq2_rows):.1f}%)")
+                print(f"      Avg Required Fill Rate: {avg_fill:.3f}")
 
             # Save evaluation results to JSON
             evaluations_dir.mkdir(parents=True, exist_ok=True)

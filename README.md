@@ -90,19 +90,32 @@ mscd_demo/
 ├── src/
 │   ├── ifc_engine.py        # Core IFC processing engine
 │   ├── main_mcp.py          # MCP-based agent orchestrator
-│   └── eval/                # Evaluation Pipeline v2
+│   ├── eval/                # Evaluation Pipeline v2
+│   │   ├── __init__.py
+│   │   ├── contracts.py     # Pydantic data models (EvalTrace, RQ2Result, etc.)
+│   │   ├── metrics.py       # Metric functions (top1_hit, RQ2 metrics, etc.)
+│   │   └── runner.py        # run_one_scenario() with RQ2 post-processing
+│   │
+│   └── rq2_schema/          # RQ2 Schema-Aware Validation Pipeline
 │       ├── __init__.py
-│       ├── contracts.py     # Pydantic data models (EvalTrace, etc.)
-│       ├── metrics.py       # Metric functions (top1_hit, etc.)
-│       └── runner.py        # run_one_scenario() execution
+│       ├── extract_final_json.py  # Parse FINAL_JSON from agent output
+│       ├── schema_registry.py     # Load and manage JSON Schema
+│       ├── mapping.py             # Deterministic mapping to submission JSON
+│       ├── validators.py          # JSON Schema + domain validation
+│       └── pipeline.py            # run_rq2_postprocess() orchestration
+│
+├── schemas/
+│   └── corenetx_min/
+│       └── v0.schema.json   # CORENET-X-like minimal submission schema
 │
 ├── data/
 │   ├── ifc/AdvancedProject/ # BIM model (10 storeys, 263 windows)
 │   └── ground_truth/gt_1/   # Evaluation test cases
 │
 ├── script/
-│   ├── baseline_experiment.py  # Redundancy quantification
-│   └── eval_pipeline.py        # Evaluation pipeline CLI
+│   ├── baseline_experiment.py    # Redundancy quantification
+│   ├── eval_pipeline.py          # Unified evaluation pipeline CLI
+│   └── rq2_schema_smoke_test.py  # RQ2 component smoke test
 │
 └── logs/
     ├── experiments/         # Baseline experiment results
@@ -181,8 +194,12 @@ ground_truth:
   file: "data/ground_truth/gt_1/gt_1.json"
 
 llm:
-  provider: "google"
-  model: "gemini-2.5-flash"
+  model: "gemini-2.5-flash-lite"
+  temperature: 0
+
+rq2:
+  enabled: true  # Enable RQ2 schema validation post-processing
+  schema_path: "schemas/corenetx_min/v0.schema.json"
 ```
 
 ---
@@ -281,7 +298,7 @@ python mcp_servers/ifc_server.py
 
 ## Evaluation Pipeline v2
 
-Structured evaluation framework with data contracts and standardized output formats.
+Structured evaluation framework with data contracts, RQ2 schema validation, and standardized output formats.
 
 ### Data Contracts ([src/eval/contracts.py](src/eval/contracts.py))
 
@@ -290,8 +307,11 @@ Structured evaluation framework with data contracts and standardized output form
 | `ScenarioInput` | Input scenario parsed from ground truth JSON |
 | `ToolStepRecord` | Single tool invocation trace (name, args, result, latency) |
 | `InterpreterOutput` | Parsed agent response (GUIDs, candidates, escalation) |
-| `EvalTrace` | Complete evaluation record (input + trace + metrics) |
-| `MetricsSummary` | Aggregated metrics across all scenarios |
+| `EvalTrace` | Complete evaluation record (input + trace + RQ2 result) |
+| `MetricsSummary` | Aggregated metrics including RQ2 validation stats |
+| `RQ2Result` | RQ2 post-processing result (schema validation, submission) |
+| `RQ2Submission` | CORENET-X-like submission structure |
+| `RQ2ValidationMetadata` | Schema validation result (passed, fill_rate, errors) |
 
 ### Metrics ([src/eval/metrics.py](src/eval/metrics.py))
 
@@ -302,22 +322,132 @@ Structured evaluation framework with data contracts and standardized output form
 | `search_space_reduction(trace)` | `1 - (final_pool / initial_pool)` |
 | `field_population_rate(trace)` | Fraction of expected fields populated |
 | `is_escalation(trace)` | Agent couldn't resolve (needs human) |
-| `compute_summary(traces)` | Aggregate all metrics + RQ breakdown |
+| `compute_summary(traces)` | Aggregate all metrics + RQ breakdown + RQ2 validation |
 
 ### Output Formats
 
 **JSONL Trace** (`traces_*.jsonl`):
 ```json
-{"scenario_id":"GT_001","run_id":"20260126","guid_match":true,"tool_steps":[...],"total_latency_ms":5432}
+{
+  "scenario_id": "GT_004_RQ2",
+  "guid_match": true,
+  "rq2_result": {
+    "schema_id": "corenetx-like-minimal/v0",
+    "submission": {
+      "validation_metadata": {"passed": true, "required_fill_rate": 1.0}
+    }
+  }
+}
 ```
 
 **CSV Summary** (`summary_*.csv`):
 ```
+=== OVERALL METRICS ===
 Metric,Value
 Total Scenarios,6
 Top-1 Accuracy,33.33%
-Avg Search-Space Reduction,87.50%
 ...
+
+=== RQ2 SCHEMA VALIDATION ===
+Metric,Value
+RQ2 Total Scenarios,2
+RQ2 Validation Passed,2
+RQ2 Validation Pass Rate,100.00%
+RQ2 Avg Fill Rate,95.00%
+```
+
+---
+
+## RQ2: Schema-Aware Validation Pipeline
+
+The RQ2 pipeline provides deterministic validation of agent outputs against CORENET-X-like submission schemas.
+
+### Architecture
+
+```
+Agent Output (with FINAL_JSON tag)
+        │
+        ▼
+┌───────────────────────────────────────────┐
+│  extract_final_json.py                    │
+│  Parse FINAL_JSON={...} from response     │
+└───────────────────────────────────────────┘
+        │
+        ▼
+┌───────────────────────────────────────────┐
+│  mapping.py (build_submission)            │
+│  • Map agent fields → submission schema   │
+│  • Call MCP tools for IFC data:           │
+│    - get_element_details(guid)            │
+│    - list_available_spaces()              │
+│  • Deterministic, no LLM calls            │
+└───────────────────────────────────────────┘
+        │
+        ▼
+┌───────────────────────────────────────────┐
+│  validators.py (validate_all)             │
+│  • JSON Schema validation (Draft 2020-12) │
+│  • Domain checks:                         │
+│    - GUID exists in model                 │
+│    - Storey name valid                    │
+│  • Compute required_fill_rate             │
+└───────────────────────────────────────────┘
+        │
+        ▼
+┌───────────────────────────────────────────┐
+│  RQ2Result                                │
+│  • submission: validated JSON             │
+│  • validation_metadata: passed, errors    │
+│  • uncertainty: escalation info           │
+└───────────────────────────────────────────┘
+```
+
+### Agent Output Format
+
+The agent must output a `FINAL_JSON` tag in its response:
+
+```
+Based on my analysis, the cracked wall is on Level 1...
+
+FINAL_JSON={"selected_guid": "0cRoQU_sD5R8MkkMkeodzx", "selected_storey_name": "Level 1", "issue_type": "defect", "severity": "medium", "issue_summary": "Crack observed on interior wall"}
+```
+
+### Schema Structure ([schemas/corenetx_min/v0.schema.json](schemas/corenetx_min/v0.schema.json))
+
+```json
+{
+  "submission_id": "demo_abc123",
+  "issue": {
+    "issue_type": "defect|compliance|safety",
+    "severity": "low|medium|high|critical",
+    "issue_summary": "Description of the issue"
+  },
+  "bim_reference": {
+    "element_guid": "0cRoQU_sD5R8MkkMkeodzx",
+    "ifc_class": "IfcWall",
+    "storey_name": "Level 1",
+    "property_sets": {}
+  },
+  "validation_metadata": {
+    "schema_id": "corenetx-like-minimal/v0",
+    "required_fill_rate": 1.0,
+    "passed": true,
+    "errors": []
+  }
+}
+```
+
+### Smoke Test
+
+```bash
+# Run RQ2 smoke test (no MCP required)
+python script/rq2_schema_smoke_test.py
+
+# Expected output:
+# ✅ TEST 1 PASSED (basic pass case)
+# ✅ TEST 2 PASSED (missing GUID case)
+# ✅ TEST 3 PASSED (invalid storey case)
+# ✅ TEST 4 PASSED (FINAL_JSON extraction)
 ```
 
 ---
@@ -330,6 +460,8 @@ Avg Search-Space Reduction,87.50%
 | Spatial Indexing | Custom graph (storey → elements) |
 | MCP Server | FastMCP |
 | LLM Agent | Google Gemini 2.5 Flash |
+| Data Contracts | Pydantic v2 |
+| Schema Validation | jsonschema (Draft 2020-12) |
 | Graph Database | Neo4j (optional) |
 | Visual Matching | OpenAI CLIP |
 
@@ -347,8 +479,15 @@ Avg Search-Space Reduction,87.50%
   - Data contracts (Pydantic models)
   - Metrics computation (top1_hit, topk_hit, search_space_reduction)
   - CLI script with streaming output
-- [ ] CORENET-X compliance checking
+- [x] **RQ2: Schema-Aware Validation Pipeline**
+  - FINAL_JSON extraction from agent output
+  - Deterministic mapping to CORENET-X-like schema
+  - JSON Schema validation (Draft 2020-12)
+  - Domain validation (GUID exists, storey valid)
+  - Integrated into unified eval pipeline
+  - RQ2 metrics in summary output
 - [ ] BCF issue generation
+- [ ] Visual matching with CLIP embeddings
 
 ---
 
@@ -376,4 +515,4 @@ Avg Search-Space Reduction,87.50%
 ---
 
 **Last Updated:** January 2026
-**Status:** Evaluation Pipeline v2 complete, ready for systematic testing
+**Status:** Unified Evaluation Pipeline with RQ2 Schema Validation complete
