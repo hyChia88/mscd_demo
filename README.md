@@ -88,16 +88,25 @@ mscd_demo/
 │   └── ifc_server.py        # MCP server with IFCEngine singleton
 │
 ├── src/
-│   └── ifc_engine.py        # Core IFC processing engine
+│   ├── ifc_engine.py        # Core IFC processing engine
+│   ├── main_mcp.py          # MCP-based agent orchestrator
+│   └── eval/                # Evaluation Pipeline v2
+│       ├── __init__.py
+│       ├── contracts.py     # Pydantic data models (EvalTrace, etc.)
+│       ├── metrics.py       # Metric functions (top1_hit, etc.)
+│       └── runner.py        # run_one_scenario() execution
 │
 ├── data/
 │   ├── ifc/AdvancedProject/ # BIM model (10 storeys, 263 windows)
 │   └── ground_truth/gt_1/   # Evaluation test cases
 │
 ├── script/
-│   └── baseline_experiment.py  # Redundancy quantification
+│   ├── baseline_experiment.py  # Redundancy quantification
+│   └── eval_pipeline.py        # Evaluation pipeline CLI
 │
-└── logs/experiments/        # Experiment results
+└── logs/
+    ├── experiments/         # Baseline experiment results
+    └── evaluations/         # Eval pipeline outputs (JSONL + CSV)
 ```
 
 ---
@@ -235,6 +244,25 @@ python script/baseline_experiment.py
 # Output: logs/experiments/baseline_gt007_results.json
 ```
 
+### Run Evaluation Pipeline v2
+```bash
+# Run full evaluation with default config
+python script/eval_pipeline.py --config config.yaml
+
+# Run with specific ground truth file
+python script/eval_pipeline.py --gt data/ground_truth/gt_1/gt_1.json
+
+# Run only first N scenarios (for testing)
+python script/eval_pipeline.py --scenarios 2
+
+# Specify custom output directory
+python script/eval_pipeline.py --output logs/experiments
+
+# Outputs:
+#   logs/evaluations/traces_YYYYMMDD_HHMMSS.jsonl  (detailed traces)
+#   logs/evaluations/summary_YYYYMMDD_HHMMSS.csv   (metrics summary)
+```
+
 ### Direct IFCEngine Usage
 ```python
 from src.ifc_engine import IFCEngine
@@ -247,6 +275,49 @@ print(f"Found {len(windows)} elements on 6th floor")
 ### Start MCP Server Standalone
 ```bash
 python mcp_servers/ifc_server.py
+```
+
+---
+
+## Evaluation Pipeline v2
+
+Structured evaluation framework with data contracts and standardized output formats.
+
+### Data Contracts ([src/eval/contracts.py](src/eval/contracts.py))
+
+| Model | Purpose |
+|-------|---------|
+| `ScenarioInput` | Input scenario parsed from ground truth JSON |
+| `ToolStepRecord` | Single tool invocation trace (name, args, result, latency) |
+| `InterpreterOutput` | Parsed agent response (GUIDs, candidates, escalation) |
+| `EvalTrace` | Complete evaluation record (input + trace + metrics) |
+| `MetricsSummary` | Aggregated metrics across all scenarios |
+
+### Metrics ([src/eval/metrics.py](src/eval/metrics.py))
+
+| Metric | Description |
+|--------|-------------|
+| `top1_hit(trace)` | First candidate matches ground truth GUID |
+| `topk_hit(trace, k)` | Ground truth GUID in top-k candidates |
+| `search_space_reduction(trace)` | `1 - (final_pool / initial_pool)` |
+| `field_population_rate(trace)` | Fraction of expected fields populated |
+| `is_escalation(trace)` | Agent couldn't resolve (needs human) |
+| `compute_summary(traces)` | Aggregate all metrics + RQ breakdown |
+
+### Output Formats
+
+**JSONL Trace** (`traces_*.jsonl`):
+```json
+{"scenario_id":"GT_001","run_id":"20260126","guid_match":true,"tool_steps":[...],"total_latency_ms":5432}
+```
+
+**CSV Summary** (`summary_*.csv`):
+```
+Metric,Value
+Total Scenarios,6
+Top-1 Accuracy,33.33%
+Avg Search-Space Reduction,87.50%
+...
 ```
 
 ---
@@ -272,7 +343,10 @@ python mcp_servers/ifc_server.py
 - [x] Ground truth test cases with real GUIDs
 - [x] Baseline experiment (98.9% redundancy reduction)
 - [x] Neo4j export support (optional)
-- [ ] Full evaluation pipeline
+- [x] **Evaluation Pipeline v2** (JSONL traces + CSV summary)
+  - Data contracts (Pydantic models)
+  - Metrics computation (top1_hit, topk_hit, search_space_reduction)
+  - CLI script with streaming output
 - [ ] CORENET-X compliance checking
 - [ ] BCF issue generation
 
@@ -302,4 +376,4 @@ python mcp_servers/ifc_server.py
 ---
 
 **Last Updated:** January 2026
-**Status:** Baseline experiment complete, MCP architecture validated
+**Status:** Evaluation Pipeline v2 complete, ready for systematic testing

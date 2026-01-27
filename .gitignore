@@ -1,3 +1,8 @@
 .env
 data/archive/
 mscd_demo/src/__pycache__
+mscd_demo/src/__pycache__/*.pyc
+mscd_demo/tests/__pycache__
+mscd_demo/tests/__pycache__/*.pyc
+mscd_demo/src/eval/__pycache__
+mscd_demo/src/eval/__pycache__/*.pyc

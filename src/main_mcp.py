@@ -68,7 +68,7 @@ def load_config(config_file="config.yaml"):
                 "image_dir": "data/ground_truth/gt_1/imgs"
             },
             "llm": {"model": "gemini-2.5-flash", "temperature": 0, "max_retries": 2},
-            "agent": {"delay_between_tests": 3, "system_prompt_file": "prompts/system_prompt.yaml"},
+            "agent": {"delay_between_tests": 7, "system_prompt_file": "prompts/system_prompt.yaml"},
             "output": {"evaluations_dir": "logs/evaluations", "logs_dir": "logs"}
         }
 
@@ -254,7 +254,7 @@ async def main_async():
     evaluations_dir = base_dir / output_config.get("evaluations_dir", "logs/evaluations")
 
     # Delay between tests from config
-    delay_between_tests = agent_config.get("delay_between_tests", 3)
+    delay_between_tests = agent_config.get("delay_between_tests", 7)
 
     print("\n" + "="*70)
     print("🚀 Initializing MCP-based Agent")
