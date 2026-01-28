@@ -6,7 +6,8 @@
 
 ## Overview
 
-This system translates natural language site reports into precise BIM element references by leveraging **4D task context** (spatial + temporal).
+This system translates natural language site reports into precise BIM element references by leveraging **4D task context** (spatial + temporal).  
+**[ ] My notes (do not ammend): Shouldnt only be 4D Task but also cross multi modalling, and leveraging agentic ai to get project context from doc like 4d task context**
 
 **Problem:** "Which window?" → 263 candidates (0.38% precision)  
 **Solution:** "Which window on 6th floor where Module Installation is active?" → 3 candidates (33.33% precision)
@@ -92,6 +93,10 @@ This automatically:
 │  • 263 Windows, 126 Doors, 304 Walls                        │
 └─────────────────────────────────────────────────────────────┘
 ```
+**My notes (do not ammend): 
+TODO MCP tools:
+[ ] Image comparing...
+**
 
 ---
 
@@ -104,8 +109,12 @@ mscd_demo/
 │   └── ifc_server.py        # MCP server with IFCEngine singleton
 │
 ├── src/
+│   ├── main_mcp.py          # MCP-based agent orchestrator (production)
+│   ├── chat_cli.py          # Interactive CLI for testing (MCP-based)
+│   ├── chat_logger.py       # Conversation logging utility
 │   ├── ifc_engine.py        # Core IFC processing engine
-│   ├── main_mcp.py          # MCP-based agent orchestrator
+│   ├── mcp_langchain_adapter.py  # MCP to LangChain adapter
+│   │
 │   ├── eval/                # Evaluation Pipeline v2
 │   │   ├── __init__.py
 │   │   ├── contracts.py     # Pydantic data models (EvalTrace, RQ2Result, etc.)
@@ -294,8 +303,8 @@ python src/chat_cli.py --scenario GT_007
 # Run MCP-based agent with ground truth test cases
 python src/main_mcp.py
 
-# Run legacy agent
-python src/legacy/main.py  # Uses test.yaml
+# Run legacy agent (deprecated, non-MCP)
+python src/legacy/main.py
 ```
 
 Test scenarios are defined in YAML files:

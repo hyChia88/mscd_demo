@@ -1,0 +1,43 @@
+{
+  "issue_id": "3c1cb63b-f4b2-45e6-bb74-b3f91ef5b2d5",
+  "case_id": "GT_004_RQ2_Entrance_Compliance",
+  "run_id": "20260127_192548",
+  "created_at": "2026-01-27T19:26:15.140420",
+  "title": "GT_004_RQ2_Entrance_Compliance: BIM Issue",
+  "description": "Original Query: \n\nSelected Element GUID: (none found)\nGUID Source: none\nSchema Validation: FAILED\nErrors: '' is too short, '' should be non-empty",
+  "issue_type": "defect",
+  "severity": "medium",
+  "status": "open",
+  "element_guid": "",
+  "guid_source": "none",
+  "bim_reference": {
+    "element_guid": "",
+    "ifc_class": "UNKNOWN",
+    "storey_name": "",
+    "element_name": ""
+  },
+  "schema": {
+    "schema_id": "corenetx-like-minimal/v0",
+    "fields": {
+      "element_guid": "",
+      "ifc_class": "UNKNOWN",
+      "storey_name": "",
+      "pset_snapshot": {}
+    },
+    "validation": {
+      "passed": false,
+      "errors": [
+        "'' is too short",
+        "'' should be non-empty"
+      ],
+      "fill_rate": 0.0
+    }
+  },
+  "evidence": [],
+  "trace_uri": "outputs/traces/20260127_192548/GT_004_RQ2_Entrance_Compliance.trace.json",
+  "evaluation": {
+    "guid_match": false,
+    "name_match": false,
+    "storey_match": false
+  }
+}
