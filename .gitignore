@@ -10,3 +10,7 @@ mscd_demo/src/rq2_schema/__pycache__
 mscd_demo/src/rq2_schema/__pycache__/*.pyc
 mscd_demo/script/__pycache__
 mscd_demo/script/__pycache__/*.pyc
+mscd_demo/src/handoff/__pycache__
+mscd_demo/src/handoff/__pycache__/*.pyc
+mscd_demo/mcp_servers/__pycache__
+mscd_demo/mcp_servers/__pycache__/*.pyc
