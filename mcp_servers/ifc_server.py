@@ -47,6 +47,19 @@ mcp = FastMCP("IFC Query Service")
 # Load IFC engine (singleton pattern - loaded once, reused for all requests)
 BASE_DIR = Path(__file__).parent.parent
 
+# Global state for query mode
+QUERY_MODE = "memory"  # "memory" or "neo4j"
+neo4j_graph = None
+
+
+def load_config():
+    """Load full config from config.yaml"""
+    config_path = BASE_DIR / "config.yaml"
+    if config_path.exists():
+        with open(config_path, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f)
+    return {}
+
 
 def load_ifc_path():
     """Load IFC path from config.yaml or environment variable"""
@@ -54,23 +67,72 @@ def load_ifc_path():
     if os.getenv("IFC_MODEL_PATH"):
         return os.getenv("IFC_MODEL_PATH")
 
-    # Then check config.yaml
-    config_path = BASE_DIR / "config.yaml"
-    if config_path.exists():
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = yaml.safe_load(f)
-            ifc_path = config.get("ifc", {}).get("model_path")
-            if ifc_path:
-                return str(BASE_DIR / ifc_path)
+    config = load_config()
+    ifc_path = config.get("ifc", {}).get("model_path")
+    if ifc_path:
+        return str(BASE_DIR / ifc_path)
 
     # Fallback to default
     return str(BASE_DIR / "data" / "ifc" / "AdvancedProject" / "IFC" / "AdvancedProject.ifc")
 
 
-IFC_PATH = load_ifc_path()
+def init_neo4j_connection():
+    """Initialize Neo4j connection if enabled in config or env"""
+    global neo4j_graph, QUERY_MODE
 
+    # Check environment variable first (set by main_mcp.py for experiments)
+    env_mode = os.getenv("QUERY_MODE", "").lower()
+    if env_mode == "neo4j":
+        force_neo4j = True
+    elif env_mode == "memory":
+        force_neo4j = False
+    else:
+        # Fall back to config
+        config = load_config()
+        force_neo4j = config.get("neo4j", {}).get("enabled", False)
+
+    if not force_neo4j:
+        QUERY_MODE = "memory"
+        print(f"[IFC Server] Query mode: MEMORY (in-memory spatial index)", file=sys.stderr)
+        return None
+
+    # Try to connect to Neo4j
+    try:
+        from py2neo import Graph
+        config = load_config()
+        neo4j_config = config.get("neo4j", {})
+
+        graph = Graph(
+            neo4j_config.get("uri", "bolt://localhost:7687"),
+            auth=(neo4j_config.get("user", "neo4j"), neo4j_config.get("password", "password"))
+        )
+        # Test connection
+        graph.run("RETURN 1")
+
+        neo4j_graph = graph
+        QUERY_MODE = "neo4j"
+        print(f"[IFC Server] Query mode: NEO4J (graph database)", file=sys.stderr)
+        return graph
+
+    except ImportError:
+        print(f"[IFC Server] py2neo not installed, falling back to memory mode", file=sys.stderr)
+        QUERY_MODE = "memory"
+        return None
+    except Exception as e:
+        print(f"[IFC Server] Neo4j connection failed ({e}), falling back to memory mode", file=sys.stderr)
+        QUERY_MODE = "memory"
+        return None
+
+
+# Initialize
+IFC_PATH = load_ifc_path()
 print(f"[IFC Server] Initializing with model: {IFC_PATH}", file=sys.stderr)
-engine = IFCEngine(IFC_PATH)
+
+# Initialize Neo4j connection (will set QUERY_MODE)
+neo4j_graph = init_neo4j_connection()
+
+# Initialize IFC engine with Neo4j connection if available
+engine = IFCEngine(IFC_PATH, neo4j_conn=neo4j_graph)
 print(f"[IFC Server] Engine ready. Spatial index contains {len(engine.spatial_index)} groups.", file=sys.stderr)
 
 # Log available storeys for debugging
@@ -328,6 +390,67 @@ def generate_3d_view(guid: str) -> str:
     return f"/server/renders/{guid}_inspection_view.png"
 
 
+@mcp.tool()
+def get_query_mode() -> str:
+    """
+    Get the current query mode (memory or neo4j).
+
+    Useful for experiment tracking and debugging.
+
+    Returns:
+        str: Current query mode and connection status
+    """
+    return json.dumps({
+        "query_mode": QUERY_MODE,
+        "neo4j_connected": neo4j_graph is not None,
+        "description": "Neo4j graph queries" if QUERY_MODE == "neo4j" else "In-memory spatial index"
+    }, indent=2)
+
+
+@mcp.tool()
+def query_adjacent_elements(guid: str) -> str:
+    """
+    Find elements adjacent to or connected with a specific element.
+
+    Uses Neo4j graph traversal when available for semantic relationships,
+    falls back to spatial proximity in memory mode.
+
+    Args:
+        guid: Global Unique Identifier of the element
+
+    Returns:
+        str: List of related/adjacent elements
+
+    Note:
+        This tool benefits most from Neo4j mode as it can traverse
+        semantic relationships (HAS_OPENING, FILLS, BOUNDED_BY, etc.)
+    """
+    if QUERY_MODE == "neo4j" and neo4j_graph is not None:
+        # Use Neo4j graph query for semantic adjacency
+        results = engine.query_adjacent_elements(guid)
+        if results:
+            return json.dumps({
+                "query_mode": "neo4j",
+                "source_guid": guid,
+                "adjacent_elements": results
+            }, indent=2)
+        return f"No adjacent elements found for GUID {guid} (Neo4j mode)"
+    else:
+        # Memory mode: find elements in same space
+        for space_name, elements in engine.spatial_index.items():
+            for el in elements:
+                if el.get("guid") == guid:
+                    # Return other elements in same space
+                    others = [e for e in elements if e.get("guid") != guid][:10]
+                    return json.dumps({
+                        "query_mode": "memory",
+                        "source_guid": guid,
+                        "same_space": space_name,
+                        "nearby_elements": others
+                    }, indent=2)
+        return f"Element with GUID {guid} not found"
+
+
 # Resource for exposing IFC model metadata
 @mcp.resource("ifc://model/metadata")
 def get_model_metadata() -> str:
@@ -337,11 +460,11 @@ def get_model_metadata() -> str:
     Returns:
         str: JSON-formatted metadata including schema, project info, and statistics
     """
-    import json
-
     metadata = {
         "model_path": str(IFC_PATH),
         "schema": engine.file.schema if hasattr(engine, 'file') else "IFC4",
+        "query_mode": QUERY_MODE,
+        "neo4j_connected": neo4j_graph is not None,
         "num_spaces": len(engine.spatial_index),
         "total_elements": sum(len(elements) for elements in engine.spatial_index.values()),
         "available_spaces": list(engine.spatial_index.keys())

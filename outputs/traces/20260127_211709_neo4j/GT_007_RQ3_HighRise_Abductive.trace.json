@@ -1,0 +1,80 @@
+{
+  "run_id": "20260127_211709_neo4j",
+  "case_id": "GT_007_RQ3_HighRise_Abductive",
+  "timestamp": "2026-01-27T21:17:58.947631",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "",
+    "tool_calls": [
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "6 - Sixth Floor",
+          "element_type": "IfcWindow"
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "6 - Sixth Floor",
+          "element_type": "IfcWall"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "",
+    "guid_source": "none"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": false,
+    "target_guid": "0Um_J2ClP45uPRcRbJqhxe",
+    "target_name": "BALANS Fixed Single Window:BALANS TRAPPHUS TOP:959331",
+    "rq_category": "RQ3",
+    "details": [
+      "❌ Target GUID not found: 0Um_J2ClP45uPRcRbJqhxe",
+      "❌ Target name not found: BALANS Fixed Single Window"
+    ],
+    "case_id": "GT_007_RQ3_HighRise_Abductive",
+    "elapsed_time": 1.1135547161102295,
+    "tool_calls": [
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "6 - Sixth Floor",
+          "element_type": "IfcWindow"
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "6 - Sixth Floor",
+          "element_type": "IfcWall"
+        }
+      }
+    ],
+    "rq2": null
+  },
+  "ground_truth": {
+    "target_guid": "0Um_J2ClP45uPRcRbJqhxe",
+    "target_name": "BALANS Fixed Single Window:BALANS TRAPPHUS TOP:959331",
+    "target_storey": "6 - Sixth Floor",
+    "expected_reasoning": "Visual(Sky/No ground) + 4D Task(6 - Sixth Floor - ACTIVE) + Role(Gondola) -> Abductive reasoning eliminates L01-L5 options despite identical geometry. Only 3 windows on 6 - Sixth Floor vs 46 per floor elsewhere.",
+    "action_required": "Spatial_Filter(6 - Sixth Floor); Retrieve_Property(Pset_WindowCommon.Status)",
+    "rq_category": "RQ3"
+  }
+}

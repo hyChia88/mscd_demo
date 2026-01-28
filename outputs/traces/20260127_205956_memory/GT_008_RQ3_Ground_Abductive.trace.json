@@ -1,0 +1,50 @@
+{
+  "run_id": "20260127_205956_memory",
+  "case_id": "GT_008_RQ3_Ground_Abductive",
+  "timestamp": "2026-01-27T21:01:00.586081",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "What is the GUID of the corner joint you are referring to? If you can provide it, I can look up its details and generate a 3D view for you.",
+    "tool_calls": []
+  },
+  "prediction": {
+    "element_guid": "",
+    "guid_source": "none"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": false,
+    "target_guid": "1ebX2H7F12su$wtPbeYAIT",
+    "target_name": "BALANS Fixed Single Window:BALANS 20M FLOOR (SH = 0):773593",
+    "rq_category": "RQ3",
+    "details": [
+      "❌ Target GUID not found: 1ebX2H7F12su$wtPbeYAIT",
+      "❌ Target name not found: BALANS Fixed Single Window"
+    ],
+    "case_id": "GT_008_RQ3_Ground_Abductive",
+    "elapsed_time": 0.8548345565795898,
+    "tool_calls": [],
+    "rq2": null
+  },
+  "ground_truth": {
+    "target_guid": "1ebX2H7F12su$wtPbeYAIT",
+    "target_name": "BALANS Fixed Single Window:BALANS 20M FLOOR (SH = 0):773593",
+    "target_storey": "Level 1",
+    "expected_reasoning": "Multi-Image Fusion: img_full shows trees (Ground/Level 1) + img_closeup shows defect detail. Combined with 4D Task(Level 1) -> Target locked to Level 1 Window. Note: 'Level 1' vs '1 - First Floor' are different storeys in this model.",
+    "action_required": "Cross_Reference_Visual_Cues; Spatial_Filter(Level 1); Create_BCF_Issue",
+    "rq_category": "RQ3"
+  }
+}

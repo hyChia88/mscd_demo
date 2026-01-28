@@ -1,13 +1,14 @@
-# MSCD Demo: 4D-Context BIM Disambiguation System
+# MSCD Demo: An “Interpreter Layer” for AEC
 
-> Master Thesis MVP - Using 4D construction context to disambiguate BIM element queries
+> Master Thesis MVP - Cross-Modal Alignment, Schema Mapping, and Compliance
 
 ---
 
 ## Overview
 
-This system translates natural language site reports into precise BIM element references by leveraging **4D task context** (spatial + temporal).  
-**[ ] My notes (do not ammend): Shouldnt only be 4D Task but also cross multi modalling, and leveraging agentic ai to get project context from doc like 4d task context**
+This demo implements an agentic interpreter layer that orchestrates IFC retrieval (graph), project context docs (e.g., 4D tasks), and multimodal evidence (site images + text) to align messy site reports with IFC elements + schema-aware structured outputs, reducing information loss and enabling BCF handoff.
+
+> Interpreter layer = agentic orchestration over heterogeneous project context (IFC graph + 4D docs + multimodal evidence) with verifiable schema outputs and BCF handoff.
 
 **Problem:** "Which window?" → 263 candidates (0.38% precision)  
 **Solution:** "Which window on 6th floor where Module Installation is active?" → 3 candidates (33.33% precision)
@@ -18,11 +19,11 @@ This system translates natural language site reports into precise BIM element re
 
 ## Research Questions Addressed
 
-| RQ | Focus | Implementation |
-|----|-------|----------------|
-| **RQ1** | Visual + Context Disambiguation | Spatial indexing by storey/room |
-| **RQ2** | Compliance Reasoning | Property extraction (Pset_*, SGPset_*) |
-| **RQ3** | Abductive Reasoning | 4D task context filtering |
+| RQ | Focus | Implementation | Evaluation |
+|----|-------|----------------|------------|
+| **RQ1** | Multimodal context: Visual + Text | Spatial indexing by storey/room | Retrieval F1 score |
+| **RQ2** | Schema mapping | Property extraction (Pset_*, SGPset_*) | Schema pass rate / fill rate |
+| **RQ3** | Abductive Reasoning | Agentic tools | escalation policy & handoff completeness |
 
 ---
 
@@ -275,6 +276,31 @@ python script/ifc_to_neo4j.py
 open http://localhost:7474
 ```
 
+### A/B Experiment: Neo4j vs In-Memory
+
+Run comparative experiments with the same ground truth:
+
+```bash
+# Experiment 1: In-memory spatial index (baseline)
+python src/main_mcp.py --experiment memory
+# Output: logs/evaluations/eval_TIMESTAMP_memory.json
+
+# Experiment 2: Neo4j graph queries
+python src/main_mcp.py --experiment neo4j
+# Output: logs/evaluations/eval_TIMESTAMP_neo4j.json
+```
+
+Results include experiment metadata for comparison:
+```json
+{
+  "experiment": {
+    "query_mode": "neo4j",
+    "description": "Neo4j graph queries"
+  },
+  "summary": { ... }
+}
+```
+
 ---
 
 ## Usage Examples
@@ -303,9 +329,20 @@ python src/chat_cli.py --scenario GT_007
 # Run MCP-based agent with ground truth test cases
 python src/main_mcp.py
 
+# A/B Experiment: Neo4j vs In-Memory Modes
+python src/main_mcp.py --experiment memory   # Force in-memory spatial index
+python src/main_mcp.py --experiment neo4j    # Force Neo4j graph queries
+python src/main_mcp.py -e neo4j              # Short form
+
 # Run legacy agent (deprecated, non-MCP)
 python src/legacy/main.py
 ```
+
+**Experiment Mode:** The `--experiment` flag allows A/B testing between:
+- `memory`: In-memory spatial index (default, faster)
+- `neo4j`: Neo4j graph database queries (enables semantic reasoning)
+
+Results are saved with mode suffix: `eval_TIMESTAMP_memory.json` or `eval_TIMESTAMP_neo4j.json`
 
 Test scenarios are defined in YAML files:
 - [prompts/tests/test_2.yaml](prompts/tests/test_2.yaml) - 18 comprehensive scenarios

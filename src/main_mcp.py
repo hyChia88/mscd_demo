@@ -24,6 +24,7 @@ import time
 import json
 import yaml
 import asyncio
+import argparse
 from pathlib import Path
 from dotenv import load_dotenv
 from datetime import datetime
@@ -223,9 +224,12 @@ def evaluate_response(response_text, ground_truth):
     return results
 
 
-async def main_async():
+async def main_async(args=None):
     """Main asynchronous orchestrator"""
     load_dotenv()
+
+    # Determine experiment mode
+    experiment_mode = args.experiment if args and args.experiment else None
 
     # Load centralized configuration
     config = load_config()
@@ -283,16 +287,25 @@ async def main_async():
     # Delay between tests from config
     delay_between_tests = agent_config.get("delay_between_tests", 7)
 
+    # Build environment for MCP server (inherit current env + add QUERY_MODE if specified)
+    server_env = dict(os.environ)  # Inherit current environment
+    if experiment_mode:
+        server_env["QUERY_MODE"] = experiment_mode
+
+    # Determine display mode
+    display_mode = experiment_mode or "config"  # "config" means using config.yaml setting
+
     print("\n" + "="*70)
     print("🚀 Initializing MCP-based Agent")
     print(f"   IFC Model: {config.get('ifc', {}).get('model_path', 'N/A')}")
     print(f"   Ground Truth: {gt_file}")
+    print(f"   Query Mode: {display_mode.upper()}" + (" (from --experiment flag)" if experiment_mode else " (from config.yaml)"))
     print("="*70)
 
     server_params = StdioServerParameters(
         command=python_exe,
         args=[ifc_server_path],
-        env=None
+        env=server_env
     )
 
     # Connect to MCP server and run agent INSIDE the session context
@@ -334,7 +347,12 @@ async def main_async():
             logger.log_agent_message(f"MCP-based agent initialized with {len(langchain_tools)} tools")
 
             # P2: Create run_id for this evaluation session (shared across all cases)
-            run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+            # Include experiment mode in run_id for easy identification
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            if experiment_mode:
+                run_id = f"{timestamp}_{experiment_mode}"
+            else:
+                run_id = timestamp
 
             # Track evaluation results
             evaluation_results = []
@@ -516,12 +534,21 @@ async def main_async():
 
             # Save evaluation results to JSON
             evaluations_dir.mkdir(parents=True, exist_ok=True)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            results_file = evaluations_dir / f"eval_{timestamp}.json"
+            eval_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            # Include experiment mode in filename for easy identification
+            if experiment_mode:
+                results_file = evaluations_dir / f"eval_{eval_timestamp}_{experiment_mode}.json"
+            else:
+                results_file = evaluations_dir / f"eval_{eval_timestamp}.json"
 
             with open(results_file, "w", encoding="utf-8") as f:
                 json.dump({
-                    "timestamp": timestamp,
+                    "timestamp": eval_timestamp,
+                    "run_id": run_id,
+                    "experiment": {
+                        "query_mode": experiment_mode or "config",
+                        "description": "Neo4j graph queries" if experiment_mode == "neo4j" else "In-memory spatial index" if experiment_mode == "memory" else "Using config.yaml setting"
+                    },
                     "ground_truth_file": gt_file,
                     "summary": {
                         "total": total,
@@ -545,14 +572,39 @@ async def main_async():
             print(f"\n📊 Session complete. Check logs/ directory for conversation history.")
 
 
+def parse_args():
+    """Parse command line arguments"""
+    parser = argparse.ArgumentParser(
+        description="MCP-Based AI Agent Orchestrator for BIM Inspection",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python src/main_mcp.py                    # Default: use config.yaml setting
+  python src/main_mcp.py --experiment memory   # Force in-memory spatial index
+  python src/main_mcp.py --experiment neo4j    # Force Neo4j graph queries
+  python src/main_mcp.py -e neo4j              # Short form
+        """
+    )
+    parser.add_argument(
+        "--experiment", "-e",
+        type=str,
+        choices=["memory", "neo4j"],
+        default=None,
+        help="Query mode for A/B experiment: 'memory' (in-memory spatial index) or 'neo4j' (graph database). If not specified, uses config.yaml setting."
+    )
+    return parser.parse_args()
+
+
 def main():
     """Synchronous entry point"""
     if not MCP_AVAILABLE:
         print("❌ MCP dependencies not available. Install with: pip install -r requirements.txt")
         return
 
-    # Run the async main function
-    asyncio.run(main_async())
+    args = parse_args()
+
+    # Run the async main function with args
+    asyncio.run(main_async(args))
 
 
 if __name__ == "__main__":

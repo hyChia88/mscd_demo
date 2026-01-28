@@ -1,0 +1,72 @@
+{
+  "run_id": "20260127_205956_memory",
+  "case_id": "GT_002_RQ1_Window_QA",
+  "timestamp": "2026-01-27T21:00:10.773072",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "I have inspected the site environment for the '1 - First Floor' and found 736 elements. This includes 189 IfcBuildingElementProxy, 42 IfcDoor, 40 IfcFlowTerminal, 307 IfcFurnishingElement, 1 IfcSlab, 1 IfcStair, 1 IfcWall, 109 IfcWallStandardCase, and 46 IfcWindow.\n\nIs there anything specific you would like me to check or any particular area of concern?",
+    "tool_calls": [
+      {
+        "name": "list_available_spaces",
+        "args": {}
+      },
+      {
+        "name": "get_elements_by_storey",
+        "args": {
+          "storey_name": "1 - First Floor"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "IfcBuildingElementProx",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": false,
+    "target_guid": "1KMtYLyv9CyfGv8UjnMBSN",
+    "target_name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:793588",
+    "rq_category": "RQ1",
+    "details": [
+      "❌ Target GUID not found: 1KMtYLyv9CyfGv8UjnMBSN",
+      "❌ Target name not found: BALANS Fixed Single Window"
+    ],
+    "case_id": "GT_002_RQ1_Window_QA",
+    "elapsed_time": 1.8265435695648193,
+    "tool_calls": [
+      {
+        "name": "list_available_spaces",
+        "args": {}
+      },
+      {
+        "name": "get_elements_by_storey",
+        "args": {
+          "storey_name": "1 - First Floor"
+        }
+      }
+    ],
+    "rq2": null
+  },
+  "ground_truth": {
+    "target_guid": "1KMtYLyv9CyfGv8UjnMBSN",
+    "target_name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:793588",
+    "target_storey": "1 - First Floor",
+    "expected_reasoning": "Visual(Frame installed completed, messy site) + 4D Task(1 - First Floor) + Role(QC Officer) -> Targets the specific IfcWindow element in the current space context.",
+    "action_required": "Retrieve_Element_Metadata; Log_Defect_Report",
+    "rq_category": "RQ1"
+  }
+}

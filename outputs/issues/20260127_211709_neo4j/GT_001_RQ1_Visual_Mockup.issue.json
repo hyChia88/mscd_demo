@@ -1,0 +1,35 @@
+{
+  "issue_id": "2455740b-ae7b-41f7-88b4-ca87d82ff14b",
+  "case_id": "GT_001_RQ1_Visual_Mockup",
+  "run_id": "20260127_211709_neo4j",
+  "created_at": "2026-01-27T21:17:11.837080",
+  "title": "GT_001_RQ1_Visual_Mockup: BIM Issue",
+  "description": "Original Query: \n\nSelected Element GUID: 0cRoQU_sD5R8MkkMkeodzx\nGUID Source: regex_from_agent_response",
+  "issue_type": "defect",
+  "severity": "medium",
+  "status": "open",
+  "element_guid": "0cRoQU_sD5R8MkkMkeodzx",
+  "guid_source": "regex_from_agent_response",
+  "bim_reference": {
+    "element_guid": "0cRoQU_sD5R8MkkMkeodzx",
+    "ifc_class": "",
+    "storey_name": "",
+    "element_name": ""
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evidence": [],
+  "trace_uri": "outputs/traces/20260127_211709_neo4j/GT_001_RQ1_Visual_Mockup.trace.json",
+  "evaluation": {
+    "guid_match": true,
+    "name_match": true,
+    "storey_match": false
+  }
+}
