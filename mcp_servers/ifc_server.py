@@ -43,17 +43,33 @@ from ifc_engine import IFCEngine
 
 # Lazy load VisualAligner to avoid heavy CLIP model load at startup
 _visual_aligner = None
+_visual_attempted = False  # Track if we already tried to load
+
+def is_visual_enabled():
+    """Check if visual analysis is enabled via environment variable."""
+    return os.getenv("VISUAL_ENABLED", "true").lower() == "true"
 
 def get_visual_aligner():
     """Lazy-load the VisualAligner singleton (CLIP model is heavy)."""
-    global _visual_aligner
-    if _visual_aligner is None:
+    global _visual_aligner, _visual_attempted
+
+    # Check if visual is disabled via env var
+    if not is_visual_enabled():
+        if not _visual_attempted:
+            print(f"[IFC Server] Visual analysis DISABLED (VISUAL_ENABLED=false)", file=sys.stderr)
+            _visual_attempted = True
+        return None
+
+    if _visual_aligner is None and not _visual_attempted:
+        _visual_attempted = True
         try:
             from visual.aligner import VisualAligner
             _visual_aligner = VisualAligner()
+            print(f"[IFC Server] Visual analysis ENABLED (CLIP loaded)", file=sys.stderr)
         except ImportError as e:
             print(f"[IFC Server] VisualAligner not available: {e}", file=sys.stderr)
             return None
+
     return _visual_aligner
 
 # Initialize MCP server

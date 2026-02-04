@@ -65,6 +65,16 @@ from handoff.bcf_lite import write_issue_json
 from handoff.bcf_zip import write_bcfzip
 
 
+def _get_experiment_description(experiment_mode, query_mode, visual_enabled):
+    """Get human-readable description for experiment mode."""
+    if not experiment_mode:
+        return "Using config.yaml setting"
+    base = "Neo4j graph queries" if query_mode == "neo4j" else "In-memory spatial index"
+    if visual_enabled:
+        return f"{base} + CLIP visual matching"
+    return base
+
+
 def load_config(config_file="config.yaml"):
     """Load centralized configuration from YAML file"""
     base_dir = Path(__file__).parent.parent
@@ -352,8 +362,19 @@ async def main_async(args=None):
 
     # Build environment for MCP server (inherit current env + add QUERY_MODE if specified)
     server_env = dict(os.environ)  # Inherit current environment
+
+    # Parse experiment mode: "memory", "neo4j", "memory+clip", "neo4j+clip"
+    query_mode = None
+    visual_enabled = False
     if experiment_mode:
-        server_env["QUERY_MODE"] = experiment_mode
+        if "+clip" in experiment_mode:
+            query_mode = experiment_mode.replace("+clip", "")
+            visual_enabled = True
+        else:
+            query_mode = experiment_mode
+            visual_enabled = False
+        server_env["QUERY_MODE"] = query_mode
+        server_env["VISUAL_ENABLED"] = "true" if visual_enabled else "false"
 
     # Determine display mode
     display_mode = experiment_mode or "config"  # "config" means using config.yaml setting
@@ -362,7 +383,12 @@ async def main_async(args=None):
     print("🚀 Initializing MCP-based Agent")
     print(f"   IFC Model: {config.get('ifc', {}).get('model_path', 'N/A')}")
     print(f"   Ground Truth: {gt_file}")
-    print(f"   Query Mode: {display_mode.upper()}" + (" (from --experiment flag)" if experiment_mode else " (from config.yaml)"))
+    if experiment_mode:
+        print(f"   Experiment: {display_mode.upper()}")
+        print(f"   Query Mode: {query_mode.upper()}")
+        print(f"   Visual (CLIP): {'ENABLED' if visual_enabled else 'DISABLED'}")
+    else:
+        print(f"   Query Mode: CONFIG (from config.yaml)")
     print("="*70)
 
     server_params = StdioServerParameters(
@@ -677,8 +703,10 @@ async def main_async(args=None):
                     "timestamp": eval_timestamp,
                     "run_id": run_id,
                     "experiment": {
-                        "query_mode": experiment_mode or "config",
-                        "description": "Neo4j graph queries" if experiment_mode == "neo4j" else "In-memory spatial index" if experiment_mode == "memory" else "Using config.yaml setting"
+                        "mode": experiment_mode or "config",
+                        "query_mode": query_mode if experiment_mode else "config",
+                        "visual_enabled": visual_enabled if experiment_mode else False,
+                        "description": _get_experiment_description(experiment_mode, query_mode, visual_enabled)
                     },
                     "ground_truth_file": gt_file,
                     "summary": {
@@ -727,18 +755,26 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python src/main_mcp.py                    # Default: use config.yaml setting
-  python src/main_mcp.py --experiment memory   # Force in-memory spatial index
-  python src/main_mcp.py --experiment neo4j    # Force Neo4j graph queries
-  python src/main_mcp.py -e neo4j              # Short form
+  python src/main_mcp.py                         # Default: use config.yaml setting
+  python src/main_mcp.py --experiment memory     # In-memory spatial index (baseline)
+  python src/main_mcp.py --experiment neo4j      # Neo4j graph queries
+  python src/main_mcp.py --experiment memory+clip  # In-memory + CLIP visual matching
+  python src/main_mcp.py --experiment neo4j+clip   # Neo4j + CLIP visual matching
+  python src/main_mcp.py -e neo4j+clip           # Short form
+
+Run all experiments in sequence:
+  for mode in memory neo4j memory+clip neo4j+clip; do
+    python src/main_mcp.py -e $mode
+    sleep 10
+  done
         """
     )
     parser.add_argument(
         "--experiment", "-e",
         type=str,
-        choices=["memory", "neo4j"],
+        choices=["memory", "neo4j", "memory+clip", "neo4j+clip"],
         default=None,
-        help="Query mode for A/B experiment: 'memory' (in-memory spatial index) or 'neo4j' (graph database). If not specified, uses config.yaml setting."
+        help="Experiment mode: 'memory', 'neo4j', 'memory+clip', 'neo4j+clip'. The '+clip' variants enable CLIP visual matching tools."
     )
     return parser.parse_args()
 

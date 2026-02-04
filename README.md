@@ -321,7 +321,7 @@ python script/ifc_to_neo4j.py
 open http://localhost:7474
 ```
 
-### A/B Experiment: Neo4j vs In-Memory
+### A/B Experiment: Neo4j vs In-Memory vs CLIP
 
 Run comparative experiments with the same ground truth:
 
@@ -333,18 +333,44 @@ python src/main_mcp.py --experiment memory
 # Experiment 2: Neo4j graph queries
 python src/main_mcp.py --experiment neo4j
 # Output: logs/evaluations/eval_TIMESTAMP_neo4j.json
+
+# Experiment 3: In-memory + CLIP visual matching
+python src/main_mcp.py --experiment memory+clip
+# Output: logs/evaluations/eval_TIMESTAMP_memory+clip.json
+
+# Experiment 4: Neo4j + CLIP visual matching
+python src/main_mcp.py --experiment neo4j+clip
+# Output: logs/evaluations/eval_TIMESTAMP_neo4j+clip.json
+```
+
+**Run all experiments in sequence:**
+```bash
+for mode in memory neo4j memory+clip neo4j+clip; do
+  echo "Running experiment: $mode"
+  python src/main_mcp.py -e $mode
+  sleep 10
+done
 ```
 
 Results include experiment metadata for comparison:
 ```json
 {
   "experiment": {
+    "mode": "neo4j+clip",
     "query_mode": "neo4j",
-    "description": "Neo4j graph queries"
+    "visual_enabled": true,
+    "description": "Neo4j graph queries + CLIP visual matching"
   },
   "summary": { ... }
 }
 ```
+
+| Experiment Mode | Query Backend | Visual (CLIP) | Use Case |
+|-----------------|---------------|---------------|----------|
+| `memory` | In-memory spatial index | Disabled | Fast baseline |
+| `neo4j` | Neo4j graph database | Disabled | Semantic relationships |
+| `memory+clip` | In-memory spatial index | Enabled | Visual grounding |
+| `neo4j+clip` | Neo4j graph database | Enabled | Full multimodal |
 
 ---
 
@@ -374,10 +400,12 @@ python src/chat_cli.py --scenario GT_007
 # Run MCP-based agent with ground truth test cases
 python src/main_mcp.py
 
-# A/B Experiment: Neo4j vs In-Memory Modes
-python src/main_mcp.py --experiment memory   # Force in-memory spatial index
-python src/main_mcp.py --experiment neo4j    # Force Neo4j graph queries
-python src/main_mcp.py -e neo4j              # Short form
+# A/B Experiment: Multiple Modes
+python src/main_mcp.py --experiment memory       # In-memory spatial index
+python src/main_mcp.py --experiment neo4j        # Neo4j graph queries
+python src/main_mcp.py --experiment memory+clip  # In-memory + CLIP visual
+python src/main_mcp.py --experiment neo4j+clip   # Neo4j + CLIP visual
+python src/main_mcp.py -e neo4j+clip             # Short form
 
 # Run legacy agent (deprecated, non-MCP)
 python src/legacy/main.py
@@ -386,8 +414,10 @@ python src/legacy/main.py
 **Experiment Mode:** The `--experiment` flag allows A/B testing between:
 - `memory`: In-memory spatial index (default, faster)
 - `neo4j`: Neo4j graph database queries (enables semantic reasoning)
+- `memory+clip`: In-memory + CLIP visual matching (image-to-BIM grounding)
+- `neo4j+clip`: Neo4j + CLIP visual matching (full multimodal)
 
-Results are saved with mode suffix: `eval_TIMESTAMP_memory.json` or `eval_TIMESTAMP_neo4j.json`
+Results are saved with mode suffix: `eval_TIMESTAMP_memory.json`, `eval_TIMESTAMP_neo4j+clip.json`, etc.
 
 Test scenarios are defined in YAML files:
 - [prompts/tests/test_2.yaml](prompts/tests/test_2.yaml) - 18 comprehensive scenarios
