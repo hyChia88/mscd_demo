@@ -248,15 +248,23 @@ async def main_async(args):
 
                     if "messages" in response:
                         # Show tool calls
+                        tool_names = []
                         for msg in response["messages"]:
                             if hasattr(msg, 'tool_calls') and msg.tool_calls:
                                 for tc in msg.tool_calls:
+                                    tool_names.append(tc.get('name'))
                                     print(f"\n  [Tool: {tc.get('name')}]")
 
                         agent_message = response["messages"][-1].content
                         messages = response["messages"]
                     else:
                         agent_message = str(response)
+                        tool_names = []
+
+                    # Handle empty responses with fallback
+                    if not agent_message or not agent_message.strip():
+                        agent_message = f"[Empty response] Tools called: {tool_names if tool_names else 'None'}. Try rephrasing your query."
+                        print("\n⚠️  Agent returned empty response")
 
                     print(agent_message)
                     print("\n" + "-" * 70)

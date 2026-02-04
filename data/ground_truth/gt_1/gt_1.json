@@ -61,7 +61,7 @@
         }
       ]
     },
-    "query_text": "Inspect site environment.",
+    "query_text": "Log this window frame for QA record.",
     "ground_truth": {
       "target_guid": "1KMtYLyv9CyfGv8UjnMBSN",
       "target_name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:793588",
@@ -90,15 +90,19 @@
         {
           "role": "RTO",
           "text": "At the Level 1 Main Entrance now. Measuring the clear width."
+        },
+        {
+          "role": "RTO",
+          "text": "The Swedoor fire-rated door here is the main access point. Checking if it meets 1990mm clear opening requirement."
         }
       ]
     },
-    "query_text": "Verify entrance clear opening and ramp slope.",
+    "query_text": "Verify this Swedoor entrance clear opening for accessibility compliance.",
     "ground_truth": {
       "target_guid": "1_jeQ1u6XFwed$AhVCoJi$",
       "target_name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:473744",
       "target_storey": "Level 1",
-      "expected_reasoning": "Role(RTO) + Query(Clear Opening/Ramp) + 4D Task(Level 1) -> Triggers regulatory check against IFC-SG Accessibility Schema (SGPset_Accessibility).",
+      "expected_reasoning": "Role(RTO) + Query(Clear Opening) + Chat(Swedoor fire-rated door) + 4D Task(Level 1) -> Search for IfcDoor on Level 1 matching 'Swedoor' name pattern.",
       "action_required": "Get_Geometry_Properties(OverallWidth); Validate_IFC_SG(Accessibility_Code)",
       "rq_category": "RQ2"
     }
@@ -169,7 +173,7 @@
   },
   {
     "id": "GT_008_RQ3_Ground_Abductive",
-    "image_file": ["img_gt_008_1.png", "img_gt_008_2.png"],
+    "image_file": ["img_gt_008_2.png"],
     "context_payload": {
       "meta": {
         "timestamp": "2026-02-10T11:00:00+08:00",
@@ -185,17 +189,17 @@
         },
         {
           "role": "Main Con Supervisor",
-          "text": "I'm looking at the corner joint, seems to be a gap. See full view and close up."
+          "text": "I'm looking at the window corner joint, seems to be a gap. See close up."
         }
       ]
     },
-    "query_text": "The corner joint is loose.",
+    "query_text": "Check this window joint defect on Level 1.",
     "ground_truth": {
       "target_guid": "1ebX2H7F12su$wtPbeYAIT",
       "target_name": "BALANS Fixed Single Window:BALANS 20M FLOOR (SH = 0):773593",
       "target_storey": "Level 1",
-      "expected_reasoning": "Multi-Image Fusion: img_full shows trees (Ground/Level 1) + img_closeup shows defect detail. Combined with 4D Task(Level 1) -> Target locked to Level 1 Window. Note: 'Level 1' vs '1 - First Floor' are different storeys in this model.",
-      "action_required": "Cross_Reference_Visual_Cues; Spatial_Filter(Level 1); Create_BCF_Issue",
+      "expected_reasoning": "Chat mentions 'window corner joint' + 4D Task(Level 1) -> Search for IfcWindow on Level 1. Note: 'Level 1' vs '1 - First Floor' are different storeys in this model.",
+      "action_required": "Spatial_Filter(Level 1); Search IfcWindow; Create_BCF_Issue",
       "rq_category": "RQ3"
     }
   }

@@ -1,0 +1,102 @@
+{
+  "run_id": "20260127_224513_memory",
+  "case_id": "GT_001_RQ1_Visual_Mockup",
+  "timestamp": "2026-01-27T22:45:17.108196",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "I have located the wall element on Level 1. The element is a \"Basic Wall: Generic - 200mm\" with GUID \"0cRoQU_sD5R8MkkMkeodzx\". It has a width of 200mm and a height of 31000mm. According to the Pset_WallCommon properties, this is an external wall.\n\nI have also generated a 3D view of the element for your reference: /server/renders/0cRoQU_sD5R8MkkMkeodzx_inspection_view.png.\n\nPlease let me know if you need details on any other elements.",
+    "tool_calls": [
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "Level 1",
+          "element_type": "IfcWall"
+        }
+      },
+      {
+        "name": "get_element_details",
+        "args": {
+          "guid": "0cRoQU_sD5R8MkkMkeodzx"
+        }
+      },
+      {
+        "name": "generate_3d_view",
+        "args": {
+          "guid": "0cRoQU_sD5R8MkkMkeodzx"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "0cRoQU_sD5R8MkkMkeodzx",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": true,
+    "name_match": true,
+    "target_guid": "0cRoQU_sD5R8MkkMkeodzx",
+    "target_name": "Basic Wall:Generic - 200mm:308895",
+    "rq_category": "RQ1",
+    "details": [
+      "✅ Target GUID found: 0cRoQU_sD5R8MkkMkeodzx",
+      "📊 Target GUID rank: 1/1",
+      "✅ Target name found: Basic Wall"
+    ],
+    "mentioned_guids": [
+      "0cRoQU_sD5R8MkkMkeodzx"
+    ],
+    "num_candidates": 1,
+    "top1_hit": true,
+    "top3_hit": true,
+    "top5_hit": true,
+    "target_rank": 1,
+    "precision_at_1": 1.0,
+    "precision_at_3": 1.0,
+    "recall": 1.0,
+    "case_id": "GT_001_RQ1_Visual_Mockup",
+    "elapsed_time": 3.477879047393799,
+    "tool_calls": [
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "Level 1",
+          "element_type": "IfcWall"
+        }
+      },
+      {
+        "name": "get_element_details",
+        "args": {
+          "guid": "0cRoQU_sD5R8MkkMkeodzx"
+        }
+      },
+      {
+        "name": "generate_3d_view",
+        "args": {
+          "guid": "0cRoQU_sD5R8MkkMkeodzx"
+        }
+      }
+    ],
+    "rq2": null
+  },
+  "ground_truth": {
+    "target_guid": "0cRoQU_sD5R8MkkMkeodzx",
+    "target_name": "Basic Wall:Generic - 200mm:308895",
+    "target_storey": "Level 1",
+    "expected_reasoning": "Visual(Crack/Stain) + Phase(VMU Review) + 4D Task(Level 1) + Role(Site Super) -> Disambiguates to Level 1 Generic Wall. Distinguishes from high-rise structural walls.",
+    "action_required": "Retrieve_IFC_Properties(Pset_WallCommon); Identify_Material_Type",
+    "rq_category": "RQ1"
+  }
+}

@@ -1,0 +1,424 @@
+{
+  "timestamp": "20260127_224614",
+  "run_id": "20260127_224513_memory",
+  "experiment": {
+    "query_mode": "memory",
+    "description": "In-memory spatial index"
+  },
+  "ground_truth_file": "data/ground_truth/gt_1/gt_1.json",
+  "summary": {
+    "total": 6,
+    "retrieval": {
+      "top1_accuracy": 0.3333333333333333,
+      "top3_accuracy": 0.3333333333333333,
+      "top5_accuracy": 0.3333333333333333,
+      "precision_at_1": 0.3333333333333333,
+      "recall": 0.3333333333333333,
+      "f1_score": 0.3333333333333333
+    },
+    "guid_matches": 2,
+    "name_matches": 2,
+    "rq2_schema": {
+      "total": 2,
+      "passed": 0,
+      "pass_rate": 0.0,
+      "avg_fill_rate": 0.0
+    },
+    "by_rq_category": {
+      "RQ1": {
+        "total": 2,
+        "guid_match": 1,
+        "top1_hit": 1,
+        "top3_hit": 1
+      },
+      "RQ2": {
+        "total": 2,
+        "guid_match": 1,
+        "top1_hit": 1,
+        "top3_hit": 1
+      },
+      "RQ3": {
+        "total": 2,
+        "guid_match": 0,
+        "top1_hit": 0,
+        "top3_hit": 0
+      }
+    }
+  },
+  "results": [
+    {
+      "guid_match": true,
+      "name_match": true,
+      "target_guid": "0cRoQU_sD5R8MkkMkeodzx",
+      "target_name": "Basic Wall:Generic - 200mm:308895",
+      "rq_category": "RQ1",
+      "details": [
+        "\u2705 Target GUID found: 0cRoQU_sD5R8MkkMkeodzx",
+        "\ud83d\udcca Target GUID rank: 1/1",
+        "\u2705 Target name found: Basic Wall"
+      ],
+      "mentioned_guids": [
+        "0cRoQU_sD5R8MkkMkeodzx"
+      ],
+      "num_candidates": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "top5_hit": true,
+      "target_rank": 1,
+      "precision_at_1": 1.0,
+      "precision_at_3": 1.0,
+      "recall": 1.0,
+      "case_id": "GT_001_RQ1_Visual_Mockup",
+      "elapsed_time": 3.477879047393799,
+      "tool_calls": [
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "Level 1",
+            "element_type": "IfcWall"
+          }
+        },
+        {
+          "name": "get_element_details",
+          "args": {
+            "guid": "0cRoQU_sD5R8MkkMkeodzx"
+          }
+        },
+        {
+          "name": "generate_3d_view",
+          "args": {
+            "guid": "0cRoQU_sD5R8MkkMkeodzx"
+          }
+        }
+      ],
+      "rq2": null,
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260127_224513_memory/GT_001_RQ1_Visual_Mockup.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260127_224513_memory/GT_001_RQ1_Visual_Mockup.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260127_224513_memory/GT_001_RQ1_Visual_Mockup.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "1KMtYLyv9CyfGv8UjnMBSN",
+      "target_name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:793588",
+      "rq_category": "RQ1",
+      "details": [
+        "\u274c Target GUID not found: 1KMtYLyv9CyfGv8UjnMBSN",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: BALANS Fixed Single Window"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "GT_002_RQ1_Window_QA",
+      "elapsed_time": 1.0486092567443848,
+      "tool_calls": [
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "1 - First Floor",
+            "element_type": "IfcWindow"
+          }
+        }
+      ],
+      "rq2": null,
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260127_224513_memory/GT_002_RQ1_Window_QA.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260127_224513_memory/GT_002_RQ1_Window_QA.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260127_224513_memory/GT_002_RQ1_Window_QA.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "1_jeQ1u6XFwed$AhVCoJi$",
+      "target_name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:473744",
+      "rq_category": "RQ2",
+      "details": [
+        "\u274c Target GUID not found: 1_jeQ1u6XFwed$AhVCoJi$",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "GT_004_RQ2_Entrance_Compliance",
+      "elapsed_time": 1.6001722812652588,
+      "tool_calls": [
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "Level 1",
+            "element_type": "IfcDoor"
+          }
+        },
+        {
+          "name": "get_element_details",
+          "args": {
+            "guid": "1_jeQ1u6XFwed$AhVCoJi$"
+          }
+        }
+      ],
+      "rq2": {
+        "schema_id": "corenetx-like-minimal/v0",
+        "final_json_parse_error": "FINAL_JSON tag not found",
+        "agent_final": {},
+        "submission": {
+          "submission_id": "demo_unknown",
+          "issue": {
+            "issue_type": "unknown",
+            "severity": "unknown",
+            "issue_summary": "unspecified"
+          },
+          "bim_reference": {
+            "element_guid": "",
+            "ifc_class": "UNKNOWN",
+            "storey_name": "",
+            "pset_snapshot": {}
+          },
+          "evidence": [
+            {
+              "type": "chat",
+              "ref": "GT_004_RQ2_Entrance_Compliance",
+              "note": "ground truth chat context + query"
+            },
+            {
+              "type": "image",
+              "ref": "/root/cmu/master_thesis/mscd_demo/data/ground_truth/gt_1/imgs/img_gt_004_1.png",
+              "note": "ground truth image"
+            }
+          ],
+          "validation_metadata": {
+            "schema_id": "corenetx-like-minimal/v0",
+            "required_fill_rate": 0.0,
+            "passed": false,
+            "errors": [
+              "'' is too short",
+              "'' should be non-empty"
+            ],
+            "provenance": {
+              "issue.issue_type": "from_agent_final",
+              "issue.severity": "from_agent_final",
+              "issue.issue_summary": "from_agent_final",
+              "bim_reference.element_guid": "from_agent_final",
+              "bim_reference.ifc_class": "from_ifc_tool",
+              "bim_reference.storey_name": "from_domain_validator",
+              "bim_reference.pset_snapshot": "from_ifc_tool",
+              "evidence": "from_agent_final_or_input"
+            }
+          }
+        },
+        "uncertainty": {
+          "escalated": true,
+          "reason": "FINAL_JSON tag not found",
+          "confidence": 0.2
+        }
+      },
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260127_224513_memory/GT_004_RQ2_Entrance_Compliance.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260127_224513_memory/GT_004_RQ2_Entrance_Compliance.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260127_224513_memory/GT_004_RQ2_Entrance_Compliance.bcfzip"
+      }
+    },
+    {
+      "guid_match": true,
+      "name_match": true,
+      "target_guid": "0MOEoDTm9EnO9yKsXjjkME",
+      "target_name": "M_Single-Flush:Generic Door:586077",
+      "rq_category": "RQ2",
+      "details": [
+        "\u2705 Target GUID found: 0MOEoDTm9EnO9yKsXjjkME",
+        "\ud83d\udcca Target GUID rank: 1/5",
+        "\u2705 Target name found: M_Single-Flush"
+      ],
+      "mentioned_guids": [
+        "0MOEoDTm9EnO9yKsXjjkME",
+        "0MOEoDTm9EnO9yKsXjjk2Z",
+        "2sG0Vcmgb1Uverjtj49YTd",
+        "2sG0Vcmgb1Uverjtj49YtH",
+        "2sG0Vcmgb1Uverjtj49zXt"
+      ],
+      "num_candidates": 5,
+      "top1_hit": true,
+      "top3_hit": true,
+      "top5_hit": true,
+      "target_rank": 1,
+      "precision_at_1": 1.0,
+      "precision_at_3": 1.0,
+      "recall": 1.0,
+      "case_id": "GT_005_RQ2_Fire_Door_Rating",
+      "elapsed_time": -822.4136364459991,
+      "tool_calls": [
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "1 - First Floor",
+            "element_type": "IfcDoor"
+          }
+        }
+      ],
+      "rq2": {
+        "schema_id": "corenetx-like-minimal/v0",
+        "final_json_parse_error": "FINAL_JSON tag not found",
+        "agent_final": {},
+        "submission": {
+          "submission_id": "demo_unknown",
+          "issue": {
+            "issue_type": "unknown",
+            "severity": "unknown",
+            "issue_summary": "unspecified"
+          },
+          "bim_reference": {
+            "element_guid": "",
+            "ifc_class": "UNKNOWN",
+            "storey_name": "",
+            "pset_snapshot": {}
+          },
+          "evidence": [
+            {
+              "type": "chat",
+              "ref": "GT_005_RQ2_Fire_Door_Rating",
+              "note": "ground truth chat context + query"
+            },
+            {
+              "type": "image",
+              "ref": "/root/cmu/master_thesis/mscd_demo/data/ground_truth/gt_1/imgs/img_gt_005_1.png",
+              "note": "ground truth image"
+            },
+            {
+              "type": "image",
+              "ref": "/root/cmu/master_thesis/mscd_demo/data/ground_truth/gt_1/imgs/img_gt_005_2.png",
+              "note": "ground truth image"
+            }
+          ],
+          "validation_metadata": {
+            "schema_id": "corenetx-like-minimal/v0",
+            "required_fill_rate": 0.0,
+            "passed": false,
+            "errors": [
+              "'' is too short",
+              "'' should be non-empty"
+            ],
+            "provenance": {
+              "issue.issue_type": "from_agent_final",
+              "issue.severity": "from_agent_final",
+              "issue.issue_summary": "from_agent_final",
+              "bim_reference.element_guid": "from_agent_final",
+              "bim_reference.ifc_class": "from_ifc_tool",
+              "bim_reference.storey_name": "from_domain_validator",
+              "bim_reference.pset_snapshot": "from_ifc_tool",
+              "evidence": "from_agent_final_or_input"
+            }
+          }
+        },
+        "uncertainty": {
+          "escalated": true,
+          "reason": "FINAL_JSON tag not found",
+          "confidence": 0.2
+        }
+      },
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260127_224513_memory/GT_005_RQ2_Fire_Door_Rating.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260127_224513_memory/GT_005_RQ2_Fire_Door_Rating.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260127_224513_memory/GT_005_RQ2_Fire_Door_Rating.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "0Um_J2ClP45uPRcRbJqhxe",
+      "target_name": "BALANS Fixed Single Window:BALANS TRAPPHUS TOP:959331",
+      "rq_category": "RQ3",
+      "details": [
+        "\u274c Target GUID not found: 0Um_J2ClP45uPRcRbJqhxe",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: BALANS Fixed Single Window"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "GT_007_RQ3_HighRise_Abductive",
+      "elapsed_time": 0.9913620948791504,
+      "tool_calls": [
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "6 - Sixth Floor",
+            "element_type": "IfcWindow"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "6 - Sixth Floor",
+            "element_type": "IfcWall"
+          }
+        }
+      ],
+      "rq2": null,
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260127_224513_memory/GT_007_RQ3_HighRise_Abductive.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260127_224513_memory/GT_007_RQ3_HighRise_Abductive.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260127_224513_memory/GT_007_RQ3_HighRise_Abductive.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "1ebX2H7F12su$wtPbeYAIT",
+      "target_name": "BALANS Fixed Single Window:BALANS 20M FLOOR (SH = 0):773593",
+      "rq_category": "RQ3",
+      "details": [
+        "\u274c Target GUID not found: 1ebX2H7F12su$wtPbeYAIT",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: BALANS Fixed Single Window"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "GT_008_RQ3_Ground_Abductive",
+      "elapsed_time": 1.505725622177124,
+      "tool_calls": [
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "Level 1",
+            "element_type": "IfcWindow"
+          }
+        }
+      ],
+      "rq2": null,
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260127_224513_memory/GT_008_RQ3_Ground_Abductive.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260127_224513_memory/GT_008_RQ3_Ground_Abductive.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260127_224513_memory/GT_008_RQ3_Ground_Abductive.bcfzip"
+      }
+    }
+  ]
+}

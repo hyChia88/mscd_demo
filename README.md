@@ -80,12 +80,24 @@ This automatically:
 │  │  • Property Extraction                              │    │
 │  │  • Neo4j Export (optional)                          │    │
 │  └─────────────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │           VisualAligner (CLIP, lazy-loaded)         │    │
+│  │  • Image → Vector embedding                         │    │
+│  │  • Text → Vector embedding                          │    │
+│  │  • Image ↔ Element matching                         │    │
+│  └─────────────────────────────────────────────────────┘    │
 │                                                             │
-│  MCP Tools:                                                 │
+│  MCP Tools (Spatial Query):                                 │
 │  • get_element_by_guid()                                    │
 │  • get_elements_by_storey()    ← 4D context filtering       │
 │  • search_elements_by_type()                                │
 │  • list_available_spaces()                                  │
+│                                                             │
+│  MCP Tools (Visual Analysis):                               │
+│  • analyze_site_image()        ← Classify photo content     │
+│  • match_image_to_elements()   ← Photo → BIM element        │
+│  • compare_defect_images()     ← Check same defect          │
+│  • match_text_to_elements()    ← Description → BIM element  │
 └─────────────────────────────────────────────────────────────┘
                           │
 ┌─────────────────────────▼───────────────────────────────────┐
@@ -94,10 +106,6 @@ This automatically:
 │  • 263 Windows, 126 Doors, 304 Walls                        │
 └─────────────────────────────────────────────────────────────┘
 ```
-**My notes (do not ammend): 
-TODO MCP tools:
-[ ] Image comparing...
-**
 
 ---
 
@@ -130,6 +138,10 @@ mscd_demo/
 │   │   ├── validators.py          # JSON Schema + domain validation
 │   │   └── pipeline.py            # run_rq2_postprocess() orchestration
 │   │
+│   ├── visual/              # Visual Analysis Module (CLIP-based)
+│   │   ├── __init__.py
+│   │   └── aligner.py       # VisualAligner class (singleton, lazy-loaded)
+│   │
 │   └── handoff/             # P2: BCF Issue Generation & Handoff
 │       ├── __init__.py
 │       ├── trace.py         # Trace building and GUID extraction
@@ -148,7 +160,8 @@ mscd_demo/
 │   ├── baseline_experiment.py    # Redundancy quantification
 │   ├── eval_pipeline.py          # Unified evaluation pipeline CLI
 │   ├── rq2_schema_smoke_test.py  # RQ2 component smoke test
-│   └── test_bcf_generation.py    # BCF handoff sanity test
+│   ├── test_bcf_generation.py    # BCF handoff sanity test
+│   └── test_visual_aligner.py    # Visual aligner test suite
 │
 ├── outputs/                 # P2: Handoff artifacts (generated)
 │   ├── traces/<run_id>/     # Per-case trace JSON files
@@ -179,8 +192,9 @@ Central data gateway for all IFC operations:
 
 ### 2. MCP Server ([mcp_servers/ifc_server.py](mcp_servers/ifc_server.py))
 
-Exposes IFCEngine as MCP tools:
+Exposes IFCEngine and VisualAligner as MCP tools:
 
+**Spatial Query Tools:**
 ```python
 @mcp.tool()
 def get_elements_by_storey(storey_name: str) -> str:
@@ -189,7 +203,38 @@ def get_elements_by_storey(storey_name: str) -> str:
     """
 ```
 
-### 3. Ground Truth ([data/ground_truth/gt_1/gt_1.json](data/ground_truth/gt_1/gt_1.json))
+**Visual Analysis Tools:**
+| Tool | Purpose | Args |
+|------|---------|------|
+| `analyze_site_image` | Classify what's visible in a site photo | `image_path` |
+| `match_image_to_elements` | Match photo to BIM elements by GUID | `image_path, storey_filter, top_k` |
+| `compare_defect_images` | Check if two photos show same defect | `image_path1, image_path2` |
+| `match_text_to_elements` | Match verbal description to elements | `description, storey_filter, top_k` |
+
+```python
+@mcp.tool()
+def match_image_to_elements(image_path: str, storey_filter: str = None, top_k: int = 5) -> str:
+    """Match a site photo to BIM elements using CLIP visual AI.
+    Combines visual understanding with 4D spatial filtering.
+    """
+```
+
+### 3. Visual Aligner ([src/visual/aligner.py](src/visual/aligner.py))
+
+CLIP-based multimodal embedding for visual grounding:
+
+| Method | Purpose |
+|--------|---------|
+| `get_image_embedding(path)` | Image → CLIP vector |
+| `get_text_embedding(text)` | Text → CLIP vector |
+| `match_image_to_descriptions(img, descs, top_k)` | Rank descriptions by image similarity |
+| `match_image_to_elements(img, elements, top_k)` | Match photo to BIM elements |
+| `compare_images(img1, img2)` | Semantic similarity score (0-1) |
+| `find_best_match(query, candidates)` | Legacy-compatible single best match |
+
+**Singleton Pattern:** Model is lazy-loaded on first use to avoid heavy startup cost.
+
+### 4. Ground Truth ([data/ground_truth/gt_1/gt_1.json](data/ground_truth/gt_1/gt_1.json))
 
 Validated test cases with real GUIDs:
 
@@ -551,6 +596,82 @@ python script/rq2_schema_smoke_test.py
 
 ---
 
+## Visual Analysis Module
+
+The visual analysis module provides CLIP-based multimodal embedding for matching site photos to BIM elements.
+
+### Architecture
+
+```
+Site Photo (JPG/PNG)                 User Description (Text)
+        │                                     │
+        ▼                                     ▼
+┌───────────────────────────────────────────────────────────┐
+│              VisualAligner (CLIP Model)                   │
+│  • openai/clip-vit-base-patch32 (lazy-loaded, singleton)  │
+│  • GPU acceleration if available                          │
+└───────────────────────────────────────────────────────────┘
+        │                                     │
+        ▼                                     ▼
+   Image Embedding                      Text Embedding
+   (1, 512) tensor                      (1, 512) tensor
+        │                                     │
+        └──────────────┬──────────────────────┘
+                       ▼
+              Cosine Similarity
+                       │
+                       ▼
+              Ranked BIM Elements
+              (by visual match score)
+```
+
+### MCP Tools
+
+| Tool | Use Case |
+|------|----------|
+| `analyze_site_image(path)` | "What's in this photo?" → Element classification |
+| `match_image_to_elements(path, storey, k)` | Photo → Top-k BIM elements with GUIDs |
+| `compare_defect_images(path1, path2)` | "Same defect?" → Similarity score + interpretation |
+| `match_text_to_elements(desc, storey, k)` | Description → Top-k BIM elements |
+
+### Usage Example
+
+```python
+from src.visual import VisualAligner
+
+aligner = VisualAligner()  # Singleton, lazy CLIP load
+
+# Match site photo to BIM elements
+results = aligner.match_image_to_elements(
+    image_path="data/ground_truth/gt_1/imgs/crack.jpg",
+    elements=[{"guid": "...", "name": "Wall_1", "type": "IfcWall"}, ...],
+    top_k=5
+)
+# Returns: [{"rank": 1, "guid": "...", "score": 0.78}, ...]
+
+# Compare two photos
+similarity = aligner.compare_images("photo1.jpg", "photo2.jpg")
+# Returns: 0.85 (HIGH - likely same subject)
+```
+
+### Test Suite
+
+```bash
+# Run visual aligner tests (7 tests)
+python script/test_visual_aligner.py
+
+# Expected output:
+# ✅ [PASS] Import Check
+# ✅ [PASS] Model Loading
+# ✅ [PASS] Text Matching
+# ✅ [PASS] Top-K Matching
+# ✅ [PASS] Image Embedding
+# ✅ [PASS] Image-to-Description
+# ✅ [PASS] Element Description
+```
+
+---
+
 ## P2: BCF Issue Generation & Handoff
 
 The BCF handoff pipeline generates interoperable issue files for BIM collaboration tools.
@@ -695,7 +816,13 @@ python script/test_bcf_generation.py
   - Component selection (IfcGuid) in viewpoints
   - Snapshot images from evidence
   - Integrated into main_mcp.py evaluation loop
-- [ ] Visual matching with CLIP embeddings
+- [x] **Visual Analysis Module (CLIP-based)**
+  - VisualAligner class with lazy-loaded CLIP model
+  - Image → Vector and Text → Vector embedding
+  - Image-to-element matching with storey filtering
+  - Defect image comparison (similarity scoring)
+  - Text description to element matching
+  - Integrated as MCP tools in ifc_server.py
 
 ---
 
@@ -722,5 +849,5 @@ python script/test_bcf_generation.py
 
 ---
 
-**Last Updated:** January 2026
-**Status:** Unified Evaluation Pipeline with RQ2 Schema Validation and BCF Handoff complete
+**Last Updated:** February 2026
+**Status:** Unified Evaluation Pipeline with RQ2 Schema Validation, BCF Handoff, and Visual Analysis complete

@@ -1,0 +1,35 @@
+{
+  "issue_id": "67f99bbc-d44a-428b-bc3c-7374616aa9f3",
+  "case_id": "GT_008_RQ3_Ground_Abductive",
+  "run_id": "20260127_232239_memory",
+  "created_at": "2026-01-27T23:23:40.798814",
+  "title": "GT_008_RQ3_Ground_Abductive: BIM Issue",
+  "description": "Original Query: \n\nSelected Element GUID: 1ebX2H7F12su$wtPbeYAIT\nGUID Source: regex_from_agent_response",
+  "issue_type": "defect",
+  "severity": "medium",
+  "status": "open",
+  "element_guid": "1ebX2H7F12su$wtPbeYAIT",
+  "guid_source": "regex_from_agent_response",
+  "bim_reference": {
+    "element_guid": "1ebX2H7F12su$wtPbeYAIT",
+    "ifc_class": "",
+    "storey_name": "",
+    "element_name": ""
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evidence": [],
+  "trace_uri": "outputs/traces/20260127_232239_memory/GT_008_RQ3_Ground_Abductive.trace.json",
+  "evaluation": {
+    "guid_match": true,
+    "name_match": false,
+    "storey_match": false
+  }
+}

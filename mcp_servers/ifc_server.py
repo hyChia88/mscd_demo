@@ -41,6 +41,21 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from fastmcp import FastMCP
 from ifc_engine import IFCEngine
 
+# Lazy load VisualAligner to avoid heavy CLIP model load at startup
+_visual_aligner = None
+
+def get_visual_aligner():
+    """Lazy-load the VisualAligner singleton (CLIP model is heavy)."""
+    global _visual_aligner
+    if _visual_aligner is None:
+        try:
+            from visual.aligner import VisualAligner
+            _visual_aligner = VisualAligner()
+        except ImportError as e:
+            print(f"[IFC Server] VisualAligner not available: {e}", file=sys.stderr)
+            return None
+    return _visual_aligner
+
 # Initialize MCP server
 mcp = FastMCP("IFC Query Service")
 
@@ -471,6 +486,293 @@ def get_model_metadata() -> str:
     }
 
     return json.dumps(metadata, indent=2)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Visual Analysis Tools (CLIP-based)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@mcp.tool()
+def analyze_site_image(image_path: str) -> str:
+    """
+    Analyze a site photo to describe what building elements are visible.
+
+    Uses CLIP multimodal AI to understand the content of site inspection
+    photos. Useful for getting an initial understanding of what's in an image
+    before matching to specific BIM elements.
+
+    Args:
+        image_path: Absolute or relative path to the image file (jpg, png)
+
+    Returns:
+        str: Analysis results with likely element types and confidence scores
+
+    Example:
+        >>> analyze_site_image("data/ground_truth/gt_1/imgs/crack_window.jpg")
+        Analysis of site image:
+          Most likely elements visible:
+          - Window with visible damage (0.82)
+          - Concrete wall surface (0.65)
+          - Metal frame structure (0.45)
+    """
+    aligner = get_visual_aligner()
+    if aligner is None:
+        return "Error: Visual analysis not available. Install transformers and torch."
+
+    # Resolve path relative to BASE_DIR if not absolute
+    resolved_path = image_path
+    if not Path(image_path).is_absolute():
+        resolved_path = str(BASE_DIR / image_path)
+
+    if not Path(resolved_path).exists():
+        return f"Error: Image not found at '{resolved_path}'"
+
+    # Common BIM element descriptions for classification
+    element_categories = [
+        "Window with glass pane",
+        "Concrete wall surface",
+        "Metal door frame",
+        "Wooden door",
+        "Floor slab with tiles",
+        "Ceiling with panels",
+        "Structural column",
+        "Beam or lintel",
+        "Crack or damage on surface",
+        "Water stain or leak damage",
+        "Electrical outlet or switch",
+        "HVAC duct or vent",
+        "Pipe or plumbing fixture",
+        "Staircase or railing"
+    ]
+
+    try:
+        results = aligner.match_image_to_descriptions(
+            resolved_path,
+            element_categories,
+            top_k=5
+        )
+
+        output = f"Analysis of site image ({Path(resolved_path).name}):\n"
+        output += "  Most likely elements visible:\n"
+        for r in results:
+            output += f"    - {r['description']} (confidence: {r['score']:.2f})\n"
+
+        return output
+
+    except Exception as e:
+        return f"Error analyzing image: {str(e)}"
+
+
+@mcp.tool()
+def match_image_to_elements(image_path: str, storey_filter: Optional[str] = None, top_k: int = 5) -> str:
+    """
+    Match a site photo to BIM elements in the IFC model.
+
+    Uses CLIP visual AI to find which BIM elements best match what's shown
+    in a site inspection photo. Combines visual understanding with spatial
+    filtering by storey for accurate element identification.
+
+    Args:
+        image_path: Path to the site photo (jpg, png)
+        storey_filter: Optional storey name to narrow search (e.g., "sixth", "Level 1")
+        top_k: Number of top matches to return (default: 5)
+
+    Returns:
+        str: Ranked list of matching BIM elements with GUIDs and confidence scores
+
+    Example:
+        >>> match_image_to_elements("crack_photo.jpg", storey_filter="sixth", top_k=3)
+        Top matches for site image:
+          #1: Window_North_6F (GUID: 2O2Fr$...) - score: 0.78
+          #2: Wall_Ext_6F (GUID: 1X3Gy$...) - score: 0.65
+          #3: Slab_6F (GUID: 0P4Hz$...) - score: 0.52
+    """
+    aligner = get_visual_aligner()
+    if aligner is None:
+        return "Error: Visual analysis not available. Install transformers and torch."
+
+    # Resolve path
+    resolved_path = image_path
+    if not Path(image_path).is_absolute():
+        resolved_path = str(BASE_DIR / image_path)
+
+    if not Path(resolved_path).exists():
+        return f"Error: Image not found at '{resolved_path}'"
+
+    # Get elements from IFC model, optionally filtered by storey
+    elements = []
+    if storey_filter:
+        spaces_to_search = {k: v for k, v in engine.spatial_index.items()
+                          if storey_filter.lower() in k.lower()}
+    else:
+        spaces_to_search = engine.spatial_index
+
+    for space_name, space_elements in spaces_to_search.items():
+        for el in space_elements:
+            elements.append({
+                "guid": el.get("guid", ""),
+                "name": el.get("name", ""),
+                "type": el.get("type", ""),
+                "location": space_name
+            })
+
+    if not elements:
+        return f"No elements found" + (f" on storey '{storey_filter}'" if storey_filter else "")
+
+    try:
+        # Match image to elements
+        results = aligner.match_image_to_elements(resolved_path, elements, top_k=top_k)
+
+        output = f"Top {len(results)} matches for site image"
+        if storey_filter:
+            output += f" (filtered to '{storey_filter}')"
+        output += ":\n"
+
+        for r in results:
+            output += f"  #{r['rank']}: {r['name']} ({r['type']})\n"
+            output += f"       GUID: {r['guid']}\n"
+            output += f"       Confidence: {r['score']:.3f}\n"
+
+        return output
+
+    except Exception as e:
+        return f"Error matching image to elements: {str(e)}"
+
+
+@mcp.tool()
+def compare_defect_images(image_path1: str, image_path2: str) -> str:
+    """
+    Compare two site photos to check if they show the same defect/area.
+
+    Uses CLIP visual AI to compute semantic similarity between two images.
+    Useful for:
+    - Checking if a reported defect matches a previous report
+    - Verifying that follow-up photos show the same issue
+    - Grouping related defect images
+
+    Args:
+        image_path1: Path to first image
+        image_path2: Path to second image
+
+    Returns:
+        str: Similarity analysis with score and interpretation
+
+    Example:
+        >>> compare_defect_images("crack_v1.jpg", "crack_v2.jpg")
+        Image Comparison Results:
+          Similarity Score: 0.85
+          Interpretation: HIGH - Images very likely show the same subject
+    """
+    aligner = get_visual_aligner()
+    if aligner is None:
+        return "Error: Visual analysis not available. Install transformers and torch."
+
+    # Resolve paths
+    path1 = image_path1 if Path(image_path1).is_absolute() else str(BASE_DIR / image_path1)
+    path2 = image_path2 if Path(image_path2).is_absolute() else str(BASE_DIR / image_path2)
+
+    if not Path(path1).exists():
+        return f"Error: First image not found at '{path1}'"
+    if not Path(path2).exists():
+        return f"Error: Second image not found at '{path2}'"
+
+    try:
+        similarity = aligner.compare_images(path1, path2)
+
+        # Interpret the score
+        if similarity >= 0.85:
+            interpretation = "VERY HIGH - Images almost certainly show the same subject"
+        elif similarity >= 0.70:
+            interpretation = "HIGH - Images very likely show the same subject"
+        elif similarity >= 0.50:
+            interpretation = "MODERATE - Images may show related subjects"
+        elif similarity >= 0.30:
+            interpretation = "LOW - Images show somewhat different subjects"
+        else:
+            interpretation = "VERY LOW - Images show different subjects"
+
+        output = "Image Comparison Results:\n"
+        output += f"  Image 1: {Path(path1).name}\n"
+        output += f"  Image 2: {Path(path2).name}\n"
+        output += f"  Similarity Score: {similarity:.3f}\n"
+        output += f"  Interpretation: {interpretation}\n"
+
+        return output
+
+    except Exception as e:
+        return f"Error comparing images: {str(e)}"
+
+
+@mcp.tool()
+def match_text_to_elements(description: str, storey_filter: Optional[str] = None, top_k: int = 5) -> str:
+    """
+    Match a text description to BIM elements using semantic similarity.
+
+    Uses CLIP text embeddings to find BIM elements that best match a
+    verbal description. Useful when the user describes a defect or
+    location without providing an image.
+
+    Args:
+        description: Text description (e.g., "cracked window on the north wall")
+        storey_filter: Optional storey name to narrow search
+        top_k: Number of top matches to return
+
+    Returns:
+        str: Ranked list of matching BIM elements with GUIDs
+
+    Example:
+        >>> match_text_to_elements("damaged concrete near the elevator", storey_filter="first")
+        Top matches for description:
+          #1: Slab_Elevator_1F (GUID: ...) - score: 0.72
+          #2: Wall_Core_1F (GUID: ...) - score: 0.68
+    """
+    aligner = get_visual_aligner()
+    if aligner is None:
+        return "Error: Visual analysis not available. Install transformers and torch."
+
+    # Get elements from IFC model
+    elements = []
+    if storey_filter:
+        spaces_to_search = {k: v for k, v in engine.spatial_index.items()
+                          if storey_filter.lower() in k.lower()}
+    else:
+        spaces_to_search = engine.spatial_index
+
+    for space_name, space_elements in spaces_to_search.items():
+        for el in space_elements:
+            elements.append({
+                "guid": el.get("guid", ""),
+                "name": el.get("name", ""),
+                "type": el.get("type", ""),
+                "location": space_name
+            })
+
+    if not elements:
+        return f"No elements found" + (f" on storey '{storey_filter}'" if storey_filter else "")
+
+    try:
+        # Build descriptions for elements
+        element_descriptions = [aligner.build_element_description(el) for el in elements]
+
+        # Match text to element descriptions
+        results = aligner.match_text_to_descriptions(description, element_descriptions, top_k=top_k)
+
+        output = f"Top {len(results)} matches for: \"{description}\"\n"
+        if storey_filter:
+            output += f"  (filtered to storey: '{storey_filter}')\n"
+
+        for r in results:
+            idx = r["index"]
+            el = elements[idx]
+            output += f"\n  #{r['rank']}: {el['name']} ({el['type']})\n"
+            output += f"       GUID: {el['guid']}\n"
+            output += f"       Location: {el['location']}\n"
+            output += f"       Confidence: {r['score']:.3f}\n"
+
+        return output
+
+    except Exception as e:
+        return f"Error matching text to elements: {str(e)}"
 
 
 if __name__ == "__main__":
