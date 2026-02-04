@@ -1,0 +1,73 @@
+{
+  "run_id": "20260204_130934_memory",
+  "case_id": "GT_001_RQ1_Visual_Texture",
+  "timestamp": "2026-02-04T13:09:35.101132",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "The image analysis is not available. I can try to find elements that match the description 'hairline cracks on this surface' if you provide the photo.",
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "photo.jpg"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "",
+    "guid_source": "none"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": false,
+    "target_guid": "0cRoQU_sD5R8MkkMkeodzx",
+    "target_name": "Basic Wall:Generic - 200mm",
+    "rq_category": "RQ1",
+    "details": [
+      "❌ Target GUID not found: 0cRoQU_sD5R8MkkMkeodzx",
+      "📊 No GUIDs extracted from response",
+      "❌ Target name not found: Basic Wall"
+    ],
+    "mentioned_guids": [],
+    "num_candidates": 0,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "GT_001_RQ1_Visual_Texture",
+    "elapsed_time": 1.015850305557251,
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "photo.jpg"
+        }
+      }
+    ],
+    "rq2": null
+  },
+  "ground_truth": {
+    "target_guid": "0cRoQU_sD5R8MkkMkeodzx",
+    "target_name": "Basic Wall:Generic - 200mm",
+    "target_storey": "Level 1",
+    "expected_reasoning": "Visual classifier identifies 'Concrete Surface'. Filter 'IfcWall' with Material='Concrete'.",
+    "rq_category": "RQ1"
+  }
+}

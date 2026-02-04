@@ -1,0 +1,35 @@
+{
+  "issue_id": "6a1d68a1-023b-4a85-bc41-4165656260f9",
+  "case_id": "GT_007_RQ3_Temporal_Inference",
+  "run_id": "20260204_131604_neo4j+clip",
+  "created_at": "2026-02-04T13:16:37.837085",
+  "title": "GT_007_RQ3_Temporal_Inference: BIM Issue",
+  "description": "Original Query: \n\nSelected Element GUID: IfcBuildingElementProx\nGUID Source: regex_from_agent_response",
+  "issue_type": "defect",
+  "severity": "medium",
+  "status": "open",
+  "element_guid": "IfcBuildingElementProx",
+  "guid_source": "regex_from_agent_response",
+  "bim_reference": {
+    "element_guid": "IfcBuildingElementProx",
+    "ifc_class": "",
+    "storey_name": "",
+    "element_name": ""
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evidence": [],
+  "trace_uri": "outputs/traces/20260204_131604_neo4j+clip/GT_007_RQ3_Temporal_Inference.trace.json",
+  "evaluation": {
+    "guid_match": false,
+    "name_match": false,
+    "storey_match": false
+  }
+}

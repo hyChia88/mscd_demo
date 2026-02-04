@@ -171,10 +171,7 @@ def format_test_input(case, image_dir):
         "",
         "[USER QUERY]",
         f"  {case['query_text']}",
-        "=" * 50
     ])
-
-    formatted_input = "\n".join(input_parts)
 
     # Build image paths
     image_paths = []
@@ -184,6 +181,17 @@ def format_test_input(case, image_dir):
             image_paths.append(str(img_path))
         else:
             print(f"⚠️  Warning: Image not found: {img_path}")
+
+    # Include image paths in the message so agent can analyze them
+    if image_paths:
+        input_parts.append("")
+        input_parts.append("[ATTACHED IMAGES]")
+        for img_path in image_paths:
+            input_parts.append(f"  Image path: {img_path}")
+        input_parts.append("  Note: Use analyze_site_image(image_path) to analyze these images")
+
+    input_parts.append("=" * 50)
+    formatted_input = "\n".join(input_parts)
 
     return formatted_input, image_paths
 

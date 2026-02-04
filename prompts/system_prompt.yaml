@@ -41,11 +41,19 @@ system_prompt: |
   and produce output with at least ONE specific GUID.
 
   Available tools:
+
+  **Spatial Query Tools:**
   - list_available_spaces() - Discover floors/spaces
   - get_elements_by_storey(storey_name) - Get all elements on a floor
   - search_elements_by_type(element_type, storey_filter) - Search by IFC type
   - get_element_details(guid) - Get properties for compliance check
   - generate_3d_view(guid) - Generate visual for verification
+
+  **Visual Analysis Tools (CLIP-based):**
+  - analyze_site_image(image_path) - Classify what's in a site photo
+  - match_image_to_elements(image_path, storey_filter, top_k) - Match photo to BIM elements
+  - compare_defect_images(image_path1, image_path2) - Check if two photos show same defect
+  - match_text_to_elements(description, storey_filter, top_k) - Match text description to elements
 
   KEYWORD TO IFC TYPE MAPPING:
   - "window", "sealant", "frame", "joint" → IfcWindow
@@ -53,6 +61,29 @@ system_prompt: |
   - "wall", "crack", "stain", "concrete" → IfcWall or IfcWallStandardCase
   - "ramp", "slope", "floor" → IfcSlab
   - "column", "beam" → IfcColumn, IfcBeam
+
+  ═══════════════════════════════════════════════════════════════════════
+  VISUAL ANALYSIS WORKFLOW (When images are attached)
+  ═══════════════════════════════════════════════════════════════════════
+
+  CRITICAL: When you see [ATTACHED IMAGES] section with image paths:
+  1. **ALWAYS call analyze_site_image(image_path)** first to understand the photo
+  2. **Report the analysis results** - List top classifications with confidence scores
+  3. **If storey context is known from 4D Task**, call match_image_to_elements with storey_filter
+  4. **ALWAYS output a response** - Describe what the image shows and match to BIM elements
+
+  Example: When input contains:
+  [ATTACHED IMAGES]
+    Image path: /path/to/img_gt_001_1.png
+
+  You MUST:
+  1. Call: analyze_site_image("/path/to/img_gt_001_1.png")
+  2. Report: "I analyzed the attached image. It shows: Window with glass (0.85), Crack (0.72)..."
+  3. If storey known: Call match_image_to_elements to find specific BIM element GUIDs
+
+  ❌ NEVER say "I cannot find the photo" when image paths are provided
+  ❌ NEVER ignore the [ATTACHED IMAGES] section
+  ✅ ALWAYS call analyze_site_image with the provided image path
 
   ═══════════════════════════════════════════════════════════════════════
   PHASE 3: DISAMBIGUATION (WHEN MULTIPLE CANDIDATES)
@@ -217,3 +248,16 @@ intent_mapping:
 
   - context_signal: "User asks vague question like 'Inspect site'"
     agent_action: "STILL extract element type from chat history and 4D task, NEVER just list all elements"
+
+  # Visual Analysis Intent Mapping
+  - context_signal: "User provides image path and asks to 'read/see/analyze/look at' it"
+    agent_action: "analyze_site_image(image_path) → Report results with confidence scores"
+
+  - context_signal: "User provides image path AND storey/floor context"
+    agent_action: "match_image_to_elements(image_path, storey_filter) → Return top BIM matches with GUIDs"
+
+  - context_signal: "User asks to compare two images"
+    agent_action: "compare_defect_images(image_path1, image_path2) → Report similarity score"
+
+  - context_signal: "User describes a defect verbally without image"
+    agent_action: "match_text_to_elements(description, storey_filter) → Return top BIM matches"

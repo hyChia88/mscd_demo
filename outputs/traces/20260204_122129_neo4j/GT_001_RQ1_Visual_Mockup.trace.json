@@ -1,0 +1,76 @@
+{
+  "run_id": "20260204_122129_neo4j",
+  "case_id": "GT_001_RQ1_Visual_Mockup",
+  "timestamp": "2026-02-04T12:21:31.054414",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "I am sorry, I cannot process the image because I lack the ability to analyze images. I can only process image file paths.",
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "img_gt_001_1.png",
+          "storey_filter": "Level 1"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "",
+    "guid_source": "none"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": false,
+    "target_guid": "0cRoQU_sD5R8MkkMkeodzx",
+    "target_name": "Basic Wall:Generic - 200mm:308895",
+    "rq_category": "RQ1",
+    "details": [
+      "❌ Target GUID not found: 0cRoQU_sD5R8MkkMkeodzx",
+      "📊 No GUIDs extracted from response",
+      "❌ Target name not found: Basic Wall"
+    ],
+    "mentioned_guids": [],
+    "num_candidates": 0,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "GT_001_RQ1_Visual_Mockup",
+    "elapsed_time": 1.236368179321289,
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "img_gt_001_1.png",
+          "storey_filter": "Level 1"
+        }
+      }
+    ],
+    "rq2": null
+  },
+  "ground_truth": {
+    "target_guid": "0cRoQU_sD5R8MkkMkeodzx",
+    "target_name": "Basic Wall:Generic - 200mm:308895",
+    "target_storey": "Level 1",
+    "expected_reasoning": "Visual(Crack/Stain) + Phase(VMU Review) + 4D Task(Level 1) + Role(Site Super) -> Disambiguates to Level 1 Generic Wall. Distinguishes from high-rise structural walls.",
+    "action_required": "Retrieve_IFC_Properties(Pset_WallCommon); Identify_Material_Type",
+    "rq_category": "RQ1"
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "run_id": "20260204_131155_memory+clip",
+  "case_id": "GT_007_RQ3_Temporal_Inference",
+  "timestamp": "2026-02-04T13:12:20.192158",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "I'm sorry, I cannot determine if the sealant is leaking with the available tools. I can identify that there is a building element (IfcBuildingElementProxy) with the GUID 0ifV7awIzBlRVUTYG1zp3a on the sixth floor that has a low confidence match for 'loose sealant'. Would you like me to try and find more details about this element?",
+    "tool_calls": [
+      {
+        "name": "match_text_to_elements",
+        "args": {
+          "storey_filter": "6 - Sixth Floor",
+          "description": "loose sealant",
+          "top_k": 1.0
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "IfcBuildingElementProx",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": false,
+    "target_guid": "0Um_J2ClP45uPRcRbJqhxe",
+    "target_name": "BALANS Fixed Single Window",
+    "rq_category": "RQ3",
+    "details": [
+      "❌ Target GUID not found: 0Um_J2ClP45uPRcRbJqhxe",
+      "📊 Target GUID not in 1 mentioned candidates",
+      "❌ Target name not found: BALANS Fixed Single Window"
+    ],
+    "mentioned_guids": [
+      "0ifV7awIzBlRVUTYG1zp3a"
+    ],
+    "num_candidates": 1,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "GT_007_RQ3_Temporal_Inference",
+    "elapsed_time": 4.889448881149292,
+    "tool_calls": [
+      {
+        "name": "match_text_to_elements",
+        "args": {
+          "storey_filter": "6 - Sixth Floor",
+          "description": "loose sealant",
+          "top_k": 1.0
+        }
+      }
+    ],
+    "rq2": null
+  },
+  "ground_truth": {
+    "target_guid": "0Um_J2ClP45uPRcRbJqhxe",
+    "target_name": "BALANS Fixed Single Window",
+    "target_storey": "6 - Sixth Floor",
+    "expected_reasoning": "Text 'here' is ambiguous. 4D Task 'Module Installation 6' implies Level 6. Filter Storey='6 - Sixth Floor'.",
+    "rq_category": "RQ3"
+  }
+}

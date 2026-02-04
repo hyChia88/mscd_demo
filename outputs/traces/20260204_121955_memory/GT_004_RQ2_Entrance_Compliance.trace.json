@@ -1,0 +1,205 @@
+{
+  "run_id": "20260204_121955_memory",
+  "case_id": "GT_004_RQ2_Entrance_Compliance",
+  "timestamp": "2026-02-04T12:20:19.417101",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "The Swedoor fire-rated door (GUID: 1_jeQ1u6XFwed$AhVCoJi$) has a clear opening width of 1990 mm and a height of 2390 mm. This meets the 1990 mm clear opening requirement for accessibility.\n\n[AUTO-EXTRACTED] Selected element GUID: 1_jeQ1u6XFwed$AhVCoJi$",
+    "tool_calls": [
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "Level 1",
+          "element_type": "IfcDoor"
+        }
+      },
+      {
+        "name": "get_element_details",
+        "args": {
+          "guid": "1_jeQ1u6XFwed$AhVCoJi$"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "1_jeQ1u6XFwed$AhVCoJi$",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "corenetx-like-minimal/v0",
+    "fields": {
+      "element_guid": "",
+      "ifc_class": "UNKNOWN",
+      "storey_name": "",
+      "pset_snapshot": {}
+    },
+    "validation": {
+      "passed": false,
+      "errors": [
+        "'' is too short",
+        "'' should be non-empty"
+      ],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": true,
+    "name_match": false,
+    "target_guid": "1_jeQ1u6XFwed$AhVCoJi$",
+    "target_name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:473744",
+    "rq_category": "RQ2",
+    "details": [
+      "✅ Target GUID found: 1_jeQ1u6XFwed$AhVCoJi$",
+      "📊 No GUIDs extracted from response",
+      "❌ Target name not found: Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0"
+    ],
+    "mentioned_guids": [],
+    "num_candidates": 0,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "GT_004_RQ2_Entrance_Compliance",
+    "elapsed_time": 1.5637454986572266,
+    "tool_calls": [
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "Level 1",
+          "element_type": "IfcDoor"
+        }
+      },
+      {
+        "name": "get_element_details",
+        "args": {
+          "guid": "1_jeQ1u6XFwed$AhVCoJi$"
+        }
+      }
+    ],
+    "rq2": {
+      "schema_id": "corenetx-like-minimal/v0",
+      "final_json_parse_error": "FINAL_JSON tag not found",
+      "agent_final": {},
+      "submission": {
+        "submission_id": "demo_unknown",
+        "issue": {
+          "issue_type": "unknown",
+          "severity": "unknown",
+          "issue_summary": "unspecified"
+        },
+        "bim_reference": {
+          "element_guid": "",
+          "ifc_class": "UNKNOWN",
+          "storey_name": "",
+          "pset_snapshot": {}
+        },
+        "evidence": [
+          {
+            "type": "chat",
+            "ref": "GT_004_RQ2_Entrance_Compliance",
+            "note": "ground truth chat context + query"
+          },
+          {
+            "type": "image",
+            "ref": "/root/cmu/master_thesis/mscd_demo/data/ground_truth/gt_1/imgs/img_gt_004_1.png",
+            "note": "ground truth image"
+          }
+        ],
+        "validation_metadata": {
+          "schema_id": "corenetx-like-minimal/v0",
+          "required_fill_rate": 0.0,
+          "passed": false,
+          "errors": [
+            "'' is too short",
+            "'' should be non-empty"
+          ],
+          "provenance": {
+            "issue.issue_type": "from_agent_final",
+            "issue.severity": "from_agent_final",
+            "issue.issue_summary": "from_agent_final",
+            "bim_reference.element_guid": "from_agent_final",
+            "bim_reference.ifc_class": "from_ifc_tool",
+            "bim_reference.storey_name": "from_domain_validator",
+            "bim_reference.pset_snapshot": "from_ifc_tool",
+            "evidence": "from_agent_final_or_input"
+          }
+        }
+      },
+      "uncertainty": {
+        "escalated": true,
+        "reason": "FINAL_JSON tag not found",
+        "confidence": 0.2
+      }
+    },
+    "rq2_result": {
+      "schema_id": "corenetx-like-minimal/v0",
+      "final_json_parse_error": "FINAL_JSON tag not found",
+      "agent_final": {},
+      "submission": {
+        "submission_id": "demo_unknown",
+        "issue": {
+          "issue_type": "unknown",
+          "severity": "unknown",
+          "issue_summary": "unspecified"
+        },
+        "bim_reference": {
+          "element_guid": "",
+          "ifc_class": "UNKNOWN",
+          "storey_name": "",
+          "pset_snapshot": {}
+        },
+        "evidence": [
+          {
+            "type": "chat",
+            "ref": "GT_004_RQ2_Entrance_Compliance",
+            "note": "ground truth chat context + query"
+          },
+          {
+            "type": "image",
+            "ref": "/root/cmu/master_thesis/mscd_demo/data/ground_truth/gt_1/imgs/img_gt_004_1.png",
+            "note": "ground truth image"
+          }
+        ],
+        "validation_metadata": {
+          "schema_id": "corenetx-like-minimal/v0",
+          "required_fill_rate": 0.0,
+          "passed": false,
+          "errors": [
+            "'' is too short",
+            "'' should be non-empty"
+          ],
+          "provenance": {
+            "issue.issue_type": "from_agent_final",
+            "issue.severity": "from_agent_final",
+            "issue.issue_summary": "from_agent_final",
+            "bim_reference.element_guid": "from_agent_final",
+            "bim_reference.ifc_class": "from_ifc_tool",
+            "bim_reference.storey_name": "from_domain_validator",
+            "bim_reference.pset_snapshot": "from_ifc_tool",
+            "evidence": "from_agent_final_or_input"
+          }
+        }
+      },
+      "uncertainty": {
+        "escalated": true,
+        "reason": "FINAL_JSON tag not found",
+        "confidence": 0.2
+      }
+    }
+  },
+  "ground_truth": {
+    "target_guid": "1_jeQ1u6XFwed$AhVCoJi$",
+    "target_name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:473744",
+    "target_storey": "Level 1",
+    "expected_reasoning": "Role(RTO) + Query(Clear Opening) + Chat(Swedoor fire-rated door) + 4D Task(Level 1) -> Search for IfcDoor on Level 1 matching 'Swedoor' name pattern.",
+    "action_required": "Get_Geometry_Properties(OverallWidth); Validate_IFC_SG(Accessibility_Code)",
+    "rq_category": "RQ2"
+  }
+}

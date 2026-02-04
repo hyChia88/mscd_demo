@@ -261,7 +261,16 @@ async def main_async(args):
                         agent_message = str(response)
                         tool_names = []
 
-                    # Handle empty responses with fallback
+                    # Handle empty responses - try to extract tool results
+                    if not agent_message or not agent_message.strip():
+                        # Look for ToolMessage results in the response
+                        for msg in reversed(response["messages"]):
+                            msg_type = getattr(msg, 'type', None) or msg.__class__.__name__
+                            if msg_type in ('tool', 'ToolMessage') and getattr(msg, 'content', None):
+                                agent_message = msg.content
+                                break
+
+                    # Final fallback if still empty
                     if not agent_message or not agent_message.strip():
                         agent_message = f"[Empty response] Tools called: {tool_names if tool_names else 'None'}. Try rephrasing your query."
                         print("\n⚠️  Agent returned empty response")

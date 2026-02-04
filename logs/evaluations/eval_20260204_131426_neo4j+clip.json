@@ -1,0 +1,328 @@
+{
+  "timestamp": "20260204_131426",
+  "run_id": "20260204_131327_neo4j+clip",
+  "experiment": {
+    "mode": "neo4j+clip",
+    "query_mode": "neo4j",
+    "visual_enabled": true,
+    "description": "Neo4j graph queries + CLIP visual matching"
+  },
+  "ground_truth_file": "data/ground_truth/gt_1/gt_1.json",
+  "summary": {
+    "total": 5,
+    "retrieval": {
+      "top1_accuracy": 0.0,
+      "top3_accuracy": 0.0,
+      "top5_accuracy": 0.0,
+      "precision_at_1": 0.0,
+      "recall": 0.0,
+      "f1_score": 0
+    },
+    "guid_matches": 1,
+    "name_matches": 1,
+    "rq2_schema": {
+      "total": 1,
+      "passed": 0,
+      "pass_rate": 0.0,
+      "avg_fill_rate": 0.0
+    },
+    "by_rq_category": {
+      "RQ1": {
+        "total": 2,
+        "guid_match": 0,
+        "top1_hit": 0,
+        "top3_hit": 0
+      },
+      "RQ3": {
+        "total": 2,
+        "guid_match": 0,
+        "top1_hit": 0,
+        "top3_hit": 0
+      },
+      "RQ2": {
+        "total": 1,
+        "guid_match": 1,
+        "top1_hit": 0,
+        "top3_hit": 0
+      }
+    }
+  },
+  "results": [
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "0cRoQU_sD5R8MkkMkeodzx",
+      "target_name": "Basic Wall:Generic - 200mm",
+      "rq_category": "RQ1",
+      "details": [
+        "\u274c Target GUID not found: 0cRoQU_sD5R8MkkMkeodzx",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: Basic Wall"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "GT_001_RQ1_Visual_Texture",
+      "elapsed_time": 9.549395561218262,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "photo.jpg"
+          }
+        }
+      ],
+      "rq2": null,
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260204_131327_neo4j+clip/GT_001_RQ1_Visual_Texture.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260204_131327_neo4j+clip/GT_001_RQ1_Visual_Texture.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260204_131327_neo4j+clip/GT_001_RQ1_Visual_Texture.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "0Um_J2ClP45uPRcRbJqhxe",
+      "target_name": "BALANS Fixed Single Window",
+      "rq_category": "RQ3",
+      "details": [
+        "\u274c Target GUID not found: 0Um_J2ClP45uPRcRbJqhxe",
+        "\ud83d\udcca Target GUID not in 1 mentioned candidates",
+        "\u274c Target name not found: BALANS Fixed Single Window"
+      ],
+      "mentioned_guids": [
+        "0ifV7awIzBlRVUTYG1zp3a"
+      ],
+      "num_candidates": 1,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "GT_007_RQ3_Temporal_Inference",
+      "elapsed_time": 4.803241968154907,
+      "tool_calls": [
+        {
+          "name": "match_text_to_elements",
+          "args": {
+            "storey_filter": "6 - Sixth Floor",
+            "description": "loose sealant",
+            "top_k": 1.0
+          }
+        }
+      ],
+      "rq2": null,
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260204_131327_neo4j+clip/GT_007_RQ3_Temporal_Inference.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260204_131327_neo4j+clip/GT_007_RQ3_Temporal_Inference.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260204_131327_neo4j+clip/GT_007_RQ3_Temporal_Inference.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "1ebX2H7F12su$wtPbeYAIT",
+      "target_name": "BALANS Fixed Single Window",
+      "rq_category": "RQ1",
+      "details": [
+        "\u274c Target GUID not found: 1ebX2H7F12su$wtPbeYAIT",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: BALANS Fixed Single Window"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "GT_008_RQ1_Semantic_Text",
+      "elapsed_time": 1.2243432998657227,
+      "tool_calls": [
+        {
+          "name": "match_text_to_elements",
+          "args": {
+            "description": "window joint defect",
+            "storey_filter": "Ground Level",
+            "top_k": 1.0
+          }
+        }
+      ],
+      "rq2": null,
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260204_131327_neo4j+clip/GT_008_RQ1_Semantic_Text.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260204_131327_neo4j+clip/GT_008_RQ1_Semantic_Text.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260204_131327_neo4j+clip/GT_008_RQ1_Semantic_Text.bcfzip"
+      }
+    },
+    {
+      "guid_match": true,
+      "name_match": true,
+      "target_guid": "1_jeQ1u6XFwed$AhVCoJi$",
+      "target_name": "M_Single-Flush:0915 x 2134mm",
+      "rq_category": "RQ2",
+      "details": [
+        "\u2705 Target GUID found: 1_jeQ1u6XFwed$AhVCoJi$",
+        "\ud83d\udcca Target GUID not in 4 mentioned candidates",
+        "\u2705 Target name found: M_Single-Flush"
+      ],
+      "mentioned_guids": [
+        "3p6DR19bjD_PWb8lZMRTIN",
+        "3p6DR19bjD_PWb8lZMRTlD",
+        "0Pw4h9cu11p8EzOFUdpSlP",
+        "0Pw4h9cu11p8EzOFUdpTBE"
+      ],
+      "num_candidates": 4,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "GT_004_RQ2_Schema_Check",
+      "elapsed_time": 2.894498348236084,
+      "tool_calls": [
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "Level 1",
+            "element_type": "IfcDoor"
+          }
+        },
+        {
+          "name": "get_element_details",
+          "args": {
+            "guid": "1_jeQ1u6XFwed$AhVCoJi$"
+          }
+        },
+        {
+          "name": "get_element_details",
+          "args": {
+            "guid": "3p6DR19bjD_PWb8lZMRTIN"
+          }
+        },
+        {
+          "name": "get_element_details",
+          "args": {
+            "guid": "3p6DR19bjD_PWb8lZMRTlD"
+          }
+        },
+        {
+          "name": "get_element_details",
+          "args": {
+            "guid": "0Pw4h9cu11p8EzOFUdpSlP"
+          }
+        },
+        {
+          "name": "get_element_details",
+          "args": {
+            "guid": "0Pw4h9cu11p8EzOFUdpTBE"
+          }
+        }
+      ],
+      "rq2": {
+        "schema_id": "corenetx-like-minimal/v0",
+        "final_json_parse_error": "FINAL_JSON tag not found",
+        "agent_final": {},
+        "submission": {
+          "submission_id": "demo_unknown",
+          "issue": {
+            "issue_type": "unknown",
+            "severity": "unknown",
+            "issue_summary": "unspecified"
+          },
+          "bim_reference": {
+            "element_guid": "",
+            "ifc_class": "UNKNOWN",
+            "storey_name": "",
+            "pset_snapshot": {}
+          },
+          "evidence": [
+            {
+              "type": "chat",
+              "ref": "GT_004_RQ2_Schema_Check",
+              "note": "ground truth chat context + query"
+            }
+          ],
+          "validation_metadata": {
+            "schema_id": "corenetx-like-minimal/v0",
+            "required_fill_rate": 0.0,
+            "passed": false,
+            "errors": [
+              "'' is too short",
+              "'' should be non-empty"
+            ],
+            "provenance": {
+              "issue.issue_type": "from_agent_final",
+              "issue.severity": "from_agent_final",
+              "issue.issue_summary": "from_agent_final",
+              "bim_reference.element_guid": "from_agent_final",
+              "bim_reference.ifc_class": "from_ifc_tool",
+              "bim_reference.storey_name": "from_domain_validator",
+              "bim_reference.pset_snapshot": "from_ifc_tool",
+              "evidence": "from_agent_final_or_input"
+            }
+          }
+        },
+        "uncertainty": {
+          "escalated": true,
+          "reason": "FINAL_JSON tag not found",
+          "confidence": 0.2
+        }
+      },
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260204_131327_neo4j+clip/GT_004_RQ2_Schema_Check.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260204_131327_neo4j+clip/GT_004_RQ2_Schema_Check.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260204_131327_neo4j+clip/GT_004_RQ2_Schema_Check.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "NONE",
+      "target_name": "NONE",
+      "rq_category": "RQ3",
+      "details": [
+        "\u274c Target GUID not found: NONE",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: NONE"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "GT_009_RQ3_Escalation_Anomaly",
+      "elapsed_time": 0.7846601009368896,
+      "tool_calls": [
+        {
+          "name": "get_elements_by_room",
+          "args": {
+            "room_name": "Room 999"
+          }
+        }
+      ],
+      "rq2": null,
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260204_131327_neo4j+clip/GT_009_RQ3_Escalation_Anomaly.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260204_131327_neo4j+clip/GT_009_RQ3_Escalation_Anomaly.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260204_131327_neo4j+clip/GT_009_RQ3_Escalation_Anomaly.bcfzip"
+      }
+    }
+  ]
+}

@@ -1,205 +1,135 @@
 [
   {
-    "id": "GT_001_RQ1_Visual_Mockup",
+    "id": "GT_001_RQ1_Visual_Texture",
+    "description": "Tier 1: High Ambiguity. Text is vague. Must use Visual to identify Material (Concrete vs Drywall).",
     "image_file": ["img_gt_001_1.png"],
     "context_payload": {
       "meta": {
         "timestamp": "2026-02-12T09:15:00+08:00",
-        "sender_id": "U_AH_MENG",
-        "sender_role": "Site Supervisor (Main Con)",
-        "project_phase": "Visual Mockup Unit (VMU) Review",
-        "4d_task_status": "TASK_101: VMU Exterior Finishing Level 1 - INSPECTION PENDING"
+        "sender_role": "Site Supervisor",
+        "project_phase": "Defect Liability Period",
+        "4d_task_status": "TASK_999: General Inspection - ACTIVE"
       },
       "chat_history": [
         {
-          "role": "PM (Developer)",
-          "text": "Ah Meng, Architect says the concrete texture at the mockup area is not consistent. Client is coming at 2pm."
+          "role": "Site Supervisor",
+          "text": "Found some hairline cracks on this surface."
         },
         {
           "role": "Site Supervisor",
-          "text": "Checking now boss. I am at Level 1 mockup zone."
-        },
-        {
-          "role": "Site Supervisor",
-          "text": "Found a few hairline cracks and some water staining on the main corner. See attached.<img_gt_001_1.png>"
+          "text": "See attached photo."
         }
       ]
     },
-    "query_text": "Check this crack and staining.",
+    "query_text": "Check this crack.",
     "ground_truth": {
       "target_guid": "0cRoQU_sD5R8MkkMkeodzx",
-      "target_name": "Basic Wall:Generic - 200mm:308895",
+      "target_name": "Basic Wall:Generic - 200mm",
       "target_storey": "Level 1",
-      "expected_reasoning": "Visual(Crack/Stain) + Phase(VMU Review) + 4D Task(Level 1) + Role(Site Super) -> Disambiguates to Level 1 Generic Wall. Distinguishes from high-rise structural walls.",
-      "action_required": "Retrieve_IFC_Properties(Pset_WallCommon); Identify_Material_Type",
+      "expected_reasoning": "Visual classifier identifies 'Concrete Surface'. Filter 'IfcWall' with Material='Concrete'.",
       "rq_category": "RQ1"
     }
   },
   {
-    "id": "GT_002_RQ1_Window_QA",
-    "image_file": ["img_gt_002_1.png"],
+    "id": "GT_007_RQ3_Temporal_Inference",
+    "description": "Tier 2: Temporal Ambiguity. Text has no location. Must read 4D Task to find Level 6.",
+    "image_file": [],
     "context_payload": {
       "meta": {
-        "timestamp": "2026-03-05T11:20:00+08:00",
-        "sender_id": "U_SARAH_BIM",
-        "sender_role": "QC Officer",
-        "project_phase": "Internal QA/QC Inspection",
-        "4d_task_status": "TASK_302: Window Frame Installation 1 - First Floor - COMPLETED"
-      },
-      "chat_history": [
-        {
-          "role": "QC Officer",
-          "text": "Starting internal QA for the 1 - First Floor unit types."
-        },
-        {
-          "role": "Site Supervisor",
-          "text": "Window frames for the master bedroom already up. Can check the sealant."
-        },
-        {
-          "role": "QC Officer",
-          "text": "Window frame installation fine, but there are rubbish ard. Clean it asap <img_gt_002_1.png>"
-        }
-      ]
-    },
-    "query_text": "Log this window frame for QA record.",
-    "ground_truth": {
-      "target_guid": "1KMtYLyv9CyfGv8UjnMBSN",
-      "target_name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:793588",
-      "target_storey": "1 - First Floor",
-      "expected_reasoning": "Visual(Frame installed completed, messy site) + 4D Task(1 - First Floor) + Role(QC Officer) -> Targets the specific IfcWindow element in the current space context.",
-      "action_required": "Retrieve_Element_Metadata; Log_Defect_Report",
-      "rq_category": "RQ1"
-    }
-  },
-  {
-    "id": "GT_004_RQ2_Entrance_Compliance",
-    "image_file": ["img_gt_004_1.png"],
-    "context_payload": {
-      "meta": {
-        "timestamp": "2026-02-15T10:30:00+08:00",
-        "sender_id": "U_RTO_TAN",
-        "sender_role": "RTO (Resident Technical Officer)",
-        "project_phase": "Accessibility Submission Review",
-        "4d_task_status": "TASK_088: Level 1 Main Entrance Finishing - ACTIVE"
-      },
-      "chat_history": [
-        {
-          "role": "Qualified Person (QP)",
-          "text": "RTO Tan, please verify if the Level 1 entrance clear opening matches the approved Universal Design plans."
-        },
-        {
-          "role": "RTO",
-          "text": "At the Level 1 Main Entrance now. Measuring the clear width."
-        },
-        {
-          "role": "RTO",
-          "text": "The Swedoor fire-rated door here is the main access point. Checking if it meets 1990mm clear opening requirement."
-        }
-      ]
-    },
-    "query_text": "Verify this Swedoor entrance clear opening for accessibility compliance.",
-    "ground_truth": {
-      "target_guid": "1_jeQ1u6XFwed$AhVCoJi$",
-      "target_name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:473744",
-      "target_storey": "Level 1",
-      "expected_reasoning": "Role(RTO) + Query(Clear Opening) + Chat(Swedoor fire-rated door) + 4D Task(Level 1) -> Search for IfcDoor on Level 1 matching 'Swedoor' name pattern.",
-      "action_required": "Get_Geometry_Properties(OverallWidth); Validate_IFC_SG(Accessibility_Code)",
-      "rq_category": "RQ2"
-    }
-  },
-  {
-    "id": "GT_005_RQ2_Fire_Door_Rating",
-    "image_file": ["img_gt_005_1.png", "img_gt_005_2.png"],
-    "context_payload": {
-      "meta": {
-        "timestamp": "2026-04-10T14:45:00+08:00",
-        "sender_id": "U_FIRE_ENG",
-        "sender_role": "Fire Safety Engineer",
-        "project_phase": "TOP Inspection Preparation",
-        "4d_task_status": "TASK_901: Fire Safety Systems Verification - 1 - First Floor"
-      },
-      "chat_history": [
-        {
-          "role": "PM",
-          "text": "SCDF inspection is in 2 weeks. All fire doors must have the correct rating tags."
-        },
-        {
-          "role": "Fire Safety Engineer",
-          "text": "Checking the 1 - First Floor corridor fire doors now. This one is missing the physical tag."
-        }
-      ]
-    },
-    "query_text": "Check FireRating against code.",
-    "ground_truth": {
-      "target_guid": "0MOEoDTm9EnO9yKsXjjkME",
-      "target_name": "M_Single-Flush:Generic Door:586077",
-      "target_storey": "1 - First Floor",
-      "expected_reasoning": "Intent(Fire Safety) + Role(Engineer) + 4D Task(1 - First Floor) -> Agent must fetch 'FireRating' property from IfcDoor to compare with CP83 Fire Code requirements.",
-      "action_required": "Retrieve_Property(Pset_DoorCommon.FireRating); Check_Regulatory_Alignment",
-      "rq_category": "RQ2"
-    }
-  },
-  {
-    "id": "GT_007_RQ3_HighRise_Abductive",
-    "image_file": ["img_gt_007_1.png"],
-    "context_payload": {
-      "meta": {
-        "timestamp": "2026-06-20T14:00:00+08:00",
-        "sender_id": "U_FACADE_SUB",
-        "sender_role": "Façade Specialist",
-        "project_phase": "Superstructure Cycle (6 - Sixth Floor)",
+        "timestamp": "2026-02-10T14:00:00+08:00",
+        "sender_role": "Facade Specialist",
+        "project_phase": "Module Installation",
         "4d_task_status": "TASK_505: Module Installation 6 - Sixth Floor - ACTIVE"
       },
       "chat_history": [
         {
-          "role": "BIM Coord",
-          "text": "All, we are closing the RFI for the 6 - Sixth Floor Master Bedroom types."
-        },
-        {
-          "role": "Façade Specialist",
-          "text": "Noted. I am on the gondola outside at 6 - Sixth Floor."
+          "role": "Facade Specialist",
+          "text": "I am on the gondola outside. The sealant looks loose here."
         }
       ]
     },
     "query_text": "Is the sealant leaking here?",
     "ground_truth": {
       "target_guid": "0Um_J2ClP45uPRcRbJqhxe",
-      "target_name": "BALANS Fixed Single Window:BALANS TRAPPHUS TOP:959331",
+      "target_name": "BALANS Fixed Single Window",
       "target_storey": "6 - Sixth Floor",
-      "expected_reasoning": "Visual(Sky/No ground) + 4D Task(6 - Sixth Floor - ACTIVE) + Role(Gondola) -> Abductive reasoning eliminates L01-L5 options despite identical geometry. Only 3 windows on 6 - Sixth Floor vs 46 per floor elsewhere.",
-      "action_required": "Spatial_Filter(6 - Sixth Floor); Retrieve_Property(Pset_WindowCommon.Status)",
+      "expected_reasoning": "Text 'here' is ambiguous. 4D Task 'Module Installation 6' implies Level 6. Filter Storey='6 - Sixth Floor'.",
       "rq_category": "RQ3"
     }
   },
   {
-    "id": "GT_008_RQ3_Ground_Abductive",
-    "image_file": ["img_gt_008_2.png"],
+    "id": "GT_008_RQ1_Semantic_Text",
+    "description": "Tier 3: Semantic Specificity. No location, but specific defect description matches specific element type.",
+    "image_file": [],
     "context_payload": {
       "meta": {
         "timestamp": "2026-02-10T11:00:00+08:00",
-        "sender_id": "U_MAINCON_SUP",
         "sender_role": "Main Con Supervisor",
-        "project_phase": "Level 1 Module Finishing",
-        "4d_task_status": "TASK_045: Ground Level Cladding Level 1 - IN PROGRESS"
+        "project_phase": "Handover",
+        "4d_task_status": "TASK_045: Ground Level Cladding - COMPLETED"
       },
       "chat_history": [
         {
           "role": "Main Con Supervisor",
-          "text": "Working on the unit at the park-facing side (Level 1)."
-        },
-        {
-          "role": "Main Con Supervisor",
-          "text": "I'm looking at the window corner joint, seems to be a gap. See close up."
+          "text": "The park-facing unit has a gap."
         }
       ]
     },
-    "query_text": "Check this window joint defect on Level 1.",
+    "query_text": "Check the window joint defect.",
     "ground_truth": {
       "target_guid": "1ebX2H7F12su$wtPbeYAIT",
-      "target_name": "BALANS Fixed Single Window:BALANS 20M FLOOR (SH = 0):773593",
+      "target_name": "BALANS Fixed Single Window",
       "target_storey": "Level 1",
-      "expected_reasoning": "Chat mentions 'window corner joint' + 4D Task(Level 1) -> Search for IfcWindow on Level 1. Note: 'Level 1' vs '1 - First Floor' are different storeys in this model.",
-      "action_required": "Spatial_Filter(Level 1); Search IfcWindow; Create_BCF_Issue",
+      "expected_reasoning": "Keyword 'window joint' maps to IfcWindow. 'Park-facing' (if mapped) or simple type filtering finds the window.",
+      "rq_category": "RQ1"
+    }
+  },
+  {
+    "id": "GT_004_RQ2_Schema_Check",
+    "description": "Tier 2: Ontology Alignment. Must map 'Accessibility' to specific door width check.",
+    "image_file": [],
+    "context_payload": {
+      "meta": {
+        "timestamp": "2026-03-01T10:00:00+08:00",
+        "sender_role": "RTO",
+        "project_phase": "Regulatory Submission",
+        "4d_task_status": "TASK_700: Fire Inspection Level 1"
+      },
+      "chat_history": []
+    },
+    "query_text": "Verify clear opening for the main entrance door on Level 1.",
+    "ground_truth": {
+      "target_guid": "1_jeQ1u6XFwed$AhVCoJi$",
+      "target_name": "M_Single-Flush:0915 x 2134mm",
+      "target_storey": "Level 1",
+      "expected_reasoning": "Identify 'Main Entrance'. Check Property 'ClearWidth' > 850mm.",
+      "rq_category": "RQ2"
+    }
+  },
+  {
+    "id": "GT_009_RQ3_Escalation_Anomaly",
+    "description": "Tier 4: Anomaly. References non-existent element to test Escalation Policy.",
+    "image_file": [],
+    "context_payload": {
+      "meta": {
+        "timestamp": "2026-02-14T12:00:00+08:00",
+        "sender_role": "Subcon",
+        "project_phase": "Fit-out",
+        "4d_task_status": "TASK_102: Level 1 Fit-out"
+      },
+      "chat_history": [
+        {
+          "role": "Subcon",
+          "text": "I cannot find the door for Room 999."
+        }
+      ]
+    },
+    "query_text": "Check the door in Room 999.",
+    "ground_truth": {
+      "target_guid": "NONE",
+      "target_name": "NONE",
+      "target_storey": "NONE",
+      "expected_reasoning": "Search for 'Room 999' returns 0 results. Agent must return Escalation_Flag.",
       "rq_category": "RQ3"
     }
   }

@@ -1,0 +1,35 @@
+{
+  "issue_id": "6dcd9513-be92-4c54-98f4-288852732384",
+  "case_id": "GT_008_RQ1_Semantic_Text",
+  "run_id": "20260204_130413_neo4j",
+  "created_at": "2026-02-04T13:04:37.530756",
+  "title": "GT_008_RQ1_Semantic_Text: BIM Issue",
+  "description": "Original Query: \n\nSelected Element GUID: (none found)\nGUID Source: none",
+  "issue_type": "defect",
+  "severity": "medium",
+  "status": "open",
+  "element_guid": "",
+  "guid_source": "none",
+  "bim_reference": {
+    "element_guid": "",
+    "ifc_class": "",
+    "storey_name": "",
+    "element_name": ""
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evidence": [],
+  "trace_uri": "outputs/traces/20260204_130413_neo4j/GT_008_RQ1_Semantic_Text.trace.json",
+  "evaluation": {
+    "guid_match": false,
+    "name_match": false,
+    "storey_match": false
+  }
+}

@@ -148,43 +148,195 @@ tools:
       3. Renders to PNG with proper camera angle
       4. Returns actual file path
 
-  identify_element_visually:
-    name: "identify_element_visually"
-    signature: "identify_element_visually(site_photo_path: str, candidate_guids_str: str) -> str"
-    description: |
-      Advanced Tool: Identifies the correct element from a list of candidates by visually comparing
-      the site photo with generated BIM renders using CLIP embeddings.
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Visual Analysis Tools (CLIP-based)
+  # ─────────────────────────────────────────────────────────────────────────────
 
-    status: "NOT EXPORTED - Tool defined but not available to agent"
+  analyze_site_image:
+    name: "analyze_site_image"
+    signature: "analyze_site_image(image_path: str) -> str"
+    description: |
+      Analyze a site photo to classify what building elements are visible.
+      Uses CLIP multimodal AI to understand the content of the image.
+      Returns top-5 most likely element types with confidence scores.
 
     parameters:
-      site_photo_path:
+      image_path:
         type: str
-        description: "Path to the user's uploaded photo"
-
-      candidate_guids_str:
-        type: str
-        description: "Comma-separated string of GUIDs to check"
-        example: "GUID1,GUID2,GUID3"
+        required: true
+        format: "Absolute or relative path to image file (jpg, png)"
+        examples:
+          - "/root/cmu/master_thesis/mscd_demo/data/ground_truth/gt_1/imgs/img_gt_001_1.png"
+          - "data/ground_truth/gt_1/imgs/img_gt_001_1.png"
 
     when_to_use:
-      - User uploads a site photo and asks "What is this?"
-      - Need to match photo to BIM element
-      - Multiple candidates and need visual confirmation
+      - User asks "What's in this image?"
+      - User provides an image path and asks for analysis
+      - Need to understand what a site photo shows before matching to BIM
 
-    limitations:
-      - Currently NOT in tools export list
-      - Would require CLIP model (transformers, torch)
-      - MVP implementation is mocked
+    example_queries:
+      - "Analyze this image: /path/to/photo.jpg"
+      - "What's in the image at data/ground_truth/gt_1/imgs/img_gt_001_1.png?"
+      - "Can you read/see/analyze this photo?"
 
-    future_implementation:
-      - Load visual_matcher.VisualAligner
-      - Generate renders for each candidate GUID
-      - Compare embeddings using CLIP
-      - Return best match with confidence score
+    example_output: |
+      Analysis of site image (img_gt_001_1.png):
+        Most likely elements visible:
+          - Window with glass pane (confidence: 0.85)
+          - Crack or damage on surface (confidence: 0.72)
+          - Concrete wall surface (confidence: 0.65)
+          - Metal door frame (confidence: 0.45)
+          - Beam or lintel (confidence: 0.38)
+
+    response_guidance: |
+      After calling this tool, you MUST:
+      1. Report the analysis results to the user
+      2. Describe what the image likely shows based on top scores
+      3. Suggest next steps (e.g., match to BIM elements if storey known)
+
+  match_image_to_elements:
+    name: "match_image_to_elements"
+    signature: "match_image_to_elements(image_path: str, storey_filter: str = None, top_k: int = 5) -> str"
+    description: |
+      Match a site photo to BIM elements in the IFC model using CLIP visual AI.
+      Returns ranked list of matching BIM elements with GUIDs and confidence scores.
+      Combines visual understanding with 4D spatial filtering.
+
+    parameters:
+      image_path:
+        type: str
+        required: true
+        description: "Path to the site photo"
+
+      storey_filter:
+        type: str
+        required: false
+        description: "Storey name to narrow search (e.g., 'sixth', 'Level 1')"
+        examples:
+          - "sixth"
+          - "Level 1"
+          - "1 - First Floor"
+
+      top_k:
+        type: int
+        required: false
+        default: 5
+        description: "Number of top matches to return"
+
+    when_to_use:
+      - User provides image AND you know the floor/storey
+      - After analyze_site_image, to find specific BIM elements
+      - Need to link a photo to IFC elements with GUIDs
+
+    example_output: |
+      Top 5 matches for site image (filtered to 'sixth'):
+        #1: Window_North_6F (IfcWindow)
+             GUID: 0Um_J2ClP45uPRcRbJqhxe
+             Confidence: 0.782
+        #2: Wall_Ext_6F (IfcWall)
+             GUID: 1X3Gy$abc123def456
+             Confidence: 0.654
+
+  compare_defect_images:
+    name: "compare_defect_images"
+    signature: "compare_defect_images(image_path1: str, image_path2: str) -> str"
+    description: |
+      Compare two site photos to check if they show the same defect/area.
+      Returns similarity score and interpretation (VERY HIGH/HIGH/MODERATE/LOW/VERY LOW).
+
+    parameters:
+      image_path1:
+        type: str
+        required: true
+        description: "Path to first image"
+
+      image_path2:
+        type: str
+        required: true
+        description: "Path to second image"
+
+    when_to_use:
+      - User asks "Is this the same defect as before?"
+      - Need to check if two photos show the same issue
+      - Grouping related defect images
+
+    example_output: |
+      Image Comparison Results:
+        Image 1: crack_v1.jpg
+        Image 2: crack_v2.jpg
+        Similarity Score: 0.850
+        Interpretation: VERY HIGH - Images almost certainly show the same subject
+
+  match_text_to_elements:
+    name: "match_text_to_elements"
+    signature: "match_text_to_elements(description: str, storey_filter: str = None, top_k: int = 5) -> str"
+    description: |
+      Match a text description to BIM elements using CLIP semantic similarity.
+      Useful when user describes a defect verbally without providing an image.
+
+    parameters:
+      description:
+        type: str
+        required: true
+        description: "Text description of the element or defect"
+        examples:
+          - "cracked window on the north wall"
+          - "damaged concrete near the elevator"
+
+      storey_filter:
+        type: str
+        required: false
+        description: "Optional storey name to narrow search"
+
+      top_k:
+        type: int
+        required: false
+        default: 5
+        description: "Number of top matches to return"
+
+    when_to_use:
+      - User describes a defect without providing an image
+      - Need semantic matching between description and BIM elements
+      - Alternative to image-based matching
+
+    example_output: |
+      Top 5 matches for: "damaged concrete near the elevator"
+        (filtered to storey: 'first')
+
+        #1: Slab_Elevator_1F (IfcSlab)
+             GUID: 3cJh4vCKb06wZ6$sKPKYTS
+             Location: 1 - First Floor
+             Confidence: 0.723
 
 # Workflow patterns
 workflows:
+  visual_image_analysis:
+    steps:
+      - "User provides an image path and asks to analyze it"
+      - "Call analyze_site_image(image_path)"
+      - "Report the analysis results with confidence scores"
+      - "If storey context is available, suggest matching to BIM elements"
+
+    example: |
+      User: "What's in the image at data/ground_truth/gt_1/imgs/img_gt_001_1.png?"
+      Agent:
+        1. analyze_site_image("data/ground_truth/gt_1/imgs/img_gt_001_1.png")
+        2. "The image shows: Window with glass pane (0.85), Crack or damage (0.72)..."
+        3. "This appears to be a damaged window. Would you like me to match it to specific BIM elements?"
+
+  visual_element_matching:
+    steps:
+      - "User provides image AND floor context"
+      - "Call match_image_to_elements(image_path, storey_filter)"
+      - "Report top matches with GUIDs"
+      - "Recommend the best candidate"
+
+    example: |
+      User: "Match this photo to elements on the 6th floor"
+      Agent:
+        1. match_image_to_elements("photo.jpg", storey_filter="sixth", top_k=5)
+        2. "Top match: Window_North_6F (GUID: 0Um_J2ClP45uPRcRbJqhxe) with confidence 0.78"
+
   basic_room_query:
     steps:
       - "User asks about a room/floor"

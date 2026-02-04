@@ -1,0 +1,73 @@
+{
+  "run_id": "20260204_130651_neo4j",
+  "case_id": "GT_009_RQ3_Escalation_Anomaly",
+  "timestamp": "2026-02-04T13:07:37.683496",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "It looks like there are no doors associated with 'Room 999'. Could the room have a different name or be located on a different floor?",
+    "tool_calls": [
+      {
+        "name": "get_elements_by_room",
+        "args": {
+          "room_name": "Room 999"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "",
+    "guid_source": "none"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": false,
+    "target_guid": "NONE",
+    "target_name": "NONE",
+    "rq_category": "RQ3",
+    "details": [
+      "❌ Target GUID not found: NONE",
+      "📊 No GUIDs extracted from response",
+      "❌ Target name not found: NONE"
+    ],
+    "mentioned_guids": [],
+    "num_candidates": 0,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "GT_009_RQ3_Escalation_Anomaly",
+    "elapsed_time": 0.95906662940979,
+    "tool_calls": [
+      {
+        "name": "get_elements_by_room",
+        "args": {
+          "room_name": "Room 999"
+        }
+      }
+    ],
+    "rq2": null
+  },
+  "ground_truth": {
+    "target_guid": "NONE",
+    "target_name": "NONE",
+    "target_storey": "NONE",
+    "expected_reasoning": "Search for 'Room 999' returns 0 results. Agent must return Escalation_Flag.",
+    "rq_category": "RQ3"
+  }
+}
