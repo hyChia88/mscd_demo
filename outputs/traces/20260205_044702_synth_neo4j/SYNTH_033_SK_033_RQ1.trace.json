@@ -1,0 +1,78 @@
+{
+  "run_id": "20260205_044702_synth_neo4j",
+  "case_id": "SYNTH_033_SK_033_RQ1",
+  "timestamp": "2026-02-05T04:54:38.685269",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "I'm sorry, I cannot identify the door in the image. The visual analysis capability is not available at the moment.",
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.1/cases/imgs/img_SYNTH_033_SK_033_RQ1.png",
+          "storey_filter": "6 - Sixth Floor",
+          "top_k": 1.0
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "",
+    "guid_source": "none"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": false,
+    "target_guid": "0Um_J2ClP45uPRcRbJqf_I",
+    "target_name": "M_Single-Flush:Generic Door:950809",
+    "rq_category": "RQ1",
+    "details": [
+      "❌ Target GUID not found: 0Um_J2ClP45uPRcRbJqf_I",
+      "📊 No GUIDs extracted from response",
+      "❌ Target name not found: M_Single-Flush"
+    ],
+    "mentioned_guids": [],
+    "num_candidates": 0,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "SYNTH_033_SK_033_RQ1",
+    "elapsed_time": 6.390732049942017,
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.1/cases/imgs/img_SYNTH_033_SK_033_RQ1.png",
+          "storey_filter": "6 - Sixth Floor",
+          "top_k": 1.0
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 3"
+  },
+  "ground_truth": {
+    "target_guid": "0Um_J2ClP45uPRcRbJqf_I",
+    "target_name": "M_Single-Flush:Generic Door:950809",
+    "target_storey": "6 - Sixth Floor",
+    "expected_reasoning": "Filter IfcDoor on 6 - Sixth Floor by Material='Door - Frame'",
+    "rq_category": "RQ1"
+  }
+}

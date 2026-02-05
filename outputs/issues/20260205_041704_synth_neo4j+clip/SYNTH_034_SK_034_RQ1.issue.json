@@ -1,0 +1,35 @@
+{
+  "issue_id": "611ccf2e-8e4c-41ef-8e3f-1602aa125d0d",
+  "case_id": "SYNTH_034_SK_034_RQ1",
+  "run_id": "20260205_041704_synth_neo4j+clip",
+  "created_at": "2026-02-05T04:33:49.021175",
+  "title": "SYNTH_034_SK_034_RQ1: BIM Issue",
+  "description": "Original Query: \n\nSelected Element GUID: 0Um_J2ClP45uPRcRbJqhbu\nGUID Source: regex_from_agent_response",
+  "issue_type": "defect",
+  "severity": "medium",
+  "status": "open",
+  "element_guid": "0Um_J2ClP45uPRcRbJqhbu",
+  "guid_source": "regex_from_agent_response",
+  "bim_reference": {
+    "element_guid": "0Um_J2ClP45uPRcRbJqhbu",
+    "ifc_class": "",
+    "storey_name": "",
+    "element_name": ""
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evidence": [],
+  "trace_uri": "outputs/traces/20260205_041704_synth_neo4j+clip/SYNTH_034_SK_034_RQ1.trace.json",
+  "evaluation": {
+    "guid_match": false,
+    "name_match": true,
+    "storey_match": false
+  }
+}

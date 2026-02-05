@@ -1,0 +1,82 @@
+{
+  "run_id": "20260205_041704_synth_neo4j+clip",
+  "case_id": "SYNTH_040_SK_040_RQ1",
+  "timestamp": "2026-02-05T04:36:00.066607",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "The image most closely matches \"Floor:Concrete-Domestic 425mm:982191 (IfcSlab)\" on the Third Floor, with a confidence of 0.250. There are also two windows that are less likely matches.\n\nWould you like to see the details of the slab or generate a 3D view of it?\n\n[AUTO-EXTRACTED] Top candidate GUIDs from tool results: 3NlCHdPGXFUvkKekQzm3Fi, 3ktY1kg3rAwgNBX_XWRV0A, 3ktY1kg3rAwgNBX_XWRV0e",
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.1/cases/imgs/img_SYNTH_040_SK_040_RQ1.png",
+          "storey_filter": "Third Floor",
+          "top_k": 3.0
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "3NlCHdPGXFUvkKekQzm3Fi",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": true,
+    "name_match": true,
+    "target_guid": "3NlCHdPGXFUvkKekQzm3Fi",
+    "target_name": "Floor:Concrete-Domestic 425mm:982191",
+    "rq_category": "RQ1",
+    "details": [
+      "✅ Target GUID found: 3NlCHdPGXFUvkKekQzm3Fi",
+      "📊 Target GUID rank: 1/3",
+      "✅ Target name found: Floor"
+    ],
+    "mentioned_guids": [
+      "3NlCHdPGXFUvkKekQzm3Fi",
+      "3ktY1kg3rAwgNBX_XWRV0A",
+      "3ktY1kg3rAwgNBX_XWRV0e"
+    ],
+    "num_candidates": 3,
+    "top1_hit": true,
+    "top3_hit": true,
+    "top5_hit": true,
+    "target_rank": 1,
+    "precision_at_1": 1.0,
+    "precision_at_3": 1.0,
+    "recall": 1.0,
+    "case_id": "SYNTH_040_SK_040_RQ1",
+    "elapsed_time": 7.188623428344727,
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.1/cases/imgs/img_SYNTH_040_SK_040_RQ1.png",
+          "storey_filter": "Third Floor",
+          "top_k": 3.0
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 3"
+  },
+  "ground_truth": {
+    "target_guid": "3NlCHdPGXFUvkKekQzm3Fi",
+    "target_name": "Floor:Concrete-Domestic 425mm:982191",
+    "target_storey": "3 - Third Floor",
+    "expected_reasoning": "Filter IfcSlab on 3 - Third Floor by Material='Concrete, Cast In Situ'",
+    "rq_category": "RQ1"
+  }
+}

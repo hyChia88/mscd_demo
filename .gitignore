@@ -14,3 +14,4 @@ mscd_demo/src/handoff/__pycache__
 mscd_demo/src/handoff/__pycache__/*.pyc
 mscd_demo/mcp_servers/__pycache__
 mscd_demo/mcp_servers/__pycache__/*.pyc
+mscd_demo/outputs/

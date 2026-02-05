@@ -1,0 +1,110 @@
+{
+  "run_id": "20260205_041704_synth_neo4j+clip",
+  "case_id": "SYNTH_029_SK_029_RQ1",
+  "timestamp": "2026-02-05T04:32:06.037063",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "Based on the image, you are likely looking at **Basic Wall:MockUp Interior between App:738337** (GUID: 0Pw4h9cu11p8EzOFUdpSRt) on Level 1.",
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.1/cases/imgs/img_SYNTH_029_SK_029_RQ1.png",
+          "storey_filter": "Ground Level",
+          "top_k": 5.0
+        }
+      },
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.1/cases/imgs/img_SYNTH_029_SK_029_RQ1.png",
+          "top_k": 5.0
+        }
+      },
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.1/cases/imgs/img_SYNTH_029_SK_029_RQ1.png",
+          "storey_filter": "Level 1",
+          "top_k": 5.0
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "0Pw4h9cu11p8EzOFUdpSRt",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": true,
+    "target_guid": "3GzoWuxxn4WO8bCtw8H3Vj",
+    "target_name": "Basic Wall:MockUp Interior between App:698152",
+    "rq_category": "RQ1",
+    "details": [
+      "❌ Target GUID not found: 3GzoWuxxn4WO8bCtw8H3Vj",
+      "📊 Target GUID not in 1 mentioned candidates",
+      "✅ Target name found: Basic Wall"
+    ],
+    "mentioned_guids": [
+      "0Pw4h9cu11p8EzOFUdpSRt"
+    ],
+    "num_candidates": 1,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "SYNTH_029_SK_029_RQ1",
+    "elapsed_time": 71.74471712112427,
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.1/cases/imgs/img_SYNTH_029_SK_029_RQ1.png",
+          "storey_filter": "Ground Level",
+          "top_k": 5.0
+        }
+      },
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.1/cases/imgs/img_SYNTH_029_SK_029_RQ1.png",
+          "top_k": 5.0
+        }
+      },
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.1/cases/imgs/img_SYNTH_029_SK_029_RQ1.png",
+          "storey_filter": "Level 1",
+          "top_k": 5.0
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 3"
+  },
+  "ground_truth": {
+    "target_guid": "3GzoWuxxn4WO8bCtw8H3Vj",
+    "target_name": "Basic Wall:MockUp Interior between App:698152",
+    "target_storey": "1 - First Floor",
+    "expected_reasoning": "Filter IfcWall on 1 - First Floor by Material='Leather, weathered'",
+    "rq_category": "RQ1"
+  }
+}

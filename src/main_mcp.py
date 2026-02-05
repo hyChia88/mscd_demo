@@ -126,14 +126,46 @@ def load_scenarios(file_path="prompts/tests/test_2.yaml"):
 
 
 def load_ground_truth(file_path="data/ground_truth/gt_1/gt_1.json"):
-    """Load ground truth test cases from JSON file"""
+    """
+    Load ground truth test cases from JSON file or directory.
+
+    Supports two formats:
+    1. Single JSON file containing array of cases (original gt_1.json format)
+    2. Directory containing individual JSON case files (synth_v0.1/cases/ format)
+
+    Args:
+        file_path: Path to JSON file or directory (relative to project root)
+
+    Returns:
+        list: List of test case dictionaries
+    """
     base_dir = Path(__file__).parent.parent
     gt_path = base_dir / file_path
 
     if not gt_path.exists():
-        print(f"❌ Error: Ground truth file '{gt_path}' not found.")
+        print(f"❌ Error: Ground truth path '{gt_path}' not found.")
         return []
 
+    # Check if path is a directory (synth dataset format)
+    if gt_path.is_dir():
+        cases = []
+        json_files = sorted(gt_path.glob("*.json"))
+        if not json_files:
+            print(f"❌ Error: No JSON files found in directory '{gt_path}'")
+            return []
+
+        print(f"📂 Loading {len(json_files)} case files from directory...")
+        for json_file in json_files:
+            try:
+                with open(json_file, "r", encoding="utf-8") as f:
+                    case = json.load(f)
+                    cases.append(case)
+            except json.JSONDecodeError as e:
+                print(f"⚠️  Warning: Failed to parse {json_file.name}: {e}")
+
+        return cases
+
+    # Single JSON file (original format)
     with open(gt_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
@@ -356,10 +388,39 @@ async def main_async(args=None):
     python_exe = sys.executable
     ifc_server_path = str(base_dir / "mcp_servers" / "ifc_server.py")
 
-    # Ground truth configuration from config
+    # Ground truth / dataset configuration
+    # Priority: --cases > --dataset > config.yaml
     gt_config = config.get("ground_truth", {})
-    gt_file = gt_config.get("file", "data/ground_truth/gt_1/gt_1.json")
-    gt_image_dir = base_dir / gt_config.get("image_dir", "data/ground_truth/gt_1/imgs")
+
+    # Dataset presets
+    DATASET_PRESETS = {
+        "gt1": {
+            "file": "data/ground_truth/gt_1/gt_1.json",
+            "image_dir": "data/ground_truth/gt_1/imgs"
+        },
+        "synth": {
+            "file": "../data_curation/datasets/synth_v0.1/cases",  # Directory of case files
+            "image_dir": "../data_curation/datasets/synth_v0.1/cases/imgs"  # Images in cases/imgs/
+        }
+    }
+
+    # Resolve dataset path
+    if args and args.cases:
+        # Custom path specified
+        gt_file = args.cases
+        gt_image_dir = base_dir / gt_config.get("image_dir", "data/ground_truth/gt_1/imgs")
+        dataset_name = "custom"
+    elif args and args.dataset:
+        # Preset selected
+        preset = DATASET_PRESETS.get(args.dataset, DATASET_PRESETS["gt1"])
+        gt_file = preset["file"]
+        gt_image_dir = base_dir / preset["image_dir"]
+        dataset_name = args.dataset
+    else:
+        # Use config.yaml
+        gt_file = gt_config.get("file", "data/ground_truth/gt_1/gt_1.json")
+        gt_image_dir = base_dir / gt_config.get("image_dir", "data/ground_truth/gt_1/imgs")
+        dataset_name = "config"
 
     # Output configuration from config
     output_config = config.get("output", {})
@@ -390,7 +451,8 @@ async def main_async(args=None):
     print("\n" + "="*70)
     print("🚀 Initializing MCP-based Agent")
     print(f"   IFC Model: {config.get('ifc', {}).get('model_path', 'N/A')}")
-    print(f"   Ground Truth: {gt_file}")
+    print(f"   Dataset: {dataset_name.upper()} → {gt_file}")
+    print(f"   Image Dir: {gt_image_dir}")
     if experiment_mode:
         print(f"   Experiment: {display_mode.upper()}")
         print(f"   Query Mode: {query_mode.upper()}")
@@ -444,12 +506,12 @@ async def main_async(args=None):
             logger.log_agent_message(f"MCP-based agent initialized with {len(langchain_tools)} tools")
 
             # P2: Create run_id for this evaluation session (shared across all cases)
-            # Include experiment mode in run_id for easy identification
+            # Include dataset and experiment mode in run_id for easy identification
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            run_id_parts = [timestamp, dataset_name]
             if experiment_mode:
-                run_id = f"{timestamp}_{experiment_mode}"
-            else:
-                run_id = timestamp
+                run_id_parts.append(experiment_mode)
+            run_id = "_".join(run_id_parts)
 
             # Track evaluation results
             evaluation_results = []
@@ -579,6 +641,9 @@ async def main_async(args=None):
                     eval_result["elapsed_time"] = elapsed
                     eval_result["tool_calls"] = tool_calls
                     eval_result["rq2"] = rq2_result  # Attach RQ2 results (may be None for non-RQ2 cases)
+                    # Capture ambiguity tier for synthetic dataset analysis
+                    if "ambiguity_tier" in case:
+                        eval_result["ambiguity_tier"] = case["ambiguity_tier"]
 
                     # P2: Build trace and generate handoff artifacts
                     # Prepare rq2_result for trace (convert to dict format if needed)
@@ -688,6 +753,26 @@ async def main_async(args=None):
                 top3_pct = 100 * stats["top3_hit"] / stats["total"] if stats["total"] > 0 else 0
                 print(f"      {rq}: Top-1={stats['top1_hit']}/{stats['total']} ({top1_pct:.1f}%) | Top-3={stats['top3_hit']}/{stats['total']} ({top3_pct:.1f}%)")
 
+            # Ambiguity Tier statistics (for synthetic dataset)
+            tier_stats = {}
+            for r in evaluation_results:
+                tier = r.get("ambiguity_tier", None)
+                if tier:
+                    if tier not in tier_stats:
+                        tier_stats[tier] = {"total": 0, "top1_hit": 0, "top3_hit": 0}
+                    tier_stats[tier]["total"] += 1
+                    if r.get("top1_hit", False):
+                        tier_stats[tier]["top1_hit"] += 1
+                    if r.get("top3_hit", False):
+                        tier_stats[tier]["top3_hit"] += 1
+
+            if tier_stats:
+                print(f"\n   🎯 Results by Ambiguity Tier (Enough Thinking):")
+                for tier, stats in sorted(tier_stats.items()):
+                    top1_pct = 100 * stats["top1_hit"] / stats["total"] if stats["total"] > 0 else 0
+                    top3_pct = 100 * stats["top3_hit"] / stats["total"] if stats["total"] > 0 else 0
+                    print(f"      {tier}: Top-1={stats['top1_hit']}/{stats['total']} ({top1_pct:.1f}%) | Top-3={stats['top3_hit']}/{stats['total']} ({top3_pct:.1f}%)")
+
             # RQ2 Schema Validation summary
             rq2_rows = [r for r in evaluation_results if r.get("rq_category") == "RQ2" and r.get("rq2")]
             if rq2_rows:
@@ -700,23 +785,29 @@ async def main_async(args=None):
             # Save evaluation results to JSON with enhanced metrics
             evaluations_dir.mkdir(parents=True, exist_ok=True)
             eval_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            # Include experiment mode in filename for easy identification
+            # Include dataset and experiment mode in filename for easy identification
+            filename_parts = ["eval", eval_timestamp, dataset_name]
             if experiment_mode:
-                results_file = evaluations_dir / f"eval_{eval_timestamp}_{experiment_mode}.json"
-            else:
-                results_file = evaluations_dir / f"eval_{eval_timestamp}.json"
+                filename_parts.append(experiment_mode)
+            results_file = evaluations_dir / f"{'_'.join(filename_parts)}.json"
 
             with open(results_file, "w", encoding="utf-8") as f:
                 json.dump({
                     "timestamp": eval_timestamp,
                     "run_id": run_id,
+                    "dataset": {
+                        "name": dataset_name,
+                        "path": gt_file,
+                        "image_dir": str(gt_image_dir),
+                        "total_cases": total
+                    },
                     "experiment": {
                         "mode": experiment_mode or "config",
                         "query_mode": query_mode if experiment_mode else "config",
                         "visual_enabled": visual_enabled if experiment_mode else False,
                         "description": _get_experiment_description(experiment_mode, query_mode, visual_enabled)
                     },
-                    "ground_truth_file": gt_file,
+                    "ground_truth_file": gt_file,  # Kept for backward compatibility
                     "summary": {
                         "total": total,
                         # Retrieval metrics (new)
@@ -738,7 +829,9 @@ async def main_async(args=None):
                             "pass_rate": (sum(1 for r in rq2_rows if r["rq2"]["submission"]["validation_metadata"]["passed"]) / len(rq2_rows)) if rq2_rows else 0,
                             "avg_fill_rate": (sum(r["rq2"]["submission"]["validation_metadata"]["required_fill_rate"] for r in rq2_rows) / len(rq2_rows)) if rq2_rows else 0
                         },
-                        "by_rq_category": rq_stats
+                        "by_rq_category": rq_stats,
+                        # Ambiguity tier metrics (for synthetic dataset)
+                        "by_ambiguity_tier": tier_stats if tier_stats else None
                     },
                     "results": evaluation_results
                 }, f, indent=2)
@@ -770,6 +863,11 @@ Examples:
   python src/main_mcp.py --experiment neo4j+clip   # Neo4j + CLIP visual matching
   python src/main_mcp.py -e neo4j+clip           # Short form
 
+Dataset selection:
+  python src/main_mcp.py --dataset synth         # Use synthetic dataset (synth_v0.1)
+  python src/main_mcp.py --dataset gt1           # Use original ground truth (gt_1)
+  python src/main_mcp.py -d synth -e neo4j       # Combine dataset + experiment mode
+
 Run all experiments in sequence:
   for mode in memory neo4j memory+clip neo4j+clip; do
     python src/main_mcp.py -e $mode
@@ -783,6 +881,19 @@ Run all experiments in sequence:
         choices=["memory", "neo4j", "memory+clip", "neo4j+clip"],
         default=None,
         help="Experiment mode: 'memory', 'neo4j', 'memory+clip', 'neo4j+clip'. The '+clip' variants enable CLIP visual matching tools."
+    )
+    parser.add_argument(
+        "--dataset", "-d",
+        type=str,
+        choices=["gt1", "synth"],
+        default=None,
+        help="Dataset to use: 'gt1' (original ground truth), 'synth' (synthetic dataset synth_v0.1). Default: use config.yaml setting."
+    )
+    parser.add_argument(
+        "--cases",
+        type=str,
+        default=None,
+        help="Custom path to cases file or directory (overrides --dataset and config.yaml)"
     )
     return parser.parse_args()
 

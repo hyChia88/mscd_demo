@@ -1,0 +1,80 @@
+{
+  "run_id": "20260205_041704_synth_neo4j+clip",
+  "case_id": "SYNTH_024_SK_024_RQ3",
+  "timestamp": "2026-02-05T04:28:45.645293",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "The image shows a door. The most likely match is `M_Single-Flush:Generic Door:959608` (GUID: `0Um_J2ClP45uPRcRbJqhdp`). Would you like to see its details?",
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.1/cases/imgs/img_SYNTH_024_SK_024_RQ3.png",
+          "storey_filter": "sixth",
+          "top_k": 5.0
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "0Um_J2ClP45uPRcRbJqhdp",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": true,
+    "target_guid": "0Um_J2ClP45uPRcRbJqf_I",
+    "target_name": "M_Single-Flush:Generic Door:950809",
+    "rq_category": "RQ3",
+    "details": [
+      "❌ Target GUID not found: 0Um_J2ClP45uPRcRbJqf_I",
+      "📊 Target GUID not in 1 mentioned candidates",
+      "✅ Target name found: M_Single-Flush"
+    ],
+    "mentioned_guids": [
+      "0Um_J2ClP45uPRcRbJqhdp"
+    ],
+    "num_candidates": 1,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "SYNTH_024_SK_024_RQ3",
+    "elapsed_time": 4.9183149337768555,
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.1/cases/imgs/img_SYNTH_024_SK_024_RQ3.png",
+          "storey_filter": "sixth",
+          "top_k": 5.0
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 2"
+  },
+  "ground_truth": {
+    "target_guid": "0Um_J2ClP45uPRcRbJqf_I",
+    "target_name": "M_Single-Flush:Generic Door:950809",
+    "target_storey": "6 - Sixth Floor",
+    "expected_reasoning": "Only 3 IfcDoor on 6 - Sixth Floor (avg: 32). 4D Task reveals storey.",
+    "rq_category": "RQ3"
+  }
+}

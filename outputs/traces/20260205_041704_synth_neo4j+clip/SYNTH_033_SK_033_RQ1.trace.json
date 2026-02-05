@@ -1,0 +1,80 @@
+{
+  "run_id": "20260205_041704_synth_neo4j+clip",
+  "case_id": "SYNTH_033_SK_033_RQ1",
+  "timestamp": "2026-02-05T04:33:34.593393",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "Based on the image, you are most likely looking at one of these doors on the 6th Floor:\n\n*   **M_Single-Flush:Generic Door:959608** (GUID: 0Um_J2ClP45uPRcRbJqhdp) - Confidence: 26.1%\n*   **M_Single-Flush:Generic Door:950809** (GUID: 0Um_J2ClP45uPRcRbJqf_I) - Confidence: 25.8%\n*   **Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:950795** (GUID: 0Um_J2ClP45uPRcRbJqf_0) - Confidence: 25.1%\n\nDo you want to see more details about any of these, or perhaps a 3D view?",
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.1/cases/imgs/img_SYNTH_033_SK_033_RQ1.png",
+          "storey_filter": "6 - Sixth Floor"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "0Um_J2ClP45uPRcRbJqhdp",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": true,
+    "name_match": true,
+    "target_guid": "0Um_J2ClP45uPRcRbJqf_I",
+    "target_name": "M_Single-Flush:Generic Door:950809",
+    "rq_category": "RQ1",
+    "details": [
+      "✅ Target GUID found: 0Um_J2ClP45uPRcRbJqf_I",
+      "📊 Target GUID rank: 2/3",
+      "✅ Target name found: M_Single-Flush"
+    ],
+    "mentioned_guids": [
+      "0Um_J2ClP45uPRcRbJqhdp",
+      "0Um_J2ClP45uPRcRbJqf_I",
+      "0Um_J2ClP45uPRcRbJqf_0"
+    ],
+    "num_candidates": 3,
+    "top1_hit": false,
+    "top3_hit": true,
+    "top5_hit": true,
+    "target_rank": 2,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.5,
+    "recall": 1.0,
+    "case_id": "SYNTH_033_SK_033_RQ1",
+    "elapsed_time": 4.9664599895477295,
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.1/cases/imgs/img_SYNTH_033_SK_033_RQ1.png",
+          "storey_filter": "6 - Sixth Floor"
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 3"
+  },
+  "ground_truth": {
+    "target_guid": "0Um_J2ClP45uPRcRbJqf_I",
+    "target_name": "M_Single-Flush:Generic Door:950809",
+    "target_storey": "6 - Sixth Floor",
+    "expected_reasoning": "Filter IfcDoor on 6 - Sixth Floor by Material='Door - Frame'",
+    "rq_category": "RQ1"
+  }
+}

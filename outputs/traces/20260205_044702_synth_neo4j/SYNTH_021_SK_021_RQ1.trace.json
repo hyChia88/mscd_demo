@@ -1,0 +1,74 @@
+{
+  "run_id": "20260205_044702_synth_neo4j",
+  "case_id": "SYNTH_021_SK_021_RQ1",
+  "timestamp": "2026-02-05T04:51:42.900235",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "I couldn't analyze the image because the visual analysis libraries are not installed. Could you please describe the issue and its location (e.g., \"damaged window on the first floor\")?",
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.1/cases/imgs/img_SYNTH_021_SK_021_RQ1.png"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "",
+    "guid_source": "none"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": false,
+    "target_guid": "2BLn4xX2vF_gM9G5wfbSLq",
+    "target_name": "Ramp:MockUP Garage Ramp:825944",
+    "rq_category": "RQ1",
+    "details": [
+      "❌ Target GUID not found: 2BLn4xX2vF_gM9G5wfbSLq",
+      "📊 No GUIDs extracted from response",
+      "❌ Target name not found: Ramp"
+    ],
+    "mentioned_guids": [],
+    "num_candidates": 0,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "SYNTH_021_SK_021_RQ1",
+    "elapsed_time": 2.371121644973755,
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.1/cases/imgs/img_SYNTH_021_SK_021_RQ1.png"
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 1"
+  },
+  "ground_truth": {
+    "target_guid": "2BLn4xX2vF_gM9G5wfbSLq",
+    "target_name": "Ramp:MockUP Garage Ramp:825944",
+    "target_storey": "-1 - Garage",
+    "expected_reasoning": "One of only 2 IfcRamp on -1 - Garage",
+    "rq_category": "RQ1"
+  }
+}

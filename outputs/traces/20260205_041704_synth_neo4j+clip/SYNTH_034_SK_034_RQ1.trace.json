@@ -1,0 +1,80 @@
+{
+  "run_id": "20260205_041704_synth_neo4j+clip",
+  "case_id": "SYNTH_034_SK_034_RQ1",
+  "timestamp": "2026-02-05T04:33:48.970054",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "The element in the BIM that best matches the image is a BALANS Fixed Single Window (GUID: 0Um_J2ClP45uPRcRbJqhbu) on the sixth floor.",
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.1/cases/imgs/img_SYNTH_034_SK_034_RQ1.png",
+          "storey_filter": "sixth",
+          "top_k": 3.0
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "0Um_J2ClP45uPRcRbJqhbu",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": true,
+    "target_guid": "0Um_J2ClP45uPRcRbJqhxe",
+    "target_name": "BALANS Fixed Single Window:BALANS TRAPPHUS TOP:959331",
+    "rq_category": "RQ1",
+    "details": [
+      "❌ Target GUID not found: 0Um_J2ClP45uPRcRbJqhxe",
+      "📊 Target GUID not in 1 mentioned candidates",
+      "✅ Target name found: BALANS Fixed Single Window"
+    ],
+    "mentioned_guids": [
+      "0Um_J2ClP45uPRcRbJqhbu"
+    ],
+    "num_candidates": 1,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "SYNTH_034_SK_034_RQ1",
+    "elapsed_time": 4.321190595626831,
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.1/cases/imgs/img_SYNTH_034_SK_034_RQ1.png",
+          "storey_filter": "sixth",
+          "top_k": 3.0
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 3"
+  },
+  "ground_truth": {
+    "target_guid": "0Um_J2ClP45uPRcRbJqhxe",
+    "target_name": "BALANS Fixed Single Window:BALANS TRAPPHUS TOP:959331",
+    "target_storey": "6 - Sixth Floor",
+    "expected_reasoning": "Filter IfcWindow on 6 - Sixth Floor by Material='White RAL 9010'",
+    "rq_category": "RQ1"
+  }
+}

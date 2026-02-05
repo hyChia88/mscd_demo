@@ -1,0 +1,60 @@
+{
+  "run_id": "20260205_041704_synth_neo4j+clip",
+  "case_id": "SYNTH_038_SK_038_RQ1",
+  "timestamp": "2026-02-05T04:35:26.854736",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "You are currently on the Ground Level, as indicated by the \"Ground Level Inspection\" task.",
+    "tool_calls": []
+  },
+  "prediction": {
+    "element_guid": "",
+    "guid_source": "none"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": false,
+    "target_guid": "3NlCHdPGXFUvkKekQzm3FC",
+    "target_name": "Floor:Concrete-Domestic 425mm:982159",
+    "rq_category": "RQ1",
+    "details": [
+      "❌ Target GUID not found: 3NlCHdPGXFUvkKekQzm3FC",
+      "📊 No GUIDs extracted from response",
+      "❌ Target name not found: Floor"
+    ],
+    "mentioned_guids": [],
+    "num_candidates": 0,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "SYNTH_038_SK_038_RQ1",
+    "elapsed_time": 1.327390193939209,
+    "tool_calls": [],
+    "rq2": null,
+    "ambiguity_tier": "Tier 3"
+  },
+  "ground_truth": {
+    "target_guid": "3NlCHdPGXFUvkKekQzm3FC",
+    "target_name": "Floor:Concrete-Domestic 425mm:982159",
+    "target_storey": "1 - First Floor",
+    "expected_reasoning": "Filter IfcSlab on 1 - First Floor by Material='Concrete, Cast In Situ'",
+    "rq_category": "RQ1"
+  }
+}
