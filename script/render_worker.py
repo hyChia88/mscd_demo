@@ -33,19 +33,44 @@ bpy.ops.bim.load_project(filepath=ifc_path)
 # --- 2. 查找目标并计算包围盒 ---
 target_obj = None
 
-# 在 BlenderBIM 中，导入的物体通常以 IfcType/Name 命名，属性在 data 中
-# 这是一个简化的查找逻辑，遍历所有物体检查 GlobalId
-for obj in bpy.context.scene.objects:
-    # Bonsai 属性通常存储在 obj.BIMObjectProperties.ifc_definition_id
-    # 但为了通用性，我们尝试从属性或名称匹配
-    if hasattr(obj, "BIMObjectProperties"):
-        if obj.BIMObjectProperties.ifc_definition_id == target_guid:
-            target_obj = obj
-            break
+# Import Bonsai tool for IFC entity lookup
+try:
+    from bonsai import tool
+    ifc_file = tool.Ifc.get()
+
+    if ifc_file:
+        # Method 1: Use IFC file to find element by GlobalId
+        try:
+            element = ifc_file.by_guid(target_guid)
+            if element:
+                target_obj = tool.Ifc.get_object(element)
+                if target_obj:
+                    print(f"Found element by GUID: {element.is_a()} - {getattr(element, 'Name', 'unnamed')}")
+        except Exception as e:
+            print(f"GUID lookup via IFC file failed: {e}")
+
+    # Method 2: Fallback - iterate through objects and check GlobalId
+    if not target_obj:
+        for obj in bpy.context.scene.objects:
+            entity = tool.Ifc.get_entity(obj)
+            if entity and hasattr(entity, 'GlobalId') and entity.GlobalId == target_guid:
+                target_obj = obj
+                print(f"Found element by iteration: {entity.is_a()} - {getattr(entity, 'Name', 'unnamed')}")
+                break
+
+except ImportError:
+    print("Warning: Bonsai tool not available, trying legacy method")
+    # Legacy fallback for older BlenderBIM versions
+    for obj in bpy.context.scene.objects:
+        if hasattr(obj, "BIMObjectProperties"):
+            # Try name matching as last resort
+            if target_guid in obj.name:
+                target_obj = obj
+                break
 
 if not target_obj:
     print(f"Warning: GUID {target_guid} not found in 3D view.")
-    # 备用：如果找不到，就不渲染或渲染全局
+    # Fallback: render the whole scene
     sys.exit(0)
 
 # --- 3. 相机自动对焦逻辑 (Auto-Focus Logic) ---

@@ -32,6 +32,9 @@ import os
 import sys
 import json
 import yaml
+import subprocess
+import tempfile
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -406,19 +409,105 @@ def generate_3d_view(guid: str) -> str:
         guid: Global Unique Identifier of the element to visualize
 
     Returns:
-        str: File path to the generated render image
-
-    Note:
-        In production, this triggers a headless Blender rendering pipeline.
-        For MVP/demo purposes, returns a mock file path.
+        str: File path to the generated render image, or error message if failed
 
     Example:
         >>> generate_3d_view("2O2Fr$t4X7Zf8NOew3FLOH")
-        "/server/renders/2O2Fr$t4X7Zf8NOew3FLOH_inspection_view.png"
+        "/path/to/outputs/renders/2O2Fr$t4X7Zf8NOew3FLOH_inspection_view.png"
     """
-    # MVP Strategy: Mock the rendering pipeline
-    # Production implementation would trigger blender_service.py
-    return f"/server/renders/{guid}_inspection_view.png"
+    # Get Blender executable path from environment or use default
+    blender_path = os.getenv("BLENDER_PATH", "blender")
+
+    # Get IFC file path from the engine
+    ifc_path = str(ifc_engine.ifc_path) if ifc_engine and ifc_engine.ifc_path else None
+    if not ifc_path or not os.path.exists(ifc_path):
+        return json.dumps({
+            "success": False,
+            "error": "IFC file not loaded or not found",
+            "guid": guid
+        })
+
+    # Create output directory
+    output_dir = BASE_DIR / "outputs" / "renders"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate output filename with timestamp to avoid conflicts
+    timestamp = int(time.time())
+    output_filename = f"{guid[:22]}_{timestamp}_inspection_view.png"
+    output_path = output_dir / output_filename
+
+    # Path to render worker script
+    render_script = BASE_DIR / "script" / "render_worker.py"
+    if not render_script.exists():
+        return json.dumps({
+            "success": False,
+            "error": f"Render script not found: {render_script}",
+            "guid": guid
+        })
+
+    # Build Blender command
+    cmd = [
+        blender_path,
+        "--background",
+        "--python", str(render_script),
+        "--",
+        str(ifc_path),
+        str(output_path),
+        guid
+    ]
+
+    try:
+        print(f"[generate_3d_view] Rendering element {guid}...", file=sys.stderr)
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=120  # 2 minute timeout
+        )
+
+        if result.returncode != 0:
+            error_msg = result.stderr[:500] if result.stderr else "Unknown error"
+            return json.dumps({
+                "success": False,
+                "error": f"Blender render failed: {error_msg}",
+                "guid": guid
+            })
+
+        # Check if output file was created
+        if not output_path.exists():
+            return json.dumps({
+                "success": False,
+                "error": "Render completed but output file not created",
+                "guid": guid,
+                "blender_output": result.stdout[:500] if result.stdout else None
+            })
+
+        print(f"[generate_3d_view] Successfully rendered to {output_path}", file=sys.stderr)
+        return json.dumps({
+            "success": True,
+            "image_path": str(output_path),
+            "guid": guid,
+            "message": f"3D view generated successfully for element {guid}"
+        })
+
+    except subprocess.TimeoutExpired:
+        return json.dumps({
+            "success": False,
+            "error": "Blender render timed out (>120 seconds)",
+            "guid": guid
+        })
+    except FileNotFoundError:
+        return json.dumps({
+            "success": False,
+            "error": f"Blender executable not found at '{blender_path}'. Set BLENDER_PATH environment variable.",
+            "guid": guid
+        })
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": f"Unexpected error: {str(e)}",
+            "guid": guid
+        })
 
 
 @mcp.tool()

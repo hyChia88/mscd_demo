@@ -137,16 +137,17 @@ tools:
       /server/renders/abc123_inspection_view.png
 
     limitations:
-      - Currently MOCKED (MVP) - returns fake path
-      - In production, would trigger headless Blender rendering
-      - See blender_service.py for production implementation
+      - Requires Blender with Bonsai/BlenderBIM addon installed
+      - Set BLENDER_PATH environment variable if not in PATH
+      - Rendering takes 10-60 seconds depending on model complexity
 
-    production_notes: |
-      In full implementation:
-      1. Calls blender_service.run_blender_render()
-      2. Blender extracts element geometry from IFC
-      3. Renders to PNG with proper camera angle
-      4. Returns actual file path
+    implementation_notes: |
+      Current implementation:
+      1. Calls Blender in headless mode with render_worker.py
+      2. Loads IFC file and finds element by GUID
+      3. Positions camera to frame the element
+      4. Renders to PNG at 800x600 resolution
+      5. Returns JSON with image_path on success
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Visual Analysis Tools (CLIP-based)

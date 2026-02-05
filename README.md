@@ -98,6 +98,9 @@ This automatically:
 │  • match_image_to_elements()   ← Photo → BIM element        │
 │  • compare_defect_images()     ← Check same defect          │
 │  • match_text_to_elements()    ← Description → BIM element  │
+│                                                             │
+│  MCP Tools (3D View Generation):                            │
+│  • generate_3d_view()          ← GUID → rendered image      │
 └─────────────────────────────────────────────────────────────┘
                           │
 ┌─────────────────────────▼───────────────────────────────────┐
@@ -159,6 +162,7 @@ mscd_demo/
 ├── script/
 │   ├── baseline_experiment.py    # Redundancy quantification
 │   ├── eval_pipeline.py          # Unified evaluation pipeline CLI
+│   ├── render_worker.py          # Blender headless render script
 │   ├── rq2_schema_smoke_test.py  # RQ2 component smoke test
 │   ├── test_bcf_generation.py    # BCF handoff sanity test
 │   └── test_visual_aligner.py    # Visual aligner test suite
@@ -166,7 +170,8 @@ mscd_demo/
 ├── outputs/                 # P2: Handoff artifacts (generated)
 │   ├── traces/<run_id>/     # Per-case trace JSON files
 │   ├── issues/<run_id>/     # BCF-lite issue.json files
-│   └── bcf/<run_id>/        # BCFzip 2.1 files
+│   ├── bcf/<run_id>/        # BCFzip 2.1 files
+│   └── renders/             # 3D view snapshots from generate_3d_view()
 │
 └── logs/
     ├── experiments/         # Baseline experiment results
@@ -218,6 +223,22 @@ def match_image_to_elements(image_path: str, storey_filter: str = None, top_k: i
     Combines visual understanding with 4D spatial filtering.
     """
 ```
+
+**3D View Generation Tools:**
+| Tool | Purpose | Args |
+|------|---------|------|
+| `generate_3d_view` | Generate rendered 3D snapshot of an element | `guid` |
+
+```python
+@mcp.tool()
+def generate_3d_view(guid: str) -> str:
+    """Generate a visual verification snapshot (3D render) of an element.
+    Uses Blender headless rendering with Bonsai addon.
+    Returns JSON with image_path on success.
+    """
+```
+
+> **Note:** Requires Blender with Bonsai/BlenderBIM addon. Set `BLENDER_PATH` environment variable if not in PATH.
 
 ### 3. Visual Aligner ([src/visual/aligner.py](src/visual/aligner.py))
 
@@ -817,6 +838,7 @@ python script/test_bcf_generation.py
 | BCF Generation | stdlib zipfile + xml.etree (BCF 2.1) |
 | Graph Database | Neo4j (optional) |
 | Visual Matching | OpenAI CLIP |
+| 3D Rendering | Blender + Bonsai addon (headless) |
 
 ---
 
@@ -853,6 +875,12 @@ python script/test_bcf_generation.py
   - Defect image comparison (similarity scoring)
   - Text description to element matching
   - Integrated as MCP tools in ifc_server.py
+- [x] **3D View Generation**
+  - `generate_3d_view(guid)` MCP tool for visual verification snapshots
+  - Blender headless rendering via render_worker.py
+  - Automatic camera positioning and element framing
+  - GUID-based element lookup using Bonsai API
+  - Output to `outputs/renders/` directory
 
 ---
 
@@ -869,6 +897,15 @@ python script/test_bcf_generation.py
 **"GUID not found"**
 - Verify GUID exists in model: `engine.get_element_by_guid(guid)`
 
+**"Blender executable not found"**
+- Install Blender with Bonsai/BlenderBIM addon
+- Set `BLENDER_PATH` environment variable: `export BLENDER_PATH=/path/to/blender`
+
+**"generate_3d_view returns error"**
+- Ensure Bonsai addon is enabled in Blender
+- Check IFC file is loaded: `ifc_engine.ifc_path` should be set
+- Verify render_worker.py exists: `script/render_worker.py`
+
 ---
 
 ## References
@@ -880,4 +917,4 @@ python script/test_bcf_generation.py
 ---
 
 **Last Updated:** February 2026
-**Status:** Unified Evaluation Pipeline with RQ2 Schema Validation, BCF Handoff, and Visual Analysis complete
+**Status:** Unified Evaluation Pipeline with RQ2 Schema Validation, BCF Handoff, Visual Analysis, and 3D View Generation complete
