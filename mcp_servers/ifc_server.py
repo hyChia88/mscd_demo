@@ -35,8 +35,12 @@ import yaml
 import subprocess
 import tempfile
 import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from pathlib import Path
 from typing import Optional
+
+# Timeout for visual/CLIP operations (seconds)
+VISUAL_TIMEOUT = 30
 
 # Add parent directory to path to import ifc_engine
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -622,7 +626,12 @@ def analyze_site_image(image_path: str) -> str:
     """
     aligner = get_visual_aligner()
     if aligner is None:
-        return "Error: Visual analysis not available. Install transformers and torch."
+        return (
+            "VISUAL_UNAVAILABLE: CLIP visual analysis is not loaded. "
+            "FALLBACK: Skip image analysis and proceed with spatial/text-based tools instead. "
+            "Use the chat history keywords and 4D Task context to infer the element type, "
+            "then call search_elements_by_type(element_type, storey_filter) to find candidates."
+        )
 
     # Resolve path relative to BASE_DIR if not absolute
     resolved_path = image_path
@@ -630,7 +639,12 @@ def analyze_site_image(image_path: str) -> str:
         resolved_path = str(BASE_DIR / image_path)
 
     if not Path(resolved_path).exists():
-        return f"Error: Image not found at '{resolved_path}'"
+        return (
+            f"IMAGE_NOT_FOUND: '{resolved_path}'. "
+            "FALLBACK: Proceed without image analysis. Use chat history keywords "
+            "and 4D Task context to infer element type, then call "
+            "search_elements_by_type(element_type, storey_filter) to find candidates."
+        )
 
     # Common BIM element descriptions for classification
     element_categories = [
@@ -651,11 +665,15 @@ def analyze_site_image(image_path: str) -> str:
     ]
 
     try:
-        results = aligner.match_image_to_descriptions(
-            resolved_path,
-            element_categories,
-            top_k=5
-        )
+        # Run CLIP inference with timeout to prevent hanging
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(
+                aligner.match_image_to_descriptions,
+                resolved_path,
+                element_categories,
+                5  # top_k
+            )
+            results = future.result(timeout=VISUAL_TIMEOUT)
 
         output = f"Analysis of site image ({Path(resolved_path).name}):\n"
         output += "  Most likely elements visible:\n"
@@ -664,8 +682,20 @@ def analyze_site_image(image_path: str) -> str:
 
         return output
 
+    except FuturesTimeoutError:
+        return (
+            f"VISUAL_TIMEOUT: Image analysis exceeded {VISUAL_TIMEOUT}s timeout. "
+            "FALLBACK: Proceed without image analysis. Use chat history keywords "
+            "and 4D Task context to infer element type, then call "
+            "search_elements_by_type(element_type, storey_filter) to find candidates."
+        )
     except Exception as e:
-        return f"Error analyzing image: {str(e)}"
+        return (
+            f"VISUAL_ERROR: Image analysis failed ({str(e)}). "
+            "FALLBACK: Proceed without image analysis. Use chat history keywords "
+            "and 4D Task context to infer element type, then call "
+            "search_elements_by_type(element_type, storey_filter) to find candidates."
+        )
 
 
 @mcp.tool()
@@ -694,7 +724,11 @@ def match_image_to_elements(image_path: str, storey_filter: Optional[str] = None
     """
     aligner = get_visual_aligner()
     if aligner is None:
-        return "Error: Visual analysis not available. Install transformers and torch."
+        return (
+            "VISUAL_UNAVAILABLE: CLIP visual matching is not loaded. "
+            "FALLBACK: Use search_elements_by_type(element_type, storey_filter) instead. "
+            "Infer the element type from chat keywords and 4D Task context."
+        )
 
     # Resolve path
     resolved_path = image_path
@@ -702,7 +736,10 @@ def match_image_to_elements(image_path: str, storey_filter: Optional[str] = None
         resolved_path = str(BASE_DIR / image_path)
 
     if not Path(resolved_path).exists():
-        return f"Error: Image not found at '{resolved_path}'"
+        return (
+            f"IMAGE_NOT_FOUND: '{resolved_path}'. "
+            "FALLBACK: Use search_elements_by_type(element_type, storey_filter) instead."
+        )
 
     # Get elements from IFC model, optionally filtered by storey
     elements = []
@@ -725,8 +762,12 @@ def match_image_to_elements(image_path: str, storey_filter: Optional[str] = None
         return f"No elements found" + (f" on storey '{storey_filter}'" if storey_filter else "")
 
     try:
-        # Match image to elements
-        results = aligner.match_image_to_elements(resolved_path, elements, top_k=top_k)
+        # Run CLIP inference with timeout to prevent hanging
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(
+                aligner.match_image_to_elements, resolved_path, elements, top_k
+            )
+            results = future.result(timeout=VISUAL_TIMEOUT)
 
         output = f"Top {len(results)} matches for site image"
         if storey_filter:
@@ -740,8 +781,18 @@ def match_image_to_elements(image_path: str, storey_filter: Optional[str] = None
 
         return output
 
+    except FuturesTimeoutError:
+        return (
+            f"VISUAL_TIMEOUT: Image-to-element matching exceeded {VISUAL_TIMEOUT}s timeout. "
+            "FALLBACK: Use search_elements_by_type(element_type, storey_filter) instead. "
+            "Infer element type from chat keywords and 4D Task context."
+        )
     except Exception as e:
-        return f"Error matching image to elements: {str(e)}"
+        return (
+            f"VISUAL_ERROR: Image-to-element matching failed ({str(e)}). "
+            "FALLBACK: Use search_elements_by_type(element_type, storey_filter) instead. "
+            "Infer element type from chat keywords and 4D Task context."
+        )
 
 
 @mcp.tool()
@@ -770,16 +821,19 @@ def compare_defect_images(image_path1: str, image_path2: str) -> str:
     """
     aligner = get_visual_aligner()
     if aligner is None:
-        return "Error: Visual analysis not available. Install transformers and torch."
+        return (
+            "VISUAL_UNAVAILABLE: CLIP comparison is not loaded. "
+            "FALLBACK: Skip image comparison and proceed with spatial queries instead."
+        )
 
     # Resolve paths
     path1 = image_path1 if Path(image_path1).is_absolute() else str(BASE_DIR / image_path1)
     path2 = image_path2 if Path(image_path2).is_absolute() else str(BASE_DIR / image_path2)
 
     if not Path(path1).exists():
-        return f"Error: First image not found at '{path1}'"
+        return f"IMAGE_NOT_FOUND: First image not found at '{path1}'. FALLBACK: Skip comparison."
     if not Path(path2).exists():
-        return f"Error: Second image not found at '{path2}'"
+        return f"IMAGE_NOT_FOUND: Second image not found at '{path2}'. FALLBACK: Skip comparison."
 
     try:
         similarity = aligner.compare_images(path1, path2)
@@ -805,7 +859,10 @@ def compare_defect_images(image_path1: str, image_path2: str) -> str:
         return output
 
     except Exception as e:
-        return f"Error comparing images: {str(e)}"
+        return (
+            f"VISUAL_ERROR: Image comparison failed ({str(e)}). "
+            "FALLBACK: Skip comparison and proceed with spatial queries."
+        )
 
 
 @mcp.tool()
@@ -833,7 +890,11 @@ def match_text_to_elements(description: str, storey_filter: Optional[str] = None
     """
     aligner = get_visual_aligner()
     if aligner is None:
-        return "Error: Visual analysis not available. Install transformers and torch."
+        return (
+            "VISUAL_UNAVAILABLE: CLIP text matching is not loaded. "
+            "FALLBACK: Use search_elements_by_type(element_type, storey_filter) instead. "
+            "Infer the element type from the description keywords."
+        )
 
     # Get elements from IFC model
     elements = []
@@ -877,7 +938,10 @@ def match_text_to_elements(description: str, storey_filter: Optional[str] = None
         return output
 
     except Exception as e:
-        return f"Error matching text to elements: {str(e)}"
+        return (
+            f"VISUAL_ERROR: Text-to-element matching failed ({str(e)}). "
+            "FALLBACK: Use search_elements_by_type(element_type, storey_filter) instead."
+        )
 
 
 if __name__ == "__main__":
