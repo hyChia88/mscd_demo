@@ -174,6 +174,38 @@ Use `run_mcp.sh --all` to run all 4 V1 experiment modes in a row, then automatic
 
 Failed runs don't stop the batch. At the end you get a summary of which succeeded/failed, total time, and a comparison table.
 
+### Full Experiment Matrix
+
+All runs use the synthetic dataset (43 cases). LLM API is Gemini 2.5 Flash ($0.15/M input, $0.60/M output).
+
+| # | Run | What it tests | Cases | Est. Time | Est. Cost | Command |
+|---|-----|--------------|-------|-----------|-----------|---------|
+| 1 | V1 memory | Baseline retrieval | 43 | ~4 min | ~$0.10 | `./run_mcp.sh -e memory -d synth` |
+| 2 | V1 neo4j | Graph queries | 43 | ~4 min | ~$0.10 | `./run_mcp.sh -e neo4j -d synth` |
+| 3 | V1 memory+clip | CLIP reranking | 43 | ~15 min | ~$0.10 | `./run_mcp.sh -e memory+clip -d synth` |
+| 4 | V1 neo4j+clip | Graph + CLIP | 43 | ~15 min | ~$0.10 | `./run_mcp.sh -e neo4j+clip -d synth` |
+| 5 | V2 v2_prompt | Constraints extraction | 43 | ~2 min | ~$0.02 | `python script/run.py --profile v2_prompt --cases ../data_curation/datasets/synth_v0.2/cases_v2.jsonl` |
+| 6 | V2 v2_memory | V2 baseline | 43 | ~1.5 min | ~$0.02 | `python script/run.py --profile v2_memory --cases ../data_curation/datasets/synth_v0.2/cases_v2.jsonl` |
+| 7-15 | V2 x 9 conditions | A1-C3 ablations | ~5 each | ~10 min | ~$0.05 | See below |
+| | **Total** | | | **~50 min** | **~$0.50** | |
+
+**Run all V1 modes at once:**
+```bash
+./run_mcp.sh --all -d synth                  # Runs #1-4
+./run_mcp.sh --all --v2 -d synth             # Runs #1-6
+```
+
+**Run V2 condition ablations (A1-C3):**
+```bash
+CASES=../data_curation/datasets/synth_v0.2/cases_v2.jsonl
+for cond in A1 A2 A3 B1 B2 B3 C1 C2 C3; do
+  echo "=== Condition: $cond ==="
+  python script/run.py --profile v2_prompt --cases $CASES --condition $cond
+done
+```
+
+Runs #2 and #4 require Neo4j running (see [Neo4j Setup](#optional-neo4j-setup)). All other runs work without it.
+
 **Compare results independently:**
 
 ```bash

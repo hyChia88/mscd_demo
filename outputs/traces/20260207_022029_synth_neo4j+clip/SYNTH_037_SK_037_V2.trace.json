@@ -1,0 +1,111 @@
+{
+  "run_id": "20260207_022029_synth_neo4j+clip",
+  "case_id": "SYNTH_037_SK_037_V2",
+  "timestamp": "2026-02-07T02:35:34.853825",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "The image analysis indicates a concrete wall surface with possible cracks or water stains. However, the image-to-element matching timed out. I found 183 wall elements on Level 1. Could you provide a more specific description of the wall or its location to help me narrow down the search?\n\n[AUTO-EXTRACTED] Top candidate GUIDs from tool results: 0cRoQU_sD5R8MkkMkeodzx, 0cRoQU_sD5R8MkkMkeodyq, 0cRoQU_sD5R8MkkMkeodxk, 0cRoQU_sD5R8MkkMkeodwY, 0cRoQU_sD5R8MkkMkeoduF",
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_037_SK_037_V2.png"
+        }
+      },
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_037_SK_037_V2.png",
+          "storey_filter": "Level 1",
+          "top_k": 3.0
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "Level 1",
+          "element_type": "IfcWall"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "0cRoQU_sD5R8MkkMkeodzx",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": false,
+    "target_guid": "1NL4ZXkFP2thNiMT9sECsi",
+    "target_name": "Basic Wall:MockUp Exterior Ground Floor:379538",
+    "rq_category": "RQ3",
+    "details": [
+      "❌ Target GUID not found: 1NL4ZXkFP2thNiMT9sECsi",
+      "📊 Target GUID not in 5 mentioned candidates",
+      "❌ Target name not found: Basic Wall"
+    ],
+    "mentioned_guids": [
+      "0cRoQU_sD5R8MkkMkeodzx",
+      "0cRoQU_sD5R8MkkMkeodyq",
+      "0cRoQU_sD5R8MkkMkeodxk",
+      "0cRoQU_sD5R8MkkMkeodwY",
+      "0cRoQU_sD5R8MkkMkeoduF"
+    ],
+    "num_candidates": 5,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "SYNTH_037_SK_037_V2",
+    "elapsed_time": 14.375501155853271,
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_037_SK_037_V2.png"
+        }
+      },
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_037_SK_037_V2.png",
+          "storey_filter": "Level 1",
+          "top_k": 3.0
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "Level 1",
+          "element_type": "IfcWall"
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 2"
+  },
+  "ground_truth": {
+    "target_guid": "1NL4ZXkFP2thNiMT9sECsi",
+    "target_storey": "Level 1",
+    "target_ifc_class": "IfcWallStandardCase",
+    "target_name": "Basic Wall:MockUp Exterior Ground Floor:379538",
+    "rq_category": "RQ3",
+    "expected_reasoning": "Disambiguate among 362 IfcWallStandardCase on Level 1 using material=Brick, Engineering, fire_rating=MockUp Exterior: Fire Rating, is_external=True"
+  }
+}

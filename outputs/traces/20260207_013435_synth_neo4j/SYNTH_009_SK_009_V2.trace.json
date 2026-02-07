@@ -1,0 +1,103 @@
+{
+  "run_id": "20260207_013435_synth_neo4j",
+  "case_id": "SYNTH_009_SK_009_V2",
+  "timestamp": "2026-02-07T01:36:53.030820",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "I cannot determine if the handrail connection is within tolerance based on the available BIM data. The element properties do not contain information about connection tolerances.\n\nWould you like me to generate a 3D view of the handrail element (GUID: 0Um_J2ClP45uPRcRbJqfyP) for visual inspection?",
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_009_SK_009_V2.png"
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "6 - Sixth Floor",
+          "element_type": "IfcRailing"
+        }
+      },
+      {
+        "name": "get_element_details",
+        "args": {
+          "guid": "0Um_J2ClP45uPRcRbJqfyP"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "0Um_J2ClP45uPRcRbJqfyP",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": true,
+    "name_match": false,
+    "target_guid": "0Um_J2ClP45uPRcRbJqfyP",
+    "target_name": "Railing:Glass Panel - Bottom Fill:950930",
+    "rq_category": "RQ1",
+    "details": [
+      "✅ Target GUID found: 0Um_J2ClP45uPRcRbJqfyP",
+      "📊 Target GUID rank: 1/1",
+      "❌ Target name not found: Railing"
+    ],
+    "mentioned_guids": [
+      "0Um_J2ClP45uPRcRbJqfyP"
+    ],
+    "num_candidates": 1,
+    "top1_hit": true,
+    "top3_hit": true,
+    "top5_hit": true,
+    "target_rank": 1,
+    "precision_at_1": 1.0,
+    "precision_at_3": 1.0,
+    "recall": 1.0,
+    "case_id": "SYNTH_009_SK_009_V2",
+    "elapsed_time": 10.224055290222168,
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_009_SK_009_V2.png"
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "6 - Sixth Floor",
+          "element_type": "IfcRailing"
+        }
+      },
+      {
+        "name": "get_element_details",
+        "args": {
+          "guid": "0Um_J2ClP45uPRcRbJqfyP"
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 1"
+  },
+  "ground_truth": {
+    "target_guid": "0Um_J2ClP45uPRcRbJqfyP",
+    "target_storey": "6 - Sixth Floor",
+    "target_ifc_class": "IfcRailing",
+    "target_name": "Railing:Glass Panel - Bottom Fill:950930",
+    "rq_category": "RQ1",
+    "expected_reasoning": "Only IfcRailing on 6 - Sixth Floor"
+  }
+}

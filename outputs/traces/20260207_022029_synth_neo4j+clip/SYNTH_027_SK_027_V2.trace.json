@@ -1,0 +1,111 @@
+{
+  "run_id": "20260207_022029_synth_neo4j+clip",
+  "case_id": "SYNTH_027_SK_027_V2",
+  "timestamp": "2026-02-07T02:31:48.945187",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "The image analysis indicates a window with a glass pane and possible damage. However, the image-to-element matching timed out. There are 46 windows on the First Floor. Could you please provide more details about the window, such as its specific location or any distinguishing features, so I can narrow down the search and provide a more accurate status?\n\n[AUTO-EXTRACTED] Top candidate GUIDs from tool results: 1KMtYLyv9CyfGv8UjnMBSN, 1KMtYLyv9CyfGv8UjnMBSM, 1KMtYLyv9CyfGv8UjnMBSL, 1KMtYLyv9CyfGv8UjnMBSK, 1KMtYLyv9CyfGv8UjnMBSR",
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_027_SK_027_V2.png"
+        }
+      },
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_027_SK_027_V2.png",
+          "storey_filter": "First Floor",
+          "top_k": 1.0
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "First Floor",
+          "element_type": "IfcWindow"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "1KMtYLyv9CyfGv8UjnMBSN",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": true,
+    "name_match": false,
+    "target_guid": "1KMtYLyv9CyfGv8UjnMBSN",
+    "target_name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:793588",
+    "rq_category": "RQ3",
+    "details": [
+      "✅ Target GUID found: 1KMtYLyv9CyfGv8UjnMBSN",
+      "📊 Target GUID rank: 1/5",
+      "❌ Target name not found: BALANS Fixed Single Window"
+    ],
+    "mentioned_guids": [
+      "1KMtYLyv9CyfGv8UjnMBSN",
+      "1KMtYLyv9CyfGv8UjnMBSM",
+      "1KMtYLyv9CyfGv8UjnMBSL",
+      "1KMtYLyv9CyfGv8UjnMBSK",
+      "1KMtYLyv9CyfGv8UjnMBSR"
+    ],
+    "num_candidates": 5,
+    "top1_hit": true,
+    "top3_hit": true,
+    "top5_hit": true,
+    "target_rank": 1,
+    "precision_at_1": 1.0,
+    "precision_at_3": 1.0,
+    "recall": 1.0,
+    "case_id": "SYNTH_027_SK_027_V2",
+    "elapsed_time": 22.224311590194702,
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_027_SK_027_V2.png"
+        }
+      },
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_027_SK_027_V2.png",
+          "storey_filter": "First Floor",
+          "top_k": 1.0
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "First Floor",
+          "element_type": "IfcWindow"
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 2"
+  },
+  "ground_truth": {
+    "target_guid": "1KMtYLyv9CyfGv8UjnMBSN",
+    "target_storey": "1 - First Floor",
+    "target_ifc_class": "IfcWindow",
+    "target_name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:793588",
+    "rq_category": "RQ3",
+    "expected_reasoning": "Disambiguate among 46 IfcWindow on 1 - First Floor using material=White RAL 9010, is_external=True"
+  }
+}

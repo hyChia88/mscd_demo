@@ -1,0 +1,101 @@
+{
+  "run_id": "20260207_013435_synth_neo4j",
+  "case_id": "SYNTH_020_SK_020_V2",
+  "timestamp": "2026-02-07T01:40:03.606816",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "The staircase has the following specifications:\n\n**Type Name:** 190mm max riser 250mm going\n**Maximum Riser Height:** 190mm\n**Minimum Run Width:** 1000mm\n**Minimum Tread Depth:** 250mm\n**Actual Number of Risers:** 15\n**Actual Riser Height:** 189.19mm\n**Actual Tread Depth:** 250mm\n**Function:** Interior\n**Landing Type:** Non-Monolithic Landing\n**Run Type:** Non-Monolithic Run: 50mm Tread 13mm Riser\n**Left Support Type:** Stringer: Stringer - 50mm Width\n**Right Support Type:** Stringer: Stringer - 50mm Width\n**Is External:** False\n\n[AUTO-EXTRACTED] Selected element GUID: 0MOEoDTm9EnO9yKsXjjlgV",
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_020_SK_020_V2.png"
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "element_type": "IfcStair"
+        }
+      },
+      {
+        "name": "get_element_details",
+        "args": {
+          "guid": "0MOEoDTm9EnO9yKsXjjlgV"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "0MOEoDTm9EnO9yKsXjjlgV",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": true,
+    "name_match": false,
+    "target_guid": "0MOEoDTm9EnO9yKsXjjlgV",
+    "target_name": "Assembled Stair:Stair:585292",
+    "rq_category": "RQ1",
+    "details": [
+      "✅ Target GUID found: 0MOEoDTm9EnO9yKsXjjlgV",
+      "📊 Target GUID rank: 1/1",
+      "❌ Target name not found: Assembled Stair"
+    ],
+    "mentioned_guids": [
+      "0MOEoDTm9EnO9yKsXjjlgV"
+    ],
+    "num_candidates": 1,
+    "top1_hit": true,
+    "top3_hit": true,
+    "top5_hit": true,
+    "target_rank": 1,
+    "precision_at_1": 1.0,
+    "precision_at_3": 1.0,
+    "recall": 1.0,
+    "case_id": "SYNTH_020_SK_020_V2",
+    "elapsed_time": 12.369764566421509,
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_020_SK_020_V2.png"
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "element_type": "IfcStair"
+        }
+      },
+      {
+        "name": "get_element_details",
+        "args": {
+          "guid": "0MOEoDTm9EnO9yKsXjjlgV"
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 1"
+  },
+  "ground_truth": {
+    "target_guid": "0MOEoDTm9EnO9yKsXjjlgV",
+    "target_storey": "-1 - Garage",
+    "target_ifc_class": "IfcStair",
+    "target_name": "Assembled Stair:Stair:585292",
+    "rq_category": "RQ1",
+    "expected_reasoning": "One of only 3 IfcStair on -1 - Garage"
+  }
+}

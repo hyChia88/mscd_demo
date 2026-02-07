@@ -1,0 +1,119 @@
+{
+  "run_id": "20260207_014623_synth_memory+clip",
+  "case_id": "SYNTH_016_SK_016_V2",
+  "timestamp": "2026-02-07T01:53:04.559122",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "The image shows a staircase. I found one stair element on Level 1: \"Assembled Stair:Stair:939124\" (GUID: 0ikA9YOKrBaRArRnE24qDK).\n\nHere are some details about this stair:\n*   **Type:** IfcStair\n*   **Object Type:** Assembled Stair:190mm max riser 250mm going\n*   **Base Level:** 0 - Ground Floor\n*   **Top Level:** 1 - First Floor\n*   **Desired Stair Height:** 3500 mm\n*   **Actual Number of Risers:** 21\n*   **Actual Riser Height:** 166.67 mm\n*   **Actual Tread Depth:** 250 mm\n*   **Function:** Interior\n*   **Left and Right Support:** Stringer (Closed) - Stringer: Stringer - 50mm Width",
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_016_SK_016_V2.png"
+        }
+      },
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_016_SK_016_V2.png",
+          "storey_filter": "Level 1",
+          "top_k": 3.0
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "Level 1",
+          "element_type": "IfcStair"
+        }
+      },
+      {
+        "name": "get_element_details",
+        "args": {
+          "guid": "0ikA9YOKrBaRArRnE24qDK"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "0ikA9YOKrBaRArRnE24qDK",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": true,
+    "name_match": true,
+    "target_guid": "0ikA9YOKrBaRArRnE24qDK",
+    "target_name": "Assembled Stair:Stair:939124",
+    "rq_category": "RQ1",
+    "details": [
+      "✅ Target GUID found: 0ikA9YOKrBaRArRnE24qDK",
+      "📊 Target GUID rank: 1/1",
+      "✅ Target name found: Assembled Stair"
+    ],
+    "mentioned_guids": [
+      "0ikA9YOKrBaRArRnE24qDK"
+    ],
+    "num_candidates": 1,
+    "top1_hit": true,
+    "top3_hit": true,
+    "top5_hit": true,
+    "target_rank": 1,
+    "precision_at_1": 1.0,
+    "precision_at_3": 1.0,
+    "recall": 1.0,
+    "case_id": "SYNTH_016_SK_016_V2",
+    "elapsed_time": 18.529770851135254,
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_016_SK_016_V2.png"
+        }
+      },
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_016_SK_016_V2.png",
+          "storey_filter": "Level 1",
+          "top_k": 3.0
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "Level 1",
+          "element_type": "IfcStair"
+        }
+      },
+      {
+        "name": "get_element_details",
+        "args": {
+          "guid": "0ikA9YOKrBaRArRnE24qDK"
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 1"
+  },
+  "ground_truth": {
+    "target_guid": "0ikA9YOKrBaRArRnE24qDK",
+    "target_storey": "Level 1",
+    "target_ifc_class": "IfcStair",
+    "target_name": "Assembled Stair:Stair:939124",
+    "rq_category": "RQ1",
+    "expected_reasoning": "Only IfcStair on Level 1"
+  }
+}

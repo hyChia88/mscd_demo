@@ -1,0 +1,91 @@
+{
+  "run_id": "20260207_014623_synth_memory+clip",
+  "case_id": "SYNTH_002_SK_002_V2",
+  "timestamp": "2026-02-07T01:47:24.890316",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "The image shows a crack or damage on a concrete wall surface, possibly with water stain or leak damage. It also shows a floor slab with tiles.\n\nThe top match for the image on the sixth floor is \"Floor:MockuUp Terrace:962748\" (IfcSlab) with GUID \"2I1hX40SDEbAFJeZO_2_Pq\".\n\nWould you like to mark this specific element for rectification? Or is there another element you'd like to consider?",
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_002_SK_002_V2.png"
+        }
+      },
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_002_SK_002_V2.png",
+          "storey_filter": "sixth"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "2I1hX40SDEbAFJeZO_2_Pq",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": true,
+    "name_match": true,
+    "target_guid": "2I1hX40SDEbAFJeZO_2_Pq",
+    "target_name": "Floor:MockuUp Terrace:962748",
+    "rq_category": "RQ1",
+    "details": [
+      "✅ Target GUID found: 2I1hX40SDEbAFJeZO_2_Pq",
+      "📊 Target GUID rank: 1/1",
+      "✅ Target name found: Floor"
+    ],
+    "mentioned_guids": [
+      "2I1hX40SDEbAFJeZO_2_Pq"
+    ],
+    "num_candidates": 1,
+    "top1_hit": true,
+    "top3_hit": true,
+    "top5_hit": true,
+    "target_rank": 1,
+    "precision_at_1": 1.0,
+    "precision_at_3": 1.0,
+    "recall": 1.0,
+    "case_id": "SYNTH_002_SK_002_V2",
+    "elapsed_time": 5.5228259563446045,
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_002_SK_002_V2.png"
+        }
+      },
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_002_SK_002_V2.png",
+          "storey_filter": "sixth"
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 1"
+  },
+  "ground_truth": {
+    "target_guid": "2I1hX40SDEbAFJeZO_2_Pq",
+    "target_storey": "6 - Sixth Floor",
+    "target_ifc_class": "IfcSlab",
+    "target_name": "Floor:MockuUp Terrace:962748",
+    "rq_category": "RQ1",
+    "expected_reasoning": "Only IfcSlab on 6 - Sixth Floor"
+  }
+}

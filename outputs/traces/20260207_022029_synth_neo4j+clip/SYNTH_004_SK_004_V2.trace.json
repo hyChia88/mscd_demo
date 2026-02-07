@@ -1,0 +1,77 @@
+{
+  "run_id": "20260207_022029_synth_neo4j+clip",
+  "case_id": "SYNTH_004_SK_004_V2",
+  "timestamp": "2026-02-07T02:36:36.896119",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "The slab in the image (Slab_GroundFloor_1) has the following specifications:\n\n**Type**: IfcSlab\n**Properties**:\n*   **Pset_SlabCommon**:\n    *   Reference: SLAB-GF-01\n    *   IsExternal: True\n    *   ThermalTransmittance: 0.25 W/(m2K)\n    *   FireRating: REI 90\n*   **Pset_MaterialConcrete**:\n    *   Strength: C30/37\n    *   Density: 2400 kg/m3\n    *   Finish: Smooth float finish",
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_004_SK_004_V2.png",
+          "storey_filter": "Ground Level"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "",
+    "guid_source": "none"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": true,
+    "target_guid": "3NlCHdPGXFUvkKekQzm3FC",
+    "target_name": "Floor:Concrete-Domestic 425mm:982159",
+    "rq_category": "RQ1",
+    "details": [
+      "❌ Target GUID not found: 3NlCHdPGXFUvkKekQzm3FC",
+      "📊 No GUIDs extracted from response",
+      "✅ Target name found: Floor"
+    ],
+    "mentioned_guids": [],
+    "num_candidates": 0,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "SYNTH_004_SK_004_V2",
+    "elapsed_time": 829.3304862976074,
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_004_SK_004_V2.png",
+          "storey_filter": "Ground Level"
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 1"
+  },
+  "ground_truth": {
+    "target_guid": "3NlCHdPGXFUvkKekQzm3FC",
+    "target_storey": "1 - First Floor",
+    "target_ifc_class": "IfcSlab",
+    "target_name": "Floor:Concrete-Domestic 425mm:982159",
+    "rq_category": "RQ1",
+    "expected_reasoning": "Only IfcSlab on 1 - First Floor"
+  }
+}

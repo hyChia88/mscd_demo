@@ -1,0 +1,61 @@
+{
+  "run_id": "20260207_012304_synth_memory",
+  "case_id": "SYNTH_036_SK_036_V2",
+  "timestamp": "2026-02-07T01:32:09.737310",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "I can help with that. Please provide the path to the photo you just took of the fire door, and I will try to identify the door and retrieve its properties, including the fire rating.",
+    "tool_calls": []
+  },
+  "prediction": {
+    "element_guid": "",
+    "guid_source": "none"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": false,
+    "target_guid": "0MOEoDTm9EnO9yKsXjjkME",
+    "target_name": "M_Single-Flush:Generic Door:586077",
+    "rq_category": "RQ3",
+    "details": [
+      "❌ Target GUID not found: 0MOEoDTm9EnO9yKsXjjkME",
+      "📊 No GUIDs extracted from response",
+      "❌ Target name not found: M_Single-Flush"
+    ],
+    "mentioned_guids": [],
+    "num_candidates": 0,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "SYNTH_036_SK_036_V2",
+    "elapsed_time": 1.148054599761963,
+    "tool_calls": [],
+    "rq2": null,
+    "ambiguity_tier": "Tier 2"
+  },
+  "ground_truth": {
+    "target_guid": "0MOEoDTm9EnO9yKsXjjkME",
+    "target_storey": "1 - First Floor",
+    "target_ifc_class": "IfcDoor",
+    "target_name": "M_Single-Flush:Generic Door:586077",
+    "rq_category": "RQ3",
+    "expected_reasoning": "Disambiguate among 42 IfcDoor on 1 - First Floor using material=Door - Frame, fire_rating=Door: Fire Rating, is_external=False"
+  }
+}

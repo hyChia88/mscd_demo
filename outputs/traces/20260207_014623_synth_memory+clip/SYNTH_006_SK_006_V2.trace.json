@@ -1,0 +1,61 @@
+{
+  "run_id": "20260207_014623_synth_memory+clip",
+  "case_id": "SYNTH_006_SK_006_V2",
+  "timestamp": "2026-02-07T01:48:26.599951",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "Okay, I can help log this for QA. Please provide the photo you've taken of the floor leveling issue. Once I have the image, I can analyze it and match it to the relevant BIM elements for your quality assurance records.",
+    "tool_calls": []
+  },
+  "prediction": {
+    "element_guid": "",
+    "guid_source": "none"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": true,
+    "target_guid": "3NlCHdPGXFUvkKekQzm3Fi",
+    "target_name": "Floor:Concrete-Domestic 425mm:982191",
+    "rq_category": "RQ1",
+    "details": [
+      "❌ Target GUID not found: 3NlCHdPGXFUvkKekQzm3Fi",
+      "📊 No GUIDs extracted from response",
+      "✅ Target name found: Floor"
+    ],
+    "mentioned_guids": [],
+    "num_candidates": 0,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "SYNTH_006_SK_006_V2",
+    "elapsed_time": 1.9515085220336914,
+    "tool_calls": [],
+    "rq2": null,
+    "ambiguity_tier": "Tier 1"
+  },
+  "ground_truth": {
+    "target_guid": "3NlCHdPGXFUvkKekQzm3Fi",
+    "target_storey": "3 - Third Floor",
+    "target_ifc_class": "IfcSlab",
+    "target_name": "Floor:Concrete-Domestic 425mm:982191",
+    "rq_category": "RQ1",
+    "expected_reasoning": "Only IfcSlab on 3 - Third Floor"
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "run_id": "20260207_022029_synth_neo4j+clip",
+  "case_id": "SYNTH_026_SK_026_V2",
+  "timestamp": "2026-02-07T02:31:16.704137",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "Based on the 4D Task Status, \"TASK_142: Level 1 Finishing Works\", you are referring to **Level 1**.",
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_026_SK_026_V2.png",
+          "top_k": 5.0
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "",
+    "guid_source": "none"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": false,
+    "target_guid": "0t7TVxPGL1fBrLXU9rUqSH",
+    "target_name": "Floor:MockUp 300mm:923894",
+    "rq_category": "RQ3",
+    "details": [
+      "❌ Target GUID not found: 0t7TVxPGL1fBrLXU9rUqSH",
+      "📊 No GUIDs extracted from response",
+      "❌ Target name not found: Floor"
+    ],
+    "mentioned_guids": [],
+    "num_candidates": 0,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "SYNTH_026_SK_026_V2",
+    "elapsed_time": 39.06383275985718,
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_026_SK_026_V2.png",
+          "top_k": 5.0
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 3"
+  },
+  "ground_truth": {
+    "target_guid": "0t7TVxPGL1fBrLXU9rUqSH",
+    "target_storey": "Level 1",
+    "target_ifc_class": "IfcSlab",
+    "target_name": "Floor:MockUp 300mm:923894",
+    "rq_category": "RQ3",
+    "expected_reasoning": "Among 34 IfcSlab on Level 1, filter by material=Default Floor"
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "run_id": "20260207_022029_synth_neo4j+clip",
+  "case_id": "SYNTH_043_SK_043_V2",
+  "timestamp": "2026-02-07T02:38:44.524587",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "The element in question appears to be an Assembled Stair. Here are its specifications:\n\n**Stair Type:** Assembled Stair: 190mm max riser 250mm going\n**Function:** Interior\n**Base Level:** 1 - First Floor\n**Top Level:** 2 - Second Floor\n**Desired Stair Height:** 3000mm\n**Actual Number of Risers:** 18\n**Actual Riser Height:** 166.67mm\n**Actual Tread Depth:** 250mm\n**Run Type:** Non-Monolithic Run: 50mm Tread 13mm Riser\n**Landing Type:** Non-Monolithic Landing\n**Supports:**\n*   **Left Support:** Stringer (Closed), Stringer - 50mm Width\n*   **Right Support:** Stringer (Closed), Stringer - 50mm Width\n\n[AUTO-EXTRACTED] Selected element GUID: 2jMg7KKh9BngwDP$rL2Wdy",
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_043_SK_043_V2.png",
+          "storey_filter": "Second Floor"
+        }
+      },
+      {
+        "name": "get_element_details",
+        "args": {
+          "guid": "2jMg7KKh9BngwDP$rL2Wdy"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "2jMg7KKh9BngwDP$rL2Wdy",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": true,
+    "name_match": true,
+    "target_guid": "2jMg7KKh9BngwDP$rL2Wdy",
+    "target_name": "Assembled Stair:Stair:937135:2",
+    "rq_category": "RQ1",
+    "details": [
+      "✅ Target GUID found: 2jMg7KKh9BngwDP$rL2Wdy",
+      "📊 Target GUID rank: 1/1",
+      "✅ Target name found: Assembled Stair"
+    ],
+    "mentioned_guids": [
+      "2jMg7KKh9BngwDP$rL2Wdy"
+    ],
+    "num_candidates": 1,
+    "top1_hit": true,
+    "top3_hit": true,
+    "top5_hit": true,
+    "target_rank": 1,
+    "precision_at_1": 1.0,
+    "precision_at_3": 1.0,
+    "recall": 1.0,
+    "case_id": "SYNTH_043_SK_043_V2",
+    "elapsed_time": 8.515718460083008,
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_043_SK_043_V2.png",
+          "storey_filter": "Second Floor"
+        }
+      },
+      {
+        "name": "get_element_details",
+        "args": {
+          "guid": "2jMg7KKh9BngwDP$rL2Wdy"
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 1"
+  },
+  "ground_truth": {
+    "target_guid": "2jMg7KKh9BngwDP$rL2Wdy",
+    "target_storey": "2 - Second Floor",
+    "target_ifc_class": "IfcStair",
+    "target_name": "Assembled Stair:Stair:937135:2",
+    "rq_category": "RQ1",
+    "expected_reasoning": "Only IfcStair on 2 - Second Floor"
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "run_id": "20260207_012304_synth_memory",
+  "case_id": "SYNTH_025_SK_025_V2",
+  "timestamp": "2026-02-07T01:29:31.461630",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "I found 42 doors on the First Floor. To help me link the image to the correct door, could you provide more details about the door in the image? For example, its specific location on the corridor, or any unique features.\n\n[AUTO-EXTRACTED] Top candidate GUIDs from tool results: 0MOEoDTm9EnO9yKsXjjkME, 0MOEoDTm9EnO9yKsXjjk2Z, 2sG0Vcmgb1Uverjtj49YTd, 2sG0Vcmgb1Uverjtj49YtH, 2sG0Vcmgb1Uverjtj49zXt",
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_025_SK_025_V2.png",
+          "storey_filter": "First Floor",
+          "top_k": 5.0
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "First Floor",
+          "element_type": "IfcDoor"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "0MOEoDTm9EnO9yKsXjjkME",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": false,
+    "target_guid": "0xyFL4ySP5TexORi78qE5c",
+    "target_name": "M_Door-Overhead-Sectional:2400 x 2000mm:776665",
+    "rq_category": "RQ3",
+    "details": [
+      "❌ Target GUID not found: 0xyFL4ySP5TexORi78qE5c",
+      "📊 Target GUID not in 5 mentioned candidates",
+      "❌ Target name not found: M_Door-Overhead-Sectional"
+    ],
+    "mentioned_guids": [
+      "0MOEoDTm9EnO9yKsXjjkME",
+      "0MOEoDTm9EnO9yKsXjjk2Z",
+      "2sG0Vcmgb1Uverjtj49YTd",
+      "2sG0Vcmgb1Uverjtj49YtH",
+      "2sG0Vcmgb1Uverjtj49zXt"
+    ],
+    "num_candidates": 5,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "SYNTH_025_SK_025_V2",
+    "elapsed_time": 3.5388946533203125,
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_025_SK_025_V2.png",
+          "storey_filter": "First Floor",
+          "top_k": 5.0
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "First Floor",
+          "element_type": "IfcDoor"
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 3"
+  },
+  "ground_truth": {
+    "target_guid": "0xyFL4ySP5TexORi78qE5c",
+    "target_storey": "Level 1",
+    "target_ifc_class": "IfcDoor",
+    "target_name": "M_Door-Overhead-Sectional:2400 x 2000mm:776665",
+    "rq_category": "RQ3",
+    "expected_reasoning": "Among 36 IfcDoor on Level 1, filter by material=Garage MockUp"
+  }
+}

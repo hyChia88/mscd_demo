@@ -1,0 +1,61 @@
+{
+  "run_id": "20260207_014623_synth_memory+clip",
+  "case_id": "SYNTH_019_SK_019_V2",
+  "timestamp": "2026-02-07T01:53:43.235852",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "Could you please specify what \"this\" refers to? Are there any photos you would like to log for QA?",
+    "tool_calls": []
+  },
+  "prediction": {
+    "element_guid": "",
+    "guid_source": "none"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": false,
+    "target_guid": "0Um_J2ClP45uPRcRbJqhxe",
+    "target_name": "BALANS Fixed Single Window:BALANS TRAPPHUS TOP:959331",
+    "rq_category": "RQ1",
+    "details": [
+      "❌ Target GUID not found: 0Um_J2ClP45uPRcRbJqhxe",
+      "📊 No GUIDs extracted from response",
+      "❌ Target name not found: BALANS Fixed Single Window"
+    ],
+    "mentioned_guids": [],
+    "num_candidates": 0,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "SYNTH_019_SK_019_V2",
+    "elapsed_time": -820.6863212585449,
+    "tool_calls": [],
+    "rq2": null,
+    "ambiguity_tier": "Tier 1"
+  },
+  "ground_truth": {
+    "target_guid": "0Um_J2ClP45uPRcRbJqhxe",
+    "target_storey": "6 - Sixth Floor",
+    "target_ifc_class": "IfcWindow",
+    "target_name": "BALANS Fixed Single Window:BALANS TRAPPHUS TOP:959331",
+    "rq_category": "RQ1",
+    "expected_reasoning": "One of only 3 IfcWindow on 6 - Sixth Floor"
+  }
+}

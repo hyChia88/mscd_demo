@@ -1,0 +1,2092 @@
+{
+  "timestamp": "20260207_015928",
+  "run_id": "20260207_013435_synth_neo4j",
+  "dataset": {
+    "name": "synth",
+    "path": "../data_curation/datasets/synth_v0.2/cases_v2.jsonl",
+    "image_dir": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs",
+    "total_cases": 43
+  },
+  "experiment": {
+    "mode": "neo4j",
+    "query_mode": "neo4j",
+    "visual_enabled": false,
+    "description": "Neo4j graph queries"
+  },
+  "ground_truth_file": "../data_curation/datasets/synth_v0.2/cases_v2.jsonl",
+  "summary": {
+    "total": 43,
+    "retrieval": {
+      "top1_accuracy": 0.3023255813953488,
+      "top3_accuracy": 0.32558139534883723,
+      "top5_accuracy": 0.32558139534883723,
+      "precision_at_1": 0.3023255813953488,
+      "recall": 0.32558139534883723,
+      "f1_score": 0.31352282515073215
+    },
+    "guid_matches": 14,
+    "name_matches": 14,
+    "rq2_schema": {
+      "total": 0,
+      "passed": 0,
+      "pass_rate": 0,
+      "avg_fill_rate": 0
+    },
+    "by_rq_category": {
+      "RQ1": {
+        "total": 22,
+        "guid_match": 9,
+        "top1_hit": 9,
+        "top3_hit": 9
+      },
+      "RQ3": {
+        "total": 21,
+        "guid_match": 5,
+        "top1_hit": 4,
+        "top3_hit": 5
+      }
+    },
+    "by_ambiguity_tier": {
+      "Tier 1": {
+        "total": 22,
+        "top1_hit": 9,
+        "top3_hit": 9
+      },
+      "Tier 2": {
+        "total": 19,
+        "top1_hit": 4,
+        "top3_hit": 5
+      },
+      "Tier 3": {
+        "total": 2,
+        "top1_hit": 0,
+        "top3_hit": 0
+      }
+    }
+  },
+  "results": [
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "3GzoWuxxn4WO8bCtw8H3Vj",
+      "target_name": "Basic Wall:MockUp Interior between App:698152",
+      "rq_category": "RQ1",
+      "details": [
+        "\u274c Target GUID not found: 3GzoWuxxn4WO8bCtw8H3Vj",
+        "\ud83d\udcca Target GUID not in 5 mentioned candidates",
+        "\u274c Target name not found: Basic Wall"
+      ],
+      "mentioned_guids": [
+        "0MgESf4zL2juYwctbhVsxF",
+        "0MgESf4zL2juYwctbhVsl5",
+        "0MOEoDTm9EnO9yKsXjjlOO",
+        "0MOEoDTm9EnO9yKsXjjl4H",
+        "0MOEoDTm9EnO9yKsXjjlBg"
+      ],
+      "num_candidates": 5,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_001_SK_001_V2",
+      "elapsed_time": 831.6368057727814,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_001_SK_001_V2.png"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "First Floor",
+            "element_type": "IfcWall"
+          }
+        },
+        {
+          "name": "match_text_to_elements",
+          "args": {
+            "description": "staining near the joint",
+            "storey_filter": "First Floor",
+            "top_k": 5.0
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 1",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_001_SK_001_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_001_SK_001_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_001_SK_001_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": true,
+      "target_guid": "2I1hX40SDEbAFJeZO_2_Pq",
+      "target_name": "Floor:MockuUp Terrace:962748",
+      "rq_category": "RQ1",
+      "details": [
+        "\u274c Target GUID not found: 2I1hX40SDEbAFJeZO_2_Pq",
+        "\ud83d\udcca Target GUID not in 5 mentioned candidates",
+        "\u2705 Target name found: Floor"
+      ],
+      "mentioned_guids": [
+        "3ktY1kg3rAwgNBX_XWRSTN",
+        "3ktY1kg3rAwgNBX_XWRSGL",
+        "3ktY1kg3rAwgNBX_XWRSHc",
+        "3ktY1kg3rAwgNBX_XWRSMp",
+        "0Um_J2ClP45uPRcRbJqhvg"
+      ],
+      "num_candidates": 5,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_002_SK_002_V2",
+      "elapsed_time": -808.1145164966583,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_002_SK_002_V2.png"
+          }
+        },
+        {
+          "name": "match_text_to_elements",
+          "args": {
+            "storey_filter": "Sixth Floor",
+            "description": "Waterproofing concern"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "Sixth Floor",
+            "element_type": "IfcWall"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 1",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_002_SK_002_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_002_SK_002_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_002_SK_002_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": true,
+      "name_match": true,
+      "target_guid": "3NlCHdPGXFUvkKekQzm3CK",
+      "target_name": "Floor:Concrete-Domestic 425mm:982103",
+      "rq_category": "RQ1",
+      "details": [
+        "\u2705 Target GUID found: 3NlCHdPGXFUvkKekQzm3CK",
+        "\ud83d\udcca Target GUID rank: 1/5",
+        "\u2705 Target name found: Floor"
+      ],
+      "mentioned_guids": [
+        "3NlCHdPGXFUvkKekQzm3CK",
+        "3NlCHdPGXFUvkKekQzm3FC",
+        "3NlCHdPGXFUvkKekQzm3FY",
+        "3NlCHdPGXFUvkKekQzm3Fi",
+        "3NlCHdPGXFUvkKekQzm3F_"
+      ],
+      "num_candidates": 5,
+      "top1_hit": true,
+      "top3_hit": true,
+      "top5_hit": true,
+      "target_rank": 1,
+      "precision_at_1": 1.0,
+      "precision_at_3": 1.0,
+      "recall": 1.0,
+      "case_id": "SYNTH_003_SK_003_V2",
+      "elapsed_time": 5.508234977722168,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_003_SK_003_V2.png"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "element_type": "IfcSlab"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 1",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_003_SK_003_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_003_SK_003_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_003_SK_003_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "3NlCHdPGXFUvkKekQzm3FC",
+      "target_name": "Floor:Concrete-Domestic 425mm:982159",
+      "rq_category": "RQ1",
+      "details": [
+        "\u274c Target GUID not found: 3NlCHdPGXFUvkKekQzm3FC",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: Floor"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_004_SK_004_V2",
+      "elapsed_time": 3.59993052482605,
+      "tool_calls": [
+        {
+          "name": "match_image_to_elements",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_004_SK_004_V2.png",
+            "storey_filter": "Ground Level"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "Ground Level",
+            "element_type": "IfcSlab"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 1",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_004_SK_004_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_004_SK_004_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_004_SK_004_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": true,
+      "name_match": true,
+      "target_guid": "3NlCHdPGXFUvkKekQzm3FY",
+      "target_name": "Floor:Concrete-Domestic 425mm:982177",
+      "rq_category": "RQ1",
+      "details": [
+        "\u2705 Target GUID found: 3NlCHdPGXFUvkKekQzm3FY",
+        "\ud83d\udcca Target GUID rank: 1/1",
+        "\u2705 Target name found: Floor"
+      ],
+      "mentioned_guids": [
+        "3NlCHdPGXFUvkKekQzm3FY"
+      ],
+      "num_candidates": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "top5_hit": true,
+      "target_rank": 1,
+      "precision_at_1": 1.0,
+      "precision_at_3": 1.0,
+      "recall": 1.0,
+      "case_id": "SYNTH_005_SK_005_V2",
+      "elapsed_time": 6.497926950454712,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_005_SK_005_V2.png"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "Second Floor",
+            "element_type": "IfcSlab"
+          }
+        },
+        {
+          "name": "get_element_details",
+          "args": {
+            "guid": "3NlCHdPGXFUvkKekQzm3FY"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 1",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_005_SK_005_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_005_SK_005_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_005_SK_005_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": true,
+      "target_guid": "3NlCHdPGXFUvkKekQzm3Fi",
+      "target_name": "Floor:Concrete-Domestic 425mm:982191",
+      "rq_category": "RQ1",
+      "details": [
+        "\u274c Target GUID not found: 3NlCHdPGXFUvkKekQzm3Fi",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u2705 Target name found: Floor"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_006_SK_006_V2",
+      "elapsed_time": 1.2508678436279297,
+      "tool_calls": [],
+      "rq2": null,
+      "ambiguity_tier": "Tier 1",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_006_SK_006_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_006_SK_006_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_006_SK_006_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "3NlCHdPGXFUvkKekQzm3F_",
+      "target_name": "Floor:Concrete-Domestic 425mm:982205",
+      "rq_category": "RQ1",
+      "details": [
+        "\u274c Target GUID not found: 3NlCHdPGXFUvkKekQzm3F_",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: Floor"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_007_SK_007_V2",
+      "elapsed_time": 1.529327154159546,
+      "tool_calls": [],
+      "rq2": null,
+      "ambiguity_tier": "Tier 1",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_007_SK_007_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_007_SK_007_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_007_SK_007_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": true,
+      "name_match": true,
+      "target_guid": "3NlCHdPGXFUvkKekQzm3EP",
+      "target_name": "Floor:Concrete-Domestic 425mm:982234",
+      "rq_category": "RQ1",
+      "details": [
+        "\u2705 Target GUID found: 3NlCHdPGXFUvkKekQzm3EP",
+        "\ud83d\udcca Target GUID rank: 1/5",
+        "\u2705 Target name found: Floor"
+      ],
+      "mentioned_guids": [
+        "3NlCHdPGXFUvkKekQzm3EP",
+        "175SJZNMbBABiZ2bXgMZA3",
+        "3ktY1kg3rAwgNBX_XWRV7b",
+        "3ktY1kg3rAwgNBX_XWRV7c",
+        "3ktY1kg3rAwgNBX_XWRV7d"
+      ],
+      "num_candidates": 5,
+      "top1_hit": true,
+      "top3_hit": true,
+      "top5_hit": true,
+      "target_rank": 1,
+      "precision_at_1": 1.0,
+      "precision_at_3": 1.0,
+      "recall": 1.0,
+      "case_id": "SYNTH_008_SK_008_V2",
+      "elapsed_time": 5.255204439163208,
+      "tool_calls": [
+        {
+          "name": "get_elements_by_storey",
+          "args": {
+            "storey_name": "Level 5"
+          }
+        },
+        {
+          "name": "get_elements_by_storey",
+          "args": {
+            "storey_name": "5 - fifth floor"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 1",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_008_SK_008_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_008_SK_008_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_008_SK_008_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": true,
+      "name_match": false,
+      "target_guid": "0Um_J2ClP45uPRcRbJqfyP",
+      "target_name": "Railing:Glass Panel - Bottom Fill:950930",
+      "rq_category": "RQ1",
+      "details": [
+        "\u2705 Target GUID found: 0Um_J2ClP45uPRcRbJqfyP",
+        "\ud83d\udcca Target GUID rank: 1/1",
+        "\u274c Target name not found: Railing"
+      ],
+      "mentioned_guids": [
+        "0Um_J2ClP45uPRcRbJqfyP"
+      ],
+      "num_candidates": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "top5_hit": true,
+      "target_rank": 1,
+      "precision_at_1": 1.0,
+      "precision_at_3": 1.0,
+      "recall": 1.0,
+      "case_id": "SYNTH_009_SK_009_V2",
+      "elapsed_time": 10.224055290222168,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_009_SK_009_V2.png"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "6 - Sixth Floor",
+            "element_type": "IfcRailing"
+          }
+        },
+        {
+          "name": "get_element_details",
+          "args": {
+            "guid": "0Um_J2ClP45uPRcRbJqfyP"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 1",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_009_SK_009_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_009_SK_009_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_009_SK_009_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": true,
+      "name_match": true,
+      "target_guid": "2fypDDb212M80XzLYYLlSG",
+      "target_name": "Railing:Glass Panel - Bottom Fill:965153",
+      "rq_category": "RQ1",
+      "details": [
+        "\u2705 Target GUID found: 2fypDDb212M80XzLYYLlSG",
+        "\ud83d\udcca Target GUID rank: 1/1",
+        "\u2705 Target name found: Railing"
+      ],
+      "mentioned_guids": [
+        "2fypDDb212M80XzLYYLlSG"
+      ],
+      "num_candidates": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "top5_hit": true,
+      "target_rank": 1,
+      "precision_at_1": 1.0,
+      "precision_at_3": 1.0,
+      "recall": 1.0,
+      "case_id": "SYNTH_010_SK_010_V2",
+      "elapsed_time": 10.597408533096313,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_010_SK_010_V2.png"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "Level 1",
+            "element_type": "railing"
+          }
+        },
+        {
+          "name": "get_element_details",
+          "args": {
+            "guid": "2fypDDb212M80XzLYYLlSG"
+          }
+        },
+        {
+          "name": "generate_3d_view",
+          "args": {
+            "guid": "2fypDDb212M80XzLYYLlSG"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 1",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_010_SK_010_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_010_SK_010_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_010_SK_010_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": true,
+      "name_match": true,
+      "target_guid": "0ikA9YOKrBaRArRnE24rkF",
+      "target_name": "Assembled Stair:Stair:937135",
+      "rq_category": "RQ1",
+      "details": [
+        "\u2705 Target GUID found: 0ikA9YOKrBaRArRnE24rkF",
+        "\ud83d\udcca Target GUID rank: 1/1",
+        "\u2705 Target name found: Assembled Stair"
+      ],
+      "mentioned_guids": [
+        "0ikA9YOKrBaRArRnE24rkF"
+      ],
+      "num_candidates": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "top5_hit": true,
+      "target_rank": 1,
+      "precision_at_1": 1.0,
+      "precision_at_3": 1.0,
+      "recall": 1.0,
+      "case_id": "SYNTH_011_SK_011_V2",
+      "elapsed_time": 14.79752230644226,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_011_SK_011_V2.png"
+          }
+        },
+        {
+          "name": "match_text_to_elements",
+          "args": {
+            "storey_filter": "Ground Level",
+            "description": "nosing strip on a flight"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "Ground Level",
+            "element_type": "IfcStair"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "1 - First Floor",
+            "element_type": "IfcStair"
+          }
+        },
+        {
+          "name": "get_element_details",
+          "args": {
+            "guid": "0ikA9YOKrBaRArRnE24rkF"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 1",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_011_SK_011_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_011_SK_011_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_011_SK_011_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": true,
+      "name_match": true,
+      "target_guid": "2jMg7KKh9BngwDP$rL2Wdy",
+      "target_name": "Assembled Stair:Stair:937135:2",
+      "rq_category": "RQ1",
+      "details": [
+        "\u2705 Target GUID found: 2jMg7KKh9BngwDP$rL2Wdy",
+        "\ud83d\udcca Target GUID rank: 1/1",
+        "\u2705 Target name found: Assembled Stair"
+      ],
+      "mentioned_guids": [
+        "2jMg7KKh9BngwDP$rL2Wdy"
+      ],
+      "num_candidates": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "top5_hit": true,
+      "target_rank": 1,
+      "precision_at_1": 1.0,
+      "precision_at_3": 1.0,
+      "recall": 1.0,
+      "case_id": "SYNTH_012_SK_012_V2",
+      "elapsed_time": 7.765055179595947,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_012_SK_012_V2.png"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "Second Floor",
+            "element_type": "IfcStair"
+          }
+        },
+        {
+          "name": "generate_3d_view",
+          "args": {
+            "guid": "2jMg7KKh9BngwDP$rL2Wdy"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 1",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_012_SK_012_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_012_SK_012_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_012_SK_012_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": true,
+      "name_match": true,
+      "target_guid": "03V7Txha10JAsPO1eunWrl",
+      "target_name": "Assembled Stair:Stair:937135:3",
+      "rq_category": "RQ1",
+      "details": [
+        "\u2705 Target GUID found: 03V7Txha10JAsPO1eunWrl",
+        "\ud83d\udcca Target GUID rank: 1/1",
+        "\u2705 Target name found: Assembled Stair"
+      ],
+      "mentioned_guids": [
+        "03V7Txha10JAsPO1eunWrl"
+      ],
+      "num_candidates": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "top5_hit": true,
+      "target_rank": 1,
+      "precision_at_1": 1.0,
+      "precision_at_3": 1.0,
+      "recall": 1.0,
+      "case_id": "SYNTH_013_SK_013_V2",
+      "elapsed_time": 826.1730155944824,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_013_SK_013_V2.png"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "3 - Third Floor",
+            "element_type": "IfcStair"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 1",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_013_SK_013_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_013_SK_013_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_013_SK_013_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "0vD9RialTD9QxDNUJU2vYx",
+      "target_name": "Assembled Stair:Stair:937135:4",
+      "rq_category": "RQ1",
+      "details": [
+        "\u274c Target GUID not found: 0vD9RialTD9QxDNUJU2vYx",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: Assembled Stair"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_014_SK_014_V2",
+      "elapsed_time": -811.9627504348755,
+      "tool_calls": [
+        {
+          "name": "match_image_to_elements",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_014_SK_014_V2.png",
+            "storey_filter": "Level 4"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "Level 4",
+            "element_type": "IfcStair"
+          }
+        },
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_014_SK_014_V2.png"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 1",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_014_SK_014_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_014_SK_014_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_014_SK_014_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "175SJZNMbBABiZ2bXgMZA3",
+      "target_name": "Assembled Stair:Stair:937135:5",
+      "rq_category": "RQ1",
+      "details": [
+        "\u274c Target GUID not found: 175SJZNMbBABiZ2bXgMZA3",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: Assembled Stair"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_015_SK_015_V2",
+      "elapsed_time": 3.9459316730499268,
+      "tool_calls": [
+        {
+          "name": "match_text_to_elements",
+          "args": {
+            "description": "nosing strip on this flight",
+            "storey_filter": "5 - Fifth Floor"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "5 - Fifth Floor",
+            "element_type": "IfcNosingStrip"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 1",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_015_SK_015_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_015_SK_015_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_015_SK_015_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": true,
+      "target_guid": "0ikA9YOKrBaRArRnE24qDK",
+      "target_name": "Assembled Stair:Stair:939124",
+      "rq_category": "RQ1",
+      "details": [
+        "\u274c Target GUID not found: 0ikA9YOKrBaRArRnE24qDK",
+        "\ud83d\udcca Target GUID not in 1 mentioned candidates",
+        "\u2705 Target name found: Assembled Stair"
+      ],
+      "mentioned_guids": [
+        "0ikA9YOKrBaRArRnE24rkF"
+      ],
+      "num_candidates": 1,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_016_SK_016_V2",
+      "elapsed_time": 4.572087049484253,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_016_SK_016_V2.png"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "1 - First Floor",
+            "element_type": "IfcStair"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 1",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_016_SK_016_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_016_SK_016_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_016_SK_016_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": true,
+      "target_guid": "2BLn4xX2vF_gM9G5wfbP4L",
+      "target_name": "Basic Wall:MockUp Interior:839225",
+      "rq_category": "RQ1",
+      "details": [
+        "\u274c Target GUID not found: 2BLn4xX2vF_gM9G5wfbP4L",
+        "\ud83d\udcca Target GUID not in 3 mentioned candidates",
+        "\u2705 Target name found: Basic Wall"
+      ],
+      "mentioned_guids": [
+        "0MgESf4zL2juYwctbhVsxF",
+        "0MgESf4zL2juYwctbhVsl5",
+        "0MOEoDTm9EnO9yKsXjjlOO"
+      ],
+      "num_candidates": 3,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_017_SK_017_V2",
+      "elapsed_time": 9.86422061920166,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_017_SK_017_V2.png"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "1 - First Floor",
+            "element_type": "IfcWall"
+          }
+        },
+        {
+          "name": "match_text_to_elements",
+          "args": {
+            "storey_filter": "1 - First Floor",
+            "description": "hairline cracks on this surface"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 1",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_017_SK_017_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_017_SK_017_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_017_SK_017_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "0Um_J2ClP45uPRcRbJqf_0",
+      "target_name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:950795",
+      "rq_category": "RQ1",
+      "details": [
+        "\u274c Target GUID not found: 0Um_J2ClP45uPRcRbJqf_0",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_018_SK_018_V2",
+      "elapsed_time": 0.9088046550750732,
+      "tool_calls": [],
+      "rq2": null,
+      "ambiguity_tier": "Tier 1",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_018_SK_018_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_018_SK_018_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_018_SK_018_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "0Um_J2ClP45uPRcRbJqhxe",
+      "target_name": "BALANS Fixed Single Window:BALANS TRAPPHUS TOP:959331",
+      "rq_category": "RQ1",
+      "details": [
+        "\u274c Target GUID not found: 0Um_J2ClP45uPRcRbJqhxe",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: BALANS Fixed Single Window"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_019_SK_019_V2",
+      "elapsed_time": 1.313720941543579,
+      "tool_calls": [],
+      "rq2": null,
+      "ambiguity_tier": "Tier 1",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_019_SK_019_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_019_SK_019_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_019_SK_019_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": true,
+      "name_match": false,
+      "target_guid": "0MOEoDTm9EnO9yKsXjjlgV",
+      "target_name": "Assembled Stair:Stair:585292",
+      "rq_category": "RQ1",
+      "details": [
+        "\u2705 Target GUID found: 0MOEoDTm9EnO9yKsXjjlgV",
+        "\ud83d\udcca Target GUID rank: 1/1",
+        "\u274c Target name not found: Assembled Stair"
+      ],
+      "mentioned_guids": [
+        "0MOEoDTm9EnO9yKsXjjlgV"
+      ],
+      "num_candidates": 1,
+      "top1_hit": true,
+      "top3_hit": true,
+      "top5_hit": true,
+      "target_rank": 1,
+      "precision_at_1": 1.0,
+      "precision_at_3": 1.0,
+      "recall": 1.0,
+      "case_id": "SYNTH_020_SK_020_V2",
+      "elapsed_time": 12.369764566421509,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_020_SK_020_V2.png"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "element_type": "IfcStair"
+          }
+        },
+        {
+          "name": "get_element_details",
+          "args": {
+            "guid": "0MOEoDTm9EnO9yKsXjjlgV"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 1",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_020_SK_020_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_020_SK_020_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_020_SK_020_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": true,
+      "name_match": true,
+      "target_guid": "0Um_J2ClP45uPRcRbJqf_I",
+      "target_name": "M_Single-Flush:Generic Door:950809",
+      "rq_category": "RQ3",
+      "details": [
+        "\u2705 Target GUID found: 0Um_J2ClP45uPRcRbJqf_I",
+        "\ud83d\udcca Target GUID rank: 2/3",
+        "\u2705 Target name found: M_Single-Flush"
+      ],
+      "mentioned_guids": [
+        "0Um_J2ClP45uPRcRbJqf_0",
+        "0Um_J2ClP45uPRcRbJqf_I",
+        "0Um_J2ClP45uPRcRbJqhdp"
+      ],
+      "num_candidates": 3,
+      "top1_hit": false,
+      "top3_hit": true,
+      "top5_hit": true,
+      "target_rank": 2,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.5,
+      "recall": 1.0,
+      "case_id": "SYNTH_021_SK_021_V2",
+      "elapsed_time": 5.481980800628662,
+      "tool_calls": [
+        {
+          "name": "match_image_to_elements",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_021_SK_021_V2.png",
+            "storey_filter": "Sixth Floor",
+            "top_k": 1.0
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "Sixth Floor",
+            "element_type": "IfcDoor"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 2",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_021_SK_021_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_021_SK_021_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_021_SK_021_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "0Um_J2ClP45uPRcRbJqhbu",
+      "target_name": "BALANS Fixed Single Window:BALANS 10M BATHROOM:959731",
+      "rq_category": "RQ3",
+      "details": [
+        "\u274c Target GUID not found: 0Um_J2ClP45uPRcRbJqhbu",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: BALANS Fixed Single Window"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_022_SK_022_V2",
+      "elapsed_time": 2.2664029598236084,
+      "tool_calls": [],
+      "rq2": null,
+      "ambiguity_tier": "Tier 2",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_022_SK_022_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_022_SK_022_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_022_SK_022_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "3GdhC2lQD5ifjmLdQ3yoTZ",
+      "target_name": "Basic Wall:MockUp Storage Wall:798283",
+      "rq_category": "RQ3",
+      "details": [
+        "\u274c Target GUID not found: 3GdhC2lQD5ifjmLdQ3yoTZ",
+        "\ud83d\udcca Target GUID not in 5 mentioned candidates",
+        "\u274c Target name not found: Basic Wall"
+      ],
+      "mentioned_guids": [
+        "0MOEoDTm9EnO9yKsXjjlkV",
+        "0MOEoDTm9EnO9yKsXjjlj9",
+        "1KGNuJkf5FjQZDFQ6We96A",
+        "3GzoWuxxn4WO8bCtw8H3AT",
+        "3GzoWuxxn4WO8bCtw8H3AS"
+      ],
+      "num_candidates": 5,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_023_SK_023_V2",
+      "elapsed_time": 6.409216642379761,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_023_SK_023_V2.png"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "-1 - Garage",
+            "element_type": "IfcWall"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 2",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_023_SK_023_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_023_SK_023_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_023_SK_023_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "1cFRppLhj948bTrzz_ApSU",
+      "target_name": "Basic Wall:MockUp Storage Wall:817660",
+      "rq_category": "RQ3",
+      "details": [
+        "\u274c Target GUID not found: 1cFRppLhj948bTrzz_ApSU",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: Basic Wall"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_024_SK_024_V2",
+      "elapsed_time": 1.085601806640625,
+      "tool_calls": [],
+      "rq2": null,
+      "ambiguity_tier": "Tier 2",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_024_SK_024_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_024_SK_024_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_024_SK_024_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "0xyFL4ySP5TexORi78qE5c",
+      "target_name": "M_Door-Overhead-Sectional:2400 x 2000mm:776665",
+      "rq_category": "RQ3",
+      "details": [
+        "\u274c Target GUID not found: 0xyFL4ySP5TexORi78qE5c",
+        "\ud83d\udcca Target GUID not in 5 mentioned candidates",
+        "\u274c Target name not found: M_Door-Overhead-Sectional"
+      ],
+      "mentioned_guids": [
+        "0MOEoDTm9EnO9yKsXjjkME",
+        "0MOEoDTm9EnO9yKsXjjk2Z",
+        "2sG0Vcmgb1Uverjtj49YTd",
+        "2sG0Vcmgb1Uverjtj49YtH",
+        "2sG0Vcmgb1Uverjtj49zXt"
+      ],
+      "num_candidates": 5,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_025_SK_025_V2",
+      "elapsed_time": 3.370880365371704,
+      "tool_calls": [
+        {
+          "name": "match_image_to_elements",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_025_SK_025_V2.png",
+            "storey_filter": "First Floor",
+            "top_k": 5.0
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "First Floor",
+            "element_type": "IfcDoor"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 3",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_025_SK_025_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_025_SK_025_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_025_SK_025_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "0t7TVxPGL1fBrLXU9rUqSH",
+      "target_name": "Floor:MockUp 300mm:923894",
+      "rq_category": "RQ3",
+      "details": [
+        "\u274c Target GUID not found: 0t7TVxPGL1fBrLXU9rUqSH",
+        "\ud83d\udcca Target GUID not in 5 mentioned candidates",
+        "\u274c Target name not found: Floor"
+      ],
+      "mentioned_guids": [
+        "3WghND$tL64OKayb9VHFSn",
+        "3WghND$tL64OKayb9VHFRW",
+        "3GzoWuxxn4WO8bCtw8H3Bx",
+        "3p6DR19bjD_PWb8lZMRTIN",
+        "3p6DR19bjD_PWb8lZMRTlD"
+      ],
+      "num_candidates": 5,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_026_SK_026_V2",
+      "elapsed_time": 5.1444971561431885,
+      "tool_calls": [
+        {
+          "name": "match_image_to_elements",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_026_SK_026_V2.png"
+          }
+        },
+        {
+          "name": "get_elements_by_storey",
+          "args": {
+            "storey_name": "Level 1"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 3",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_026_SK_026_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_026_SK_026_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_026_SK_026_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": true,
+      "name_match": false,
+      "target_guid": "1KMtYLyv9CyfGv8UjnMBSN",
+      "target_name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:793588",
+      "rq_category": "RQ3",
+      "details": [
+        "\u2705 Target GUID found: 1KMtYLyv9CyfGv8UjnMBSN",
+        "\ud83d\udcca Target GUID rank: 1/5",
+        "\u274c Target name not found: BALANS Fixed Single Window"
+      ],
+      "mentioned_guids": [
+        "1KMtYLyv9CyfGv8UjnMBSN",
+        "1KMtYLyv9CyfGv8UjnMBSM",
+        "1KMtYLyv9CyfGv8UjnMBSL",
+        "1KMtYLyv9CyfGv8UjnMBSK",
+        "1KMtYLyv9CyfGv8UjnMBSR"
+      ],
+      "num_candidates": 5,
+      "top1_hit": true,
+      "top3_hit": true,
+      "top5_hit": true,
+      "target_rank": 1,
+      "precision_at_1": 1.0,
+      "precision_at_3": 1.0,
+      "recall": 1.0,
+      "case_id": "SYNTH_027_SK_027_V2",
+      "elapsed_time": 6.466433048248291,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_027_SK_027_V2.png"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "First Floor",
+            "element_type": "IfcWindow"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 2",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_027_SK_027_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_027_SK_027_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_027_SK_027_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "1ebX2H7F12su$wtPbeYAIT",
+      "target_name": "BALANS Fixed Single Window:BALANS 20M FLOOR (SH = 0):773593",
+      "rq_category": "RQ3",
+      "details": [
+        "\u274c Target GUID not found: 1ebX2H7F12su$wtPbeYAIT",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: BALANS Fixed Single Window"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_028_SK_028_V2",
+      "elapsed_time": 6.632817983627319,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_028_SK_028_V2.png"
+          }
+        },
+        {
+          "name": "match_text_to_elements",
+          "args": {
+            "description": "corner joint",
+            "storey_filter": "Level 1",
+            "top_k": 5.0
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 2",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_028_SK_028_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_028_SK_028_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_028_SK_028_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "1KMtYLyv9CyfGv8UjnM8_h",
+      "target_name": "Basic Wall:MockUp Interior between App:795464",
+      "rq_category": "RQ3",
+      "details": [
+        "\u274c Target GUID not found: 1KMtYLyv9CyfGv8UjnM8_h",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: Basic Wall"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_029_SK_029_V2",
+      "elapsed_time": 1.3084673881530762,
+      "tool_calls": [],
+      "rq2": null,
+      "ambiguity_tier": "Tier 2",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_029_SK_029_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_029_SK_029_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_029_SK_029_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": true,
+      "name_match": false,
+      "target_guid": "3ktY1kg3rAwgNBX_XWRV10",
+      "target_name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:940748",
+      "rq_category": "RQ3",
+      "details": [
+        "\u2705 Target GUID found: 3ktY1kg3rAwgNBX_XWRV10",
+        "\ud83d\udcca Target GUID rank: 1/5",
+        "\u274c Target name not found: BALANS Fixed Single Window"
+      ],
+      "mentioned_guids": [
+        "3ktY1kg3rAwgNBX_XWRV10",
+        "3ktY1kg3rAwgNBX_XWRV11",
+        "3ktY1kg3rAwgNBX_XWRV12",
+        "3ktY1kg3rAwgNBX_XWRV13",
+        "3ktY1kg3rAwgNBX_XWRV1S"
+      ],
+      "num_candidates": 5,
+      "top1_hit": true,
+      "top3_hit": true,
+      "top5_hit": true,
+      "target_rank": 1,
+      "precision_at_1": 1.0,
+      "precision_at_3": 1.0,
+      "recall": 1.0,
+      "case_id": "SYNTH_030_SK_030_V2",
+      "elapsed_time": 6.606241226196289,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_030_SK_030_V2.png"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "4 - Fourth Floor",
+            "element_type": "IfcWindow"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 2",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_030_SK_030_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_030_SK_030_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_030_SK_030_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": true,
+      "target_guid": "0SYs3s__10NgRHjGtRj2X7",
+      "target_name": "Floor:Generic 150mm:316303",
+      "rq_category": "RQ3",
+      "details": [
+        "\u274c Target GUID not found: 0SYs3s__10NgRHjGtRj2X7",
+        "\ud83d\udcca Target GUID not in 1 mentioned candidates",
+        "\u2705 Target name found: Floor"
+      ],
+      "mentioned_guids": [
+        "3NlCHdPGXFUvkKekQzm3FC"
+      ],
+      "num_candidates": 1,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_031_SK_031_V2",
+      "elapsed_time": 4.336735010147095,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_031_SK_031_V2.png"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "First Floor",
+            "element_type": "IfcSlab"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 2",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_031_SK_031_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_031_SK_031_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_031_SK_031_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "3GdhC2lQD5ifjmLdQ3yoHF",
+      "target_name": "M_Single-Flush:Generic Door:798055",
+      "rq_category": "RQ3",
+      "details": [
+        "\u274c Target GUID not found: 3GdhC2lQD5ifjmLdQ3yoHF",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: M_Single-Flush"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_032_SK_032_V2",
+      "elapsed_time": 3.1889708042144775,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_032_SK_032_V2.png"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 2",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_032_SK_032_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_032_SK_032_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_032_SK_032_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": true,
+      "name_match": false,
+      "target_guid": "3ktY1kg3rAwgNBX_XWRS7V",
+      "target_name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:944979",
+      "rq_category": "RQ3",
+      "details": [
+        "\u2705 Target GUID found: 3ktY1kg3rAwgNBX_XWRS7V",
+        "\ud83d\udcca Target GUID rank: 1/5",
+        "\u274c Target name not found: BALANS Fixed Single Window"
+      ],
+      "mentioned_guids": [
+        "3ktY1kg3rAwgNBX_XWRS7V",
+        "3ktY1kg3rAwgNBX_XWRS7O",
+        "3ktY1kg3rAwgNBX_XWRS7P",
+        "3ktY1kg3rAwgNBX_XWRS7Q",
+        "3ktY1kg3rAwgNBX_XWRS7R"
+      ],
+      "num_candidates": 5,
+      "top1_hit": true,
+      "top3_hit": true,
+      "top5_hit": true,
+      "target_rank": 1,
+      "precision_at_1": 1.0,
+      "precision_at_3": 1.0,
+      "recall": 1.0,
+      "case_id": "SYNTH_033_SK_033_V2",
+      "elapsed_time": 4.675970554351807,
+      "tool_calls": [
+        {
+          "name": "match_image_to_elements",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_033_SK_033_V2.png",
+            "storey_filter": "Second Floor",
+            "top_k": 3.0
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "Second Floor",
+            "element_type": "IfcWindow"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 2",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_033_SK_033_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_033_SK_033_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_033_SK_033_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": true,
+      "name_match": false,
+      "target_guid": "3ktY1kg3rAwgNBX_XWRV0C",
+      "target_name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:940672",
+      "rq_category": "RQ3",
+      "details": [
+        "\u2705 Target GUID found: 3ktY1kg3rAwgNBX_XWRV0C",
+        "\ud83d\udcca Target GUID rank: 1/5",
+        "\u274c Target name not found: BALANS Fixed Single Window"
+      ],
+      "mentioned_guids": [
+        "3ktY1kg3rAwgNBX_XWRV0C",
+        "3ktY1kg3rAwgNBX_XWRV0D",
+        "3ktY1kg3rAwgNBX_XWRV0E",
+        "3ktY1kg3rAwgNBX_XWRV0F",
+        "3ktY1kg3rAwgNBX_XWRV08"
+      ],
+      "num_candidates": 5,
+      "top1_hit": true,
+      "top3_hit": true,
+      "top5_hit": true,
+      "target_rank": 1,
+      "precision_at_1": 1.0,
+      "precision_at_3": 1.0,
+      "recall": 1.0,
+      "case_id": "SYNTH_034_SK_034_V2",
+      "elapsed_time": 3.7576608657836914,
+      "tool_calls": [
+        {
+          "name": "match_image_to_elements",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_034_SK_034_V2.png",
+            "storey_filter": "Third Floor"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "Third Floor",
+            "element_type": "IfcWindow"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 2",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_034_SK_034_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_034_SK_034_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_034_SK_034_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "1_jeQ1u6XFwed$AhVCoJi$",
+      "target_name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:473744",
+      "rq_category": "RQ3",
+      "details": [
+        "\u274c Target GUID not found: 1_jeQ1u6XFwed$AhVCoJi$",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_035_SK_035_V2",
+      "elapsed_time": 3.765859603881836,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_035_SK_035_V2.png"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 2",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_035_SK_035_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_035_SK_035_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_035_SK_035_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "0MOEoDTm9EnO9yKsXjjkME",
+      "target_name": "M_Single-Flush:Generic Door:586077",
+      "rq_category": "RQ3",
+      "details": [
+        "\u274c Target GUID not found: 0MOEoDTm9EnO9yKsXjjkME",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: M_Single-Flush"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_036_SK_036_V2",
+      "elapsed_time": 1.2819676399230957,
+      "tool_calls": [],
+      "rq2": null,
+      "ambiguity_tier": "Tier 2",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_036_SK_036_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_036_SK_036_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_036_SK_036_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "1NL4ZXkFP2thNiMT9sECsi",
+      "target_name": "Basic Wall:MockUp Exterior Ground Floor:379538",
+      "rq_category": "RQ3",
+      "details": [
+        "\u274c Target GUID not found: 1NL4ZXkFP2thNiMT9sECsi",
+        "\ud83d\udcca Target GUID not in 5 mentioned candidates",
+        "\u274c Target name not found: Basic Wall"
+      ],
+      "mentioned_guids": [
+        "0cRoQU_sD5R8MkkMkeodzx",
+        "0cRoQU_sD5R8MkkMkeodyq",
+        "0cRoQU_sD5R8MkkMkeodxk",
+        "0cRoQU_sD5R8MkkMkeodwY",
+        "0cRoQU_sD5R8MkkMkeoduF"
+      ],
+      "num_candidates": 5,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_037_SK_037_V2",
+      "elapsed_time": 6.592270851135254,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_037_SK_037_V2.png"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "Level 1",
+            "element_type": "IfcWall"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 2",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_037_SK_037_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_037_SK_037_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_037_SK_037_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "0MgESf4zL2juYwctbhVsxF",
+      "target_name": "Basic Wall:MockUp Interior between App:575972",
+      "rq_category": "RQ3",
+      "details": [
+        "\u274c Target GUID not found: 0MgESf4zL2juYwctbhVsxF",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: Basic Wall"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_038_SK_038_V2",
+      "elapsed_time": 2.6435413360595703,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_038_SK_038_V2.png"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 2",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_038_SK_038_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_038_SK_038_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_038_SK_038_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "1KMtYLyv9CyfGv8UjnMBSN",
+      "target_name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:793588",
+      "rq_category": "RQ3",
+      "details": [
+        "\u274c Target GUID not found: 1KMtYLyv9CyfGv8UjnMBSN",
+        "\ud83d\udcca Target GUID not in 5 mentioned candidates",
+        "\u274c Target name not found: BALANS Fixed Single Window"
+      ],
+      "mentioned_guids": [
+        "0MgESf4zL2juYwctbhVsxF",
+        "0MgESf4zL2juYwctbhVsl5",
+        "0MOEoDTm9EnO9yKsXjjlOO",
+        "0MOEoDTm9EnO9yKsXjjl4H",
+        "0MOEoDTm9EnO9yKsXjjlBg"
+      ],
+      "num_candidates": 5,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_039_SK_039_V2",
+      "elapsed_time": 14.644326210021973,
+      "tool_calls": [
+        {
+          "name": "match_image_to_elements",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_039_SK_039_V2.png",
+            "storey_filter": "1 - First Floor",
+            "top_k": 3.0
+          }
+        },
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_039_SK_039_V2.png"
+          }
+        },
+        {
+          "name": "match_text_to_elements",
+          "args": {
+            "storey_filter": "1 - First Floor",
+            "description": "corner joint",
+            "top_k": 3.0
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "1 - First Floor",
+            "element_type": "IfcWall"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 2",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_039_SK_039_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_039_SK_039_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_039_SK_039_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "3ktY1kg3rAwgNBX_XWRV0C",
+      "target_name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:940672",
+      "rq_category": "RQ3",
+      "details": [
+        "\u274c Target GUID not found: 3ktY1kg3rAwgNBX_XWRV0C",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: BALANS Fixed Single Window"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_040_SK_040_V2",
+      "elapsed_time": 6.070549011230469,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_040_SK_040_V2.png"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "Basement",
+            "element_type": "IfcWindow"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 2",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_040_SK_040_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_040_SK_040_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_040_SK_040_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "1_jeQ1u6XFwed$AhVCoJi$",
+      "target_name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:473744",
+      "rq_category": "RQ3",
+      "details": [
+        "\u274c Target GUID not found: 1_jeQ1u6XFwed$AhVCoJi$",
+        "\ud83d\udcca Target GUID not in 5 mentioned candidates",
+        "\u274c Target name not found: Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0"
+      ],
+      "mentioned_guids": [
+        "3GdhC2lQD5ifjmLdQ3yoHF",
+        "3GdhC2lQD5ifjmLdQ3yoHJ",
+        "1cFRppLhj948bTrzz_Ao_1",
+        "1cFRppLhj948bTrzz_AoiD",
+        "1cFRppLhj948bTrzz_Ao4n"
+      ],
+      "num_candidates": 5,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_041_SK_041_V2",
+      "elapsed_time": 5.043404817581177,
+      "tool_calls": [
+        {
+          "name": "analyze_site_image",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_041_SK_041_V2.png"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "-1 - Garage",
+            "element_type": "IfcDoor"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 2",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_041_SK_041_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_041_SK_041_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_041_SK_041_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": true,
+      "target_guid": "3NlCHdPGXFUvkKekQzm3EP",
+      "target_name": "Floor:Concrete-Domestic 425mm:982234",
+      "rq_category": "RQ1",
+      "details": [
+        "\u274c Target GUID not found: 3NlCHdPGXFUvkKekQzm3EP",
+        "\ud83d\udcca Target GUID not in 1 mentioned candidates",
+        "\u2705 Target name found: Floor"
+      ],
+      "mentioned_guids": [
+        "3NlCHdPGXFUvkKekQzm3FC"
+      ],
+      "num_candidates": 1,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_042_SK_042_V2",
+      "elapsed_time": 5.75832986831665,
+      "tool_calls": [
+        {
+          "name": "match_image_to_elements",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_042_SK_042_V2.png",
+            "storey_filter": "First Floor"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "First Floor",
+            "element_type": "IfcSlab"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 1",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_042_SK_042_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_042_SK_042_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_042_SK_042_V2.bcfzip"
+      }
+    },
+    {
+      "guid_match": false,
+      "name_match": false,
+      "target_guid": "2jMg7KKh9BngwDP$rL2Wdy",
+      "target_name": "Assembled Stair:Stair:937135:2",
+      "rq_category": "RQ1",
+      "details": [
+        "\u274c Target GUID not found: 2jMg7KKh9BngwDP$rL2Wdy",
+        "\ud83d\udcca No GUIDs extracted from response",
+        "\u274c Target name not found: Assembled Stair"
+      ],
+      "mentioned_guids": [],
+      "num_candidates": 0,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "target_rank": null,
+      "precision_at_1": 0.0,
+      "precision_at_3": 0.0,
+      "recall": 0.0,
+      "case_id": "SYNTH_043_SK_043_V2",
+      "elapsed_time": 827.5556788444519,
+      "tool_calls": [
+        {
+          "name": "match_image_to_elements",
+          "args": {
+            "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_043_SK_043_V2.png",
+            "storey_filter": "Second Floor"
+          }
+        },
+        {
+          "name": "search_elements_by_type",
+          "args": {
+            "storey_filter": "Second Floor",
+            "element_type": "IfcRailing"
+          }
+        }
+      ],
+      "rq2": null,
+      "ambiguity_tier": "Tier 1",
+      "handoff": {
+        "trace": "/root/cmu/master_thesis/mscd_demo/outputs/traces/20260207_013435_synth_neo4j/SYNTH_043_SK_043_V2.trace.json",
+        "issue_json": "/root/cmu/master_thesis/mscd_demo/outputs/issues/20260207_013435_synth_neo4j/SYNTH_043_SK_043_V2.issue.json",
+        "bcfzip": "/root/cmu/master_thesis/mscd_demo/outputs/bcf/20260207_013435_synth_neo4j/SYNTH_043_SK_043_V2.bcfzip"
+      }
+    }
+  ]
+}

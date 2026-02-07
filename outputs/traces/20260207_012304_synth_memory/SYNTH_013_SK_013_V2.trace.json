@@ -1,0 +1,91 @@
+{
+  "run_id": "20260207_012304_synth_memory",
+  "case_id": "SYNTH_013_SK_013_V2",
+  "timestamp": "2026-02-07T01:26:26.012538",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "The staircase on the third floor (GUID: 03V7Txha10JAsPO1eunWrl) has been marked for rectification. I've noted that the finish quality is similar to what was previously observed.",
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_013_SK_013_V2.png"
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "Third Floor",
+          "element_type": "IfcStair"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "03V7Txha10JAsPO1eunWrl",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": true,
+    "name_match": false,
+    "target_guid": "03V7Txha10JAsPO1eunWrl",
+    "target_name": "Assembled Stair:Stair:937135:3",
+    "rq_category": "RQ1",
+    "details": [
+      "✅ Target GUID found: 03V7Txha10JAsPO1eunWrl",
+      "📊 Target GUID rank: 1/1",
+      "❌ Target name not found: Assembled Stair"
+    ],
+    "mentioned_guids": [
+      "03V7Txha10JAsPO1eunWrl"
+    ],
+    "num_candidates": 1,
+    "top1_hit": true,
+    "top3_hit": true,
+    "top5_hit": true,
+    "target_rank": 1,
+    "precision_at_1": 1.0,
+    "precision_at_3": 1.0,
+    "recall": 1.0,
+    "case_id": "SYNTH_013_SK_013_V2",
+    "elapsed_time": 4.011084318161011,
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_013_SK_013_V2.png"
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "Third Floor",
+          "element_type": "IfcStair"
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 1"
+  },
+  "ground_truth": {
+    "target_guid": "03V7Txha10JAsPO1eunWrl",
+    "target_storey": "3 - Third Floor",
+    "target_ifc_class": "IfcStair",
+    "target_name": "Assembled Stair:Stair:937135:3",
+    "rq_category": "RQ1",
+    "expected_reasoning": "Only IfcStair on 3 - Third Floor"
+  }
+}

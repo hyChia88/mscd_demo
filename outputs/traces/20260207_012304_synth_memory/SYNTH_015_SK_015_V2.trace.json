@@ -1,0 +1,91 @@
+{
+  "run_id": "20260207_012304_synth_memory",
+  "case_id": "SYNTH_015_SK_015_V2",
+  "timestamp": "2026-02-07T01:26:59.139138",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "I couldn't find any elements matching \"nosing strip\" on the Fifth Floor. Could you please provide a more general term for the element type, or perhaps a photo of the nosing strip? This would help me to find the correct specification for you.",
+    "tool_calls": [
+      {
+        "name": "match_text_to_elements",
+        "args": {
+          "storey_filter": "5 - Fifth Floor",
+          "description": "nosing strip on this flight"
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "5 - Fifth Floor",
+          "element_type": "nosing strip"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "",
+    "guid_source": "none"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": false,
+    "target_guid": "175SJZNMbBABiZ2bXgMZA3",
+    "target_name": "Assembled Stair:Stair:937135:5",
+    "rq_category": "RQ1",
+    "details": [
+      "❌ Target GUID not found: 175SJZNMbBABiZ2bXgMZA3",
+      "📊 No GUIDs extracted from response",
+      "❌ Target name not found: Assembled Stair"
+    ],
+    "mentioned_guids": [],
+    "num_candidates": 0,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "SYNTH_015_SK_015_V2",
+    "elapsed_time": 3.054340124130249,
+    "tool_calls": [
+      {
+        "name": "match_text_to_elements",
+        "args": {
+          "storey_filter": "5 - Fifth Floor",
+          "description": "nosing strip on this flight"
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "5 - Fifth Floor",
+          "element_type": "nosing strip"
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 1"
+  },
+  "ground_truth": {
+    "target_guid": "175SJZNMbBABiZ2bXgMZA3",
+    "target_storey": "5 - Fifth Floor",
+    "target_ifc_class": "IfcStair",
+    "target_name": "Assembled Stair:Stair:937135:5",
+    "rq_category": "RQ1",
+    "expected_reasoning": "Only IfcStair on 5 - Fifth Floor"
+  }
+}

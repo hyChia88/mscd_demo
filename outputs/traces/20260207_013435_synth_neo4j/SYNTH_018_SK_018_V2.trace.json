@@ -1,0 +1,61 @@
+{
+  "run_id": "20260207_013435_synth_neo4j",
+  "case_id": "SYNTH_018_SK_018_V2",
+  "timestamp": "2026-02-07T01:39:29.861327",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "Please provide more details on what needs to be rectified. What element are you referring to?",
+    "tool_calls": []
+  },
+  "prediction": {
+    "element_guid": "",
+    "guid_source": "none"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": false,
+    "target_guid": "0Um_J2ClP45uPRcRbJqf_0",
+    "target_name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:950795",
+    "rq_category": "RQ1",
+    "details": [
+      "❌ Target GUID not found: 0Um_J2ClP45uPRcRbJqf_0",
+      "📊 No GUIDs extracted from response",
+      "❌ Target name not found: Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0"
+    ],
+    "mentioned_guids": [],
+    "num_candidates": 0,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "SYNTH_018_SK_018_V2",
+    "elapsed_time": 0.9088046550750732,
+    "tool_calls": [],
+    "rq2": null,
+    "ambiguity_tier": "Tier 1"
+  },
+  "ground_truth": {
+    "target_guid": "0Um_J2ClP45uPRcRbJqf_0",
+    "target_storey": "6 - Sixth Floor",
+    "target_ifc_class": "IfcDoor",
+    "target_name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:950795",
+    "rq_category": "RQ1",
+    "expected_reasoning": "One of only 3 IfcDoor on 6 - Sixth Floor"
+  }
+}

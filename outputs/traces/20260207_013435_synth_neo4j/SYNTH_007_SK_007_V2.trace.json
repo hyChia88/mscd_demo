@@ -1,0 +1,61 @@
+{
+  "run_id": "20260207_013435_synth_neo4j",
+  "case_id": "SYNTH_007_SK_007_V2",
+  "timestamp": "2026-02-07T01:36:17.530814",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "I can help mark this for rectification. Could you please provide an image of the crack or a more detailed description of its location (e.g., which room or area on Level 4)? This will help me accurately identify the slab in the BIM model.",
+    "tool_calls": []
+  },
+  "prediction": {
+    "element_guid": "",
+    "guid_source": "none"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": false,
+    "target_guid": "3NlCHdPGXFUvkKekQzm3F_",
+    "target_name": "Floor:Concrete-Domestic 425mm:982205",
+    "rq_category": "RQ1",
+    "details": [
+      "❌ Target GUID not found: 3NlCHdPGXFUvkKekQzm3F_",
+      "📊 No GUIDs extracted from response",
+      "❌ Target name not found: Floor"
+    ],
+    "mentioned_guids": [],
+    "num_candidates": 0,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "SYNTH_007_SK_007_V2",
+    "elapsed_time": 1.529327154159546,
+    "tool_calls": [],
+    "rq2": null,
+    "ambiguity_tier": "Tier 1"
+  },
+  "ground_truth": {
+    "target_guid": "3NlCHdPGXFUvkKekQzm3F_",
+    "target_storey": "4 - Fourth Floor",
+    "target_ifc_class": "IfcSlab",
+    "target_name": "Floor:Concrete-Domestic 425mm:982205",
+    "rq_category": "RQ1",
+    "expected_reasoning": "Only IfcSlab on 4 - Fourth Floor"
+  }
+}

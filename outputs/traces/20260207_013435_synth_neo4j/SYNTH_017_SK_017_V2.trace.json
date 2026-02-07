@@ -1,0 +1,107 @@
+{
+  "run_id": "20260207_013435_synth_neo4j",
+  "case_id": "SYNTH_017_SK_017_V2",
+  "timestamp": "2026-02-07T01:39:18.934292",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "I'm unable to perform visual analysis on the attached image or semantic text matching at the moment. However, based on the description \"hairline cracks on this surface\" and the \"Ground Level Inspection\" context, I've identified 110 wall elements on the \"1 - First Floor\" as potential locations for this defect.\n\nHere are a few of the wall elements found:\n*   Basic Wall:MockUp Interior between App:575972 (GUID: 0MgESf4zL2juYwctbhVsxF)\n*   Basic Wall:MockUp Interior between App:576750 (GUID: 0MgESf4zL2juYwctbhVsl5)\n*   Basic Wall:MockUp Interior between App:582347 (GUID: 0MOEoDTm9EnO9yKsXjjlOO)\n\nPlease let me know if you have a more specific location or element name, or if you'd like to investigate details of any of these walls.",
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_017_SK_017_V2.png"
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "1 - First Floor",
+          "element_type": "IfcWall"
+        }
+      },
+      {
+        "name": "match_text_to_elements",
+        "args": {
+          "storey_filter": "1 - First Floor",
+          "description": "hairline cracks on this surface"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "0MgESf4zL2juYwctbhVsxF",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": true,
+    "target_guid": "2BLn4xX2vF_gM9G5wfbP4L",
+    "target_name": "Basic Wall:MockUp Interior:839225",
+    "rq_category": "RQ1",
+    "details": [
+      "❌ Target GUID not found: 2BLn4xX2vF_gM9G5wfbP4L",
+      "📊 Target GUID not in 3 mentioned candidates",
+      "✅ Target name found: Basic Wall"
+    ],
+    "mentioned_guids": [
+      "0MgESf4zL2juYwctbhVsxF",
+      "0MgESf4zL2juYwctbhVsl5",
+      "0MOEoDTm9EnO9yKsXjjlOO"
+    ],
+    "num_candidates": 3,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "SYNTH_017_SK_017_V2",
+    "elapsed_time": 9.86422061920166,
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_017_SK_017_V2.png"
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "1 - First Floor",
+          "element_type": "IfcWall"
+        }
+      },
+      {
+        "name": "match_text_to_elements",
+        "args": {
+          "storey_filter": "1 - First Floor",
+          "description": "hairline cracks on this surface"
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 1"
+  },
+  "ground_truth": {
+    "target_guid": "2BLn4xX2vF_gM9G5wfbP4L",
+    "target_storey": "Level 1",
+    "target_ifc_class": "IfcWall",
+    "target_name": "Basic Wall:MockUp Interior:839225",
+    "rq_category": "RQ1",
+    "expected_reasoning": "One of only 2 IfcWall on Level 1"
+  }
+}

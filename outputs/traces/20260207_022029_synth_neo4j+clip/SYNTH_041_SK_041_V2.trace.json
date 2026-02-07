@@ -1,0 +1,95 @@
+{
+  "run_id": "20260207_022029_synth_neo4j+clip",
+  "case_id": "SYNTH_041_SK_041_V2",
+  "timestamp": "2026-02-07T02:37:57.390443",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "I've found a few doors on the Carpark Level that might match the description. Can you confirm which one it is?\n\n*   **M_Single-Flush:Generic Door:878660** (GUID: 1q9pLykVT2tOtz_4XjbvA1)\n*   **M_Single-Flush:Generic Door:878630** (GUID: 1q9pLykVT2tOtz_4XjbvBZ)\n*   **M_Single-Flush:Generic Door:798075** (GUID: 3GdhC2lQD5ifjmLdQ3yoHJ)\n*   **M_Single-Flush:Generic Door:798055** (GUID: 3GdhC2lQD5ifjmLdQ3yoHF)\n*   **M_Single-Flush:Generic Door:878566** (GUID: 1q9pLykVT2tOtz_4XjbvqZ)",
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_041_SK_041_V2.png"
+        }
+      },
+      {
+        "name": "match_text_to_elements",
+        "args": {
+          "description": "door with hinge issue",
+          "storey_filter": "-1 - Garage"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "1q9pLykVT2tOtz_4XjbvA1",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": false,
+    "target_guid": "1_jeQ1u6XFwed$AhVCoJi$",
+    "target_name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:473744",
+    "rq_category": "RQ3",
+    "details": [
+      "❌ Target GUID not found: 1_jeQ1u6XFwed$AhVCoJi$",
+      "📊 Target GUID not in 5 mentioned candidates",
+      "❌ Target name not found: Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0"
+    ],
+    "mentioned_guids": [
+      "1q9pLykVT2tOtz_4XjbvA1",
+      "1q9pLykVT2tOtz_4XjbvBZ",
+      "3GdhC2lQD5ifjmLdQ3yoHJ",
+      "3GdhC2lQD5ifjmLdQ3yoHF",
+      "1q9pLykVT2tOtz_4XjbvqZ"
+    ],
+    "num_candidates": 5,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "SYNTH_041_SK_041_V2",
+    "elapsed_time": 10.956477642059326,
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_041_SK_041_V2.png"
+        }
+      },
+      {
+        "name": "match_text_to_elements",
+        "args": {
+          "description": "door with hinge issue",
+          "storey_filter": "-1 - Garage"
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 2"
+  },
+  "ground_truth": {
+    "target_guid": "1_jeQ1u6XFwed$AhVCoJi$",
+    "target_storey": "Level 1",
+    "target_ifc_class": "IfcDoor",
+    "target_name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:473744",
+    "rq_category": "RQ3",
+    "expected_reasoning": "Disambiguate among 36 IfcDoor on Level 1 using material=Titanium, fire_rating=EI60, is_external=False"
+  }
+}

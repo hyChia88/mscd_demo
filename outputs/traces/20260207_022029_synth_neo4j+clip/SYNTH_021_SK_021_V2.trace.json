@@ -1,0 +1,97 @@
+{
+  "run_id": "20260207_022029_synth_neo4j+clip",
+  "case_id": "SYNTH_021_SK_021_V2",
+  "timestamp": "2026-02-07T02:29:19.427274",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "I found 3 doors on the sixth floor. Could you please specify which door the defect is associated with?\n- Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:950795 (GUID: 0Um_J2ClP45uPRcRbJqf_0)\n- M_Single-Flush:Generic Door:950809 (GUID: 0Um_J2ClP45uPRcRbJqf_I)\n- M_Single-Flush:Generic Door:959608 (GUID: 0Um_J2ClP45uPRcRbJqhdp)",
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_021_SK_021_V2.png",
+          "storey_filter": "sixth",
+          "top_k": 1.0
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "sixth",
+          "element_type": "IfcDoor"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "Swedoor_Interior_Door_",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": true,
+    "name_match": true,
+    "target_guid": "0Um_J2ClP45uPRcRbJqf_I",
+    "target_name": "M_Single-Flush:Generic Door:950809",
+    "rq_category": "RQ3",
+    "details": [
+      "✅ Target GUID found: 0Um_J2ClP45uPRcRbJqf_I",
+      "📊 Target GUID rank: 2/3",
+      "✅ Target name found: M_Single-Flush"
+    ],
+    "mentioned_guids": [
+      "0Um_J2ClP45uPRcRbJqf_0",
+      "0Um_J2ClP45uPRcRbJqf_I",
+      "0Um_J2ClP45uPRcRbJqhdp"
+    ],
+    "num_candidates": 3,
+    "top1_hit": false,
+    "top3_hit": true,
+    "top5_hit": true,
+    "target_rank": 2,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.5,
+    "recall": 1.0,
+    "case_id": "SYNTH_021_SK_021_V2",
+    "elapsed_time": 6.230573892593384,
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_021_SK_021_V2.png",
+          "storey_filter": "sixth",
+          "top_k": 1.0
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "sixth",
+          "element_type": "IfcDoor"
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 2"
+  },
+  "ground_truth": {
+    "target_guid": "0Um_J2ClP45uPRcRbJqf_I",
+    "target_storey": "6 - Sixth Floor",
+    "target_ifc_class": "IfcDoor",
+    "target_name": "M_Single-Flush:Generic Door:950809",
+    "rq_category": "RQ3",
+    "expected_reasoning": "Only 3 IfcDoor on 6 - Sixth Floor (avg: 32). 4D Task reveals storey."
+  }
+}

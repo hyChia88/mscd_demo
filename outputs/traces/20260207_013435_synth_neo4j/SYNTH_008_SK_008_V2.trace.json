@@ -1,0 +1,93 @@
+{
+  "run_id": "20260207_013435_synth_neo4j",
+  "case_id": "SYNTH_008_SK_008_V2",
+  "timestamp": "2026-02-07T01:36:32.794526",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "Here are the elements found on the 5th floor:\n\n**IfcSlab:** 1 element\n*   Floor:Concrete-Domestic 425mm:982234 (GUID: 3NlCHdPGXFUvkKekQzm3EP)\n\n**IfcStair:** 1 element\n*   Assembled Stair:Stair:937135:5 (GUID: 175SJZNMbBABiZ2bXgMZA3)\n\n**IfcWindow:** 46 elements\n*   BALANS Fixed Single Window:BALANS 20M PRIVATE:940905 (GUID: 3ktY1kg3rAwgNBX_XWRV7b)\n*   BALANS Fixed Single Window:BALANS 20M PRIVATE:940906 (GUID: 3ktY1kg3rAwgNBX_XWRV7c)\n*   BALANS Fixed Single Window:BALANS 10M PRIVATE:940907 (GUID: 3ktY1kg3rAwgNBX_XWRV7d)\n*   ... and 43 more\n\nIn total, there are 48 elements on the 5th floor.",
+    "tool_calls": [
+      {
+        "name": "get_elements_by_storey",
+        "args": {
+          "storey_name": "Level 5"
+        }
+      },
+      {
+        "name": "get_elements_by_storey",
+        "args": {
+          "storey_name": "5 - fifth floor"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "3NlCHdPGXFUvkKekQzm3EP",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": true,
+    "name_match": true,
+    "target_guid": "3NlCHdPGXFUvkKekQzm3EP",
+    "target_name": "Floor:Concrete-Domestic 425mm:982234",
+    "rq_category": "RQ1",
+    "details": [
+      "✅ Target GUID found: 3NlCHdPGXFUvkKekQzm3EP",
+      "📊 Target GUID rank: 1/5",
+      "✅ Target name found: Floor"
+    ],
+    "mentioned_guids": [
+      "3NlCHdPGXFUvkKekQzm3EP",
+      "175SJZNMbBABiZ2bXgMZA3",
+      "3ktY1kg3rAwgNBX_XWRV7b",
+      "3ktY1kg3rAwgNBX_XWRV7c",
+      "3ktY1kg3rAwgNBX_XWRV7d"
+    ],
+    "num_candidates": 5,
+    "top1_hit": true,
+    "top3_hit": true,
+    "top5_hit": true,
+    "target_rank": 1,
+    "precision_at_1": 1.0,
+    "precision_at_3": 1.0,
+    "recall": 1.0,
+    "case_id": "SYNTH_008_SK_008_V2",
+    "elapsed_time": 5.255204439163208,
+    "tool_calls": [
+      {
+        "name": "get_elements_by_storey",
+        "args": {
+          "storey_name": "Level 5"
+        }
+      },
+      {
+        "name": "get_elements_by_storey",
+        "args": {
+          "storey_name": "5 - fifth floor"
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 1"
+  },
+  "ground_truth": {
+    "target_guid": "3NlCHdPGXFUvkKekQzm3EP",
+    "target_storey": "5 - Fifth Floor",
+    "target_ifc_class": "IfcSlab",
+    "target_name": "Floor:Concrete-Domestic 425mm:982234",
+    "rq_category": "RQ1",
+    "expected_reasoning": "Only IfcSlab on 5 - Fifth Floor"
+  }
+}

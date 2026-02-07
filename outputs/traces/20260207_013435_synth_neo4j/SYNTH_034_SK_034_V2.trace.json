@@ -1,0 +1,97 @@
+{
+  "run_id": "20260207_013435_synth_neo4j",
+  "case_id": "SYNTH_034_SK_034_V2",
+  "timestamp": "2026-02-07T01:43:24.639216",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "I found 46 windows on the Third Floor. Could you please specify which window you would like me to check? You can provide more details from the image or a more specific description.\n\n[AUTO-EXTRACTED] Top candidate GUIDs from tool results: 3ktY1kg3rAwgNBX_XWRV0C, 3ktY1kg3rAwgNBX_XWRV0D, 3ktY1kg3rAwgNBX_XWRV0E, 3ktY1kg3rAwgNBX_XWRV0F, 3ktY1kg3rAwgNBX_XWRV08",
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_034_SK_034_V2.png",
+          "storey_filter": "Third Floor"
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "Third Floor",
+          "element_type": "IfcWindow"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "3ktY1kg3rAwgNBX_XWRV0C",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": true,
+    "name_match": false,
+    "target_guid": "3ktY1kg3rAwgNBX_XWRV0C",
+    "target_name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:940672",
+    "rq_category": "RQ3",
+    "details": [
+      "✅ Target GUID found: 3ktY1kg3rAwgNBX_XWRV0C",
+      "📊 Target GUID rank: 1/5",
+      "❌ Target name not found: BALANS Fixed Single Window"
+    ],
+    "mentioned_guids": [
+      "3ktY1kg3rAwgNBX_XWRV0C",
+      "3ktY1kg3rAwgNBX_XWRV0D",
+      "3ktY1kg3rAwgNBX_XWRV0E",
+      "3ktY1kg3rAwgNBX_XWRV0F",
+      "3ktY1kg3rAwgNBX_XWRV08"
+    ],
+    "num_candidates": 5,
+    "top1_hit": true,
+    "top3_hit": true,
+    "top5_hit": true,
+    "target_rank": 1,
+    "precision_at_1": 1.0,
+    "precision_at_3": 1.0,
+    "recall": 1.0,
+    "case_id": "SYNTH_034_SK_034_V2",
+    "elapsed_time": 3.7576608657836914,
+    "tool_calls": [
+      {
+        "name": "match_image_to_elements",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_034_SK_034_V2.png",
+          "storey_filter": "Third Floor"
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "Third Floor",
+          "element_type": "IfcWindow"
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 2"
+  },
+  "ground_truth": {
+    "target_guid": "3ktY1kg3rAwgNBX_XWRV0C",
+    "target_storey": "3 - Third Floor",
+    "target_ifc_class": "IfcWindow",
+    "target_name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:940672",
+    "rq_category": "RQ3",
+    "expected_reasoning": "Disambiguate among 46 IfcWindow on 3 - Third Floor using material=White RAL 9010, is_external=True"
+  }
+}

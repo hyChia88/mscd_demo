@@ -1,0 +1,131 @@
+{
+  "run_id": "20260207_013435_synth_neo4j",
+  "case_id": "SYNTH_011_SK_011_V2",
+  "timestamp": "2026-02-07T01:37:38.444048",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "The model does not contain specific tolerance information for nosing strips. The available data for the stair (Assembled Stair:Stair:937135) includes dimensions like riser height and tread depth, but no details about nosing strip adherence or tolerance.\n\nTo determine if this is within tolerance, please consult the relevant building codes, project specifications, or manufacturer guidelines for the nosing strip.\n\n[AUTO-EXTRACTED] Selected element GUID: 0ikA9YOKrBaRArRnE24rkF",
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_011_SK_011_V2.png"
+        }
+      },
+      {
+        "name": "match_text_to_elements",
+        "args": {
+          "storey_filter": "Ground Level",
+          "description": "nosing strip on a flight"
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "Ground Level",
+          "element_type": "IfcStair"
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "1 - First Floor",
+          "element_type": "IfcStair"
+        }
+      },
+      {
+        "name": "get_element_details",
+        "args": {
+          "guid": "0ikA9YOKrBaRArRnE24rkF"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "0ikA9YOKrBaRArRnE24rkF",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": true,
+    "name_match": true,
+    "target_guid": "0ikA9YOKrBaRArRnE24rkF",
+    "target_name": "Assembled Stair:Stair:937135",
+    "rq_category": "RQ1",
+    "details": [
+      "✅ Target GUID found: 0ikA9YOKrBaRArRnE24rkF",
+      "📊 Target GUID rank: 1/1",
+      "✅ Target name found: Assembled Stair"
+    ],
+    "mentioned_guids": [
+      "0ikA9YOKrBaRArRnE24rkF"
+    ],
+    "num_candidates": 1,
+    "top1_hit": true,
+    "top3_hit": true,
+    "top5_hit": true,
+    "target_rank": 1,
+    "precision_at_1": 1.0,
+    "precision_at_3": 1.0,
+    "recall": 1.0,
+    "case_id": "SYNTH_011_SK_011_V2",
+    "elapsed_time": 14.79752230644226,
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_011_SK_011_V2.png"
+        }
+      },
+      {
+        "name": "match_text_to_elements",
+        "args": {
+          "storey_filter": "Ground Level",
+          "description": "nosing strip on a flight"
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "Ground Level",
+          "element_type": "IfcStair"
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "1 - First Floor",
+          "element_type": "IfcStair"
+        }
+      },
+      {
+        "name": "get_element_details",
+        "args": {
+          "guid": "0ikA9YOKrBaRArRnE24rkF"
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 1"
+  },
+  "ground_truth": {
+    "target_guid": "0ikA9YOKrBaRArRnE24rkF",
+    "target_storey": "1 - First Floor",
+    "target_ifc_class": "IfcStair",
+    "target_name": "Assembled Stair:Stair:937135",
+    "rq_category": "RQ1",
+    "expected_reasoning": "Only IfcStair on 1 - First Floor"
+  }
+}

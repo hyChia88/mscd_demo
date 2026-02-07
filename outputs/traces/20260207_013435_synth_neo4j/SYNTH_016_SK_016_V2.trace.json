@@ -1,0 +1,91 @@
+{
+  "run_id": "20260207_013435_synth_neo4j",
+  "case_id": "SYNTH_016_SK_016_V2",
+  "timestamp": "2026-02-07T01:38:59.051599",
+  "inputs": {
+    "user_input": "",
+    "images": [],
+    "ifc_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  },
+  "agent": {
+    "response_text": "I found one stair on the First Floor: 'Assembled Stair:Stair:937135' (GUID: 0ikA9YOKrBaRArRnE24rkF).\n\nWould you like to get more details about this stair, or generate a 3D view of it?",
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_016_SK_016_V2.png"
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "1 - First Floor",
+          "element_type": "IfcStair"
+        }
+      }
+    ]
+  },
+  "prediction": {
+    "element_guid": "0ikA9YOKrBaRArRnE24rkF",
+    "guid_source": "regex_from_agent_response"
+  },
+  "schema": {
+    "schema_id": "",
+    "fields": {},
+    "validation": {
+      "passed": false,
+      "errors": [],
+      "fill_rate": 0.0
+    }
+  },
+  "evaluation": {
+    "guid_match": false,
+    "name_match": true,
+    "target_guid": "0ikA9YOKrBaRArRnE24qDK",
+    "target_name": "Assembled Stair:Stair:939124",
+    "rq_category": "RQ1",
+    "details": [
+      "❌ Target GUID not found: 0ikA9YOKrBaRArRnE24qDK",
+      "📊 Target GUID not in 1 mentioned candidates",
+      "✅ Target name found: Assembled Stair"
+    ],
+    "mentioned_guids": [
+      "0ikA9YOKrBaRArRnE24rkF"
+    ],
+    "num_candidates": 1,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false,
+    "target_rank": null,
+    "precision_at_1": 0.0,
+    "precision_at_3": 0.0,
+    "recall": 0.0,
+    "case_id": "SYNTH_016_SK_016_V2",
+    "elapsed_time": 4.572087049484253,
+    "tool_calls": [
+      {
+        "name": "analyze_site_image",
+        "args": {
+          "image_path": "/root/cmu/master_thesis/mscd_demo/../data_curation/datasets/synth_v0.2/cases/imgs/img_SYNTH_016_SK_016_V2.png"
+        }
+      },
+      {
+        "name": "search_elements_by_type",
+        "args": {
+          "storey_filter": "1 - First Floor",
+          "element_type": "IfcStair"
+        }
+      }
+    ],
+    "rq2": null,
+    "ambiguity_tier": "Tier 1"
+  },
+  "ground_truth": {
+    "target_guid": "0ikA9YOKrBaRArRnE24qDK",
+    "target_storey": "Level 1",
+    "target_ifc_class": "IfcStair",
+    "target_name": "Assembled Stair:Stair:939124",
+    "rq_category": "RQ1",
+    "expected_reasoning": "Only IfcStair on Level 1"
+  }
+}
