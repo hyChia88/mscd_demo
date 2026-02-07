@@ -127,14 +127,14 @@ def load_scenarios(file_path="prompts/tests/test_2.yaml"):
 
 def load_ground_truth(file_path="data/ground_truth/gt_1/gt_1.json"):
     """
-    Load ground truth test cases from JSON file or directory.
+    Load ground truth test cases from JSON or JSONL.
 
-    Supports two formats:
-    1. Single JSON file containing array of cases (original gt_1.json format)
-    2. Directory containing individual JSON case files (synth_v0.1/cases/ format)
+    Supports:
+    1. Single JSON array file (gt_1.json)
+    2. JSONL file with one case per line (cases_v2.jsonl)
 
     Args:
-        file_path: Path to JSON file or directory (relative to project root)
+        file_path: Path to JSON/JSONL file (relative to project root)
 
     Returns:
         list: List of test case dictionaries
@@ -146,26 +146,18 @@ def load_ground_truth(file_path="data/ground_truth/gt_1/gt_1.json"):
         print(f"❌ Error: Ground truth path '{gt_path}' not found.")
         return []
 
-    # Check if path is a directory (synth dataset format)
-    if gt_path.is_dir():
+    # JSONL format (cases_v2.jsonl)
+    if gt_path.suffix == ".jsonl":
         cases = []
-        json_files = sorted(gt_path.glob("*.json"))
-        if not json_files:
-            print(f"❌ Error: No JSON files found in directory '{gt_path}'")
-            return []
-
-        print(f"📂 Loading {len(json_files)} case files from directory...")
-        for json_file in json_files:
-            try:
-                with open(json_file, "r", encoding="utf-8") as f:
-                    case = json.load(f)
-                    cases.append(case)
-            except json.JSONDecodeError as e:
-                print(f"⚠️  Warning: Failed to parse {json_file.name}: {e}")
-
+        with open(gt_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    cases.append(json.loads(line))
+        print(f"📂 Loaded {len(cases)} cases from JSONL")
         return cases
 
-    # Single JSON file (original format)
+    # Single JSON array file (gt_1.json)
     with open(gt_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
@@ -174,6 +166,10 @@ def format_test_input(case, image_dir):
     """
     Format a ground truth case into agent input string.
 
+    Supports both formats:
+    - Legacy (gt_1.json): context_payload.meta, image_file
+    - Standardized (cases_v2.jsonl): inputs.project_context, inputs.images
+
     Args:
         case: Ground truth test case dict
         image_dir: Path to directory containing test images
@@ -181,33 +177,43 @@ def format_test_input(case, image_dir):
     Returns:
         tuple: (formatted_input_string, list_of_image_paths)
     """
-    context = case["context_payload"]
-    meta = context["meta"]
+    # Handle both legacy and standardized field names
+    if "context_payload" in case:
+        # Legacy format (gt_1.json)
+        meta = case["context_payload"]["meta"]
+        chat_history = case["context_payload"]["chat_history"]
+        image_files = case.get("image_file", [])
+    else:
+        # Standardized format (cases_v2.jsonl)
+        inputs = case.get("inputs", {})
+        meta = inputs.get("project_context", {})
+        chat_history = inputs.get("chat_history", [])
+        image_files = [Path(p).name for p in inputs.get("images", [])]
 
     # Build context string
     input_parts = [
         "=" * 50,
         "[CONTEXT]",
-        f"  Timestamp: {meta['timestamp']}",
-        f"  Sender Role: {meta['sender_role']}",
-        f"  Project Phase: {meta['project_phase']}",
+        f"  Timestamp: {meta.get('timestamp', 'N/A')}",
+        f"  Sender Role: {meta.get('sender_role', 'N/A')}",
+        f"  Project Phase: {meta.get('project_phase', 'N/A')}",
         f"  4D Task Status: {meta.get('4d_task_status', 'N/A')}",
         "",
         "[CHAT HISTORY]"
     ]
 
-    for msg in context["chat_history"]:
+    for msg in chat_history:
         input_parts.append(f"  {msg['role']}: {msg['text']}")
 
     input_parts.extend([
         "",
         "[USER QUERY]",
-        f"  {case['query_text']}",
+        f"  {case.get('query_text', '')}",
     ])
 
     # Build image paths
     image_paths = []
-    for img_file in case.get("image_file", []):
+    for img_file in image_files:
         img_path = Path(image_dir) / img_file
         if img_path.exists():
             image_paths.append(str(img_path))
@@ -399,8 +405,8 @@ async def main_async(args=None):
             "image_dir": "data/ground_truth/gt_1/imgs"
         },
         "synth": {
-            "file": "../data_curation/datasets/synth_v0.2/cases",  # Directory of case files
-            "image_dir": "../data_curation/datasets/synth_v0.2/cases/imgs"  # Images in cases/imgs/
+            "file": "../data_curation/datasets/synth_v0.2/cases_v2.jsonl",
+            "image_dir": "../data_curation/datasets/synth_v0.2/cases/imgs"
         }
     }
 
@@ -523,7 +529,7 @@ async def main_async(args=None):
             evaluation_results = []
 
             for i, case in enumerate(test_cases, 1):
-                case_id = case.get("id", f"case_{i}")
+                case_id = case.get("case_id", case.get("id", f"case_{i}"))
                 rq_category = case.get("ground_truth", {}).get("rq_category", "Unknown")
 
                 print(f"\n{'='*70}")
@@ -648,8 +654,9 @@ async def main_async(args=None):
                     eval_result["tool_calls"] = tool_calls
                     eval_result["rq2"] = rq2_result  # Attach RQ2 results (may be None for non-RQ2 cases)
                     # Capture ambiguity tier for synthetic dataset analysis
-                    if "ambiguity_tier" in case:
-                        eval_result["ambiguity_tier"] = case["ambiguity_tier"]
+                    tier = case.get("ambiguity_tier") or case.get("difficulty_tags", {}).get("tier")
+                    if tier:
+                        eval_result["ambiguity_tier"] = tier
 
                     # P2: Build trace and generate handoff artifacts
                     # Prepare rq2_result for trace (convert to dict format if needed)

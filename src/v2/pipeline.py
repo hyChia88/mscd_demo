@@ -37,7 +37,7 @@ from .types import V2Trace
 def _build_scenario_input(case: Dict[str, Any], image_dir: str) -> ScenarioInput:
     """Build a v1-compatible ScenarioInput from a v2 case dict."""
     inputs = case.get("inputs", {})
-    gt = case.get("gt", {})
+    gt = case.get("ground_truth", {})
     ctx = inputs.get("project_context", {})
 
     # Build chat_history
@@ -254,7 +254,7 @@ async def run_v2_case(
     )
 
     # compute rerank gain if applicable
-    gt_dict = case.get("gt", {})
+    gt_dict = case.get("ground_truth", {})
     labels = case.get("labels")
     v2_metrics = compute_v2_metrics(v2_trace, gt_dict, labels)
     v2_trace.rerank_gain = v2_metrics.get("rerank_gain")

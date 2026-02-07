@@ -161,6 +161,41 @@ python script/eval_pipeline.py --gt data/ground_truth/gt_1/gt_1.json
 python script/eval_pipeline.py --scenarios 2      # Run first N only
 ```
 
+### Run All Experiments and Compare
+
+Use `run_mcp.sh --all` to run all 4 V1 experiment modes in a row, then automatically compare results.
+
+```bash
+./run_mcp.sh --all                        # Run all V1 modes (memory, neo4j, memory+clip, neo4j+clip)
+./run_mcp.sh --all -d synth              # Run all on synthetic dataset
+./run_mcp.sh --all --v2                  # Also run V2 profiles after V1
+./run_mcp.sh --all --delay 15            # 15s delay between runs (default: 10)
+```
+
+Failed runs don't stop the batch. At the end you get a summary of which succeeded/failed, total time, and a comparison table.
+
+**Compare results independently:**
+
+```bash
+python script/compare_results.py                    # Show all results
+python script/compare_results.py --latest           # 4 most recent
+python script/compare_results.py --latest 8         # 8 most recent
+python script/compare_results.py --v1-only          # V1 results only
+python script/compare_results.py --csv out.csv      # Export to CSV
+```
+
+Example output:
+```
+Pipeline              Mode   Cases    Top-1    Top-3    Top-5      P@1   Recall       F1
+      v1            memory       6    0.000    0.000    0.000    0.000    0.000    0.000
+      v1       memory+clip       6    0.167    0.167    0.167    0.167    0.167    0.167
+      v1             neo4j       6    0.000    0.000    0.000    0.000    0.000    0.000
+      v1        neo4j+clip       6    0.167    0.167    0.167    0.167    0.167    0.167
+
+  Best Top-1 Accuracy: neo4j+clip (0.167)
+  Best F1 Score: neo4j+clip (0.167)
+```
+
 ### Interactive Chat
 
 ```bash
@@ -306,10 +341,11 @@ mscd_demo/
 │
 ├── data/
 │   ├── ifc/AdvancedProject/     # BIM model (10 storeys, 263 windows)
-│   └── ground_truth/gt_1/       # V1 test cases with real GUIDs
+│   └── ground_truth/gt_1/       # Hand-written test cases (6 cases)
 │
 ├── script/
 │   ├── run.py                   # Unified evaluation runner (v1 + v2)
+│   ├── compare_results.py       # Compare eval results across experiments
 │   ├── eval_pipeline.py         # V1 evaluation pipeline
 │   ├── baseline_experiment.py   # Redundancy quantification
 │   └── ...
@@ -378,6 +414,44 @@ conditions:
     chat_blur: true
     force_clip: true
   # ... (A1-C3 defined)
+```
+
+---
+
+## Datasets
+
+There are two datasets. Both pipelines (V1 and V2) read from the same files.
+
+| Dataset | Cases | File | Used by |
+|---------|-------|------|---------|
+| **gt_1** (hand-written) | 6 | `data/ground_truth/gt_1/gt_1.json` | V1 default |
+| **synth_v0.2** (synthetic) | 43 | `../data_curation/datasets/synth_v0.2/cases_v2.jsonl` | V1 (`-d synth`) and V2 (`--cases`) |
+
+The synthetic dataset (`cases_v2.jsonl`) is the main evaluation dataset. It uses a single standardized JSONL format that both V1 and V2 pipelines read directly:
+
+```json
+{
+  "case_id": "SYNTH_001_SK_001_V2",
+  "query_text": "What's the spec for this?",
+  "bench": {"group": "B", "condition": "B1"},
+  "difficulty_tags": {"tier": "Tier 1", "candidate_density_k": 1},
+  "inputs": {
+    "chat_history": [{"role": "Site Supervisor", "text": "..."}],
+    "images": ["datasets/synth_v0.2/cases/imgs/img_SYNTH_001.png"],
+    "floorplan_patch": "datasets/synth_v0.2/cases/plans/plan_SYNTH_001.png",
+    "project_context": {"timestamp": "...", "sender_role": "...", "4d_task_status": "..."}
+  },
+  "ground_truth": {
+    "target_guid": "3GzoWuxxn4WO8bCtw8H3Vj",
+    "target_storey": "1 - First Floor",
+    "target_ifc_class": "IfcWall",
+    "target_name": "Basic Wall:MockUp Interior...",
+    "rq_category": "RQ1"
+  },
+  "labels": {
+    "constraints": {"storey_name": "1 - First Floor", "ifc_class": "IfcWall"}
+  }
+}
 ```
 
 ---

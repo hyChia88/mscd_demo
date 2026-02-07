@@ -287,7 +287,7 @@ async def main(args: argparse.Namespace) -> None:
                 v2_traces.append(v2_trace)
                 # Per-case v2 metrics
                 labels = case.get("labels")
-                gt_dict = case.get("gt", {})
+                gt_dict = case.get("ground_truth", {})
                 m = compute_v2_metrics(v2_trace, gt_dict, labels)
                 m["case_id"] = case_id
                 v2_per_case_metrics.append(m)
