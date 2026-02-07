@@ -1,0 +1,179 @@
+# Constraints Extraction Prompts for V2 Pipeline
+# Used by constraints_extractor_prompt_only.py
+
+# =============================================================================
+# PROMPT-ONLY CONSTRAINTS EXTRACTION
+# =============================================================================
+# System prompt for extracting structured constraints from chat + context
+
+prompt_only_system: |
+  You are a constraint extractor for BIM element retrieval in construction projects.
+
+  Your task: Extract structured search constraints from chat messages, metadata, and context.
+
+  Extract these fields:
+  1. storey_name: The exact floor/level name (e.g., "6 - Sixth Floor", "Level 1", "-1 - Garage")
+     - Look for explicit floor mentions in chat or 4D task status
+     - Must match exact storey names in IFC model
+     - If unclear, leave as null
+
+  2. ifc_class: The IFC element type being discussed (e.g., "IfcWindow", "IfcWall", "IfcDoor", "IfcSlab", "IfcStair", "IfcRailing")
+     - Common terms: window→IfcWindow, door→IfcDoor, wall→IfcWall, floor/slab→IfcSlab, stair→IfcStair, railing→IfcRailing
+     - If unclear, leave as null
+
+  3. near_keywords: Spatial keywords indicating location (array of strings)
+     - Direction: north, south, east, west
+     - Landmarks: elevator, entrance, corner, corridor
+     - Leave empty if no spatial hints
+
+  4. relations: Spatial relationships (array of strings)
+     - Examples: "adjacent_to", "near", "in_room", "between"
+     - Leave empty if no explicit relationships mentioned
+
+  Output ONLY valid JSON. No explanation, no markdown, just JSON:
+  {
+    "storey_name": "string or null",
+    "ifc_class": "string or null",
+    "near_keywords": [],
+    "relations": []
+  }
+
+  Important:
+  - Be conservative: if uncertain, use null or empty array
+  - storey_name must be exact (not "floor 6" but "6 - Sixth Floor" or "Level 6")
+  - ifc_class must start with "Ifc" prefix (e.g., "IfcWindow" not "window")
+
+
+# =============================================================================
+# LORA-BASED CONSTRAINTS EXTRACTION (Future)
+# =============================================================================
+# Instruction template for LoRA fine-tuned VLM (Qwen3-VL-8B)
+
+lora_instruction_template: |
+  <|im_start|>system
+  You are a construction site assistant. Extract search constraints from the conversation.
+  Output format: JSON with fields storey_name, ifc_class, near_keywords, relations.<|im_end|>
+
+  <|im_start|>user
+  {context}
+
+  {chat_history}
+
+  {query}<|im_end|>
+
+  <|im_start|>assistant
+  {constraints_json}<|im_end|>
+
+
+# =============================================================================
+# ELEMENT TYPE MAPPINGS
+# =============================================================================
+# Common keywords to IFC class mappings for extraction guidance
+
+element_type_mappings:
+  # Walls
+  - keywords: ["wall", "partition", "surface", "staining"]
+    ifc_class: "IfcWall"
+
+  - keywords: ["wall standard", "interior wall"]
+    ifc_class: "IfcWallStandardCase"
+
+  # Openings
+  - keywords: ["window", "glazing", "pane", "frame"]
+    ifc_class: "IfcWindow"
+
+  - keywords: ["door", "hinge", "clearance", "fire door"]
+    ifc_class: "IfcDoor"
+
+  # Horizontal elements
+  - keywords: ["floor", "slab", "leveling", "crack on floor"]
+    ifc_class: "IfcSlab"
+
+  - keywords: ["ceiling", "soffit"]
+    ifc_class: "IfcCovering"
+
+  # Vertical circulation
+  - keywords: ["stair", "staircase", "nosing", "flight"]
+    ifc_class: "IfcStair"
+
+  - keywords: ["railing", "handrail", "balustrade", "glass railing"]
+    ifc_class: "IfcRailing"
+
+  # Facade
+  - keywords: ["curtain wall", "facade panel", "cladding"]
+    ifc_class: "IfcCurtainWall"
+
+  # Structural
+  - keywords: ["column", "pillar"]
+    ifc_class: "IfcColumn"
+
+  - keywords: ["beam", "lintel"]
+    ifc_class: "IfcBeam"
+
+
+# =============================================================================
+# STOREY NAME PATTERNS
+# =============================================================================
+# Common floor naming patterns to recognize
+
+storey_patterns:
+  # Numbered floors
+  - pattern: "Level 1"
+    canonical: "Level 1"
+
+  - pattern: "1 - First Floor"
+    canonical: "1 - First Floor"
+
+  - pattern: "6 - Sixth Floor"
+    canonical: "6 - Sixth Floor"
+
+  # Special levels
+  - pattern: "-1 - Garage"
+    canonical: "-1 - Garage"
+    aliases: ["Basement", "Carpark", "Underground"]
+
+  - pattern: "Ground Floor"
+    canonical: "Ground Floor"
+    aliases: ["Level 0", "G/F"]
+
+  # Task status extraction patterns
+  - pattern: "TASK_\\d+: .* (\\d+ - [A-Za-z]+ Floor)"
+    extraction: "capture_group_1"
+    example: "TASK_302: Window Installation 6 - Sixth Floor"
+
+  - pattern: "TASK_\\d+: .* (Level \\d+)"
+    extraction: "capture_group_1"
+    example: "TASK_505: Ground Level Inspection Level 1"
+
+
+# =============================================================================
+# SPATIAL KEYWORD CATEGORIES
+# =============================================================================
+# Keywords that indicate spatial location/context
+
+spatial_keywords:
+  directions:
+    - "north"
+    - "south"
+    - "east"
+    - "west"
+    - "left"
+    - "right"
+    - "corner"
+
+  landmarks:
+    - "elevator"
+    - "entrance"
+    - "exit"
+    - "corridor"
+    - "lobby"
+    - "stairwell"
+
+  relative:
+    - "adjacent"
+    - "near"
+    - "next to"
+    - "opposite"
+    - "between"
+    - "above"
+    - "below"

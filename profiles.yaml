@@ -1,0 +1,211 @@
+# =============================================================================
+# Experimental Profiles Configuration
+# =============================================================================
+# Each profile defines a complete experimental configuration for evaluation
+#
+# Usage: python script/run.py --profile <profile_name> --cases cases_v2.jsonl
+
+profiles:
+  # ===========================================================================
+  # V2 PROFILES (Constraints-Driven Pipeline)
+  # ===========================================================================
+
+  # Best V2 configuration (for demos/presentations)
+  best_v2:
+    pipeline: v2
+    constraints_model: lora  # or prompt if LoRA not ready
+    retrieval: neo4j
+    use_clip: true
+    thin_agent: true  # Optional refinement step
+    rq2_schema: true
+    bcf: true
+    description: "V2 with LoRA constraints, Neo4j graph, CLIP reranking (best configuration)"
+
+  # V2 with prompt-only extraction
+  v2_prompt:
+    pipeline: v2
+    constraints_model: prompt
+    retrieval: neo4j
+    use_clip: false
+    thin_agent: false
+    rq2_schema: true
+    bcf: false
+    description: "V2 with prompt-based constraints, Neo4j, no CLIP"
+
+  # V2 memory baseline (fastest)
+  v2_memory:
+    pipeline: v2
+    constraints_model: prompt
+    retrieval: memory
+    use_clip: false
+    thin_agent: false
+    rq2_schema: true
+    bcf: false
+    description: "V2 with in-memory retrieval (fastest baseline)"
+
+  # V2 with CLIP reranking
+  v2_prompt_clip:
+    pipeline: v2
+    constraints_model: prompt
+    retrieval: memory
+    use_clip: true
+    thin_agent: false
+    rq2_schema: true
+    bcf: false
+    description: "V2 with prompt extraction and CLIP reranking"
+
+  # ===========================================================================
+  # V1 PROFILES (Agent-Driven Pipeline)
+  # ===========================================================================
+
+  # V1 baseline (existing system)
+  v1_baseline:
+    pipeline: v1
+    retrieval: memory
+    use_clip: false
+    rq2_schema: true
+    bcf: false
+    description: "Original V1 agent-driven pipeline (baseline)"
+
+  # V1 with full features
+  v1_full:
+    pipeline: v1
+    retrieval: neo4j
+    use_clip: true
+    rq2_schema: true
+    bcf: true
+    description: "V1 with all features enabled (Neo4j + CLIP + RQ2 + BCF)"
+
+  # ===========================================================================
+  # ABLATION STUDIES
+  # ===========================================================================
+
+  # Ablation: V2 without CLIP
+  ablate_no_clip:
+    pipeline: v2
+    constraints_model: lora
+    retrieval: neo4j
+    use_clip: false  # Disable CLIP
+    thin_agent: true
+    rq2_schema: true
+    bcf: true
+    description: "Ablation: V2 without CLIP visual reranking"
+
+  # Ablation: V2 without Neo4j graph
+  ablate_no_graph:
+    pipeline: v2
+    constraints_model: lora
+    retrieval: memory  # Disable Neo4j
+    use_clip: true
+    thin_agent: true
+    rq2_schema: true
+    bcf: true
+    description: "Ablation: V2 without graph reasoning (memory only)"
+
+  # Ablation: V2 without RQ2 schema
+  ablate_no_schema:
+    pipeline: v2
+    constraints_model: lora
+    retrieval: neo4j
+    use_clip: true
+    thin_agent: true
+    rq2_schema: false  # Disable RQ2
+    bcf: false
+    description: "Ablation: V2 without schema validation"
+
+  # Ablation: V2 without thin agent
+  ablate_no_thin_agent:
+    pipeline: v2
+    constraints_model: lora
+    retrieval: neo4j
+    use_clip: true
+    thin_agent: false  # Disable thin agent refinement
+    rq2_schema: true
+    bcf: true
+    description: "Ablation: V2 without thin agent refinement"
+
+
+# =============================================================================
+# CONDITION-SPECIFIC OVERRIDES
+# =============================================================================
+# Applied on top of base profile for experimental conditions A1-C3
+# These override the profile settings for specific test conditions
+
+conditions:
+  # ---------------------------------------------------------------------------
+  # Group A: Metadata-Driven (no images, no floorplan)
+  # ---------------------------------------------------------------------------
+
+  A1:
+    # Clear chat + meta → Test if 4D context alone sufficient
+    use_images: false
+    use_floorplan: false
+    chat_blur: false
+    4d_metadata: true
+
+  A2:
+    # Blur chat + meta → Test if 4D context works with noisy text
+    use_images: false
+    use_floorplan: false
+    chat_blur: true
+    4d_metadata: true
+
+  A3:
+    # Blur chat + meta + enhanced 4D → Maximum metadata usage
+    use_images: false
+    use_floorplan: false
+    chat_blur: true
+    4d_metadata: true
+    4d_enhanced: true
+
+  # ---------------------------------------------------------------------------
+  # Group B: Vision-Driven (images, no floorplan)
+  # ---------------------------------------------------------------------------
+
+  B1:
+    # Blur chat + images → Test pure visual grounding
+    use_images: true
+    use_floorplan: false
+    chat_blur: true
+    4d_metadata: false
+
+  B2:
+    # Blur chat + images + CLIP rerank → Test visual + retrieval fusion
+    use_images: true
+    use_floorplan: false
+    chat_blur: true
+    4d_metadata: false
+    force_clip: true  # Override profile to enable CLIP
+
+  B3:
+    # Clear chat + images → Best of text + vision (no 4D)
+    use_images: true
+    use_floorplan: false
+    chat_blur: false
+    4d_metadata: false
+
+  # ---------------------------------------------------------------------------
+  # Group C: Full Fusion (images + floorplan)
+  # ---------------------------------------------------------------------------
+
+  C1:
+    # Clear chat + floorplan → Test spatial reasoning from 2D plans
+    use_images: false
+    use_floorplan: true
+    chat_blur: false
+    4d_metadata: false
+
+  C2:
+    # Blur chat + images + floorplan → Vision + spatial layout
+    use_images: true
+    use_floorplan: true
+    chat_blur: true
+    4d_metadata: false
+
+  C3:
+    # Clear chat + images + floorplan + 4D → Full multimodal fusion (upper bound)
+    use_images: true
+    use_floorplan: true
+    chat_blur: false
+    4d_metadata: true
+    4d_enhanced: true

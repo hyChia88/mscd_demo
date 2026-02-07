@@ -399,8 +399,8 @@ async def main_async(args=None):
             "image_dir": "data/ground_truth/gt_1/imgs"
         },
         "synth": {
-            "file": "../data_curation/datasets/synth_v0.1/cases",  # Directory of case files
-            "image_dir": "../data_curation/datasets/synth_v0.1/cases/imgs"  # Images in cases/imgs/
+            "file": "../data_curation/datasets/synth_v0.2/cases",  # Directory of case files
+            "image_dir": "../data_curation/datasets/synth_v0.2/cases/imgs"  # Images in cases/imgs/
         }
     }
 
@@ -421,6 +421,12 @@ async def main_async(args=None):
         gt_file = gt_config.get("file", "data/ground_truth/gt_1/gt_1.json")
         gt_image_dir = base_dir / gt_config.get("image_dir", "data/ground_truth/gt_1/imgs")
         dataset_name = "config"
+
+    # Print active dataset to terminal
+    print(f"\n{'='*60}")
+    print(f"  DATASET: {dataset_name.upper()}  ({gt_file})")
+    print(f"  IMAGES:  {gt_image_dir}")
+    print(f"{'='*60}\n")
 
     # Output configuration from config
     output_config = config.get("output", {})
@@ -864,7 +870,7 @@ Examples:
   python src/main_mcp.py -e neo4j+clip           # Short form
 
 Dataset selection:
-  python src/main_mcp.py --dataset synth         # Use synthetic dataset (synth_v0.1)
+  python src/main_mcp.py --dataset synth         # Use synthetic dataset (synth_v0.2)
   python src/main_mcp.py --dataset gt1           # Use original ground truth (gt_1)
   python src/main_mcp.py -d synth -e neo4j       # Combine dataset + experiment mode
 
@@ -887,7 +893,7 @@ Run all experiments in sequence:
         type=str,
         choices=["gt1", "synth"],
         default=None,
-        help="Dataset to use: 'gt1' (original ground truth), 'synth' (synthetic dataset synth_v0.1). Default: use config.yaml setting."
+        help="Dataset to use: 'gt1' (original ground truth), 'synth' (synthetic dataset synth_v0.2). Default: use config.yaml setting."
     )
     parser.add_argument(
         "--cases",
