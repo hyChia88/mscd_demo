@@ -100,15 +100,15 @@ class RetrievalBackend:
 
         if strategy == "storey+type":
             # Most specific: filter by storey AND type
-            storey_key = params.get("storey", "").lower()
-            target_type = params.get("type", "")
+            storey_key = (params.get("storey") or "").lower()
+            target_type = params.get("type") or ""
 
             results = self.engine.find_elements_in_space(storey_key)
             return [r for r in results if r.get("type") == target_type]
 
         elif strategy == "storey_only":
             # Filter by storey only
-            storey_key = params.get("storey", "").lower()
+            storey_key = (params.get("storey") or "").lower()
             return self.engine.find_elements_in_space(storey_key)
 
         elif strategy == "type_only":
@@ -130,11 +130,13 @@ class RetrievalBackend:
 
             for space_elements in self.engine.spatial_index.values():
                 for element in space_elements:
-                    name = element.get("name", "").lower()
-                    desc = element.get("description", "").lower()
+                    name = (element.get("name") or "").lower()
+                    desc = (element.get("description") or "").lower()
 
                     # Check if any keyword matches
                     for keyword in keywords:
+                        if not keyword:
+                            continue
                         if keyword.lower() in name or keyword.lower() in desc:
                             all_results.append(element)
                             break

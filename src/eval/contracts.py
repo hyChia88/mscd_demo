@@ -267,8 +267,8 @@ class EvalTrace(BaseModel):
     run_id: str
     timestamp: datetime = Field(default_factory=datetime.now)
 
-    # Input reference
-    scenario: ScenarioInput
+    # Input reference (None for error traces)
+    scenario: Optional[ScenarioInput] = None
 
     # Execution trace
     tool_steps: List[ToolStepRecord] = Field(default_factory=list)

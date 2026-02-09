@@ -30,10 +30,14 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
+from dotenv import load_dotenv
 
 # Ensure project root is importable
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
+
+# Load .env from project root (for GOOGLE_API_KEY etc.)
+load_dotenv(PROJECT_ROOT / ".env")
 
 from src.eval.contracts import EvalTrace
 from src.eval.metrics import compute_summary

@@ -1,0 +1,22 @@
+=== OVERALL METRICS ===
+Metric,Value
+Total Scenarios,2
+Successful Runs,2
+Top-1 Accuracy,0.0000
+Top-K Accuracy,0.0000
+Avg Search-Space Reduction,0.9697
+Escalation Rate,0.0000
+Avg Latency (ms),4047.1
+
+=== V2 DIAGNOSTIC METRICS ===
+Metric,Value
+Constraints Parse Rate,1.0000
+Avg Rerank Gain,N/A
+Avg Constraints Extraction (ms),4044.6
+Avg Query Planning (ms),0.0
+Avg Retrieval (ms),0.6
+
+=== PER-CASE V2 DETAIL ===
+case_id,constraints_parsed,constraints_field_em_f1,rerank_gain
+SYNTH_039_SK_039_V2,True,0.0000,N/A
+SYNTH_042_SK_042_V2,True,0.6667,N/A
