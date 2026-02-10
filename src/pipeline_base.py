@@ -131,6 +131,11 @@ class V2Pipeline(PipelineBase):
             use_clip=profile.get("use_clip", False),
         )
 
+        # Build centralized image parser (VLM-based)
+        from src.visual.image_parser import ImageParserReader
+
+        self.image_parser = ImageParserReader(llm)
+
     async def run_case(
         self,
         case: Dict[str, Any],
@@ -155,6 +160,7 @@ class V2Pipeline(PipelineBase):
             rq2_schema=self.rq2_schema,
             rq2_schema_id=self.rq2_schema_id,
             tool_by_name=self.tool_by_name,
+            image_parser=self.image_parser,
         )
 
         return trace, v2_trace

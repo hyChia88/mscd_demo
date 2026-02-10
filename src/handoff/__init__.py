@@ -7,7 +7,8 @@ This package provides:
 - BCFzip generation for BIM tool interoperability (bcf_zip.py)
 """
 
-from .trace import build_trace, extract_ifc_guid, write_trace_json
+from common.guid import extract_first_ifc_guid as extract_ifc_guid  # backward compat
+from .trace import build_trace, write_trace_json
 from .bcf_lite import write_issue_json
 from .bcf_zip import write_bcfzip
 

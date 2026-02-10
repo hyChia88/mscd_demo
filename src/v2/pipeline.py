@@ -28,6 +28,7 @@ from .constraints_to_query import QueryPlanner
 from .metrics_v2 import compute_v2_metrics
 from .retrieval_backend import RetrievalBackend
 from .types import V2Trace
+from common.evaluation import compute_gt_matches
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -108,6 +109,7 @@ async def run_v2_case(
     rq2_schema: Optional[Dict] = None,
     rq2_schema_id: Optional[str] = None,
     tool_by_name: Optional[Dict] = None,
+    image_parser: Optional[Any] = None,  # ImageParserReader instance
 ) -> Tuple[EvalTrace, V2Trace]:
     """
     Run the V2 pipeline on a single case.
@@ -121,13 +123,25 @@ async def run_v2_case(
     masked_case = ConditionMask.apply(case, condition_overrides)
     scenario = _build_scenario_input(masked_case, image_dir)
 
+    # ── 1.5 parse images (VLM) ────────────────────────────────────────────
+    image_parse_result = None
+    image_parse_ms = 0.0
+    if image_parser is not None:
+        t_img = time.perf_counter()
+        image_parse_result = await image_parser.parse_case_images(
+            masked_case, condition_overrides, image_dir
+        )
+        image_parse_ms = (time.perf_counter() - t_img) * 1000
+
     # ── 2. extract constraints ─────────────────────────────────────────────
     t_ext = time.perf_counter()
     if constraints_model == "lora":
         extractor = LoRAConstraintsExtractor(adapter_path)
     else:
         extractor = PromptConstraintsExtractor(llm)
-    constraints = await extractor.extract(masked_case, condition_overrides)
+    constraints = await extractor.extract(
+        masked_case, condition_overrides, image_context=image_parse_result
+    )
     constraints_ms = (time.perf_counter() - t_ext) * 1000
 
     # ── 3. plan queries ────────────────────────────────────────────────────
@@ -180,20 +194,17 @@ async def run_v2_case(
         escalation_reason="no_candidates" if len(final_candidates) == 0 else None,
     )
 
-    target_guid = scenario.ground_truth.target_guid
-    guid_match = target_guid in mentioned_guids
-
-    # name / storey match
-    target_name = (scenario.ground_truth.target_name or "").lower()
-    name_match = any(
-        target_name and target_name in (c.get("name") or "").lower()
-        for c in final_candidates[:10]
+    gt_matches = compute_gt_matches(
+        target_guid=scenario.ground_truth.target_guid,
+        target_name=scenario.ground_truth.target_name or "",
+        target_storey=scenario.ground_truth.target_storey or "",
+        candidate_guids=mentioned_guids,
+        candidate_names=[c.get("name", "") for c in final_candidates[:10]],
+        candidate_storeys=[c.get("storey", "") for c in final_candidates[:10]],
     )
-    target_storey = (scenario.ground_truth.target_storey or "").lower()
-    storey_match = any(
-        target_storey and target_storey in (c.get("storey") or "").lower()
-        for c in final_candidates[:10]
-    )
+    guid_match = gt_matches["guid_match"]
+    name_match = gt_matches["name_match"]
+    storey_match = gt_matches["storey_match"]
 
     # pool sizes
     initial_pool_size = 0
@@ -248,6 +259,8 @@ async def run_v2_case(
             None if constraints.confidence > 0.5
             else constraints.source
         ),
+        image_parse_result=image_parse_result,
+        image_parse_ms=image_parse_ms,
         constraints_extraction_ms=constraints_ms,
         query_planning_ms=planning_ms,
         retrieval_ms=retrieval_ms,

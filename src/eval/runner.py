@@ -25,6 +25,8 @@ from .contracts import (
     ScenarioInput,
     ToolStepRecord,
 )
+from common.guid import extract_guids_from_text
+from common.evaluation import compute_gt_matches
 
 # RQ2 imports (optional - only used if rq2_schema is available)
 try:
@@ -61,24 +63,6 @@ def format_scenario_input(scenario: ScenarioInput) -> str:
 
     return "\n".join(parts)
 
-
-def extract_guids_from_text(text: str) -> List[str]:
-    """
-    Extract IFC GUIDs from text using regex pattern.
-    IFC GUIDs are 22-character base64-like strings.
-    """
-    # IFC GUID pattern: 22 characters, alphanumeric + $ and _
-    pattern = r"\b[0-9A-Za-z_$]{22}\b"
-    matches = re.findall(pattern, text)
-
-    # Filter out common false positives
-    guids = []
-    for m in matches:
-        # Skip if all digits or all same character
-        if not m.isdigit() and len(set(m)) > 3:
-            guids.append(m)
-
-    return list(dict.fromkeys(guids))  # Deduplicate while preserving order
 
 
 def extract_element_names_from_text(text: str) -> List[str]:
@@ -402,24 +386,15 @@ async def run_one_scenario(
             trace.interpreter_output.raw_response if trace.interpreter_output else ""
         )
 
-        # GUID match: exact match in response
-        trace.guid_match = gt.target_guid in final_response if gt.target_guid else False
-
-        # Name match: partial match (first part of name)
-        name_parts = (
-            gt.target_name.split(":")[0] if ":" in gt.target_name else gt.target_name
+        matches = compute_gt_matches(
+            target_guid=gt.target_guid,
+            target_name=gt.target_name,
+            target_storey=gt.target_storey,
+            response_text=final_response,
         )
-        trace.name_match = (
-            name_parts.lower() in final_response.lower() if name_parts else False
-        )
-
-        # TODO
-        # Storey match 
-        trace.storey_match = (
-            gt.target_storey.lower() in final_response.lower()
-            if gt.target_storey
-            else False
-        )
+        trace.guid_match = matches["guid_match"]
+        trace.name_match = matches["name_match"]
+        trace.storey_match = matches["storey_match"]
 
         # RQ2: Schema validation post-processing (only for RQ2 cases)
         if (

@@ -22,7 +22,6 @@ import os
 import sys
 import time
 import json
-import yaml
 import asyncio
 import argparse
 from pathlib import Path
@@ -40,7 +39,7 @@ try:
     from mcp.client.stdio import stdio_client
     MCP_AVAILABLE = True
 except ImportError:
-    print("⚠️  Warning: MCP dependencies not installed. Please run: pip install -r requirements.txt")
+    print("Warning: MCP dependencies not installed. Please run: pip install -r requirements.txt")
     MCP_AVAILABLE = False
     sys.exit(1)
 
@@ -54,6 +53,12 @@ except ImportError:
 
 from chat_logger import ConversationLogger
 
+# Common utilities (consolidated from former local functions)
+from common.config import load_config, load_system_prompt, load_ground_truth, get_base_dir
+from common.guid import extract_guids_from_text
+from common.response_parser import extract_response_content, apply_guid_fallback, handle_empty_response
+from common.evaluation import format_test_input, evaluate_response, get_experiment_description
+
 # RQ2: Schema-aware mapping and validation
 from rq2_schema.extract_final_json import extract_final_json
 from rq2_schema.schema_registry import SchemaRegistry
@@ -65,284 +70,6 @@ from handoff.bcf_lite import write_issue_json
 from handoff.bcf_zip import write_bcfzip
 
 
-def _get_experiment_description(experiment_mode, query_mode, visual_enabled):
-    """Get human-readable description for experiment mode."""
-    if not experiment_mode:
-        return "Using config.yaml setting"
-    base = "Neo4j graph queries" if query_mode == "neo4j" else "In-memory spatial index"
-    if visual_enabled:
-        return f"{base} + CLIP visual matching"
-    return base
-
-
-def load_config(config_file="config.yaml"):
-    """Load centralized configuration from YAML file"""
-    base_dir = Path(__file__).parent.parent
-    config_path = base_dir / config_file
-
-    if not config_path.exists():
-        print(f"⚠️  Warning: Config file '{config_path}' not found. Using defaults.")
-        return {
-            "ifc": {"model_path": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"},
-            "ground_truth": {
-                "file": "data/ground_truth/gt_1/gt_1.json",
-                "image_dir": "data/ground_truth/gt_1/imgs"
-            },
-            "llm": {"model": "gemini-2.5-flash", "temperature": 0, "max_retries": 2},
-            "agent": {"delay_between_tests": 7, "system_prompt_file": "prompts/system_prompt.yaml"},
-            "output": {"evaluations_dir": "logs/evaluations", "logs_dir": "logs"}
-        }
-
-    with open(config_path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
-
-
-def load_system_prompt(prompt_file="prompts/system_prompt.yaml"):
-    """Load system prompt from YAML file"""
-    base_dir = Path(__file__).parent.parent
-    prompt_path = base_dir / prompt_file
-
-    if not prompt_path.exists():
-        raise FileNotFoundError(f"Prompt file not found: {prompt_path}")
-
-    with open(prompt_path, "r", encoding="utf-8") as f:
-        config = yaml.safe_load(f)
-
-    return config.get("system_prompt", "")
-
-
-def load_scenarios(file_path="prompts/tests/test_2.yaml"):
-    """Load test scenarios from YAML file"""
-    if not os.path.exists(file_path):
-        print(f"❌ Error: Configuration file '{file_path}' not found.")
-        return []
-
-    with open(file_path, "r", encoding="utf-8") as f:
-        try:
-            return yaml.safe_load(f)
-        except yaml.YAMLError as e:
-            print(f"❌ Error parsing YAML: {e}")
-            return []
-
-
-def load_ground_truth(file_path="data/ground_truth/gt_1/gt_1.json"):
-    """
-    Load ground truth test cases from JSON or JSONL.
-
-    Supports:
-    1. Single JSON array file (gt_1.json)
-    2. JSONL file with one case per line (cases_v2.jsonl)
-
-    Args:
-        file_path: Path to JSON/JSONL file (relative to project root)
-
-    Returns:
-        list: List of test case dictionaries
-    """
-    base_dir = Path(__file__).parent.parent
-    gt_path = base_dir / file_path
-
-    if not gt_path.exists():
-        print(f"❌ Error: Ground truth path '{gt_path}' not found.")
-        return []
-
-    # JSONL format (cases_v2.jsonl)
-    if gt_path.suffix == ".jsonl":
-        cases = []
-        with open(gt_path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    cases.append(json.loads(line))
-        print(f"📂 Loaded {len(cases)} cases from JSONL")
-        return cases
-
-    # Single JSON array file (gt_1.json)
-    with open(gt_path, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def format_test_input(case, image_dir):
-    """
-    Format a ground truth case into agent input string.
-
-    Supports both formats:
-    - Legacy (gt_1.json): context_payload.meta, image_file
-    - Standardized (cases_v2.jsonl): inputs.project_context, inputs.images
-
-    Args:
-        case: Ground truth test case dict
-        image_dir: Path to directory containing test images
-
-    Returns:
-        tuple: (formatted_input_string, list_of_image_paths)
-    """
-    # Handle both legacy and standardized field names
-    if "context_payload" in case:
-        # Legacy format (gt_1.json)
-        meta = case["context_payload"]["meta"]
-        chat_history = case["context_payload"]["chat_history"]
-        image_files = case.get("image_file", [])
-    else:
-        # Standardized format (cases_v2.jsonl)
-        inputs = case.get("inputs", {})
-        meta = inputs.get("project_context", {})
-        chat_history = inputs.get("chat_history", [])
-        image_files = [Path(p).name for p in inputs.get("images", [])]
-
-    # Build context string
-    input_parts = [
-        "=" * 50,
-        "[CONTEXT]",
-        f"  Timestamp: {meta.get('timestamp', 'N/A')}",
-        f"  Sender Role: {meta.get('sender_role', 'N/A')}",
-        f"  Project Phase: {meta.get('project_phase', 'N/A')}",
-        f"  4D Task Status: {meta.get('4d_task_status', 'N/A')}",
-        "",
-        "[CHAT HISTORY]"
-    ]
-
-    for msg in chat_history:
-        input_parts.append(f"  {msg['role']}: {msg['text']}")
-
-    input_parts.extend([
-        "",
-        "[USER QUERY]",
-        f"  {case.get('query_text', '')}",
-    ])
-
-    # Build image paths
-    image_paths = []
-    for img_file in image_files:
-        img_path = Path(image_dir) / img_file
-        if img_path.exists():
-            image_paths.append(str(img_path))
-        else:
-            print(f"⚠️  Warning: Image not found: {img_path}")
-
-    # Include image paths in the message so agent can analyze them
-    if image_paths:
-        input_parts.append("")
-        input_parts.append("[ATTACHED IMAGES]")
-        for img_path in image_paths:
-            input_parts.append(f"  Image path: {img_path}")
-        input_parts.append("  Note: Use analyze_site_image(image_path) to analyze these images")
-
-    input_parts.append("=" * 50)
-    formatted_input = "\n".join(input_parts)
-
-    return formatted_input, image_paths
-
-
-def extract_guids_from_response(response_text: str) -> list:
-    """
-    Extract all IFC GUIDs mentioned in the response.
-
-    IFC GUIDs are 22-character base64 strings (GlobalId format).
-    Pattern: alphanumeric + $ + _ characters, exactly 22 chars.
-
-    Returns:
-        list: Ordered list of GUIDs as they appear in the response (preserves order for top-k)
-    """
-    import re
-    # IFC GlobalId pattern: 22 characters of [0-9A-Za-z_$]
-    guid_pattern = r'\b([0-9A-Za-z_$]{22})\b'
-    matches = re.findall(guid_pattern, response_text)
-    # Remove duplicates while preserving order
-    seen = set()
-    unique_guids = []
-    for guid in matches:
-        if guid not in seen:
-            seen.add(guid)
-            unique_guids.append(guid)
-    return unique_guids
-
-
-def evaluate_response(response_text, ground_truth):
-    """
-    Evaluate agent response against ground truth with top-k metrics.
-
-    Args:
-        response_text: The agent's response string
-        ground_truth: Ground truth dict with target_guid, expected_reasoning, etc.
-
-    Returns:
-        dict: Evaluation results with top-k metrics, precision, recall
-    """
-    target_guid = ground_truth.get("target_guid", "")
-    target_name = ground_truth.get("target_name", "")
-    rq_category = ground_truth.get("rq_category", "")
-
-    # Extract all GUIDs mentioned in response (ordered by appearance)
-    mentioned_guids = extract_guids_from_response(response_text)
-
-    results = {
-        "guid_match": False,
-        "name_match": False,
-        "target_guid": target_guid,
-        "target_name": target_name,
-        "rq_category": rq_category,
-        "details": [],
-        # New top-k metrics
-        "mentioned_guids": mentioned_guids,
-        "num_candidates": len(mentioned_guids),
-        "top1_hit": False,
-        "top3_hit": False,
-        "top5_hit": False,
-        "target_rank": None,  # Position of target in mentioned GUIDs (1-indexed), None if not found
-        # Retrieval metrics
-        "precision_at_1": 0.0,
-        "precision_at_3": 0.0,
-        "recall": 0.0,
-    }
-
-    # Skip special target GUIDs
-    if target_guid and target_guid not in ["MULTIPLE", "CLARIFICATION_NEEDED", "INSUFFICIENT_DATA", "INVALID_LOCATION"]:
-        # Check if target GUID is found in response (backward compatible)
-        if target_guid in response_text:
-            results["guid_match"] = True
-            results["details"].append(f"✅ Target GUID found: {target_guid}")
-        else:
-            results["details"].append(f"❌ Target GUID not found: {target_guid}")
-
-        # Top-k evaluation
-        if mentioned_guids:
-            if target_guid in mentioned_guids:
-                rank = mentioned_guids.index(target_guid) + 1  # 1-indexed
-                results["target_rank"] = rank
-
-                # Top-k hits
-                results["top1_hit"] = (rank == 1)
-                results["top3_hit"] = (rank <= 3)
-                results["top5_hit"] = (rank <= 5)
-
-                results["details"].append(f"📊 Target GUID rank: {rank}/{len(mentioned_guids)}")
-
-                # Precision@k (for single target, precision = 1/k if hit in top-k, else 0)
-                results["precision_at_1"] = 1.0 if rank == 1 else 0.0
-                results["precision_at_3"] = 1.0 / min(3, rank) if rank <= 3 else 0.0
-
-                # Recall (single target: 1 if found, 0 if not)
-                results["recall"] = 1.0
-            else:
-                results["details"].append(f"📊 Target GUID not in {len(mentioned_guids)} mentioned candidates")
-                results["recall"] = 0.0
-        else:
-            results["details"].append("📊 No GUIDs extracted from response")
-            results["recall"] = 0.0 if target_guid else 1.0  # If no target expected, recall=1
-
-    # Check if target name is mentioned
-    if target_name:
-        name_parts = target_name.split(":")[0] if ":" in target_name else target_name
-        if name_parts.lower() in response_text.lower():
-            results["name_match"] = True
-            results["details"].append(f"✅ Target name found: {name_parts}")
-        else:
-            results["details"].append(f"❌ Target name not found: {name_parts}")
-
-    return results
-
-
 async def main_async(args=None):
     """Main asynchronous orchestrator"""
     load_dotenv()
@@ -352,7 +79,7 @@ async def main_async(args=None):
 
     # Load centralized configuration
     config = load_config()
-    base_dir = Path(__file__).parent.parent
+    base_dir = get_base_dir()
 
     # RQ2: Load schema configuration
     rq2_cfg = config.get("rq2", {})
@@ -557,67 +284,14 @@ async def main_async(args=None):
                     print(f"\n📤 Final Response ({elapsed:.2f}s):")
                     print("-" * 70)
 
-                    # Extract response
-                    if "messages" in response:
-                        output = response["messages"][-1].content
+                    # Extract and parse response using common utilities
+                    parsed = extract_response_content(response)
+                    tool_calls = parsed.tool_calls
 
-                        # Extract tool calls and tool results
-                        tool_calls = []
-                        tool_results = []
-                        for msg in response["messages"]:
-                            if hasattr(msg, 'tool_calls') and msg.tool_calls:
-                                for tool_call in msg.tool_calls:
-                                    tool_calls.append({
-                                        "name": tool_call.get("name", "unknown"),
-                                        "args": tool_call.get("args", {})
-                                    })
-                            # Capture tool results (ToolMessage content)
-                            if hasattr(msg, 'type') and msg.type == 'tool':
-                                tool_results.append(str(msg.content))
-                    else:
-                        output = str(response)
-                        tool_calls = []
-                        tool_results = []
-
-                    # FALLBACK: If response has no GUIDs, extract from tool calls/results
-                    response_guids = extract_guids_from_response(output)
-                    if not response_guids:
-                        # Priority 1: Extract GUIDs from get_element_details calls (explicit selections)
-                        explicit_guids = []
-                        for tc in tool_calls:
-                            if tc.get("name") == "get_element_details":
-                                guid = tc.get("args", {}).get("guid")
-                                if guid and guid not in explicit_guids:
-                                    explicit_guids.append(guid)
-
-                        # Priority 2: Extract from tool results if no explicit selections
-                        if explicit_guids:
-                            guid_list = ", ".join(explicit_guids[:5])
-                            output = f"{output}\n\n[AUTO-EXTRACTED] Selected element GUID: {guid_list}"
-                            print(f"⚠️  No GUIDs in response, extracted {len(explicit_guids)} from get_element_details calls")
-                        elif tool_results:
-                            # Fallback to search results
-                            all_tool_content = "\n".join(tool_results)
-                            tool_guids = extract_guids_from_response(all_tool_content)
-                            if tool_guids:
-                                guid_list = ", ".join(tool_guids[:5])
-                                output = f"{output}\n\n[AUTO-EXTRACTED] Top candidate GUIDs from tool results: {guid_list}"
-                                print(f"⚠️  No GUIDs in response, extracted {len(tool_guids)} from tool results")
-
-                    # Type C Fix: Handle empty responses with fallback
-                    if not output or not output.strip():
-                        # Try to extract GUIDs from tool results for empty response
-                        if tool_results:
-                            all_tool_content = "\n".join(tool_results)
-                            tool_guids = extract_guids_from_response(all_tool_content)
-                            if tool_guids:
-                                guid_list = ", ".join(tool_guids[:5])
-                                output = f"[FALLBACK] Top candidates from tool results: {guid_list}"
-                            else:
-                                output = f"[FALLBACK] Agent returned empty response. Tool calls made: {tool_calls if tool_calls else 'None'}. Please check tool results."
-                        else:
-                            output = f"[FALLBACK] Agent returned empty response. Tool calls made: {tool_calls if tool_calls else 'None'}. Please check tool results."
-                        print(f"⚠️  Empty response detected, using fallback message")
+                    # Handle empty responses, then apply GUID fallback chain
+                    output = handle_empty_response(parsed, extract_guids_from_text)
+                    parsed.final_text = output
+                    output = apply_guid_fallback(parsed, extract_guids_from_text)
 
                     print(output)
                     print("-" * 70)
@@ -818,7 +492,7 @@ async def main_async(args=None):
                         "mode": experiment_mode or "config",
                         "query_mode": query_mode if experiment_mode else "config",
                         "visual_enabled": visual_enabled if experiment_mode else False,
-                        "description": _get_experiment_description(experiment_mode, query_mode, visual_enabled)
+                        "description": get_experiment_description(experiment_mode, query_mode, visual_enabled)
                     },
                     "ground_truth_file": gt_file,  # Kept for backward compatibility
                     "summary": {

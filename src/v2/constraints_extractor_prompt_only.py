@@ -5,12 +5,11 @@ Extracts structured constraints from case inputs using LLM prompting
 with JSON-only output format. No model training required.
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import json
-import yaml
-from pathlib import Path
-from .types import Constraints
+from .types import Constraints, ImageParseResult
 from .condition_mask import ConditionMask
+from common.config import load_yaml_prompts
 
 
 class PromptConstraintsExtractor:
@@ -36,15 +35,7 @@ class PromptConstraintsExtractor:
 
     def _load_prompts(self, prompts_path: str):
         """Load prompts from YAML file."""
-        # Resolve path relative to project root
-        base_dir = Path(__file__).parent.parent.parent
-        full_path = base_dir / prompts_path
-
-        if not full_path.exists():
-            raise FileNotFoundError(f"Prompts file not found: {full_path}")
-
-        with open(full_path, 'r', encoding='utf-8') as f:
-            prompts_data = yaml.safe_load(f)
+        prompts_data = load_yaml_prompts(prompts_path)
 
         self.system_prompt = prompts_data.get("prompt_only_system", "")
 
@@ -56,7 +47,8 @@ class PromptConstraintsExtractor:
     async def extract(
         self,
         case: Dict[str, Any],
-        condition_overrides: Dict[str, Any]
+        condition_overrides: Dict[str, Any],
+        image_context: Optional[ImageParseResult] = None,
     ) -> Constraints:
         """
         Extract constraints from case with condition-based masking.
@@ -64,6 +56,7 @@ class PromptConstraintsExtractor:
         Args:
             case: Case dict from cases_v2.jsonl
             condition_overrides: Condition config from profiles.yaml
+            image_context: Parsed image descriptions from ImageParserReader
 
         Returns:
             Constraints object with extracted fields
@@ -72,7 +65,7 @@ class PromptConstraintsExtractor:
         masked_case = ConditionMask.apply(case, condition_overrides)
 
         # Build prompt from masked inputs
-        prompt = self._build_prompt(masked_case)
+        prompt = self._build_prompt(masked_case, image_context)
 
         # Call LLM
         try:
@@ -88,7 +81,7 @@ class PromptConstraintsExtractor:
             data = self._parse_json_response(response_text)
 
             if data:
-                return Constraints(
+                constraints = Constraints(
                     storey_name=data.get("storey_name"),
                     ifc_class=data.get("ifc_class"),
                     near_keywords=data.get("near_keywords", []),
@@ -96,26 +89,51 @@ class PromptConstraintsExtractor:
                     confidence=0.8,  # Reasonable confidence for successful parse
                     source="prompt"
                 )
+
+                # Merge image-derived hints as fallbacks
+                if image_context:
+                    if not constraints.ifc_class and image_context.inferred_ifc_class:
+                        constraints.ifc_class = image_context.inferred_ifc_class
+                    if not constraints.storey_name and image_context.inferred_storey:
+                        constraints.storey_name = image_context.inferred_storey
+                    for cue in image_context.all_location_cues:
+                        if cue not in constraints.near_keywords:
+                            constraints.near_keywords.append(cue)
+
+                return constraints
             else:
-                # Parse failed
+                # Parse failed — still try image-derived hints
+                if image_context and (image_context.inferred_ifc_class or image_context.inferred_storey):
+                    return Constraints(
+                        storey_name=image_context.inferred_storey,
+                        ifc_class=image_context.inferred_ifc_class,
+                        near_keywords=image_context.all_location_cues,
+                        confidence=0.5,
+                        source="prompt_failed+image"
+                    )
                 return Constraints(
                     confidence=0.0,
                     source="prompt_failed"
                 )
 
         except Exception as e:
-            print(f"⚠️  Constraints extraction failed: {e}")
+            print(f"  Constraints extraction failed: {e}")
             return Constraints(
                 confidence=0.0,
                 source="prompt_failed"
             )
 
-    def _build_prompt(self, masked_case: Dict[str, Any]) -> str:
+    def _build_prompt(
+        self,
+        masked_case: Dict[str, Any],
+        image_context: Optional[ImageParseResult] = None,
+    ) -> str:
         """
         Build extraction prompt from masked case.
 
         Args:
             masked_case: Case with condition-specific masking applied
+            image_context: Parsed image descriptions from ImageParserReader
 
         Returns:
             Formatted prompt string
@@ -145,22 +163,13 @@ class PromptConstraintsExtractor:
                 sections.append(f"  {role}: {text}")
             sections.append("")
 
-        # 3. Images (if available)
-        images = inputs.get("images", [])
-        if images:
-            sections.append("IMAGES:")
-            for img_path in images:
-                sections.append(f"  - {img_path}")
-            sections.append("  (Note: Images describe visual defects/issues on elements)")
-            sections.append("")
-
-        # 4. Floorplan (if available)
-        floorplan = inputs.get("floorplan_patch")
-        if floorplan:
-            sections.append("FLOORPLAN:")
-            sections.append(f"  - {floorplan}")
-            sections.append("  (Note: Floorplan shows spatial layout and element locations)")
-            sections.append("")
+        # 3. Parsed image descriptions (from ImageParserReader VLM analysis)
+        if image_context and image_context.all_images:
+            desc = image_context.combined_description
+            if desc:
+                sections.append("VISUAL ANALYSIS (from vision model):")
+                sections.append(desc)
+                sections.append("")
 
         # Combine system prompt + context
         full_prompt = f"{self.system_prompt}\n\n" + "\n".join(sections)

@@ -19,7 +19,6 @@ Commands:
 import os
 import sys
 import json
-import yaml
 import asyncio
 import argparse
 from pathlib import Path
@@ -32,9 +31,9 @@ from langgraph.prebuilt import create_react_agent
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-load_dotenv()
+from common.config import load_config, load_system_prompt, load_ground_truth, get_base_dir
 
-BASE_DIR = Path(__file__).parent.parent
+load_dotenv()
 
 # Try official adapter first, fall back to custom
 try:
@@ -43,36 +42,6 @@ try:
 except ImportError:
     from mcp_langchain_adapter import convert_mcp_to_langchain_tools
     print("[MCP] Using custom MCP-LangChain adapter", file=sys.stderr)
-
-
-def load_config():
-    """Load configuration from config.yaml"""
-    config_path = BASE_DIR / "config.yaml"
-    if config_path.exists():
-        with open(config_path, "r", encoding="utf-8") as f:
-            return yaml.safe_load(f)
-    return {"llm": {"model": "gemini-2.5-flash", "temperature": 0}}
-
-
-def load_system_prompt(prompt_file="prompts/system_prompt.yaml"):
-    """Load system prompt from YAML file"""
-    prompt_path = BASE_DIR / prompt_file
-    if not prompt_path.exists():
-        raise FileNotFoundError(f"Prompt file not found: {prompt_path}")
-    with open(prompt_path, "r", encoding="utf-8") as f:
-        config = yaml.safe_load(f)
-    return config.get("system_prompt", "")
-
-
-def load_ground_truth():
-    """Load ground truth scenarios for context simulation"""
-    config = load_config()
-    gt_file = config.get("ground_truth", {}).get("file", "data/ground_truth/gt_1/gt_1.json")
-    gt_path = BASE_DIR / gt_file
-    if gt_path.exists():
-        with open(gt_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return []
 
 
 def format_scenario_context(scenario: dict) -> str:
@@ -109,7 +78,7 @@ async def main_async(args):
 
     # MCP server configuration
     python_exe = sys.executable
-    ifc_server_path = str(BASE_DIR / "mcp_servers" / "ifc_server.py")
+    ifc_server_path = str(get_base_dir() / "mcp_servers" / "ifc_server.py")
 
     server_params = StdioServerParameters(
         command=python_exe,
@@ -154,7 +123,8 @@ async def main_async(args):
             )
 
             # Load ground truth for scenario simulation
-            ground_truth = load_ground_truth()
+            gt_file = config.get("ground_truth", {}).get("file", "data/ground_truth/gt_1/gt_1.json")
+            ground_truth = load_ground_truth(gt_file)
             gt_by_id = {gt.get("id", ""): gt for gt in ground_truth}
 
             print("\nAgent ready!")

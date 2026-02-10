@@ -6,33 +6,11 @@ for BCF-lite issues and BCFzip generation.
 """
 
 import json
-import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-
-# IFC GUID pattern: 22 characters from Base64 alphabet (A-Za-z0-9_$)
-IFC_GUID_PATTERN = re.compile(r"[A-Za-z0-9_$]{22}")
-
-
-def extract_ifc_guid(text: str) -> Optional[str]:
-    """
-    Extract an IFC GUID from text using regex.
-
-    IFC GUIDs are 22 characters using Base64 alphabet (A-Za-z0-9_$).
-    Returns the first match found, or None if no match.
-
-    Args:
-        text: Text to search for GUID
-
-    Returns:
-        First IFC GUID found, or None
-    """
-    if not text:
-        return None
-    match = IFC_GUID_PATTERN.search(text)
-    return match.group(0) if match else None
+from common.guid import extract_first_ifc_guid
 
 
 def extract_guid_from_tool_calls(tool_calls: List[Dict[str, Any]]) -> Optional[str]:
@@ -55,14 +33,14 @@ def extract_guid_from_tool_calls(tool_calls: List[Dict[str, Any]]) -> Optional[s
     for tool in tool_calls:
         if tool.get("name") in priority_tools:
             result = tool.get("result", "")
-            guid = extract_ifc_guid(str(result))
+            guid = extract_first_ifc_guid(str(result))
             if guid:
                 return guid
 
     # Second pass: check all tool results
     for tool in tool_calls:
         result = tool.get("result", "")
-        guid = extract_ifc_guid(str(result))
+        guid = extract_first_ifc_guid(str(result))
         if guid:
             return guid
 
@@ -99,7 +77,7 @@ def build_trace(
         Complete trace dictionary
     """
     # Extract GUID with fallback chain
-    guid_from_response = extract_ifc_guid(agent_response)
+    guid_from_response = extract_first_ifc_guid(agent_response)
     guid_from_tools = extract_guid_from_tool_calls(tool_calls)
 
     # Determine GUID and source

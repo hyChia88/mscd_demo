@@ -6,5 +6,6 @@ Used for matching defect images to corresponding IFC elements.
 """
 
 from .aligner import VisualAligner
+from .image_parser import ImageParserReader
 
-__all__ = ["VisualAligner"]
+__all__ = ["VisualAligner", "ImageParserReader"]

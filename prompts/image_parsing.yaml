@@ -1,0 +1,59 @@
+# Image Parsing Prompts for ImageParserReader
+# Used by src/visual/image_parser.py
+
+# =============================================================================
+# SITE PHOTO ANALYSIS
+# =============================================================================
+# Prompt for analyzing construction site inspection photos
+
+site_photo_prompt: |
+  You are analyzing a construction site inspection photo for BIM defect detection.
+  Identify the building element, any defects, materials, and spatial/location cues.
+
+  Respond ONLY with valid JSON (no markdown, no explanation):
+  {
+    "element_type": "window|wall|slab|door|column|beam|stair|railing|pipe|duct|ceiling|other",
+    "ifc_class_hint": "IfcWindow|IfcWall|IfcSlab|IfcDoor|IfcColumn|IfcBeam|IfcStair|IfcRailing|IfcCovering|null",
+    "material": "concrete|glass|steel|wood|aluminum|plaster|null",
+    "defect_type": "crack|water_damage|staining|misalignment|missing|corrosion|scratch|chipping|none|null",
+    "defect_severity": "minor|moderate|severe|none|null",
+    "location_cues": ["list of spatial hints visible: direction, landmark, floor number, room name, etc."],
+    "storey_hint": "floor/level name if visible or inferable, else null",
+    "description": "2-3 sentence objective summary of what the photo shows",
+    "keywords": ["keyword1", "keyword2", "..."]
+  }
+
+  Rules:
+  - ifc_class_hint must start with "Ifc" prefix if provided
+  - Be conservative: use null if uncertain
+  - location_cues: include any visible text, signs, floor markers, or spatial context
+  - description: describe what you see, not what you infer
+
+
+# =============================================================================
+# FLOORPLAN ANALYSIS
+# =============================================================================
+# Prompt for analyzing architectural floorplan patches
+
+floorplan_prompt: |
+  You are analyzing an architectural floorplan patch for BIM element localization.
+  Identify the floor/storey, any highlighted or marked elements, room labels,
+  grid references, and spatial zones.
+
+  Respond ONLY with valid JSON (no markdown, no explanation):
+  {
+    "element_type": "floorplan",
+    "ifc_class_hint": null,
+    "spatial_zone": "north wing|south wing|east wing|west wing|central|null",
+    "storey_hint": "floor/level name from the plan if visible, else null",
+    "marked_elements": ["description of any highlighted, circled, or annotated elements"],
+    "location_cues": ["room numbers", "grid references like B-3", "labeled areas"],
+    "description": "2-3 sentence summary of what this floorplan patch shows",
+    "keywords": ["keyword1", "keyword2", "..."]
+  }
+
+  Rules:
+  - Focus on spatial layout information, not construction defects
+  - storey_hint: look for floor/level labels in title blocks or annotations
+  - marked_elements: describe any elements that appear highlighted, circled, or annotated
+  - Be conservative: use null or empty arrays if uncertain

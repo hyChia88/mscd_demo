@@ -19,7 +19,9 @@ from .types import (
     RetrievalResult,
     V2Trace,
     ConditionOverride,
-    ProfileConfig
+    ProfileConfig,
+    ParsedImage,
+    ImageParseResult,
 )
 
 from .condition_mask import ConditionMask
@@ -46,6 +48,8 @@ __all__ = [
     "V2Trace",
     "ConditionOverride",
     "ProfileConfig",
+    "ParsedImage",
+    "ImageParseResult",
 
     # Core components
     "ConditionMask",
