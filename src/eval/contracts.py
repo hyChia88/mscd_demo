@@ -277,6 +277,11 @@ class EvalTrace(BaseModel):
     # Timing
     total_latency_ms: float = 0.0
 
+    # API usage metrics (for V1 vs V2 comparison)
+    api_calls_count: int = 0
+    api_cost_estimate: float = 0.0  # Estimated cost in USD
+    pipeline_type: str = "unknown"  # "v1" or "v2"
+
     # Ground truth comparison
     guid_match: bool = False
     name_match: bool = False

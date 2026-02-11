@@ -20,3 +20,6 @@ mscd_demo/src/v2/__pycache__
 mscd_demo/src/v2/__pycache__/*.pyc
 mscd_demo/src/common/__pycache__
 mscd_demo/src/common/__pycache__/*.pyc
+mscd_demo/src/__pycache__
+mscd_demo/src/__pycache__/*.pyc
+mscd_demo/logs

@@ -23,17 +23,63 @@ import seaborn as sns
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Data Loading
+# Data Loading & Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-def load_traces_from_jsonl(traces_path: str) -> List[Dict[str, Any]]:
-    """Load evaluation traces from JSONL file."""
+def extract_condition_from_trace(trace: Dict[str, Any]) -> str:
+    """
+    Extract experimental condition (A1-C3) from trace.
+
+    Tries multiple sources in order:
+    1. scenario.bench.condition (legacy format from synthetic dataset)
+    2. run_id suffix (e.g., "20260211_011004_v2_prompt_A1" -> "A1")
+
+    Args:
+        trace: Evaluation trace dictionary
+
+    Returns:
+        Condition string (A1-C3) or "Unknown"
+    """
+    # Try legacy format first
+    cond = trace.get("scenario", {}).get("bench", {}).get("condition")
+    if cond:
+        return cond
+
+    # Extract from run_id (format: YYYYMMDD_HHMMSS_profile_CONDITION)
+    run_id = trace.get("run_id", "")
+    if run_id and "_" in run_id:
+        parts = run_id.split("_")
+        if len(parts) >= 4:
+            # Last part should be condition (A1, A2, A3, B1, B2, B3, C1, C2, C3)
+            potential_cond = parts[-1]
+            if potential_cond in ["A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3"]:
+                return potential_cond
+
+    return "Unknown"
+
+
+def load_traces_from_jsonl(traces_path) -> List[Dict[str, Any]]:
+    """
+    Load evaluation traces from JSONL file(s).
+
+    Args:
+        traces_path: Either a single file path (str) or a list of file paths
+
+    Returns:
+        List of all traces merged from all files
+    """
     traces = []
-    with open(traces_path, 'r', encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                traces.append(json.loads(line))
+
+    # Handle both single file and multiple files
+    file_paths = [traces_path] if isinstance(traces_path, str) else traces_path
+
+    for path in file_paths:
+        with open(path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    traces.append(json.loads(line))
+
     return traces
 
 
@@ -62,11 +108,7 @@ def plot_accuracy_by_condition(
     # Group by condition
     condition_stats = {}
     for trace in traces:
-        scenario = trace.get("scenario", {})
-        # Try to infer condition from scenario_id or metadata
-        scenario_id = trace.get("scenario_id", "")
-        # For now, parse from bench.condition if available in extended trace
-        cond = "Unknown"
+        cond = extract_condition_from_trace(trace)
 
         if cond not in condition_stats:
             condition_stats[cond] = {"total": 0, "hits": 0}
@@ -390,6 +432,134 @@ def plot_per_case_heatmap(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Chart 7: Condition-Wise Performance Matrix (A1-C3)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def plot_condition_wise_comparison(
+    experiments: Dict[str, List[Dict[str, Any]]],
+    output_path: str,
+    title: str = "Performance Across Experimental Conditions (A1-C3)"
+):
+    """
+    **KEY THESIS FIGURE**: General condition-wise comparison across experiments.
+
+    Compares any number of experiments (v1, v2, v3, baseline, etc.) across
+    all 9 experimental conditions showing modality impact.
+
+    Args:
+        experiments: Dict mapping experiment_name → list of traces
+        output_path: Where to save the plot
+        title: Chart title
+    """
+    print(f"\n→ Generating Condition-Wise Comparison...")
+
+    conditions = ["A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3"]
+    exp_names = list(experiments.keys())
+
+    # Calculate accuracy for each experiment × condition
+    data = []
+    for exp_name in exp_names:
+        traces = experiments[exp_name]
+
+        # Group by condition
+        by_condition = {}
+        for trace in traces:
+            cond = extract_condition_from_trace(trace)
+            if cond not in by_condition:
+                by_condition[cond] = []
+            by_condition[cond].append(trace)
+
+        # Calculate accuracy per condition
+        for cond in conditions:
+            hits = sum(1 for t in by_condition.get(cond, []) if t.get("guid_match", False))
+            total = len(by_condition.get(cond, []))
+            acc = (hits / total * 100) if total > 0 else 0
+            data.append({
+                'Experiment': exp_name,
+                'Condition': cond,
+                'Accuracy': acc,
+                'Count': total
+            })
+
+    if not data:
+        print("⚠️  No data available for comparison")
+        return
+
+    df = pd.DataFrame(data)
+
+    # Create grouped bar chart
+    fig, ax = plt.subplots(figsize=(16, 9))
+
+    # Use different colors for each experiment
+    colors = ['#3498db', '#2ecc71', '#e74c3c', '#f39c12', '#9b59b6', '#1abc9c']
+    x = np.arange(len(conditions))
+    n_exp = len(exp_names)
+    width = 0.8 / n_exp  # Dynamic bar width
+
+    for i, exp_name in enumerate(exp_names):
+        exp_data = df[df['Experiment'] == exp_name]
+        accuracies = [exp_data[exp_data['Condition'] == c]['Accuracy'].values[0]
+                     if len(exp_data[exp_data['Condition'] == c]) > 0 else 0
+                     for c in conditions]
+
+        offset = (i - n_exp/2 + 0.5) * width
+        bars = ax.bar(x + offset, accuracies, width,
+                     label=exp_name,
+                     color=colors[i % len(colors)],
+                     alpha=0.85,
+                     edgecolor='black',
+                     linewidth=1.2)
+
+        # Add value labels on bars
+        for bar in bars:
+            height = bar.get_height()
+            if height > 0:
+                ax.text(bar.get_x() + bar.get_width()/2., height + 1,
+                       f'{height:.0f}%',
+                       ha='center', va='bottom',
+                       fontsize=8, fontweight='bold')
+
+    # Customize plot
+    ax.set_xlabel('Experimental Condition', fontsize=14, fontweight='bold')
+    ax.set_ylabel('Top-1 Accuracy (%)', fontsize=14, fontweight='bold')
+    ax.set_title(title, fontsize=16, fontweight='bold', pad=20)
+    ax.set_xticks(x)
+    ax.set_xticklabels(conditions, fontsize=12, fontweight='bold')
+    ax.set_ylim(0, 110)
+    ax.legend(fontsize=11, loc='upper left', frameon=True, shadow=True, ncol=min(3, n_exp))
+    ax.grid(axis='y', alpha=0.3, linestyle='--')
+
+    # Add condition group separators
+    ax.axvline(x=2.5, color='gray', linestyle='--', alpha=0.6, linewidth=2)
+    ax.axvline(x=5.5, color='gray', linestyle='--', alpha=0.6, linewidth=2)
+
+    # Group labels
+    ax.text(1, 105, 'Text Only\n(No Images)', ha='center', fontsize=10,
+            style='italic', color='gray', bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.3))
+    ax.text(4, 105, 'Images + Text\n(No Floorplan)', ha='center', fontsize=10,
+            style='italic', color='gray', bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.3))
+    ax.text(7.5, 105, 'Full Multimodal\n(Images + Floorplan)', ha='center', fontsize=10,
+            style='italic', color='gray', bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.3))
+
+    # Add condition details legend
+    condition_info = (
+        "Condition Details:\n"
+        "A1: -Img -Plan -4D ~Blur | A2: -Img -Plan +4D Clear | A3: -Img -Plan +4D+ Clear\n"
+        "B1: +Img -Plan -4D ~Blur | B2: +Img -Plan +4D Clear | B3: +Img -Plan -4D Clear\n"
+        "C1: +Img +Plan -4D Clear | C2: +Img +Plan +4D Clear | C3: +Img +Plan +4D+ Clear+CLIP"
+    )
+
+    fig.text(0.5, 0.01, condition_info, ha='center', fontsize=9,
+            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.4))
+
+    plt.tight_layout(rect=[0, 0.03, 1, 1])
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        print(f"✓ Saved: {output_path}")
+    plt.close()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main Entry Point
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -417,17 +587,20 @@ def generate_all_plots(
 
     # Load traces
     traces = load_traces_from_jsonl(traces_path)
-    print(f"Loaded {len(traces)} traces from {traces_path}")
+    path_desc = f"{len(traces_path)} files" if isinstance(traces_path, list) else traces_path
+    print(f"Loaded {len(traces)} traces from {path_desc}")
 
     v2_traces = []
-    if v2_traces_path and Path(v2_traces_path).exists():
+    if v2_traces_path:
         v2_traces = load_traces_from_jsonl(v2_traces_path)
-        print(f"Loaded {len(v2_traces)} V2 traces from {v2_traces_path}")
+        path_desc = f"{len(v2_traces_path)} files" if isinstance(v2_traces_path, list) else v2_traces_path
+        print(f"Loaded {len(v2_traces)} V2 traces from {path_desc}")
 
     before_traces = []
-    if before_traces_path and Path(before_traces_path).exists():
+    if before_traces_path:
         before_traces = load_traces_from_jsonl(before_traces_path)
-        print(f"Loaded {len(before_traces)} 'before' traces from {before_traces_path}")
+        path_desc = f"{len(before_traces_path)} files" if isinstance(before_traces_path, list) else before_traces_path
+        print(f"Loaded {len(before_traces)} 'before' traces from {path_desc}")
 
     print()
 
@@ -443,6 +616,21 @@ def generate_all_plots(
         plot_vision_impact(before_traces, traces, f"{output_dir}/5_vision_impact.png")
 
     plot_per_case_heatmap(traces, f"{output_dir}/6_per_case_heatmap.png")
+
+    # Condition-wise comparison (if multiple experiments available)
+    if before_traces and traces:
+        # Extract experiment names from traces (handle both single path and list of paths)
+        first_main_path = traces_path[0] if isinstance(traces_path, list) else traces_path
+        first_before_path = before_traces_path[0] if isinstance(before_traces_path, list) else before_traces_path
+
+        main_exp_name = Path(first_main_path).stem.replace("traces_", "").split("_")[-1] if traces_path else "Main"
+        before_exp_name = Path(first_before_path).stem.replace("traces_", "").split("_")[-1] if before_traces_path else "Baseline"
+
+        experiments = {
+            before_exp_name: before_traces,
+            main_exp_name: traces
+        }
+        plot_condition_wise_comparison(experiments, f"{output_dir}/7_condition_comparison.png")
 
     print(f"\n{'='*60}")
     print(f"✓ All plots saved to: {output_dir}/")

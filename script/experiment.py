@@ -195,7 +195,9 @@ class ExperimentManager:
                 "--output_dir", str(output_dir)
             ]
 
-            if "limit" in config:
+            if "percent" in config:
+                cmd.extend(["--percent", str(config["percent"])])
+            elif "limit" in config:
                 cmd.extend(["--limit", str(config["limit"])])
 
             if dry_run:

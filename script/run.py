@@ -77,6 +77,7 @@ def write_csv_summary(
     v2_summary: Optional[Dict[str, Any]],
     v2_per_case: Optional[List[Dict[str, Any]]],
     path: Path,
+    percent_used: float = 100.0,
 ) -> None:
     """Write combined v1 + v2 metrics CSV."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -87,6 +88,7 @@ def write_csv_summary(
         # ── Section 1: overall v1 metrics ──
         w.writerow(["=== OVERALL METRICS ==="])
         w.writerow(["Metric", "Value"])
+        w.writerow(["Dataset Coverage", f"{percent_used:.1f}%"])
         w.writerow(["Total Scenarios", v1_summary.total_scenarios])
         w.writerow(["Successful Runs", v1_summary.successful_runs])
         w.writerow(["Top-1 Accuracy", f"{v1_summary.top1_accuracy:.4f}"])
@@ -203,10 +205,24 @@ async def main(args: argparse.Namespace) -> None:
     else:
         print(f"Loaded {len(cases)} cases (all conditions)")
 
-    # Apply limit if specified
-    if args.limit is not None and args.limit > 0:
+    # Apply percentage or limit if specified
+    total_cases_after_filter = len(cases)
+    percent_used = 100.0  # Default: use 100% of data
+
+    if args.percent is not None and 0 < args.percent <= 100:
+        # Percentage mode (overrides --limit)
+        limit = max(1, int(total_cases_after_filter * args.percent / 100))
+        cases = cases[:limit]
+        percent_used = args.percent
+        print(f"Using {args.percent:.1f}% of data: {len(cases)}/{total_cases_after_filter} cases")
+    elif args.limit is not None and args.limit > 0:
+        # Absolute limit mode
         cases = cases[:args.limit]
-        print(f"Limited to first {len(cases)} cases")
+        percent_used = (len(cases) / total_cases_after_filter * 100) if total_cases_after_filter > 0 else 100
+        print(f"Limited to first {len(cases)} cases ({percent_used:.1f}% of filtered data)")
+    else:
+        # Full dataset (100%)
+        print(f"Using full dataset: {len(cases)} cases (100%)")
 
     if not cases:
         print("No cases matched — exiting.")
@@ -232,28 +248,12 @@ async def main(args: argparse.Namespace) -> None:
             adapter_path=args.adapter_path,
         )
     elif pipeline_type == "v1":
-        # For v1, we need an MCP agent executor — expensive to set up.
-        # If MCP is not available, fall back to a lightweight "no-agent" stub
-        # that simply returns empty traces.
-        print("NOTE: V1 pipeline requires MCP server. "
-              "Use `python src/main_mcp.py` for full V1 evaluation.")
-        print("      Running V1 stub (no agent) for structure testing.\n")
+        # V1 pipeline uses MCP agent executor with real tool-calling
+        print("Initializing V1 pipeline with MCP agent...")
 
-        from src.pipeline_base import V1Pipeline
-
-        # Agent executor stub — returns empty response
-        class _StubAgent:
-            async def ainvoke(self, payload):
-                return {"messages": []}
-
-        pipeline = V1Pipeline(
-            engine=engine,
-            llm=llm,
-            visual_aligner=visual_aligner,
-            profile=profile,
-            config=config,
-            agent_executor=_StubAgent(),
-        )
+        # V1 pipeline will be created inside MCP context
+        # (defer initialization until MCP session is ready)
+        pipeline = None  # Will be set in MCP context below
     else:
         print(f"ERROR: Unknown pipeline type '{pipeline_type}'")
         sys.exit(1)
@@ -267,44 +267,125 @@ async def main(args: argparse.Namespace) -> None:
     v2_traces: List[V2Trace] = []
     v2_per_case_metrics: List[Dict[str, Any]] = []
 
-    for idx, case in enumerate(cases, 1):
-        case_id = case.get("case_id", f"case_{idx}")
-        case_cond = case.get("bench", {}).get("condition", "")
-        cond_overrides = conditions_map.get(case_cond, {})
+    # V1 requires MCP session context
+    if pipeline_type == "v1":
+        from src.common.mcp import mcp_session
+        from src.common.config import get_base_dir
+        from langgraph.prebuilt import create_react_agent
 
-        # force_clip override from condition
-        if cond_overrides.get("force_clip"):
-            profile_copy = {**profile, "use_clip": True}
-        else:
-            profile_copy = profile
+        base_dir = get_base_dir()
 
-        print(f"[{idx:>3}/{len(cases)}] {case_id}  cond={case_cond}", end="")
+        # Build environment for MCP server (inherit current env)
+        server_env = dict(os.environ)
+        query_mode = profile.get("retrieval", "memory")
+        visual_enabled = profile.get("use_clip", False)
+        server_env["QUERY_MODE"] = query_mode
+        server_env["VISUAL_ENABLED"] = "true" if visual_enabled else "false"
 
-        try:
-            trace, v2_trace = await pipeline.run_case(case, cond_overrides, run_id)
-            traces.append(trace)
+        print(f"  MCP Query Mode: {query_mode}")
+        print(f"  CLIP Visual: {'ENABLED' if visual_enabled else 'DISABLED'}")
+        print()
 
-            hit = "HIT" if trace.guid_match else "miss"
-            pool = trace.final_pool_size or 0
-            print(f"  pool={pool:<5}  {hit}")
+        async with mcp_session(base_dir, env=server_env) as ctx:
+            print(f"✅ Connected to MCP server with {len(ctx.tools)} tools")
 
-            if v2_trace:
-                v2_traces.append(v2_trace)
-                # Per-case v2 metrics
-                labels = case.get("labels")
-                gt_dict = case.get("ground_truth", {})
-                m = compute_v2_metrics(v2_trace, gt_dict, labels)
-                m["case_id"] = case_id
-                v2_per_case_metrics.append(m)
-        except Exception as exc:
-            print(f"  ERROR: {exc}")
-            traces.append(EvalTrace(
-                scenario_id=case_id,
-                run_id=run_id,
-                scenario=None,      # type: ignore  – error trace
-                error=str(exc),
-                success=False,
-            ))
+            # Create ReAct agent with MCP tools
+            from src.common.config import load_system_prompt
+            agent_config = config.get("agent", {})
+            try:
+                system_prompt = load_system_prompt(
+                    agent_config.get("system_prompt_file", "prompts/system_prompt.yaml")
+                )
+            except FileNotFoundError:
+                system_prompt = "You are a helpful BIM inspection assistant."
+
+            agent_executor = create_react_agent(
+                llm.bind(system=system_prompt),
+                ctx.tools
+            )
+
+            # Now create V1Pipeline with real agent
+            from src.pipeline_base import V1Pipeline
+
+            pipeline = V1Pipeline(
+                engine=engine,
+                llm=llm,
+                visual_aligner=visual_aligner,
+                profile=profile,
+                config=config,
+                agent_executor=agent_executor,
+                tool_by_name=ctx.tool_by_name,
+            )
+
+            # Run evaluation loop inside MCP context
+            for idx, case in enumerate(cases, 1):
+                case_id = case.get("case_id", f"case_{idx}")
+                case_cond = case.get("bench", {}).get("condition", "")
+                cond_overrides = conditions_map.get(case_cond, {})
+
+                print(f"[{idx:>3}/{len(cases)}] {case_id}  cond={case_cond}", end="")
+
+                try:
+                    trace, v2_trace = await pipeline.run_case(case, cond_overrides, run_id)
+                    trace.pipeline_type = "v1"  # Mark as V1
+                    traces.append(trace)
+
+                    hit = "HIT" if trace.guid_match else "miss"
+                    pool = trace.final_pool_size or 0
+                    print(f"  pool={pool:<5}  {hit}")
+
+                except Exception as exc:
+                    print(f"  ERROR: {exc}")
+                    traces.append(EvalTrace(
+                        scenario_id=case_id,
+                        run_id=run_id,
+                        scenario=None,      # type: ignore  – error trace
+                        error=str(exc),
+                        success=False,
+                        pipeline_type="v1",
+                    ))
+    else:
+        # V2 pipeline - direct execution (no MCP needed)
+        for idx, case in enumerate(cases, 1):
+            case_id = case.get("case_id", f"case_{idx}")
+            case_cond = case.get("bench", {}).get("condition", "")
+            cond_overrides = conditions_map.get(case_cond, {})
+
+            # force_clip override from condition
+            if cond_overrides.get("force_clip"):
+                profile_copy = {**profile, "use_clip": True}
+            else:
+                profile_copy = profile
+
+            print(f"[{idx:>3}/{len(cases)}] {case_id}  cond={case_cond}", end="")
+
+            try:
+                trace, v2_trace = await pipeline.run_case(case, cond_overrides, run_id)
+                trace.pipeline_type = "v2"  # Mark as V2
+                traces.append(trace)
+
+                hit = "HIT" if trace.guid_match else "miss"
+                pool = trace.final_pool_size or 0
+                print(f"  pool={pool:<5}  {hit}")
+
+                if v2_trace:
+                    v2_traces.append(v2_trace)
+                    # Per-case v2 metrics
+                    labels = case.get("labels")
+                    gt_dict = case.get("ground_truth", {})
+                    m = compute_v2_metrics(v2_trace, gt_dict, labels)
+                    m["case_id"] = case_id
+                    v2_per_case_metrics.append(m)
+            except Exception as exc:
+                print(f"  ERROR: {exc}")
+                traces.append(EvalTrace(
+                    scenario_id=case_id,
+                    run_id=run_id,
+                    scenario=None,      # type: ignore  – error trace
+                    error=str(exc),
+                    success=False,
+                    pipeline_type="v2",
+                ))
 
     # ── 6. compute summaries ───────────────────────────────────────────────
     valid_traces = [t for t in traces if t.success and t.scenario is not None]
@@ -332,7 +413,7 @@ async def main(args: argparse.Namespace) -> None:
     summary_file = output_dir / f"summary_{tag}.csv"
 
     write_jsonl(valid_traces, traces_file)
-    write_csv_summary(v1_summary, v2_summary, v2_per_case_metrics or None, summary_file)
+    write_csv_summary(v1_summary, v2_summary, v2_per_case_metrics or None, summary_file, percent_used)
 
     # ── 8. print quick summary ─────────────────────────────────────────────
     print()
@@ -393,6 +474,10 @@ def cli() -> argparse.Namespace:
     p.add_argument(
         "--limit", type=int, default=None,
         help="Limit to first N cases (for quick testing)",
+    )
+    p.add_argument(
+        "--percent", type=float, default=None,
+        help="Run on X%% of dataset (e.g., --percent 40 for 40%%). Overrides --limit.",
     )
     return p.parse_args()
 

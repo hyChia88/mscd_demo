@@ -35,6 +35,7 @@ from .visualizations import (
     plot_image_parse_timing,
     plot_vision_impact,
     plot_per_case_heatmap,
+    plot_condition_wise_comparison,
     generate_all_plots,
 )
 
@@ -69,5 +70,6 @@ __all__ = [
     "plot_image_parse_timing",
     "plot_vision_impact",
     "plot_per_case_heatmap",
+    "plot_condition_wise_comparison",
     "generate_all_plots",
 ]

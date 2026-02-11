@@ -62,6 +62,36 @@ experiments:
     tags: [debug, quick]
     git_ref: null
 
+  # Quick test with percentage sampling
+  quick_test_40pct:
+    description: "Quick test with 40% of dataset (scales with dataset size)"
+    profile: v2_prompt
+    conditions: [A1, A2, A3, B1, B2, B3, C1, C2, C3]
+    cases: ../data_curation/datasets/synth_v0.2/cases_v2.jsonl
+    output_dir: logs/experiments/quick_test_40pct
+    percent: 40  # Use 40% of data
+    tags: [debug, quick, percentage]
+    git_ref: null
+
+  # V1 vs V2 comparison experiments (ALL 9 CONDITIONS)
+  v1_baseline_test:
+    description: "V1 agent-driven pipeline across all conditions (A1-C3)"
+    profile: v1_baseline
+    conditions: [A1, A2, A3, B1, B2, B3, C1, C2, C3]
+    cases: ../data_curation/datasets/synth_v0.2/cases_v2.jsonl
+    output_dir: logs/experiments/v1_baseline_test
+    tags: [v1, baseline, comparison, comprehensive]
+    git_ref: null
+
+  v2_prompt_test:
+    description: "V2 constraints-driven pipeline across all conditions (A1-C3)"
+    profile: v2_prompt
+    conditions: [A1, A2, A3, B1, B2, B3, C1, C2, C3]
+    cases: ../data_curation/datasets/synth_v0.2/cases_v2.jsonl
+    output_dir: logs/experiments/v2_prompt_test
+    tags: [v2, comparison, comprehensive]
+    git_ref: null
+
 # Comparison groups - define which experiments to compare
 comparisons:
   vlm_impact:
@@ -74,6 +104,12 @@ comparisons:
     description: "Images vs Floorplan VLM effectiveness"
     experiments: [ablation_images_only, ablation_floorplan_only]
     output_dir: logs/comparisons/ablation
+
+  v1_vs_v2:
+    description: "V1 Agent-Driven vs V2 Constraints-Driven Pipeline Comparison"
+    before: v1_baseline_test
+    after: v2_prompt_test
+    output_dir: logs/comparisons/v1_vs_v2
 
 # Metadata tracking
 tracking:

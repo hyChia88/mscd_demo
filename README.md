@@ -359,6 +359,9 @@ See [experiments.yaml](experiments.yaml) for full configuration.
 
 ## Architecture
 
+**Code Organization Note:**
+V1 components are at `src/` root level (e.g., `main_mcp.py`, `mcp_langchain_adapter.py`), while V2 components are in `src/v2/` subdirectory. This asymmetry exists for historical reasons (V1 developed first, V2 added later). Shared components (`eval/`, `visual/`, `ifc_engine.py`) work for both pipelines. Both produce compatible `EvalTrace` output, enabling unified visualization and comparison.
+
 ### V2 Pipeline (Constraints-Driven)
 
 ```
@@ -426,20 +429,23 @@ mscd_demo/
 │   └── tool_descriptions.yaml   # MCP tool descriptions
 │
 ├── src/
-│   ├── main_mcp.py              # V1 entry point (MCP agent)
-│   ├── chat_cli.py              # Interactive chat CLI
-│   ├── ifc_engine.py            # Core IFC processing engine
-│   ├── pipeline_base.py         # Pipeline abstraction (V1Pipeline, V2Pipeline)
-│   ├── mcp_langchain_adapter.py # MCP to LangChain adapter
+│   ├── # V1 Components (at root level - historical)
+│   ├── main_mcp.py              # [V1] Entry point (MCP agent)
+│   ├── mcp_langchain_adapter.py # [V1] MCP to LangChain adapter
+│   ├── chat_cli.py              # [V1] Interactive chat CLI
 │   │
-│   ├── common/                  # Shared utilities (single source of truth)
+│   ├── # Shared Infrastructure
+│   ├── pipeline_base.py         # [SHARED] Pipeline abstraction (V1Pipeline, V2Pipeline)
+│   ├── ifc_engine.py            # [SHARED] Core IFC processing engine
+│   │
+│   ├── common/                  # [SHARED] Utilities (config, GUID extraction, etc.)
 │   │   ├── config.py            # Config loading, system prompt, LLM init
 │   │   ├── evaluation.py        # Context formatting, evaluation helpers
 │   │   ├── guid.py              # IFC GUID extraction (regex)
 │   │   ├── response_parser.py   # LangGraph response parsing
 │   │   └── mcp.py               # MCP connection helper (async context manager)
 │   │
-│   ├── v2/                      # V2 constraints-driven pipeline
+│   ├── v2/                      # [V2] Constraints-driven pipeline (isolated)
 │   │   ├── types.py             # Data models (Constraints, QueryPlan, V2Trace)
 │   │   ├── condition_mask.py    # A1-C3 input masking
 │   │   ├── constraints_extractor_prompt_only.py  # LLM-based extraction
@@ -449,24 +455,24 @@ mscd_demo/
 │   │   ├── pipeline.py          # V2 pipeline orchestration
 │   │   └── metrics_v2.py        # V2 diagnostic metrics
 │   │
-│   ├── eval/                    # Evaluation framework
-│   │   ├── contracts.py         # Pydantic data models
+│   ├── eval/                    # [SHARED] Evaluation framework (works for V1 & V2)
+│   │   ├── contracts.py         # EvalTrace, ScenarioInput (shared contracts)
 │   │   ├── metrics.py           # Metric functions
 │   │   ├── runner.py            # V1 scenario runner
-│   │   └── visualizations.py    # Plot generators (6 chart types)
+│   │   └── visualizations.py    # Plot generators (6 chart types, works for both)
 │   │
-│   ├── rq2_schema/              # RQ2 schema validation
+│   ├── rq2_schema/              # [SHARED] RQ2 schema validation
 │   │   ├── extract_final_json.py
 │   │   ├── schema_registry.py
 │   │   ├── mapping.py
 │   │   ├── validators.py
 │   │   └── pipeline.py
 │   │
-│   ├── visual/                  # Visual analysis modules
+│   ├── visual/                  # [SHARED] Visual analysis modules
 │   │   ├── image_parser.py      # VLM-based image parsing (cached descriptions)
 │   │   └── aligner.py           # CLIP-based image-to-element matching
 │   │
-│   └── handoff/                 # BCF issue generation
+│   └── handoff/                 # [SHARED] BCF issue generation
 │       ├── trace.py             # Trace builder + shared title/description helpers
 │       ├── bcf_lite.py          # JSON issue output
 │       └── bcf_zip.py           # BCF 2.1 zip generation

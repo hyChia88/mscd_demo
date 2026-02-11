@@ -432,6 +432,19 @@ async def run_one_scenario(
                 # Log but don't fail the trace
                 trace.error = f"RQ2 post-processing error: {rq2_err}"
 
+        # Compute API usage metrics for V1 pipeline
+        # V1 uses ReAct loop: each tool call involves LLM deciding + tool execution
+        # Plus final response generation
+        trace.api_calls_count = len(trace.tool_steps) + 1
+
+        # Cost estimation (Gemini 2.5 Flash pricing)
+        # Assume ~2K input tokens + 500 output tokens per call
+        # Input: $0.00001875/1K, Output: $0.000075/1K
+        input_cost_per_call = 2.0 * 0.00001875  # 2K tokens
+        output_cost_per_call = 0.5 * 0.000075   # 500 tokens
+        cost_per_call = input_cost_per_call + output_cost_per_call
+        trace.api_cost_estimate = trace.api_calls_count * cost_per_call
+
         trace.success = True
 
     except Exception as e:

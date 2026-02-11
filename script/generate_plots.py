@@ -73,8 +73,14 @@ def main():
         if not matches:
             print(f"ERROR: No files match pattern: {args.traces}")
             sys.exit(1)
-        traces_path = sorted(matches)[-1]  # Use latest if multiple
-        print(f"Using traces: {traces_path}")
+        traces_path = sorted(matches)  # Use ALL matching files
+        if len(traces_path) == 1:
+            traces_path = traces_path[0]
+            print(f"Using traces: {traces_path}")
+        else:
+            print(f"Using {len(traces_path)} trace files:")
+            for f in traces_path:
+                print(f"  - {f}")
     else:
         print("ERROR: Must specify --traces or --latest")
         parser.print_help()
@@ -85,8 +91,14 @@ def main():
     if args.before:
         matches = glob(args.before)
         if matches:
-            before_traces_path = sorted(matches)[-1]
-            print(f"Using before traces: {before_traces_path}")
+            before_traces_path = sorted(matches)  # Use ALL matching files
+            if len(before_traces_path) == 1:
+                before_traces_path = before_traces_path[0]
+                print(f"Using before traces: {before_traces_path}")
+            else:
+                print(f"Using {len(before_traces_path)} before trace files:")
+                for f in before_traces_path:
+                    print(f"  - {f}")
         else:
             print(f"WARNING: No files match --before pattern: {args.before}")
 
@@ -97,7 +109,8 @@ def main():
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
         # Extract run info from traces filename if possible
-        traces_basename = Path(traces_path).stem  # e.g., "traces_20240210_143022_v2_prompt"
+        first_trace = traces_path[0] if isinstance(traces_path, list) else traces_path
+        traces_basename = Path(first_trace).stem  # e.g., "traces_20240210_143022_v2_prompt"
         if traces_basename.startswith("traces_"):
             # Extract the profile name and timestamp from traces filename
             parts = traces_basename.split("_")
