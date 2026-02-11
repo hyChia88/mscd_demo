@@ -24,6 +24,65 @@ def get_experiment_description(experiment_mode, query_mode, visual_enabled):
     return base
 
 
+def format_context_string(
+    meta: Dict[str, Any],
+    chat_history: List[Dict[str, str]],
+    query_text: str,
+    image_paths: Optional[List[str]] = None,
+) -> str:
+    """
+    Build the canonical [CONTEXT] / [CHAT HISTORY] / [USER QUERY] string.
+
+    This is the single source of truth for context formatting used by
+    format_test_input(), eval/runner.py:format_scenario_input(), and
+    chat_cli.py.
+
+    Args:
+        meta: Dict with timestamp, sender_role, project_phase, 4d_task_status.
+        chat_history: List of dicts with 'role' and 'text' keys (or objects
+                      with .role / .text attributes).
+        query_text: The user query string.
+        image_paths: Optional resolved image paths to append.
+
+    Returns:
+        Formatted context string.
+    """
+    parts = [
+        "=" * 50,
+        "[CONTEXT]",
+        f"  Timestamp: {_get(meta, 'timestamp', 'N/A')}",
+        f"  Sender Role: {_get(meta, 'sender_role', 'N/A')}",
+        f"  Project Phase: {_get(meta, 'project_phase', 'N/A')}",
+        f"  4D Task Status: {_get(meta, '4d_task_status', _get(meta, 'task_status', 'N/A'))}",
+        "",
+        "[CHAT HISTORY]",
+    ]
+
+    for msg in chat_history:
+        role = _get(msg, "role", "")
+        text = _get(msg, "text", "")
+        parts.append(f"  {role}: {text}")
+
+    parts.extend(["", "[USER QUERY]", f"  {query_text}"])
+
+    if image_paths:
+        parts.append("")
+        parts.append("[ATTACHED IMAGES]")
+        for img_path in image_paths:
+            parts.append(f"  Image path: {img_path}")
+        parts.append("  Note: Use analyze_site_image(image_path) to analyze these images")
+
+    parts.append("=" * 50)
+    return "\n".join(parts)
+
+
+def _get(obj, key: str, default: str = "") -> str:
+    """Get a value from a dict or an object attribute."""
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default) or default
+
+
 def format_test_input(case, image_dir):
     """
     Format a ground truth case into agent input string.
@@ -52,27 +111,6 @@ def format_test_input(case, image_dir):
         chat_history = inputs.get("chat_history", [])
         image_files = [Path(p).name for p in inputs.get("images", [])]
 
-    # Build context string
-    input_parts = [
-        "=" * 50,
-        "[CONTEXT]",
-        f"  Timestamp: {meta.get('timestamp', 'N/A')}",
-        f"  Sender Role: {meta.get('sender_role', 'N/A')}",
-        f"  Project Phase: {meta.get('project_phase', 'N/A')}",
-        f"  4D Task Status: {meta.get('4d_task_status', 'N/A')}",
-        "",
-        "[CHAT HISTORY]"
-    ]
-
-    for msg in chat_history:
-        input_parts.append(f"  {msg['role']}: {msg['text']}")
-
-    input_parts.extend([
-        "",
-        "[USER QUERY]",
-        f"  {case.get('query_text', '')}",
-    ])
-
     # Build image paths
     image_paths = []
     for img_file in image_files:
@@ -82,16 +120,12 @@ def format_test_input(case, image_dir):
         else:
             print(f"Warning: Image not found: {img_path}")
 
-    # Include image paths in the message so agent can analyze them
-    if image_paths:
-        input_parts.append("")
-        input_parts.append("[ATTACHED IMAGES]")
-        for img_path in image_paths:
-            input_parts.append(f"  Image path: {img_path}")
-        input_parts.append("  Note: Use analyze_site_image(image_path) to analyze these images")
-
-    input_parts.append("=" * 50)
-    formatted_input = "\n".join(input_parts)
+    formatted_input = format_context_string(
+        meta=meta,
+        chat_history=chat_history,
+        query_text=case.get("query_text", ""),
+        image_paths=image_paths,
+    )
 
     return formatted_input, image_paths
 

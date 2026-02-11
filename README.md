@@ -155,10 +155,6 @@ python src/main_mcp.py --experiment neo4j         # Neo4j graph queries
 python src/main_mcp.py --experiment memory+clip   # In-memory + CLIP
 python src/main_mcp.py --experiment neo4j+clip    # Neo4j + CLIP
 
-# Evaluation pipeline with custom options
-python script/eval_pipeline.py --config config.yaml
-python script/eval_pipeline.py --gt data/ground_truth/gt_1/gt_1.json
-python script/eval_pipeline.py --scenarios 2      # Run first N only
 ```
 
 ### Run All Experiments and Compare
@@ -405,11 +401,12 @@ Input Case
 ### Shared Components
 
 Both pipelines share these components:
+- **`common/`** — Centralized utilities: config/LLM init, context formatting, GUID extraction, MCP connection helper
 - **IFCEngine** — IFC model loading, spatial index, property extraction
 - **ImageParserReader** — VLM-based image parsing (Gemini 2.5 Flash), structured descriptions with caching
 - **VisualAligner** — CLIP-based image-to-element matching
 - **RQ2 Schema Pipeline** — Schema validation of structured outputs
-- **BCF Handoff** — BCF 2.1 issue file generation
+- **BCF Handoff** — BCF 2.1 issue file generation (shared title/description builders in `trace.py`)
 - **Eval Contracts** — Shared data models (`EvalTrace`, `ScenarioInput`, etc.)
 
 ---
@@ -434,6 +431,13 @@ mscd_demo/
 │   ├── ifc_engine.py            # Core IFC processing engine
 │   ├── pipeline_base.py         # Pipeline abstraction (V1Pipeline, V2Pipeline)
 │   ├── mcp_langchain_adapter.py # MCP to LangChain adapter
+│   │
+│   ├── common/                  # Shared utilities (single source of truth)
+│   │   ├── config.py            # Config loading, system prompt, LLM init
+│   │   ├── evaluation.py        # Context formatting, evaluation helpers
+│   │   ├── guid.py              # IFC GUID extraction (regex)
+│   │   ├── response_parser.py   # LangGraph response parsing
+│   │   └── mcp.py               # MCP connection helper (async context manager)
 │   │
 │   ├── v2/                      # V2 constraints-driven pipeline
 │   │   ├── types.py             # Data models (Constraints, QueryPlan, V2Trace)
@@ -463,9 +467,9 @@ mscd_demo/
 │   │   └── aligner.py           # CLIP-based image-to-element matching
 │   │
 │   └── handoff/                 # BCF issue generation
-│       ├── trace.py
-│       ├── bcf_lite.py
-│       └── bcf_zip.py
+│       ├── trace.py             # Trace builder + shared title/description helpers
+│       ├── bcf_lite.py          # JSON issue output
+│       └── bcf_zip.py           # BCF 2.1 zip generation
 │
 ├── mcp_servers/
 │   └── ifc_server.py            # MCP server with IFC + visual tools
@@ -483,7 +487,6 @@ mscd_demo/
 │   ├── experiment.py            # Experiment management orchestrator
 │   ├── generate_plots.py        # Visualization generator
 │   ├── compare_results.py       # Compare eval results across experiments
-│   ├── eval_pipeline.py         # V1 evaluation pipeline
 │   ├── baseline_experiment.py   # Redundancy quantification
 │   └── ...
 │

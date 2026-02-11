@@ -22,6 +22,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 from xml.etree import ElementTree as ET
 
+from handoff.trace import build_issue_title, build_issue_description
+
 
 def _generate_uuid() -> str:
     """Generate a BCF-style UUID (uppercase, no hyphens in some contexts)."""
@@ -170,28 +172,10 @@ def write_bcfzip(out_dir: str, trace: Dict[str, Any]) -> str:
 
     inputs = trace.get("inputs", {})
     images = inputs.get("images", [])
-    user_input = inputs.get("user_input", "")
 
-    ground_truth = trace.get("ground_truth", {})
-    schema = trace.get("schema", {})
-
-    # Build title and description
-    title = f"{case_id}: {ground_truth.get('target_element_name', 'BIM Issue')}"
-    if len(title) > 80:
-        title = title[:77] + "..."
-
-    description_parts = [
-        f"Query: {user_input}",
-        f"Element GUID: {element_guid or '(none)'}",
-    ]
-
-    validation = schema.get("validation", {})
-    if validation.get("passed"):
-        description_parts.append(f"Validation: PASSED ({validation.get('fill_rate', 0):.0%})")
-    elif validation.get("errors"):
-        description_parts.append(f"Validation: FAILED - {', '.join(validation.get('errors', []))}")
-
-    description = "\n".join(description_parts)
+    # Title and description from shared helpers
+    title = build_issue_title(trace)
+    description = build_issue_description(trace, compact=True)
 
     # Trace URI for reproducibility
     trace_uri = f"outputs/traces/{run_id}/{case_id}.trace.json"

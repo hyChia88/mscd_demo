@@ -16,98 +16,49 @@ Commands:
     - 'load <id>' - Load scenario context (e.g., 'load GT_007')
 """
 
-import os
-import sys
-import json
 import asyncio
 import argparse
-from pathlib import Path
 from dotenv import load_dotenv
 
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.prebuilt import create_react_agent
 
-# MCP imports
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
-
-from common.config import load_config, load_system_prompt, load_ground_truth, get_base_dir
+from common.config import load_config, load_system_prompt, load_ground_truth, get_base_dir, init_llm
+from common.evaluation import format_context_string
+from common.mcp import mcp_session
 
 load_dotenv()
 
-# Try official adapter first, fall back to custom
-try:
-    from langchain_mcp_adapters import convert_mcp_to_langchain_tools
-    print("[MCP] Using official langchain-mcp-adapters", file=sys.stderr)
-except ImportError:
-    from mcp_langchain_adapter import convert_mcp_to_langchain_tools
-    print("[MCP] Using custom MCP-LangChain adapter", file=sys.stderr)
-
 
 def format_scenario_context(scenario: dict) -> str:
-    """Format a ground truth scenario into context string (simulates real 4D task)"""
+    """Format a ground truth scenario into context string (simulates real 4D task)."""
     context = scenario.get("context_payload", {})
-    meta = context.get("meta", {})
-
-    parts = [
-        "=" * 50,
-        "[CONTEXT]",
-        f"  Timestamp: {meta.get('timestamp', 'N/A')}",
-        f"  Sender Role: {meta.get('sender_role', 'N/A')}",
-        f"  Project Phase: {meta.get('project_phase', 'N/A')}",
-        f"  4D Task Status: {meta.get('4d_task_status', 'N/A')}",
-        "",
-        "[CHAT HISTORY]"
-    ]
-    for msg in context.get("chat_history", []):
-        parts.append(f"  {msg['role']}: {msg['text']}")
-    parts.extend(["", "[USER QUERY]", f"  {scenario.get('query_text', '')}", "=" * 50])
-    return "\n".join(parts)
+    return format_context_string(
+        meta=context.get("meta", {}),
+        chat_history=context.get("chat_history", []),
+        query_text=scenario.get("query_text", ""),
+    )
 
 
 async def main_async(args):
     """Main async interactive session with MCP tools"""
 
     config = load_config()
-    llm_config = config.get("llm", {})
 
     print("\n" + "=" * 70)
     print("  BIM Inspection Agent - Interactive MCP Chat")
     print("=" * 70)
     print("\nInitializing MCP connection...")
 
-    # MCP server configuration
-    python_exe = sys.executable
-    ifc_server_path = str(get_base_dir() / "mcp_servers" / "ifc_server.py")
-
-    server_params = StdioServerParameters(
-        command=python_exe,
-        args=[ifc_server_path],
-        env=None
-    )
-
-    async with stdio_client(server_params) as (read, write):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-
-            # Get MCP tools
-            tools_result = await session.list_tools()
-            if not tools_result or not tools_result.tools:
-                print("No MCP tools found. Exiting.")
-                return
-
-            langchain_tools = convert_mcp_to_langchain_tools(tools_result.tools, session)
+    async with mcp_session(get_base_dir()) as ctx:
+            langchain_tools = ctx.tools
+            tools_result = ctx.tools_result
 
             print(f"Connected to MCP server with {len(langchain_tools)} tools:")
             for tool in tools_result.tools:
                 print(f"  - {tool.name}")
 
             # Setup LLM
-            llm = ChatGoogleGenerativeAI(
-                model=llm_config.get("model", "gemini-2.5-flash"),
-                temperature=llm_config.get("temperature", 0),
-                max_retries=llm_config.get("max_retries", 2),
-            )
+            llm = init_llm(config)
 
             # Load system prompt
             try:

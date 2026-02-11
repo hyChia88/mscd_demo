@@ -26,7 +26,7 @@ from .contracts import (
     ToolStepRecord,
 )
 from common.guid import extract_guids_from_text
-from common.evaluation import compute_gt_matches
+from common.evaluation import compute_gt_matches, format_context_string
 
 # RQ2 imports (optional - only used if rq2_schema is available)
 try:
@@ -41,27 +41,13 @@ except ImportError:
 def format_scenario_input(scenario: ScenarioInput) -> str:
     """
     Format scenario into agent input string.
-    Matches existing format_test_input() pattern from main_mcp.py.
+    Delegates to the canonical format_context_string() in common.evaluation.
     """
-    meta = scenario.context_meta
-
-    parts = [
-        "=" * 50,
-        "[CONTEXT]",
-        f"  Timestamp: {meta.timestamp}",
-        f"  Sender Role: {meta.sender_role}",
-        f"  Project Phase: {meta.project_phase}",
-        f"  4D Task Status: {meta.task_status or 'N/A'}",
-        "",
-        "[CHAT HISTORY]",
-    ]
-
-    for msg in scenario.chat_history:
-        parts.append(f"  {msg.role}: {msg.text}")
-
-    parts.extend(["", "[USER QUERY]", f"  {scenario.query_text}", "=" * 50])
-
-    return "\n".join(parts)
+    return format_context_string(
+        meta=scenario.context_meta,
+        chat_history=scenario.chat_history,
+        query_text=scenario.query_text,
+    )
 
 
 

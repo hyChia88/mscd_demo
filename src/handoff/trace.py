@@ -176,3 +176,75 @@ def write_trace_json(trace: Dict[str, Any], out_dir: str = "outputs/traces") -> 
         json.dump(trace, f, indent=2, ensure_ascii=False, default=str)
 
     return str(trace_path)
+
+
+def build_issue_title(trace: Dict[str, Any]) -> str:
+    """
+    Build a human-readable issue title from a trace dict.
+
+    Shared by bcf_lite.py and bcf_zip.py.
+    """
+    case_id = trace.get("case_id", "unknown")
+    ground_truth = trace.get("ground_truth", {})
+    title = f"{case_id}: {ground_truth.get('target_element_name', 'BIM Issue')}"
+    if len(title) > 80:
+        title = title[:77] + "..."
+    return title
+
+
+def build_issue_description(trace: Dict[str, Any], compact: bool = False) -> str:
+    """
+    Build a human-readable issue description from a trace dict.
+
+    Shared by bcf_lite.py and bcf_zip.py.
+
+    Args:
+        trace: Trace dictionary from build_trace().
+        compact: If True, produce a shorter description (used by bcf_zip).
+                 If False, include GUID source and evidence images (used by bcf_lite).
+    """
+    prediction = trace.get("prediction", {})
+    element_guid = prediction.get("element_guid", "")
+    inputs = trace.get("inputs", {})
+    user_input = inputs.get("user_input", "")
+    schema = trace.get("schema", {})
+    validation = schema.get("validation", {})
+
+    if compact:
+        parts = [
+            f"Query: {user_input}",
+            f"Element GUID: {element_guid or '(none)'}",
+        ]
+    else:
+        guid_source = prediction.get("guid_source", "none")
+        parts = [
+            f"Original Query: {user_input}",
+            "",
+            f"Selected Element GUID: {element_guid or '(none found)'}",
+            f"GUID Source: {guid_source}",
+        ]
+
+    # Validation status
+    if validation.get("passed"):
+        fill = validation.get("fill_rate", 0)
+        label = "Validation" if compact else "Schema Validation"
+        parts.append(f"{label}: PASSED ({fill:.0%})" if compact
+                     else f"{label}: PASSED (fill rate: {fill:.0%})")
+    elif validation.get("errors"):
+        errors = ", ".join(validation.get("errors", []))
+        if compact:
+            parts.append(f"Validation: FAILED - {errors}")
+        else:
+            parts.append("Schema Validation: FAILED")
+            parts.append(f"Errors: {errors}")
+
+    # Evidence images (detailed mode only)
+    if not compact:
+        images = inputs.get("images", [])
+        if images:
+            parts.append("")
+            parts.append(f"Evidence Images: {len(images)}")
+            for img in images:
+                parts.append(f"  - {img}")
+
+    return "\n".join(parts)

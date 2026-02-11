@@ -14,6 +14,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
+from handoff.trace import build_issue_title, build_issue_description
+
 
 def write_issue_json(out_dir: str, trace: Dict[str, Any]) -> str:
     """
@@ -48,42 +50,16 @@ def write_issue_json(out_dir: str, trace: Dict[str, Any]) -> str:
     guid_source = prediction.get("guid_source", "none")
 
     inputs = trace.get("inputs", {})
-    user_input = inputs.get("user_input", "")
     images = inputs.get("images", [])
 
     schema = trace.get("schema", {})
     evaluation = trace.get("evaluation", {})
     ground_truth = trace.get("ground_truth", {})
-
-    # Build title
-    title = f"{case_id}: {ground_truth.get('target_element_name', 'BIM Issue')}"
-    if len(title) > 80:
-        title = title[:77] + "..."
-
-    # Build description
-    description_parts = [
-        f"Original Query: {user_input}",
-        f"",
-        f"Selected Element GUID: {element_guid or '(none found)'}",
-        f"GUID Source: {guid_source}",
-    ]
-
-    # Add validation status
     validation = schema.get("validation", {})
-    if validation.get("passed"):
-        description_parts.append(f"Schema Validation: PASSED (fill rate: {validation.get('fill_rate', 0):.0%})")
-    elif validation.get("errors"):
-        description_parts.append(f"Schema Validation: FAILED")
-        description_parts.append(f"Errors: {', '.join(validation.get('errors', []))}")
 
-    # Add evidence
-    if images:
-        description_parts.append(f"")
-        description_parts.append(f"Evidence Images: {len(images)}")
-        for img in images:
-            description_parts.append(f"  - {img}")
-
-    description = "\n".join(description_parts)
+    # Title and description from shared helpers
+    title = build_issue_title(trace)
+    description = build_issue_description(trace, compact=False)
 
     # Build trace URI (relative path)
     trace_uri = f"outputs/traces/{run_id}/{case_id}.trace.json"

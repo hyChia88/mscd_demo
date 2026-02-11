@@ -153,15 +153,10 @@ def init_engine(config: Dict[str, Any]):
 
 
 def init_llm(config: Dict[str, Any]):
-    """Return a LangChain LLM from config."""
-    from langchain_google_genai import ChatGoogleGenerativeAI
+    """Return a LangChain LLM from config. Delegates to common.config.init_llm."""
+    from src.common.config import init_llm as _init_llm
 
-    llm_cfg = config.get("llm", {})
-    return ChatGoogleGenerativeAI(
-        model=llm_cfg.get("model", "gemini-2.5-flash"),
-        temperature=llm_cfg.get("temperature", 0),
-        max_retries=llm_cfg.get("max_retries", 2),
-    )
+    return _init_llm(config)
 
 
 def init_visual_aligner(use_clip: bool):

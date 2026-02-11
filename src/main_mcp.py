@@ -19,7 +19,6 @@ Usage:
 """
 
 import os
-import sys
 import time
 import json
 import asyncio
@@ -29,32 +28,13 @@ from dotenv import load_dotenv
 from datetime import datetime
 
 # LangChain and LangGraph imports
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.prebuilt import create_react_agent
-from langchain_core.messages import SystemMessage
 
-# MCP imports
-try:
-    from mcp import ClientSession, StdioServerParameters
-    from mcp.client.stdio import stdio_client
-    MCP_AVAILABLE = True
-except ImportError:
-    print("Warning: MCP dependencies not installed. Please run: pip install -r requirements.txt")
-    MCP_AVAILABLE = False
-    sys.exit(1)
-
-# Try to import langchain-mcp-adapters, fall back to custom adapter
-try:
-    from langchain_mcp_adapters import convert_mcp_to_langchain_tools
-    print("[MCP] Using official langchain-mcp-adapters", file=sys.stderr)
-except ImportError:
-    from mcp_langchain_adapter import convert_mcp_to_langchain_tools
-    print("[MCP] Using custom MCP-LangChain adapter", file=sys.stderr)
-
+from common.mcp import mcp_session
 from chat_logger import ConversationLogger
 
 # Common utilities (consolidated from former local functions)
-from common.config import load_config, load_system_prompt, load_ground_truth, get_base_dir
+from common.config import load_config, load_system_prompt, load_ground_truth, get_base_dir, init_llm
 from common.guid import extract_guids_from_text
 from common.response_parser import extract_response_content, apply_guid_fallback, handle_empty_response
 from common.evaluation import format_test_input, evaluate_response, get_experiment_description
@@ -102,12 +82,7 @@ async def main_async(args=None):
     logger = ConversationLogger()
 
     # Setup LLM from config
-    llm_config = config.get("llm", {})
-    llm = ChatGoogleGenerativeAI(
-        model=llm_config.get("model", "gemini-2.5-flash"),
-        temperature=llm_config.get("temperature", 0),
-        max_retries=llm_config.get("max_retries", 2),
-    )
+    llm = init_llm(config)
 
     # Load system prompt from config
     agent_config = config.get("agent", {})
@@ -116,10 +91,6 @@ async def main_async(args=None):
     except FileNotFoundError as e:
         print(f"⚠️  Warning: {e}")
         system_prompt = "You are a helpful BIM inspection assistant. Use the available tools to help users query the IFC model."
-
-    # Define MCP server configuration
-    python_exe = sys.executable
-    ifc_server_path = str(base_dir / "mcp_servers" / "ifc_server.py")
 
     # Ground truth / dataset configuration
     # Priority: --cases > --dataset > config.yaml
@@ -200,36 +171,16 @@ async def main_async(args=None):
         print(f"   Query Mode: CONFIG (from config.yaml)")
     print("="*70)
 
-    server_params = StdioServerParameters(
-        command=python_exe,
-        args=[ifc_server_path],
-        env=server_env
-    )
-
     # Connect to MCP server and run agent INSIDE the session context
-    async with stdio_client(server_params) as (read, write):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
+    async with mcp_session(base_dir, env=server_env) as ctx:
+            langchain_tools = ctx.tools
+            tool_by_name = ctx.tool_by_name
+
             print("✅ Connected to IFC Query Service")
-
-            # List available tools
-            tools_result = await session.list_tools()
-
-            if not tools_result or not tools_result.tools:
-                print("❌ No tools found. Cannot proceed.")
-                return
-
-            print(f"   Found {len(tools_result.tools)} tools:")
-            for tool in tools_result.tools:
+            print(f"   Found {len(ctx.tools_result.tools)} tools:")
+            for tool in ctx.tools_result.tools:
                 desc = tool.description[:60] if tool.description else "No description"
                 print(f"      - {tool.name}: {desc}...")
-
-            # Convert MCP tools to LangChain tools
-            langchain_tools = convert_mcp_to_langchain_tools(tools_result.tools, session)
-
-            # RQ2: Build tool lookup map for post-processing
-            tool_by_name = {t.name: t for t in langchain_tools}
-
             print(f"\n✅ {len(langchain_tools)} tools loaded from MCP server")
             print("="*70 + "\n")
 
@@ -587,13 +538,7 @@ Run all experiments in sequence:
 
 def main():
     """Synchronous entry point"""
-    if not MCP_AVAILABLE:
-        print("❌ MCP dependencies not available. Install with: pip install -r requirements.txt")
-        return
-
     args = parse_args()
-
-    # Run the async main function with args
     asyncio.run(main_async(args))
 
 

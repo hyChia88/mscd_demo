@@ -135,3 +135,28 @@ def load_ground_truth(file_path: str = "data/ground_truth/gt_1/gt_1.json") -> Li
     # Single JSON array file (gt_1.json)
     with open(gt_path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def init_llm(config: Dict[str, Any]):
+    """
+    Create a LangChain LLM instance from config.
+
+    Consolidates identical ChatGoogleGenerativeAI initialisation from:
+    - main_mcp.py
+    - chat_cli.py
+    - script/run.py
+
+    Args:
+        config: Top-level config dict (reads the ``llm`` section).
+
+    Returns:
+        ChatGoogleGenerativeAI instance.
+    """
+    from langchain_google_genai import ChatGoogleGenerativeAI
+
+    llm_cfg = config.get("llm", {})
+    return ChatGoogleGenerativeAI(
+        model=llm_cfg.get("model", "gemini-2.5-flash"),
+        temperature=llm_cfg.get("temperature", 0),
+        max_retries=llm_cfg.get("max_retries", 2),
+    )
