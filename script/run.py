@@ -35,6 +35,7 @@ from dotenv import load_dotenv
 # Ensure project root is importable
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 # Load .env from project root (for GOOGLE_API_KEY etc.)
 load_dotenv(PROJECT_ROOT / ".env")
@@ -206,6 +207,11 @@ async def main(args: argparse.Namespace) -> None:
         print(f"Filtered to {len(cases)} cases with condition={args.condition}")
     else:
         print(f"Loaded {len(cases)} cases (all conditions)")
+
+    # Apply limit if specified
+    if args.limit is not None and args.limit > 0:
+        cases = cases[:args.limit]
+        print(f"Limited to first {len(cases)} cases")
 
     if not cases:
         print("No cases matched — exiting.")
@@ -388,6 +394,10 @@ def cli() -> argparse.Namespace:
     p.add_argument(
         "--profiles", default="profiles.yaml",
         help="Path to profiles.yaml",
+    )
+    p.add_argument(
+        "--limit", type=int, default=None,
+        help="Limit to first N cases (for quick testing)",
     )
     return p.parse_args()
 

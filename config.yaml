@@ -30,7 +30,8 @@ ground_truth:
   # Path to ground truth JSON file (relative to project root)
   file: "data/ground_truth/gt_1/gt_1.json"
   # Path to ground truth images directory (relative to project root)
-  image_dir: "data/ground_truth/gt_1/imgs"
+  # For synthetic dataset (synth_v0.2): use parent directory of project
+  image_dir: "../data_curation"
 
 # -----------------------------------------------------------------------------
 # LLM Configuration

@@ -1,0 +1,83 @@
+# Experiment Configuration for Master Thesis
+# Each experiment has a unique name, description, and parameters
+
+experiments:
+  # Baseline: V2 without VLM (before fix)
+  baseline_v2:
+    description: "V2 constraints-driven pipeline without VLM image parsing"
+    profile: v2_prompt
+    conditions: [A1, B1, C1]
+    cases: ../data_curation/datasets/synth_v0.2/cases_v2.jsonl
+    output_dir: logs/experiments/baseline_v2
+    tags: [baseline, no-vlm]
+    git_ref: null  # Use current code
+
+  # Main experiment: V2 with VLM fix
+  vlm_integration:
+    description: "V2 pipeline with Gemini VLM for image parsing (THE FIX)"
+    profile: v2_prompt
+    conditions: [A1, B1, C1]
+    cases: ../data_curation/datasets/synth_v0.2/cases_v2.jsonl
+    output_dir: logs/experiments/vlm_integration
+    tags: [main, vlm-enabled]
+    git_ref: null  # Use current code
+
+  # Extended test: All conditions
+  vlm_full_test:
+    description: "Full evaluation across all 9 conditions (A1-C3)"
+    profile: v2_prompt
+    conditions: [A1, A2, A3, B1, B2, B3, C1, C2, C3]
+    cases: ../data_curation/datasets/synth_v0.2/cases_v2.jsonl
+    output_dir: logs/experiments/vlm_full
+    tags: [comprehensive, vlm-enabled]
+    git_ref: null
+
+  # Ablation study: Images vs Floorplan
+  ablation_images_only:
+    description: "Ablation: VLM on images only (B conditions)"
+    profile: v2_prompt
+    conditions: [B1, B2, B3]
+    cases: ../data_curation/datasets/synth_v0.2/cases_v2.jsonl
+    output_dir: logs/experiments/ablation_images
+    tags: [ablation, images-only]
+    git_ref: null
+
+  ablation_floorplan_only:
+    description: "Ablation: VLM on floorplan only (C conditions)"
+    profile: v2_prompt
+    conditions: [C1, C2, C3]
+    cases: ../data_curation/datasets/synth_v0.2/cases_v2.jsonl
+    output_dir: logs/experiments/ablation_floorplan
+    tags: [ablation, floorplan-only]
+    git_ref: null
+
+  # Quick test: Subset for debugging
+  quick_test:
+    description: "Quick test with 5 cases for debugging"
+    profile: v2_prompt
+    conditions: [B1]
+    cases: ../data_curation/datasets/synth_v0.2/cases_v2.jsonl
+    output_dir: logs/experiments/quick_test
+    limit: 5
+    tags: [debug, quick]
+    git_ref: null
+
+# Comparison groups - define which experiments to compare
+comparisons:
+  vlm_impact:
+    description: "Before/After VLM Integration"
+    before: baseline_v2
+    after: vlm_integration
+    output_dir: logs/comparisons/vlm_impact
+
+  ablation_study:
+    description: "Images vs Floorplan VLM effectiveness"
+    experiments: [ablation_images_only, ablation_floorplan_only]
+    output_dir: logs/comparisons/ablation
+
+# Metadata tracking
+tracking:
+  log_git_info: true      # Record git commit, branch, diff
+  log_conda_env: true     # Record conda environment
+  log_timestamps: true    # Record start/end times
+  save_config: true       # Save experiment config with results

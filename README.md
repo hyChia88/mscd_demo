@@ -264,6 +264,101 @@ python script/test_bcf_generation.py
 python script/test_visual_aligner.py
 ```
 
+### Generating Evaluation Plots
+
+After running evaluations, generate publication-ready visualizations:
+
+```bash
+# Auto-generate plots from latest evaluation
+conda run -n mscd_demo python script/generate_plots.py --latest
+
+# Compare before/after VLM integration
+conda run -n mscd_demo python script/generate_plots.py \
+  --traces logs/evaluations/new_pipeline/traces_*.jsonl \
+  --before logs/evaluations/old_pipeline/traces_*.jsonl
+```
+
+**Output**: Plots saved to `logs/plots/<timestamp>_<profile>/`
+
+**Available charts**:
+- Top-1 Accuracy by Condition
+- Search Space Reduction (funnel chart — **key metric for thesis**)
+- Constraints Parse Rate
+- Image Parse Timing (VLM overhead)
+- Vision Impact (before/after comparison)
+- Per-Case Success Heatmap
+
+**For thesis**: All plots are 300 DPI PNG files ready for LaTeX/Word.
+
+See [logs/plots/PLOTS_README.md](logs/plots/PLOTS_README.md) for detailed usage and examples.
+
+### Experiment Management
+
+For systematic experiment tracking and reproducibility, use the experiment management system:
+
+**Define experiments in `experiments.yaml`:**
+```yaml
+experiments:
+  vlm_integration:
+    description: "V2 pipeline with Gemini VLM for image parsing"
+    profile: v2_prompt
+    conditions: [A1, B1, C1]
+    cases: data_curation/datasets/synth_v0.2/cases_v2.jsonl
+    output_dir: logs/experiments/vlm_integration
+    tags: [main, vlm-enabled]
+```
+
+**Run experiments:**
+```bash
+# List all available experiments
+python script/experiment.py list
+
+# Run a single experiment
+python script/experiment.py run vlm_integration
+
+# Run multiple experiments and compare
+python script/experiment.py run baseline_v2 vlm_integration --compare vlm_impact
+
+# Quick test (5 cases)
+python script/experiment.py run quick_test
+```
+
+**One-click VLM comparison (main thesis experiment):**
+```bash
+./run_vlm_comparison.sh
+```
+
+This will:
+1. Run baseline evaluation (before VLM fix)
+2. Run VLM-enabled evaluation (after VLM fix)
+3. Generate comparison plots automatically
+
+Results saved to:
+- `logs/experiments/baseline_v2/` - Baseline results
+- `logs/experiments/vlm_integration/` - VLM results
+- `logs/comparisons/vlm_impact/` - Comparison plots
+
+**Experiment metadata tracking:**
+
+Each experiment automatically saves:
+- Git commit hash and branch
+- Uncommitted changes (diff)
+- Conda environment snapshot
+- Experiment configuration
+- Start/end timestamps
+
+This ensures **full reproducibility** — you can regenerate any result months later.
+
+**Available experiments:**
+- `quick_test` - 5 cases for debugging (B1 only)
+- `baseline_v2` - V2 without VLM (A1, B1, C1)
+- `vlm_integration` - V2 with VLM fix (A1, B1, C1)
+- `vlm_full_test` - All 9 conditions (A1-C3)
+- `ablation_images_only` - VLM on images only (B1-B3)
+- `ablation_floorplan_only` - VLM on floorplan only (C1-C3)
+
+See [experiments.yaml](experiments.yaml) for full configuration.
+
 ---
 
 ## Architecture
@@ -277,8 +372,11 @@ Input Case (chat + images + 4D context)
   ConditionMask           Apply A1-C3 modality masking
         |
         v
-  ConstraintsExtractor    Extract storey, ifc_class, keywords (prompt or LoRA)
+  ImageParserReader       VLM-based image parsing (cached, structured descriptions)
         |
+        v
+  ConstraintsExtractor    Extract storey, ifc_class, keywords (prompt or LoRA)
+        |                 Uses pre-parsed image semantics
         v
   QueryPlanner            Deterministic template-based query plans
         |
@@ -308,6 +406,7 @@ Input Case
 
 Both pipelines share these components:
 - **IFCEngine** — IFC model loading, spatial index, property extraction
+- **ImageParserReader** — VLM-based image parsing (Gemini 2.5 Flash), structured descriptions with caching
 - **VisualAligner** — CLIP-based image-to-element matching
 - **RQ2 Schema Pipeline** — Schema validation of structured outputs
 - **BCF Handoff** — BCF 2.1 issue file generation
@@ -321,9 +420,11 @@ Both pipelines share these components:
 mscd_demo/
 ├── config.yaml                  # IFC path, Neo4j, LLM settings
 ├── profiles.yaml                # Experiment profiles and conditions
+├── experiments.yaml             # Experiment definitions for reproducibility
 │
 ├── prompts/                     # Centralized prompt templates
 │   ├── constraints_extraction.yaml  # V2 constraints extraction prompts
+│   ├── image_parsing.yaml       # VLM-based image parsing prompts (site photos & floorplans)
 │   ├── system_prompt.yaml       # V1 agent system prompt
 │   └── tool_descriptions.yaml   # MCP tool descriptions
 │
@@ -347,7 +448,8 @@ mscd_demo/
 │   ├── eval/                    # Evaluation framework
 │   │   ├── contracts.py         # Pydantic data models
 │   │   ├── metrics.py           # Metric functions
-│   │   └── runner.py            # V1 scenario runner
+│   │   ├── runner.py            # V1 scenario runner
+│   │   └── visualizations.py    # Plot generators (6 chart types)
 │   │
 │   ├── rq2_schema/              # RQ2 schema validation
 │   │   ├── extract_final_json.py
@@ -356,8 +458,9 @@ mscd_demo/
 │   │   ├── validators.py
 │   │   └── pipeline.py
 │   │
-│   ├── visual/                  # CLIP visual analysis
-│   │   └── aligner.py
+│   ├── visual/                  # Visual analysis modules
+│   │   ├── image_parser.py      # VLM-based image parsing (cached descriptions)
+│   │   └── aligner.py           # CLIP-based image-to-element matching
 │   │
 │   └── handoff/                 # BCF issue generation
 │       ├── trace.py
@@ -377,15 +480,25 @@ mscd_demo/
 │
 ├── script/
 │   ├── run.py                   # Unified evaluation runner (v1 + v2)
+│   ├── experiment.py            # Experiment management orchestrator
+│   ├── generate_plots.py        # Visualization generator
 │   ├── compare_results.py       # Compare eval results across experiments
 │   ├── eval_pipeline.py         # V1 evaluation pipeline
 │   ├── baseline_experiment.py   # Redundancy quantification
 │   └── ...
 │
+├── run_experiment.sh            # Quick experiment runner
+├── run_vlm_comparison.sh        # One-click VLM before/after comparison
+│
 ├── test/
 │   └── test_v2_smoke.py         # V2 smoke tests (17 tests)
 │
-├── logs/evaluations/            # Output traces + summaries
+├── logs/
+│   ├── evaluations/             # Ad-hoc evaluation runs (traces + summaries)
+│   ├── experiments/             # Organized experiment results with metadata
+│   ├── comparisons/             # Comparison plots between experiments
+│   └── plots/                   # Generated visualization charts
+│
 └── outputs/                     # BCF artifacts, renders
 ```
 
@@ -559,6 +672,7 @@ python script/ifc_to_neo4j.py
 |-----------|------------|
 | IFC Processing | IfcOpenShell |
 | LLM Agent | Google Gemini 2.5 Flash |
+| Image Parsing (VLM) | Google Gemini 2.5 Flash (multimodal) |
 | Visual Matching | OpenAI CLIP |
 | Data Models | Pydantic v2 |
 | MCP Server | FastMCP |

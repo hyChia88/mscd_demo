@@ -28,6 +28,15 @@ from .metrics import (
     compute_summary,
 )
 from .runner import run_one_scenario
+from .visualizations import (
+    plot_accuracy_by_condition,
+    plot_search_space_reduction,
+    plot_constraints_parse_rate,
+    plot_image_parse_timing,
+    plot_vision_impact,
+    plot_per_case_heatmap,
+    generate_all_plots,
+)
 
 __all__ = [
     # Contracts
@@ -53,4 +62,12 @@ __all__ = [
     "compute_summary",
     # Runner
     "run_one_scenario",
+    # Visualizations
+    "plot_accuracy_by_condition",
+    "plot_search_space_reduction",
+    "plot_constraints_parse_rate",
+    "plot_image_parse_timing",
+    "plot_vision_impact",
+    "plot_per_case_heatmap",
+    "generate_all_plots",
 ]

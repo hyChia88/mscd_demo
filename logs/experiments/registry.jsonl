@@ -1,0 +1,1 @@
+{"experiment_name": "quick_test", "timestamp": "2026-02-10T19:40:20.394035", "output_dir": "logs/experiments/quick_test", "profile": "v2_prompt", "conditions": ["B1"], "tags": ["debug", "quick"], "git_commit": "60d1dd96"}
