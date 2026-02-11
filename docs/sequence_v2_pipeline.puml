@@ -1,0 +1,77 @@
+@startuml MSCD_Demo_Sequence_V2
+!theme plain
+title **V2 Pipeline -- Constraints-Driven**
+
+participant "run.py"             as RUN
+participant "ConditionMask"      as MASK
+participant "ImageParser\n(VLM)" as IMG
+participant "Gemini LLM"         as LLM
+participant "Constraints\nExtractor" as CEXT
+participant "QueryPlanner"       as QPLAN
+participant "Retrieval\nBackend" as RET
+participant "IFCEngine"          as ENG
+participant "Neo4j"              as NEO
+participant "CLIP\n(reranker)"   as CLIP
+participant "RQ2 Pipeline"       as RQ2
+
+activate RUN
+
+loop for each case
+    ' Step 1: Condition Mask
+    RUN -> MASK : apply(case, overrides)
+    MASK --> RUN : masked case
+
+    ' Step 2: VLM Image Parsing
+    opt images enabled
+        RUN -> IMG : parse images
+        IMG -> LLM : VLM call (image)
+        LLM --> IMG : description, ifc_class
+        IMG --> RUN : ImageParseResult
+    end
+
+    ' Step 3: Constraints Extraction
+    RUN -> CEXT : extract(case, image_context)
+    activate CEXT
+    alt prompt mode
+        CEXT -> LLM : structured extraction
+        LLM --> CEXT : constraints JSON
+    else lora mode
+        CEXT -> CEXT : LoRA inference
+    end
+    CEXT --> RUN : Constraints
+    deactivate CEXT
+
+    ' Step 4: Query Planning
+    RUN -> QPLAN : plan(constraints)
+    QPLAN --> RUN : QueryPlan[] (priority-ordered)
+
+    ' Step 5: Retrieval
+    RUN -> RET : execute(plan, images)
+    activate RET
+    alt memory mode
+        RET -> ENG : spatial index lookup
+        ENG --> RET : candidates
+    else neo4j mode
+        RET -> NEO : Cypher query
+        NEO --> RET : candidates
+    end
+    opt CLIP reranking
+        RET -> CLIP : rerank by similarity
+        CLIP --> RET : reranked candidates
+    end
+    RET --> RUN : RetrievalResult
+    deactivate RET
+
+    ' Step 6: Evaluate
+    RUN -> RUN : compute gt matches
+
+    ' Step 7: RQ2
+    opt RQ2 case
+        RUN -> RQ2 : schema validation
+        RQ2 --> RUN : RQ2Result
+    end
+end
+
+deactivate RUN
+
+@enduml

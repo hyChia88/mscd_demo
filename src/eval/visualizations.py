@@ -95,45 +95,80 @@ def load_summary_from_csv(summary_path: str) -> pd.DataFrame:
 def plot_accuracy_by_condition(
     traces: List[Dict[str, Any]],
     output_path: Optional[str] = None,
-    title: str = "Top-1 Accuracy by Experimental Condition"
+    title: str = "Top-1 Accuracy by Experimental Condition",
+    before_traces: Optional[List[Dict[str, Any]]] = None,
+    main_label: str = "Main",
+    before_label: str = "Baseline",
 ):
     """
     Bar chart showing accuracy for each condition (A1-C3).
 
+    When *before_traces* is provided, draws grouped bars (V1 vs V2).
+    Otherwise falls back to single-series mode.
+
     Args:
-        traces: List of evaluation trace dicts
+        traces: List of evaluation trace dicts (shown as "main")
         output_path: Where to save the plot (PNG)
         title: Plot title
+        before_traces: Optional second set of traces for side-by-side comparison
+        main_label: Legend label for *traces*
+        before_label: Legend label for *before_traces*
     """
-    # Group by condition
-    condition_stats = {}
-    for trace in traces:
-        cond = extract_condition_from_trace(trace)
 
-        if cond not in condition_stats:
-            condition_stats[cond] = {"total": 0, "hits": 0}
-        condition_stats[cond]["total"] += 1
-        if trace.get("guid_match", False):
-            condition_stats[cond]["hits"] += 1
+    def _condition_accuracy(trace_list):
+        stats = {}
+        for trace in trace_list:
+            cond = extract_condition_from_trace(trace)
+            if cond not in stats:
+                stats[cond] = {"total": 0, "hits": 0}
+            stats[cond]["total"] += 1
+            if trace.get("guid_match", False):
+                stats[cond]["hits"] += 1
+        return {c: s["hits"] / s["total"] if s["total"] > 0 else 0
+                for c, s in stats.items()}
 
-    # Compute accuracy
-    conditions = []
-    accuracies = []
-    for cond, stats in sorted(condition_stats.items()):
-        conditions.append(cond)
-        acc = stats["hits"] / stats["total"] if stats["total"] > 0 else 0
-        accuracies.append(acc)
+    main_acc = _condition_accuracy(traces)
+    before_acc = _condition_accuracy(before_traces) if before_traces else None
 
-    # Plot
+    all_conds = sorted(set(list(main_acc.keys()) + (list(before_acc.keys()) if before_acc else [])))
+
     fig, ax = plt.subplots(figsize=(12, 6))
-    bars = ax.bar(conditions, accuracies, color='steelblue', edgecolor='black')
 
-    # Add value labels
-    for bar in bars:
-        height = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width() / 2., height,
-                f'{height:.2%}',
-                ha='center', va='bottom', fontsize=10, fontweight='bold')
+    if before_acc is not None:
+        # ── Grouped bar mode ──
+        x = np.arange(len(all_conds))
+        width = 0.35
+
+        vals_before = [before_acc.get(c, 0) for c in all_conds]
+        vals_main   = [main_acc.get(c, 0) for c in all_conds]
+
+        bars1 = ax.bar(x - width / 2, vals_before, width, label=before_label,
+                        color='steelblue', edgecolor='black', linewidth=0.5)
+        bars2 = ax.bar(x + width / 2, vals_main,   width, label=main_label,
+                        color='mediumseagreen', edgecolor='black', linewidth=0.5)
+
+        for bar in bars1:
+            h = bar.get_height()
+            if h > 0:
+                ax.text(bar.get_x() + bar.get_width() / 2., h,
+                        f'{h:.0%}', ha='center', va='bottom', fontsize=9, fontweight='bold')
+        for bar in bars2:
+            h = bar.get_height()
+            if h > 0:
+                ax.text(bar.get_x() + bar.get_width() / 2., h,
+                        f'{h:.0%}', ha='center', va='bottom', fontsize=9, fontweight='bold')
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(all_conds)
+        ax.legend(fontsize=10)
+    else:
+        # ── Single bar mode ──
+        vals = [main_acc.get(c, 0) for c in all_conds]
+        bars = ax.bar(all_conds, vals, color='steelblue', edgecolor='black')
+        for bar in bars:
+            h = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width() / 2., h,
+                    f'{h:.2%}', ha='center', va='bottom', fontsize=10, fontweight='bold')
 
     ax.set_xlabel("Experimental Condition", fontsize=12)
     ax.set_ylabel("Top-1 Accuracy", fontsize=12)
@@ -155,56 +190,93 @@ def plot_accuracy_by_condition(
 def plot_search_space_reduction(
     traces: List[Dict[str, Any]],
     output_path: Optional[str] = None,
-    title: str = "Search Space Reduction Across Pipeline Stages"
+    title: str = "Search Space Reduction Across Pipeline Stages",
+    before_traces: Optional[List[Dict[str, Any]]] = None,
+    main_label: str = "Main",
+    before_label: str = "Baseline",
 ):
     """
     Funnel chart showing candidate count at each stage.
 
-    Stages: Initial Pool → After Constraints → After Retrieval → After CLIP
+    When *before_traces* is provided, draws side-by-side grouped bars
+    comparing two pipelines (e.g. V1 vs V2).
+
+    Stages: Initial Pool → After Retrieval → Final Candidates
     """
-    # Aggregate stats
-    initial_pools = []
-    final_pools = []
 
-    for trace in traces:
-        initial = trace.get("initial_pool_size", 0)
-        final = trace.get("final_pool_size", 0)
-        if initial > 0:
-            initial_pools.append(initial)
-            final_pools.append(final)
+    def _pool_stats(trace_list):
+        initials, finals = [], []
+        for t in trace_list:
+            ini = t.get("initial_pool_size", 0)
+            fin = t.get("final_pool_size", 0)
+            if ini > 0:
+                initials.append(ini)
+                finals.append(fin)
+        if not initials:
+            return None
+        avg_i = np.mean(initials)
+        avg_f = np.mean(finals)
+        return {
+            "stages": ["Initial Pool", "After Retrieval\n(Constraints + Query)", "Final Candidates"],
+            "counts": [avg_i, (avg_i + avg_f) / 2, avg_f],
+            "reduction": (avg_i - avg_f) / avg_i if avg_i > 0 else 0,
+        }
 
-    if not initial_pools:
+    main_stats = _pool_stats(traces)
+    before_stats = _pool_stats(before_traces) if before_traces else None
+
+    if main_stats is None and before_stats is None:
         print("⚠️  No pool size data available")
         return
 
-    avg_initial = np.mean(initial_pools)
-    avg_final = np.mean(final_pools)
-
-    # Stages (simplified funnel)
     stages = ["Initial Pool", "After Retrieval\n(Constraints + Query)", "Final Candidates"]
-    counts = [avg_initial, (avg_initial + avg_final) / 2, avg_final]  # interpolate middle
 
-    # Plot funnel
-    fig, ax = plt.subplots(figsize=(10, 6))
-    colors = ['#d62728', '#ff7f0e', '#2ca02c']
-    ax.barh(stages, counts, color=colors, edgecolor='black', height=0.6)
+    if before_stats is not None and main_stats is not None:
+        # ── Side-by-side grouped horizontal bars ──
+        fig, ax = plt.subplots(figsize=(12, 6))
+        y = np.arange(len(stages))
+        height = 0.35
 
-    # Add value labels
-    for i, (stage, count) in enumerate(zip(stages, counts)):
-        ax.text(count + max(counts) * 0.02, i, f'{count:.0f}',
-                va='center', fontsize=11, fontweight='bold')
+        bars1 = ax.barh(y - height / 2, before_stats["counts"], height,
+                         label=f'{before_label} (reduction: {before_stats["reduction"]:.1%})',
+                         color='steelblue', edgecolor='black', linewidth=0.5)
+        bars2 = ax.barh(y + height / 2, main_stats["counts"], height,
+                         label=f'{main_label} (reduction: {main_stats["reduction"]:.1%})',
+                         color='mediumseagreen', edgecolor='black', linewidth=0.5)
 
-    ax.set_xlabel("Average Candidate Count (Log Scale)", fontsize=12)
-    ax.set_xscale('log')
-    ax.set_title(title, fontsize=14, fontweight='bold')
-    ax.grid(axis='x', alpha=0.3)
+        max_val = max(max(before_stats["counts"]), max(main_stats["counts"]))
+        for bar in list(bars1) + list(bars2):
+            w = bar.get_width()
+            ax.text(w + max_val * 0.02, bar.get_y() + bar.get_height() / 2,
+                    f'{w:.0f}', va='center', fontsize=10, fontweight='bold')
 
-    # Add reduction rate annotation
-    reduction_rate = (avg_initial - avg_final) / avg_initial if avg_initial > 0 else 0
-    ax.text(0.95, 0.05, f'Reduction: {reduction_rate:.1%}',
-            transform=ax.transAxes, fontsize=12, fontweight='bold',
-            ha='right', va='bottom',
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+        ax.set_yticks(y)
+        ax.set_yticklabels(stages)
+        ax.set_xlabel("Average Candidate Count (Log Scale)", fontsize=12)
+        ax.set_xscale('log')
+        ax.set_title(title, fontsize=14, fontweight='bold')
+        ax.legend(fontsize=10, loc='lower right')
+        ax.grid(axis='x', alpha=0.3)
+    else:
+        # ── Single pipeline mode ──
+        stats = main_stats or before_stats
+        fig, ax = plt.subplots(figsize=(10, 6))
+        colors = ['#d62728', '#ff7f0e', '#2ca02c']
+        ax.barh(stages, stats["counts"], color=colors, edgecolor='black', height=0.6)
+
+        for i, (stage, count) in enumerate(zip(stages, stats["counts"])):
+            ax.text(count + max(stats["counts"]) * 0.02, i, f'{count:.0f}',
+                    va='center', fontsize=11, fontweight='bold')
+
+        ax.set_xlabel("Average Candidate Count (Log Scale)", fontsize=12)
+        ax.set_xscale('log')
+        ax.set_title(title, fontsize=14, fontweight='bold')
+        ax.grid(axis='x', alpha=0.3)
+
+        ax.text(0.95, 0.05, f'Reduction: {stats["reduction"]:.1%}',
+                transform=ax.transAxes, fontsize=12, fontweight='bold',
+                ha='right', va='bottom',
+                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
     plt.tight_layout()
     if output_path:
@@ -384,45 +456,84 @@ def plot_vision_impact(
 def plot_per_case_heatmap(
     traces: List[Dict[str, Any]],
     output_path: Optional[str] = None,
-    title: str = "Per-Case Retrieval Success Heatmap"
+    title: str = "Per-Case Retrieval Success Heatmap",
+    before_traces: Optional[List[Dict[str, Any]]] = None,
+    main_label: str = "Main",
+    before_label: str = "Baseline",
 ):
     """
     Heatmap showing which cases succeeded/failed.
 
-    Rows: Case IDs
+    When *before_traces* is provided, shows two side-by-side heatmaps
+    for V1 vs V2 comparison.
+
+    Rows: Case IDs (grouped by condition)
     Columns: Metrics (GUID Match, Name Match, Storey Match)
     """
-    case_ids = []
-    guid_matches = []
-    name_matches = []
-    storey_matches = []
 
-    for trace in traces[:50]:  # Limit to first 50 for readability
-        case_ids.append(trace.get("scenario_id", "Unknown")[:20])  # Truncate long IDs
-        guid_matches.append(1 if trace.get("guid_match", False) else 0)
-        name_matches.append(1 if trace.get("name_match", False) else 0)
-        storey_matches.append(1 if trace.get("storey_match", False) else 0)
+    def _build_heatmap_df(trace_list, limit=50):
+        rows = []
+        for trace in trace_list[:limit]:
+            cond = extract_condition_from_trace(trace)
+            case_id = trace.get("scenario_id", "Unknown")[:20]
+            rows.append({
+                "label": f"[{cond}] {case_id}",
+                "GUID": 1 if trace.get("guid_match", False) else 0,
+                "Name": 1 if trace.get("name_match", False) else 0,
+                "Storey": 1 if trace.get("storey_match", False) else 0,
+            })
+        if not rows:
+            return None
+        df = pd.DataFrame(rows)
+        df = df.set_index("label")
+        return df
 
-    if not case_ids:
-        print("⚠️  No case data available")
-        return
+    if before_traces:
+        # ── Side-by-side heatmaps ──
+        df_before = _build_heatmap_df(before_traces)
+        df_main = _build_heatmap_df(traces)
 
-    # Create dataframe
-    df = pd.DataFrame({
-        'GUID Match': guid_matches,
-        'Name Match': name_matches,
-        'Storey Match': storey_matches
-    }, index=case_ids)
+        if df_before is None and df_main is None:
+            print("⚠️  No case data available")
+            return
 
-    # Plot heatmap
-    fig, ax = plt.subplots(figsize=(8, max(10, len(case_ids) * 0.3)))
-    sns.heatmap(df, cmap='RdYlGn', cbar_kws={'label': 'Match (0=No, 1=Yes)'},
-                linewidths=0.5, linecolor='gray', ax=ax,
-                vmin=0, vmax=1, annot=False)
+        n_rows = max(len(df_before) if df_before is not None else 0,
+                     len(df_main) if df_main is not None else 0)
+        fig_height = max(10, n_rows * 0.3)
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, fig_height))
 
-    ax.set_title(title, fontsize=14, fontweight='bold')
-    ax.set_xlabel("Match Type", fontsize=12)
-    ax.set_ylabel("Case ID", fontsize=12)
+        if df_before is not None:
+            sns.heatmap(df_before, cmap='RdYlGn', linewidths=0.5, linecolor='gray',
+                        ax=ax1, vmin=0, vmax=1, annot=False, cbar=False)
+            ax1.set_title(before_label, fontsize=12, fontweight='bold')
+            ax1.set_ylabel("Case ID", fontsize=10)
+        else:
+            ax1.set_visible(False)
+
+        if df_main is not None:
+            sns.heatmap(df_main, cmap='RdYlGn', linewidths=0.5, linecolor='gray',
+                        ax=ax2, vmin=0, vmax=1, annot=False,
+                        cbar_kws={'label': 'Match (0=No, 1=Yes)'})
+            ax2.set_title(main_label, fontsize=12, fontweight='bold')
+            ax2.set_ylabel("")
+        else:
+            ax2.set_visible(False)
+
+        fig.suptitle(title, fontsize=14, fontweight='bold', y=1.01)
+    else:
+        # ── Single heatmap ──
+        df = _build_heatmap_df(traces)
+        if df is None:
+            print("⚠️  No case data available")
+            return
+
+        fig, ax = plt.subplots(figsize=(8, max(10, len(df) * 0.3)))
+        sns.heatmap(df, cmap='RdYlGn', cbar_kws={'label': 'Match (0=No, 1=Yes)'},
+                    linewidths=0.5, linecolor='gray', ax=ax,
+                    vmin=0, vmax=1, annot=False)
+        ax.set_title(title, fontsize=14, fontweight='bold')
+        ax.set_xlabel("Match Type", fontsize=12)
+        ax.set_ylabel("Case ID", fontsize=12)
 
     plt.tight_layout()
     if output_path:
@@ -560,6 +671,118 @@ def plot_condition_wise_comparison(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 8. Efficiency Comparison (Latency, API Calls, Cost)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def plot_efficiency_comparison(
+    experiments: Dict[str, List[Dict[str, Any]]],
+    output_path: Optional[str] = None,
+):
+    """
+    Compare V1 vs V2 efficiency: latency, API calls, and estimated cost.
+
+    Args:
+        experiments: Dict mapping experiment name -> list of traces
+        output_path: Where to save the plot
+    """
+    if not experiments:
+        print("  ⚠ No experiments to compare efficiency. Skipping.")
+        return
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+
+    exp_names = list(experiments.keys())
+    colors = sns.color_palette("Set2", len(exp_names))
+
+    # Collect per-experiment aggregates
+    latencies = {}
+    api_calls = {}
+    api_costs = {}
+
+    for exp_name, traces in experiments.items():
+        valid = [t for t in traces if t.get("success", False)]
+        # Filter out negative/zero latencies (clock skew outliers)
+        latencies[exp_name] = [t.get("total_latency_ms", 0) for t in valid
+                               if t.get("total_latency_ms", 0) > 0]
+        api_calls[exp_name] = [t.get("api_calls_count", 0) for t in valid]
+        api_costs[exp_name] = [t.get("api_cost_estimate", 0) for t in valid]
+
+    # ── Panel 1: Latency (ms) → convert to seconds ──
+    ax = axes[0]
+    positions = range(len(exp_names))
+    lat_secs = {n: [v / 1000 for v in latencies[n]] for n in exp_names}
+    means = [np.mean(lat_secs[n]) if lat_secs[n] else 0 for n in exp_names]
+    stds = [np.std(lat_secs[n]) if lat_secs[n] else 0 for n in exp_names]
+    bars = ax.bar(positions, means, yerr=stds, color=colors, capsize=5, edgecolor="black", linewidth=0.5)
+    ax.set_xticks(positions)
+    ax.set_xticklabels(exp_names, fontsize=10)
+    ax.set_ylabel("Latency (seconds)", fontsize=11)
+    ax.set_title("Avg Latency per Case", fontsize=13, fontweight="bold")
+    for bar, m in zip(bars, means):
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.2,
+                f"{m:.1f}s", ha="center", va="bottom", fontsize=9)
+
+    # ── Panel 2: API Calls ──
+    ax = axes[1]
+    means = [np.mean(api_calls[n]) if api_calls[n] else 0 for n in exp_names]
+    stds = [np.std(api_calls[n]) if api_calls[n] else 0 for n in exp_names]
+    bars = ax.bar(positions, means, yerr=stds, color=colors, capsize=5, edgecolor="black", linewidth=0.5)
+    ax.set_xticks(positions)
+    ax.set_xticklabels(exp_names, fontsize=10)
+    ax.set_ylabel("API Calls", fontsize=11)
+    ax.set_title("Avg API Calls per Case", fontsize=13, fontweight="bold")
+    for bar, m in zip(bars, means):
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.1,
+                f"{m:.1f}", ha="center", va="bottom", fontsize=9)
+
+    # ── Panel 3: Estimated Cost ──
+    ax = axes[2]
+    total_costs = [sum(api_costs[n]) for n in exp_names]
+    bars = ax.bar(positions, total_costs, color=colors, edgecolor="black", linewidth=0.5)
+    ax.set_xticks(positions)
+    ax.set_xticklabels(exp_names, fontsize=10)
+    ax.set_ylabel("Estimated Cost (USD)", fontsize=11)
+    ax.set_title("Total Estimated API Cost", fontsize=13, fontweight="bold")
+    for bar, c in zip(bars, total_costs):
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.0001,
+                f"${c:.4f}", ha="center", va="bottom", fontsize=9)
+
+    fig.suptitle("Pipeline Efficiency Comparison (V1 Agent vs V2 Constraints)",
+                 fontsize=14, fontweight="bold", y=1.02)
+    plt.tight_layout()
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        print(f"✓ Saved: {output_path}")
+    plt.close()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Map profile short names to descriptive labels
+PROFILE_LABELS = {
+    "baseline": "V1 Agent-Driven\n(MCP Tool-Calling)",
+    "prompt":   "V2 Constraints-Driven\n(Structured Extraction)",
+}
+
+
+def _is_pipeline_comparison(
+    before_traces: List[Dict[str, Any]],
+    after_traces: List[Dict[str, Any]],
+) -> bool:
+    """Return True when *before* and *after* come from different pipeline types (v1 vs v2).
+
+    This distinguishes a v1-vs-v2 comparison (where chart 5 / VLM ablation
+    is meaningless) from a VLM ablation comparison (same pipeline, with/without VLM).
+    """
+    before_types = {t.get("pipeline_type", "unknown") for t in before_traces[:20]}
+    after_types = {t.get("pipeline_type", "unknown") for t in after_traces[:20]}
+    # If the two sets are disjoint (e.g. {"v1"} vs {"v2"}), it's a pipeline comparison
+    return bool(before_types and after_types and before_types.isdisjoint(after_types))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main Entry Point
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -604,33 +827,62 @@ def generate_all_plots(
 
     print()
 
-    # Generate plots
-    plot_accuracy_by_condition(traces, f"{output_dir}/1_accuracy_by_condition.png")
-    plot_search_space_reduction(traces, f"{output_dir}/2_search_space_reduction.png")
+    # ── Resolve descriptive labels for comparison mode ──
+    main_exp_label = "Main"
+    before_exp_label = "Baseline"
+    if before_traces:
+        first_main_path = traces_path[0] if isinstance(traces_path, list) else traces_path
+        first_before_path = before_traces_path[0] if isinstance(before_traces_path, list) else before_traces_path
 
+        main_exp_label = Path(first_main_path).stem.replace("traces_", "").split("_")[-1] if traces_path else "Main"
+        before_exp_label = Path(first_before_path).stem.replace("traces_", "").split("_")[-1] if before_traces_path else "Baseline"
+
+        main_exp_label = PROFILE_LABELS.get(main_exp_label, main_exp_label)
+        before_exp_label = PROFILE_LABELS.get(before_exp_label, before_exp_label)
+
+    # ── Generate plots ──
+
+    # Chart 1: Skip in comparison mode (chart 7 covers V1 vs V2 accuracy).
+    if not before_traces:
+        plot_accuracy_by_condition(traces, f"{output_dir}/1_accuracy_by_condition.png")
+
+    # Chart 2: In comparison mode, show V1 vs V2 side-by-side search space reduction
+    if before_traces:
+        plot_search_space_reduction(
+            traces, f"{output_dir}/2_search_space_reduction.png",
+            before_traces=before_traces,
+            main_label=main_exp_label, before_label=before_exp_label,
+        )
+    else:
+        plot_search_space_reduction(traces, f"{output_dir}/2_search_space_reduction.png")
+
+    # Charts 3-4: V2-specific diagnostics
     if v2_traces:
         plot_constraints_parse_rate(v2_traces, f"{output_dir}/3_constraints_parse_rate.png")
         plot_image_parse_timing(v2_traces, f"{output_dir}/4_image_parse_timing.png")
 
-    if before_traces and traces:
+    # Chart 5: VLM ablation only — skip in v1-vs-v2 pipeline comparison mode
+    if before_traces and traces and not _is_pipeline_comparison(before_traces, traces):
         plot_vision_impact(before_traces, traces, f"{output_dir}/5_vision_impact.png")
 
-    plot_per_case_heatmap(traces, f"{output_dir}/6_per_case_heatmap.png")
+    # Chart 6: In comparison mode, show V1 vs V2 side-by-side heatmap
+    if before_traces:
+        plot_per_case_heatmap(
+            traces, f"{output_dir}/6_per_case_heatmap.png",
+            before_traces=before_traces,
+            main_label=main_exp_label, before_label=before_exp_label,
+        )
+    else:
+        plot_per_case_heatmap(traces, f"{output_dir}/6_per_case_heatmap.png")
 
-    # Condition-wise comparison (if multiple experiments available)
+    # Charts 7-8: Multi-experiment comparison
     if before_traces and traces:
-        # Extract experiment names from traces (handle both single path and list of paths)
-        first_main_path = traces_path[0] if isinstance(traces_path, list) else traces_path
-        first_before_path = before_traces_path[0] if isinstance(before_traces_path, list) else before_traces_path
-
-        main_exp_name = Path(first_main_path).stem.replace("traces_", "").split("_")[-1] if traces_path else "Main"
-        before_exp_name = Path(first_before_path).stem.replace("traces_", "").split("_")[-1] if before_traces_path else "Baseline"
-
         experiments = {
-            before_exp_name: before_traces,
-            main_exp_name: traces
+            before_exp_label: before_traces,
+            main_exp_label: traces,
         }
         plot_condition_wise_comparison(experiments, f"{output_dir}/7_condition_comparison.png")
+        plot_efficiency_comparison(experiments, f"{output_dir}/8_efficiency_comparison.png")
 
     print(f"\n{'='*60}")
     print(f"✓ All plots saved to: {output_dir}/")

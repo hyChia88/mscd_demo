@@ -1,0 +1,44 @@
+@startuml MSCD_Demo_Sequence_Init
+!theme plain
+title **Initialisation & Dispatch**
+
+actor       User   as U
+participant "run.py" as RUN
+participant "Config"  as CFG
+participant "IFCEngine" as ENG
+participant "Gemini LLM" as LLM
+participant "CLIP" as CLIP
+
+U -> RUN : run.py --profile --cases
+activate RUN
+
+RUN -> CFG : load config + profile
+CFG --> RUN : config, profile
+
+RUN -> RUN : load and filter test cases
+
+RUN -> ENG : IFCEngine(ifc_path)
+activate ENG
+ENG -> ENG : parse IFC + build spatial index
+ENG --> RUN : engine ready
+deactivate ENG
+
+RUN -> LLM : init_llm()
+LLM --> RUN : llm
+
+alt use_clip enabled
+    RUN -> CLIP : VisualAligner()
+    CLIP --> RUN : aligner ready
+end
+
+alt pipeline == "v1"
+    ref over RUN : V1 Pipeline (ReAct + MCP)
+else pipeline == "v2"
+    ref over RUN : V2 Pipeline (Constraints-Driven)
+end
+
+RUN -> RUN : compute summary metrics
+RUN --> U : Accuracy, traces, CSV
+deactivate RUN
+
+@enduml

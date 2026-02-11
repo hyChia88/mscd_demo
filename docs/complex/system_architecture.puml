@@ -1,0 +1,195 @@
+@startuml MSCD_Demo_System_Architecture
+!theme plain
+title **MSCD Demo -- System Architecture**\n//Multi-modal Site-to-BIM Compliance & Disambiguation System//
+
+' =====================================================================
+' Styling
+' =====================================================================
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle rectangle
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam ArrowThickness 1.5
+skinparam RoundCorner 8
+skinparam shadowing false
+
+skinparam package<<input>> {
+    BackgroundColor #E8F5E9
+}
+skinparam package<<orchestrator>> {
+    BackgroundColor #E3F2FD
+}
+skinparam package<<mcp>> {
+    BackgroundColor #FFF3E0
+}
+skinparam package<<retrieval>> {
+    BackgroundColor #F3E5F5
+}
+skinparam package<<postprocess>> {
+    BackgroundColor #FFEBEE
+}
+skinparam package<<output>> {
+    BackgroundColor #E0F7FA
+}
+skinparam package<<external>> {
+    BackgroundColor #F5F5F5
+}
+
+' =====================================================================
+' INPUT LAYER
+' =====================================================================
+package "Input Layer" <<input>> {
+    component "Ground Truth Dataset\n(gt_1 / synth_v0.2\n.json / .jsonl)" as GT
+    component "Site Evidence\nImages" as IMAGES
+    component "config.yaml\nprofiles.yaml" as CONFIG
+}
+
+' =====================================================================
+' ORCHESTRATION LAYER
+' =====================================================================
+package "Orchestration Layer" <<orchestrator>> {
+
+    component "**Unified Runner**\nscript/run.py" as RUNNER
+    component "**Pipeline Abstraction**\npipeline_base.py" as PIPELINE_BASE
+
+    package "V1 Pipeline (Agent-Driven)" {
+        component "**main_mcp.py**\nLangGraph ReAct Agent" as V1_AGENT
+        component "System Prompt\n(YAML)" as SYS_PROMPT
+    }
+
+    package "V2 Pipeline (Constraints-Driven)" {
+        component "**ConditionMask**\nModality control\n(A1-C3 ablation)" as COND_MASK
+        component "**ImageParser**\nGemini VLM\n(image_parser.py)" as IMG_PARSER
+        component "**ConstraintsExtractor**\nPrompt-only / LoRA" as CONSTRAINTS
+        component "**QueryPlanner**\nDeterministic templates\n(constraints_to_query.py)" as QUERY_PLAN
+    }
+}
+
+' =====================================================================
+' MCP TOOL LAYER
+' =====================================================================
+package "MCP Server Layer (FastMCP / stdio)" <<mcp>> {
+
+    component "**IFC Query Server**\nmcp_servers/ifc_server.py\n...\nlist_available_spaces()\nget_elements_by_storey()\nsearch_elements_by_type()\nget_element_details()" as IFC_MCP
+
+    component "**Visual Server**\nmcp_servers/visual_server.py\n...\nanalyze_site_image()\nmatch_image_to_elements()\ncompare_defect_images()\nmatch_text_to_elements()" as VIS_MCP
+}
+
+' =====================================================================
+' RETRIEVAL / ENGINE LAYER
+' =====================================================================
+package "Retrieval & Engine Layer" <<retrieval>> {
+
+    component "**IFCEngine**\nifc_engine.py\n...\nIn-Memory Spatial Index\nProperty Extraction" as IFC_ENGINE
+
+    component "**RetrievalBackend**\nretrieval_backend.py" as RET_BACK
+
+    component "**VisualAligner**\nCLIP Embeddings\n(visual/aligner.py)\n...\nImage-to-Vector\nText-to-Vector\nCosine Similarity Reranking" as CLIP
+}
+
+' =====================================================================
+' POST-PROCESSING LAYER
+' =====================================================================
+package "Post-processing Layer" <<postprocess>> {
+
+    component "**RQ2 Pipeline**\nrq2_schema/\n...\nFINAL_JSON Extraction\nSchema-aware Mapping\nJSON Schema Validation" as RQ2
+
+    component "**Evaluation**\neval/\n...\nEvalTrace Contracts\nTop-k / P@1 / Recall / F1" as EVAL_MOD
+}
+
+' =====================================================================
+' OUTPUT / HANDOFF LAYER
+' =====================================================================
+package "Handoff & Output Layer" <<output>> {
+    component "**Trace Builder**\nhandoff/trace.py" as TRACE
+    component "**Issue JSON**\nhandoff/bcf_lite.py" as ISSUE
+    component "**BCFzip Generator**\nhandoff/bcf_zip.py\n(BCF 2.1)" as BCF
+
+    artifact "outputs/traces/" as OUT_TRACE
+    artifact "outputs/issues/" as OUT_ISSUE
+    artifact "outputs/bcf/" as OUT_BCF
+    artifact "logs/evaluations/" as OUT_EVAL
+}
+
+' =====================================================================
+' EXTERNAL SERVICES
+' =====================================================================
+package "External Services" <<external>> {
+    database "**Neo4j**\nGraph Database\n(optional)" as NEO4J
+    cloud "**Google Gemini**\nLLM / VLM\n(gemini-2.5-flash)" as LLM
+    component "**IFC Model**\n(.ifc file)\nifcopenshell" as IFC_FILE
+    component "**CLIP Model**\nHuggingFace\nTransformers" as HF_CLIP
+}
+
+' =====================================================================
+' RELATIONSHIPS
+' =====================================================================
+
+' Input --> Orchestration
+GT --> RUNNER : test cases
+IMAGES --> RUNNER : image paths
+CONFIG --> RUNNER : profiles &\nconfiguration
+RUNNER --> PIPELINE_BASE : selects v1 or v2
+
+' Pipeline selection
+PIPELINE_BASE --> V1_AGENT : V1Pipeline
+PIPELINE_BASE --> COND_MASK : V2Pipeline
+
+' V1 flow
+SYS_PROMPT --> V1_AGENT
+V1_AGENT --> IFC_MCP : MCP stdio\n(tool calls)
+V1_AGENT --> VIS_MCP : MCP stdio\n(CLIP tools)
+LLM <-- V1_AGENT : LangGraph\nReAct loop
+
+' V2 flow
+COND_MASK --> IMG_PARSER : masked case
+IMG_PARSER --> CONSTRAINTS : ImageParseResult
+CONSTRAINTS --> QUERY_PLAN : Constraints\n(storey, ifc_class,\nkeywords)
+QUERY_PLAN --> RET_BACK : QueryPlan[]
+LLM <-- CONSTRAINTS : prompt / LoRA\nextraction
+LLM <-- IMG_PARSER : VLM image\nunderstanding
+
+' Retrieval backend
+RET_BACK --> IFC_ENGINE : memory mode
+RET_BACK --> NEO4J : neo4j mode\n(Cypher queries)
+RET_BACK --> CLIP : +clip reranking
+
+' Engine <-> External
+IFC_ENGINE --> IFC_FILE : ifcopenshell\nparse & index
+CLIP --> HF_CLIP : CLIP model\nweights
+
+' MCP Servers --> Engine
+IFC_MCP --> IFC_ENGINE : singleton\ninstance
+VIS_MCP --> CLIP : lazy-loaded\nsingleton
+
+' Post-processing
+V1_AGENT --> RQ2 : agent output\n(RQ2 cases)
+RET_BACK --> EVAL_MOD : candidates
+QUERY_PLAN ..> RQ2 : RQ2 category
+
+' Evaluation
+EVAL_MOD --> TRACE
+EVAL_MOD --> OUT_EVAL : evaluation\nresults JSON
+
+' Handoff chain
+TRACE --> OUT_TRACE
+TRACE --> ISSUE
+ISSUE --> OUT_ISSUE
+TRACE --> BCF
+BCF --> OUT_BCF
+
+' =====================================================================
+' LEGEND
+' =====================================================================
+legend bottom left
+  |= Color |= Layer |
+  |<#E8F5E9> | Input (datasets, config) |
+  |<#E3F2FD> | Orchestration (V1 agent / V2 constraints) |
+  |<#FFF3E0> | MCP Servers (FastMCP tool exposure) |
+  |<#F3E5F5> | Retrieval & Engine (IFC + CLIP) |
+  |<#FFEBEE> | Post-processing (RQ2, Evaluation) |
+  |<#E0F7FA> | Handoff & Output (Trace, BCF, Logs) |
+  |<#F5F5F5> | External Services (LLM, Neo4j, IFC) |
+end legend
+
+@enduml

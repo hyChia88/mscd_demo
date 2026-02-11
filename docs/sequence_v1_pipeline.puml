@@ -1,0 +1,76 @@
+@startuml MSCD_Demo_Sequence_V1
+!theme plain
+title **V1 Pipeline -- Agent-Driven (ReAct + MCP)**
+
+participant "run.py"          as RUN
+participant "MCP Session"     as MCP
+participant "IFC MCP Server"  as IFC_SRV
+participant "IFCEngine"       as ENG
+participant "ReAct Agent"     as AGENT
+participant "Gemini LLM"      as LLM
+participant "CLIP"            as CLIP
+participant "Eval Runner"     as EVAL
+participant "RQ2 Pipeline"    as RQ2
+
+activate RUN
+
+== MCP Connection ==
+
+RUN -> MCP : mcp_session()
+activate MCP
+MCP -> IFC_SRV : spawn subprocess (stdio)
+activate IFC_SRV
+IFC_SRV -> ENG : init IFCEngine
+ENG --> IFC_SRV : engine ready
+MCP -> IFC_SRV : list_tools()
+IFC_SRV --> MCP : available tools
+MCP --> RUN : MCPContext (LangChain tools)
+deactivate MCP
+
+RUN -> AGENT : create_react_agent(llm, tools)
+
+== Per-Case Evaluation ==
+
+loop for each case
+    RUN -> EVAL : run_one_scenario(case)
+    activate EVAL
+    EVAL -> EVAL : format input\n(4D context + chat + query)
+
+    EVAL -> AGENT : ainvoke(user_input)
+    activate AGENT
+
+    loop ReAct loop
+        AGENT -> LLM : reason + select tool
+        LLM --> AGENT : tool call
+
+        AGENT -> IFC_SRV : MCP tool call\n(search / details / CLIP)
+        IFC_SRV -> ENG : query engine
+        ENG --> IFC_SRV : results
+        opt CLIP enabled
+            IFC_SRV -> CLIP : visual matching
+            CLIP --> IFC_SRV : ranked candidates
+        end
+        IFC_SRV --> AGENT : JSON result
+
+        AGENT -> LLM : observe + next step
+        LLM --> AGENT : next action or final answer
+    end
+
+    AGENT --> EVAL : response
+    deactivate AGENT
+
+    EVAL -> EVAL : extract GUIDs,\ncompute gt matches
+
+    opt RQ2 case
+        EVAL -> RQ2 : schema validation
+        RQ2 --> EVAL : RQ2Result
+    end
+
+    EVAL --> RUN : EvalTrace
+    deactivate EVAL
+end
+
+deactivate IFC_SRV
+deactivate RUN
+
+@enduml

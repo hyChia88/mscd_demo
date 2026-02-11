@@ -1,0 +1,11 @@
+=== OVERALL METRICS ===
+Metric,Value
+Dataset Coverage,100.0%
+Total Scenarios,6
+Successful Runs,6
+Top-1 Accuracy,0.3333
+Top-K Accuracy,0.3333
+Avg Search-Space Reduction,0.9955
+Escalation Rate,0.1667
+Avg Latency (ms),8437.1
+

@@ -1,0 +1,116 @@
+@startuml MSCD_Demo_Sequence_V2
+!theme plain
+title **V2 Pipeline -- Constraints-Driven (No Agent Loop)**
+
+participant "run.py"                as RUN
+participant "ConditionMask\n(ablation control)" as MASK
+participant "ImageParser\n(Gemini VLM)"  as IMG
+participant "Gemini LLM"           as LLM
+participant "Constraints\nExtractor"    as CEXT
+participant "QueryPlanner\n(deterministic)"  as QPLAN
+participant "RetrievalBackend"     as RET
+participant "IFCEngine"            as ENG
+participant "Neo4j\n(optional)"    as NEO
+participant "VisualAligner\n(CLIP rerank)" as CLIP
+participant "RQ2 Pipeline"         as RQ2
+
+activate RUN
+
+== Per-Case V2 Flow (v2/pipeline.py :: run_v2_case) ==
+
+loop for each case in dataset
+    RUN -> MASK : ConditionMask.apply(\ncase, condition_overrides)
+    activate MASK
+    note right of MASK
+        Ablation conditions:
+        A1: chat only
+        A2: chat + context
+        A3: chat + context + image
+        B1-B3: retrieval variants
+        C1-C3: combined
+    end note
+    MASK --> RUN : masked_case\n(modality-controlled)
+    deactivate MASK
+
+    RUN -> RUN : _build_scenario_input()\n-> ScenarioInput
+
+    ' Step 1.5: VLM Image Parsing
+    alt images present and use_images=true
+        RUN -> IMG : parse_case_images(\nmasked_case, image_dir)
+        activate IMG
+        IMG -> IMG : Read image bytes\nbase64 encode
+        IMG -> LLM : Gemini VLM call\n(image + structured prompt)
+        LLM --> IMG : {description, ifc_class,\nlocation_cues, defect_type}
+        IMG --> RUN : ImageParseResult\n(combined_description,\ninferred_ifc_class)
+        deactivate IMG
+    end
+
+    ' Step 2: Constraints Extraction
+    RUN -> CEXT : extract(masked_case,\ncondition_overrides,\nimage_context)
+    activate CEXT
+
+    alt model == "prompt"
+        CEXT -> LLM : Prompt-only extraction\n(JSON-only output)
+        LLM --> CEXT : {storey_name, ifc_class,\nkeywords, sender_role, ...}
+    else model == "lora"
+        CEXT -> CEXT : LoRA adapter inference\n(local Qwen3-VL-8B)
+    end
+
+    CEXT --> RUN : Constraints\n(structured fields\n+ confidence score)
+    deactivate CEXT
+
+    ' Step 3: Query Planning
+    RUN -> QPLAN : plan(constraints)
+    activate QPLAN
+    QPLAN -> QPLAN : Priority-ordered templates:\n1. storey + type (most specific)\n2. storey only\n3. type only\n4. keyword search (broadest)
+    QPLAN --> RUN : QueryPlan[]\n(ordered by priority)
+    deactivate QPLAN
+
+    ' Step 4: Retrieval Execution
+    RUN -> RET : execute_plan(plan,\nimage_paths)
+    activate RET
+
+    loop try plans in priority order (stop on first hit)
+        alt retrieval_mode == "memory"
+            RET -> ENG : spatial_index lookup\nfilter by storey + type
+            ENG --> RET : candidate elements
+        else retrieval_mode == "neo4j"
+            RET -> NEO : Cypher query\n(parameterized from template)
+            NEO --> RET : candidate elements
+        end
+
+        alt use_clip == true and candidates found
+            RET -> CLIP : Rerank candidates\nby image/text similarity
+            activate CLIP
+            CLIP -> CLIP : Encode image to vector\nEncode descriptions to vectors\nCosine similarity ranking
+            CLIP --> RET : reranked candidates\n(+ clip_score)
+            deactivate CLIP
+        end
+
+        RET -> RET : pool_size > 0 ?\nbreak with results
+    end
+
+    RET --> RUN : RetrievalResult\n(candidates, pool_size,\nstrategy_used)
+    deactivate RET
+
+    ' Step 5: Build EvalTrace
+    RUN -> RUN : compute_gt_matches()\nbuild InterpreterOutput\nbuild EvalTrace
+
+    ' Step 6: RQ2 Post-processing
+    alt rq2_enabled and RQ2 case
+        RUN -> RQ2 : run_rq2_postprocess(\nschema, constraints)
+        activate RQ2
+        RQ2 -> RQ2 : Schema mapping\nValidation\nUncertainty check
+        RQ2 --> RUN : RQ2Result
+        deactivate RQ2
+    end
+
+    ' Step 7: V2 Diagnostics
+    RUN -> RUN : Build V2Trace\n(timing breakdowns,\nrerank_gain, parse quality)
+    RUN -> RUN : compute_v2_metrics()
+
+end
+
+deactivate RUN
+
+@enduml

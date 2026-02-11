@@ -1,0 +1,143 @@
+@startuml MSCD_Demo_System_Architecture
+!theme plain
+title **MSCD Demo -- System Architecture**\n//Multi-modal Site-to-BIM Compliance & Disambiguation System//
+
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle rectangle
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam ArrowThickness 1.5
+skinparam RoundCorner 8
+skinparam shadowing false
+
+skinparam package<<input>> {
+    BackgroundColor #E8F5E9
+}
+skinparam package<<orchestrator>> {
+    BackgroundColor #E3F2FD
+}
+skinparam package<<mcp>> {
+    BackgroundColor #FFF3E0
+}
+skinparam package<<retrieval>> {
+    BackgroundColor #F3E5F5
+}
+skinparam package<<postprocess>> {
+    BackgroundColor #FFEBEE
+}
+skinparam package<<output>> {
+    BackgroundColor #E0F7FA
+}
+skinparam package<<external>> {
+    BackgroundColor #F5F5F5
+}
+
+' ── INPUT ──
+package "Input Layer" <<input>> {
+    component "Ground Truth\nDataset" as GT
+    component "Site Evidence\nImages" as IMAGES
+    component "Configuration\n(config / profiles)" as CONFIG
+}
+
+' ── ORCHESTRATION ──
+package "Orchestration Layer" <<orchestrator>> {
+    component "**Unified Runner**\nrun.py" as RUNNER
+    component "**Pipeline Selector**\npipeline_base.py" as PIPELINE_BASE
+
+    package "V1 Pipeline (Agent-Driven)" {
+        component "**LangGraph ReAct Agent**\nmain_mcp.py" as V1_AGENT
+    }
+
+    package "V2 Pipeline (Constraints-Driven)" {
+        component "**ConditionMask**\nAblation control" as COND_MASK
+        component "**ImageParser**\nGemini VLM" as IMG_PARSER
+        component "**ConstraintsExtractor**\nPrompt / LoRA" as CONSTRAINTS
+        component "**QueryPlanner**\nDeterministic templates" as QUERY_PLAN
+    }
+}
+
+' ── MCP SERVERS ──
+package "MCP Server Layer (FastMCP / stdio)" <<mcp>> {
+    component "**IFC Query Server**\nSpatial queries, element details" as IFC_MCP
+    component "**Visual Server**\nCLIP-based matching" as VIS_MCP
+}
+
+' ── RETRIEVAL ──
+package "Retrieval & Engine Layer" <<retrieval>> {
+    component "**IFCEngine**\nSpatial index + properties" as IFC_ENGINE
+    component "**RetrievalBackend**\nmemory / neo4j / +clip" as RET_BACK
+    component "**VisualAligner**\nCLIP embeddings + reranking" as CLIP
+}
+
+' ── POST-PROCESSING ──
+package "Post-processing Layer" <<postprocess>> {
+    component "**RQ2 Pipeline**\nSchema mapping + validation" as RQ2
+    component "**Evaluation**\nTop-k, P@1, Recall, F1" as EVAL_MOD
+}
+
+' ── OUTPUT ──
+package "Handoff & Output" <<output>> {
+    component "**Trace / Issue / BCFzip**\nhandoff/" as HANDOFF
+    artifact "outputs/" as OUT_FILES
+    artifact "logs/evaluations/" as OUT_EVAL
+}
+
+' ── EXTERNAL ──
+package "External Services" <<external>> {
+    database "**Neo4j**\n(optional)" as NEO4J
+    cloud "**Google Gemini**\nLLM / VLM" as LLM
+    component "**IFC Model**\nifcopenshell" as IFC_FILE
+    component "**CLIP Model**\nHuggingFace" as HF_CLIP
+}
+
+' ── RELATIONSHIPS ──
+
+GT --> RUNNER
+IMAGES --> RUNNER
+CONFIG --> RUNNER
+RUNNER --> PIPELINE_BASE : selects v1 or v2
+
+PIPELINE_BASE --> V1_AGENT : V1Pipeline
+PIPELINE_BASE --> COND_MASK : V2Pipeline
+
+V1_AGENT --> IFC_MCP : MCP tool calls
+V1_AGENT --> VIS_MCP : MCP tool calls
+LLM <-- V1_AGENT : ReAct loop
+
+COND_MASK --> IMG_PARSER
+IMG_PARSER --> CONSTRAINTS : ImageParseResult
+CONSTRAINTS --> QUERY_PLAN : Constraints
+QUERY_PLAN --> RET_BACK : QueryPlan[]
+LLM <-- CONSTRAINTS : extraction
+LLM <-- IMG_PARSER : VLM
+
+RET_BACK --> IFC_ENGINE : memory
+RET_BACK --> NEO4J : neo4j
+RET_BACK --> CLIP : reranking
+
+IFC_ENGINE --> IFC_FILE
+CLIP --> HF_CLIP
+
+IFC_MCP --> IFC_ENGINE
+VIS_MCP --> CLIP
+
+V1_AGENT --> RQ2 : RQ2 cases
+RET_BACK --> EVAL_MOD : candidates
+QUERY_PLAN ..> RQ2
+
+EVAL_MOD --> HANDOFF
+EVAL_MOD --> OUT_EVAL
+HANDOFF --> OUT_FILES
+
+legend bottom left
+  |= Color |= Layer |
+  |<#E8F5E9> | Input (datasets, config) |
+  |<#E3F2FD> | Orchestration (V1 / V2) |
+  |<#FFF3E0> | MCP Servers |
+  |<#F3E5F5> | Retrieval & Engine |
+  |<#FFEBEE> | Post-processing |
+  |<#E0F7FA> | Handoff & Output |
+  |<#F5F5F5> | External Services |
+end legend
+
+@enduml

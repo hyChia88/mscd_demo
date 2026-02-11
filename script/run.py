@@ -300,8 +300,9 @@ async def main(args: argparse.Namespace) -> None:
                 system_prompt = "You are a helpful BIM inspection assistant."
 
             agent_executor = create_react_agent(
-                llm.bind(system=system_prompt),
-                ctx.tools
+                llm,
+                ctx.tools,
+                prompt=system_prompt,
             )
 
             # Now create V1Pipeline with real agent

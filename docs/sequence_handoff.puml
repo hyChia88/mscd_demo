@@ -1,0 +1,31 @@
+@startuml MSCD_Demo_Sequence_Handoff
+!theme plain
+title **Handoff Pipeline -- Trace to BCFzip**
+
+participant "Pipeline\n(v1 or v2)" as MAIN
+participant "Trace Builder" as TRACE
+participant "Issue Writer"  as ISSUE
+participant "BCFzip Generator" as BCF
+collections "Output Files" as OUT
+
+activate MAIN
+
+MAIN -> TRACE : build_trace(case, eval_result)
+TRACE --> MAIN : trace dict
+
+MAIN -> TRACE : write trace JSON
+TRACE -> OUT : outputs/traces/{run_id}/{case_id}.json
+
+MAIN -> ISSUE : write_issue_json(trace)
+ISSUE -> OUT : outputs/issues/{run_id}/{case_id}.json
+
+MAIN -> BCF : write_bcfzip(trace)
+activate BCF
+BCF -> BCF : Build markup.bcf + viewpoint\nPack as BCF 2.1 ZIP
+BCF -> OUT : outputs/bcf/{run_id}/{case_id}.bcfzip
+BCF --> MAIN : bcf_path
+deactivate BCF
+
+deactivate MAIN
+
+@enduml

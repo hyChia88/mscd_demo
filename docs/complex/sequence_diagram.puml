@@ -1,0 +1,55 @@
+@startuml MSCD_Demo_Sequence_Init
+!theme plain
+title **MSCD Demo -- Initialisation & Dispatch**
+
+' =====================================================================
+' PART 1: UNIFIED RUNNER -- INITIALISATION & DISPATCH
+' =====================================================================
+
+== Initialisation (script/run.py) ==
+
+actor       User        as U
+participant "run.py\n(Unified Runner)" as RUN
+participant "config.yaml\nprofiles.yaml"   as CFG
+participant "IFCEngine"   as ENG
+participant "Gemini LLM\n(2.5 Flash)"     as LLM
+participant "VisualAligner\n(CLIP)"       as CLIP
+
+U -> RUN : python script/run.py\n--profile v2_prompt\n--cases path/to/cases.jsonl\n[--condition A1-C3]
+activate RUN
+
+RUN -> CFG : load_yaml(config.yaml)\nload_yaml(profiles.yaml)
+CFG --> RUN : config, profile, conditions_map
+
+RUN -> RUN : load_cases_jsonl()\n+ filter by condition\n+ apply --percent / --limit
+
+RUN -> ENG : IFCEngine(ifc_model_path)
+activate ENG
+ENG -> ENG : ifcopenshell.open()\n_build_spatial_graph()
+ENG --> RUN : engine (spatial index ready)
+deactivate ENG
+
+RUN -> LLM : init_llm(config)\n(ChatGoogleGenerativeAI)
+LLM --> RUN : llm instance
+
+alt profile.use_clip == true
+    RUN -> CLIP : VisualAligner()
+    activate CLIP
+    CLIP -> CLIP : Load CLIP model\n(HuggingFace Transformers)
+    CLIP --> RUN : visual_aligner
+    deactivate CLIP
+end
+
+RUN -> RUN : Select pipeline type\nfrom profile
+
+alt pipeline == "v1"
+    ref over RUN : V1 Pipeline (Agent-Driven)\nsee Page 2
+else pipeline == "v2"
+    ref over RUN : V2 Pipeline (Constraints-Driven)\nsee Page 3
+end
+
+RUN -> RUN : compute_summary(traces)\nwrite JSONL traces\nwrite CSV summary
+RUN --> U : Top-1 / Top-K Accuracy\nSearch-Space Reduction\nTraces & Summary files
+deactivate RUN
+
+@enduml

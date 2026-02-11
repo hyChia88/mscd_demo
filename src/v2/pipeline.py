@@ -213,6 +213,17 @@ async def run_v2_case(
 
     total_ms = (time.perf_counter() - t0) * 1000
 
+    # V2 API usage: 1 call for constraints extraction + optional 1 for image parsing
+    v2_api_calls = 1  # constraints extraction always uses 1 LLM call
+    if image_parse_result is not None:
+        v2_api_calls += 1  # image parsing uses 1 VLM call
+
+    # Cost estimation (Gemini 2.5 Flash pricing)
+    input_cost_per_call = 2.0 * 0.00001875   # ~2K input tokens
+    output_cost_per_call = 0.5 * 0.000075    # ~500 output tokens
+    cost_per_call = input_cost_per_call + output_cost_per_call
+    v2_api_cost = v2_api_calls * cost_per_call
+
     trace = EvalTrace(
         scenario_id=scenario.id,
         run_id=run_id,
@@ -220,6 +231,9 @@ async def run_v2_case(
         tool_steps=[],                   # v2 has no agent tool calls
         interpreter_output=interpreter_output,
         total_latency_ms=total_ms,
+        api_calls_count=v2_api_calls,
+        api_cost_estimate=v2_api_cost,
+        pipeline_type="v2",
         guid_match=guid_match,
         name_match=name_match,
         storey_match=storey_match,

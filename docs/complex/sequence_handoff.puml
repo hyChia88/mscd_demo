@@ -1,0 +1,54 @@
+@startuml MSCD_Demo_Sequence_Handoff
+!theme plain
+title **Handoff Pipeline -- Trace to Issue to BCFzip**
+
+participant "Main Pipeline\n(v1 or v2)"   as MAIN
+participant "Trace Builder\n(handoff/trace.py)" as TRACE
+participant "Issue Writer\n(handoff/bcf_lite.py)" as ISSUE
+participant "BCFzip Generator\n(handoff/bcf_zip.py)" as BCF
+collections "Output Files" as OUT
+
+activate MAIN
+
+MAIN -> TRACE : build_trace(run_id, case_id,\ntest_case, agent_response,\ntool_calls, eval_result, config)
+activate TRACE
+TRACE -> TRACE : Assemble trace dict:\n- scenario metadata\n- agent response\n- tool call chain\n- evaluation metrics\n- timestamps
+TRACE --> MAIN : trace dict
+deactivate TRACE
+
+MAIN -> TRACE : write_trace_json(trace,\nout_dir="outputs/traces/")
+TRACE -> OUT : outputs/traces/{run_id}/{case_id}.json
+
+MAIN -> ISSUE : write_issue_json(\nout_dir="outputs/issues/",\ntrace)
+activate ISSUE
+ISSUE -> ISSUE : build_issue_title()\nbuild_issue_description()\nformat as JSON
+ISSUE -> OUT : outputs/issues/{run_id}/{case_id}.json
+ISSUE --> MAIN : issue_path
+deactivate ISSUE
+
+MAIN -> BCF : write_bcfzip(\nout_dir="outputs/bcf/",\ntrace)
+activate BCF
+BCF -> BCF : Generate topic UUID
+BCF -> BCF : Build bcf.version (XML)
+BCF -> BCF : Build markup.bcf (XML)\n- Topic title and description\n- Referenced GUID\n- Creation date and author
+BCF -> BCF : Build viewpoint.bcfv (XML)\n- Component selection\n- Camera position (if available)
+BCF -> BCF : Pack into ZIP archive\n(.bcfzip = BCF 2.1)
+BCF -> OUT : outputs/bcf/{run_id}/{case_id}.bcfzip
+BCF --> MAIN : bcf_path
+deactivate BCF
+
+note over OUT
+    **BCFzip Structure:**
+    {case_id}.bcfzip
+    |-- bcf.version
+    +-- {topic_guid}/
+        |-- markup.bcf
+        +-- viewpoints/
+            +-- viewpoint.bcfv
+end note
+
+MAIN --> MAIN : Attach handoff paths\nto EvalTrace
+
+deactivate MAIN
+
+@enduml
