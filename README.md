@@ -44,7 +44,7 @@ python src/main_mcp.py
 **V2 — Constraints-driven evaluation (new):**
 ```bash
 python script/run.py --profile v2_prompt \
-  --cases data_curation/datasets/synth_v0.2/cases_v2.jsonl
+  --cases data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl
 ```
 
 **Interactive chat (for testing):**
@@ -80,27 +80,27 @@ python script/run.py --profile <profile_name> --cases <path_to_cases.jsonl>
 **Examples:**
 
 ```bash
-# V2 with prompt-only constraints extraction
+# V2 with prompt-only constraints extraction (synth_v0.3)
 python script/run.py --profile v2_prompt \
-  --cases data_curation/datasets/synth_v0.2/cases_v2.jsonl
+  --cases data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl
 
 # V2 with LoRA extraction (when adapter is trained)
 python script/run.py --profile best_v2 \
-  --cases data_curation/datasets/synth_v0.2/cases_v2.jsonl \
-  --adapter_path models/qwen3-vl-8b-lora/checkpoint-1000
+  --cases data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl \
+  --adapter_path models/qwen2.5-vl-7b-lora/checkpoint-best
 
 # Run only condition A2 cases
 python script/run.py --profile v2_prompt \
-  --cases data_curation/datasets/synth_v0.2/cases_v2.jsonl \
+  --cases data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl \
   --condition A2
 
 # V1 baseline for comparison
 python script/run.py --profile v1_baseline \
-  --cases data_curation/datasets/synth_v0.2/cases_v2.jsonl
+  --cases data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl
 
 # Ablation: V2 without CLIP
 python script/run.py --profile ablate_no_clip \
-  --cases data_curation/datasets/synth_v0.2/cases_v2.jsonl
+  --cases data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl
 ```
 
 **Output files:**
@@ -172,18 +172,18 @@ Failed runs don't stop the batch. At the end you get a summary of which succeede
 
 ### Full Experiment Matrix
 
-All runs use the synthetic dataset (43 cases). LLM API is Gemini 2.5 Flash ($0.15/M input, $0.60/M output).
+All runs use the synthetic dataset (84 cases, synth_v0.3). LLM API is Gemini 2.5 Flash ($0.15/M input, $0.60/M output).
 
 | # | Run | What it tests | Cases | Est. Time | Est. Cost | Command |
 |---|-----|--------------|-------|-----------|-----------|---------|
-| 1 | V1 memory | Baseline retrieval | 43 | ~4 min | ~$0.10 | `./run_mcp.sh -e memory -d synth` |
-| 2 | V1 neo4j | Graph queries | 43 | ~4 min | ~$0.10 | `./run_mcp.sh -e neo4j -d synth` |
-| 3 | V1 memory+clip | CLIP reranking | 43 | ~15 min | ~$0.10 | `./run_mcp.sh -e memory+clip -d synth` |
-| 4 | V1 neo4j+clip | Graph + CLIP | 43 | ~15 min | ~$0.10 | `./run_mcp.sh -e neo4j+clip -d synth` |
-| 5 | V2 v2_prompt | Constraints extraction | 43 | ~2 min | ~$0.02 | `python script/run.py --profile v2_prompt --cases ../data_curation/datasets/synth_v0.2/cases_v2.jsonl` |
-| 6 | V2 v2_memory | V2 baseline | 43 | ~1.5 min | ~$0.02 | `python script/run.py --profile v2_memory --cases ../data_curation/datasets/synth_v0.2/cases_v2.jsonl` |
-| 7-15 | V2 x 9 conditions | A1-C3 ablations | ~5 each | ~10 min | ~$0.05 | See below |
-| | **Total** | | | **~50 min** | **~$0.50** | |
+| 1 | V1 memory | Baseline retrieval | 84 | ~8 min | ~$0.20 | `./run_mcp.sh -e memory -d synth` |
+| 2 | V1 neo4j | Graph queries | 84 | ~8 min | ~$0.20 | `./run_mcp.sh -e neo4j -d synth` |
+| 3 | V1 memory+clip | CLIP reranking | 84 | ~30 min | ~$0.20 | `./run_mcp.sh -e memory+clip -d synth` |
+| 4 | V1 neo4j+clip | Graph + CLIP | 84 | ~30 min | ~$0.20 | `./run_mcp.sh -e neo4j+clip -d synth` |
+| 5 | V2 v2_prompt | Constraints extraction | 84 | ~4 min | ~$0.04 | `python script/run.py --profile v2_prompt --cases ../data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl` |
+| 6 | V2 v2_memory | V2 baseline | 84 | ~3 min | ~$0.04 | `python script/run.py --profile v2_memory --cases ../data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl` |
+| 7-15 | V2 x 9 conditions | A1-C3 ablations | ~9 each | ~20 min | ~$0.10 | See below |
+| | **Total** | | | **~100 min** | **~$1.00** | |
 
 **Run all V1 modes at once:**
 ```bash
@@ -193,7 +193,7 @@ All runs use the synthetic dataset (43 cases). LLM API is Gemini 2.5 Flash ($0.1
 
 **Run V2 condition ablations (A1-C3):**
 ```bash
-CASES=../data_curation/datasets/synth_v0.2/cases_v2.jsonl
+CASES=../data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl
 for cond in A1 A2 A3 B1 B2 B3 C1 C2 C3; do
   echo "=== Condition: $cond ==="
   python script/run.py --profile v2_prompt --cases $CASES --condition $cond
@@ -299,7 +299,7 @@ experiments:
     description: "V2 pipeline with Gemini VLM for image parsing"
     profile: v2_prompt
     conditions: [A1, B1, C1]
-    cases: data_curation/datasets/synth_v0.2/cases_v2.jsonl
+    cases: data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl
     output_dir: logs/experiments/vlm_integration
     tags: [main, vlm-enabled]
 ```
@@ -449,7 +449,7 @@ mscd_demo/
 │   │   ├── types.py             # Data models (Constraints, QueryPlan, V2Trace)
 │   │   ├── condition_mask.py    # A1-C3 input masking
 │   │   ├── constraints_extractor_prompt_only.py  # LLM-based extraction
-│   │   ├── constraints_extractor_lora.py         # LoRA-based extraction
+│   │   ├── constraints_extractor_lora.py         # LoRA-based extraction (Qwen2.5-VL)
 │   │   ├── constraints_to_query.py  # Template query planner
 │   │   ├── retrieval_backend.py # Memory/Neo4j/CLIP retrieval
 │   │   ├── pipeline.py          # V2 pipeline orchestration
@@ -574,39 +574,126 @@ conditions:
 
 ## Datasets
 
-There are two datasets. Both pipelines (V1 and V2) read from the same files.
+There are three datasets. Both pipelines (V1 and V2) read from the same JSONL format.
 
 | Dataset | Cases | File | Used by |
 |---------|-------|------|---------|
 | **gt_1** (hand-written) | 6 | `data/ground_truth/gt_1/gt_1.json` | V1 default |
-| **synth_v0.2** (synthetic) | 43 | `../data_curation/datasets/synth_v0.2/cases_v2.jsonl` | V1 (`-d synth`) and V2 (`--cases`) |
+| **synth_v0.2** (synthetic) | 43 | `../data_curation/datasets/synth_v0.2/cases_v2.jsonl` | Legacy |
+| **synth_v0.3** (synthetic, main) | 84 | `../data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl` | V1 + V2 main evaluation |
 
-The synthetic dataset (`cases_v2.jsonl`) is the main evaluation dataset. It uses a single standardized JSONL format that both V1 and V2 pipelines read directly:
+### synth_v0.3 (Primary Evaluation Dataset)
+
+84 cases organized into three tiers mapped to research questions:
+
+| Tier | Focus | Cases | RQ | Image Mode | Text Style |
+|------|-------|-------|----|------------|------------|
+| **T1** (Visual Texture) | Grounding from defect images | ~35% | RQ1 | defect | deictic |
+| **T2** (Spatial/4D) | Alignment via floorplan + 4D metadata | ~35% | RQ2 | defect | relative |
+| **T3** (Conflict/Negative) | Governance — mismatch or pristine | ~30% | RQ3 | mismatch/pristine | misleading |
+
+Each case includes: photoreal site photos (Gemini-generated from IFC wireframes), floorplan patches (matplotlib from IFC geometry), and structured chat context.
+
+**v0.3 case schema (`cases_v3_filtered.jsonl`):**
 
 ```json
 {
-  "case_id": "SYNTH_001_SK_001_V2",
-  "query_text": "What's the spec for this?",
-  "bench": {"group": "B", "condition": "B1"},
-  "difficulty_tags": {"tier": "Tier 1", "candidate_density_k": 1},
+  "case_id": "SYNTH_V3_001_SK_001",
+  "query_text": "Check this out.",
+  "bench": {"group": "A", "condition": "A1"},
+  "difficulty_tags": {
+    "tier": "T1",
+    "tier_name": "Visual Texture",
+    "candidate_density_k": 5,
+    "requires_relation": false,
+    "conflict_injected": false,
+    "image_mode": "defect",
+    "text_style": "deictic"
+  },
   "inputs": {
     "chat_history": [{"role": "Site Supervisor", "text": "..."}],
-    "images": ["datasets/synth_v0.2/cases/imgs/img_SYNTH_001.png"],
-    "floorplan_patch": "datasets/synth_v0.2/cases/plans/plan_SYNTH_001.png",
-    "project_context": {"timestamp": "...", "sender_role": "...", "4d_task_status": "..."}
+    "chat_quality": "clear",
+    "images": ["datasets/synth_v0.3/cases/imgs/img_SYNTH_V3_001_SK_001.png"],
+    "floorplan_patch": "datasets/synth_v0.3/cases/plans/plan_SYNTH_V3_001_SK_001.png",
+    "project_context": {"timestamp": "...", "sender_role": "...", "project_phase": "...", "4d_task_status": "..."}
   },
   "ground_truth": {
     "target_guid": "3GzoWuxxn4WO8bCtw8H3Vj",
     "target_storey": "1 - First Floor",
     "target_ifc_class": "IfcWall",
     "target_name": "Basic Wall:MockUp Interior...",
-    "rq_category": "RQ1"
+    "rq_category": "RQ1",
+    "expected_output": "defect_found"
   },
   "labels": {
-    "constraints": {"storey_name": "1 - First Floor", "ifc_class": "IfcWall"}
+    "constraints": {"storey_name": "1 - First Floor", "ifc_class": "IfcWall", "near_keywords": [], "relations": []}
   }
 }
 ```
+
+### V2 Baseline Results (synth_v0.3)
+
+| Metric | Value |
+|--------|-------|
+| Top-1 Accuracy | 3.57% |
+| Top-K Accuracy | 5.95% |
+| Search Space Reduction (SSR) | 92.65% |
+| Field EM F1 | 21.35% |
+| Constraints Parse Rate | 100% |
+
+The low Top-1 reflects the challenge: many cases use vague/deictic text (e.g., "Look at this.") by design, forcing the model to rely on visual grounding rather than keyword matching. This is the baseline the LoRA adapter aims to improve.
+
+### LoRA Training Data
+
+The training data pipeline converts the 84 evaluation cases into LoRA fine-tuning format:
+
+```
+cases_v3_filtered.jsonl (84 cases)
+    |
+    v  6_augment_text.py (stratified split + 3x text augmentation)
+    |
+    ├── train/augmented.jsonl      (192 samples: 64 original + 64 vague + 64 urgent)
+    ├── train/test_holdout.jsonl   (20 cases, never augmented)
+    |
+    v  7_prepare_lora_data.py (ChatML formatting for Qwen2.5-VL)
+    |
+    ├── train/lora_train.jsonl     (192 ChatML training samples)
+    └── train/lora_test.jsonl      (20 ChatML test samples)
+```
+
+**Text augmentation styles** (same images + ground truth, different text):
+- **Original**: Preserved as-is from the case
+- **Style B (Vague/Deictic)**: "Look at this.", "What is wrong here?" — forces image reliance
+- **Style C (Urgent/Site Jargon)**: "Need verification ASAP.", "QA flagged this." — simulates real foreman language
+
+**Prepare training data:**
+```bash
+cd /root/cmu/master_thesis/data_curation
+
+# Step 1: Augment text (84 → 192 train + 20 test)
+python scripts/synth/6_augment_text.py \
+  --cases datasets/synth_v0.3/cases_v3_filtered.jsonl \
+  --output datasets/synth_v0.3/train/augmented.jsonl \
+  --hold-out 20 --seed 42
+
+# Step 2: Format for Qwen2.5-VL ChatML
+python scripts/synth/7_prepare_lora_data.py \
+  --train datasets/synth_v0.3/train/augmented.jsonl \
+  --test  datasets/synth_v0.3/train/test_holdout.jsonl \
+  --output datasets/synth_v0.3/train/lora_train.jsonl \
+  --image-root /root/cmu/master_thesis/data_curation
+```
+
+**LoRA training plan:**
+
+| Parameter | Value |
+|-----------|-------|
+| Base model | Qwen/Qwen2.5-VL-7B-Instruct |
+| Adapter | LoRA (r=8, alpha=16) |
+| Training samples | 192 |
+| Test samples | 20 |
+| Epochs | 1-2 (early stopping on test loss) |
+| Task | Multimodal constraint extraction (images + text → JSON) |
 
 ---
 
@@ -682,6 +769,7 @@ python script/ifc_to_neo4j.py
 | IFC Processing | IfcOpenShell |
 | LLM Agent | Google Gemini 2.5 Flash |
 | Image Parsing (VLM) | Google Gemini 2.5 Flash (multimodal) |
+| Constraints LoRA | Qwen2.5-VL-7B-Instruct + LoRA (Unsloth) |
 | Visual Matching | OpenAI CLIP |
 | Data Models | Pydantic v2 |
 | MCP Server | FastMCP |
@@ -689,8 +777,9 @@ python script/ifc_to_neo4j.py
 | Graph Database | Neo4j (optional) |
 | BCF Generation | stdlib zipfile + xml.etree (BCF 2.1) |
 | 3D Rendering | Blender + Bonsai addon (headless) |
+| Photoreal Images | Google Gemini (from IFC wireframes) |
 
 ---
 
 **Last Updated:** February 2026
-**Status:** V1 + V2 pipelines operational. V2 supports prompt-only constraints extraction; LoRA extraction pending adapter training.
+**Status:** V1 + V2 pipelines operational on synth_v0.3 (84 cases). V2 prompt baseline: Top-1=3.57%, SSR=92.65%. LoRA training data prepared (192 samples); adapter training next.
