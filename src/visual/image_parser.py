@@ -223,14 +223,28 @@ class ImageParserReader:
 
     @staticmethod
     def _resolve_path(img_path: str, image_dir: str) -> str:
-        """Resolve image path relative to image_dir."""
+        """Resolve image path relative to image_dir.
+
+        Resolution order:
+          1. Absolute path — return as-is if exists
+          2. image_dir / full_relative_path (e.g. ../data_curation/datasets/synth_v0.3/cases/imgs/img.png)
+          3. image_dir / filename_only (backward compat with v0.2 flat layout)
+          4. Return original path (will fail downstream with clear error)
+        """
         p = Path(img_path)
         if p.is_absolute() and p.exists():
             return str(p)
         if image_dir:
-            candidate = Path(image_dir) / p.name
-            if candidate.exists():
-                return str(candidate)
+            # Try full relative path first (preserves subdirectory structure)
+            candidate_full = Path(image_dir) / p
+            if candidate_full.exists():
+                return str(candidate_full)
+            # Fallback: filename only (v0.2 compat)
+            candidate_name = Path(image_dir) / p.name
+            if candidate_name.exists():
+                return str(candidate_name)
+            print(f"  [ImageParser] WARNING: could not resolve '{img_path}' "
+                  f"in image_dir='{image_dir}'")
         return img_path
 
     @staticmethod

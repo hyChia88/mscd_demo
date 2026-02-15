@@ -57,13 +57,19 @@ def _build_scenario_input(case: Dict[str, Any], image_dir: str) -> ScenarioInput
     if not query_text and chat_msgs:
         query_text = chat_msgs[-1].text
 
-    # Resolve image paths
+    # Resolve image paths (preserve subdirectory structure)
+    from pathlib import Path
     images = inputs.get("images", [])
     image_paths = []
     for img in images:
-        # images may be relative to data_curation; resolve to image_dir
-        from pathlib import Path
-        candidate = Path(image_dir) / Path(img).name
+        p = Path(img)
+        # Try full relative path under image_dir first, then filename only
+        candidate = Path(image_dir) / p
+        if not candidate.exists():
+            candidate = Path(image_dir) / p.name
+        if not candidate.exists():
+            print(f"  [pipeline] WARNING: image not resolved: {img} "
+                  f"(tried {image_dir}/{p} and {image_dir}/{p.name})")
         image_paths.append(str(candidate))
 
     context_meta = ContextMeta(
