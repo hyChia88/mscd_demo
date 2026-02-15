@@ -21,6 +21,17 @@ profiles:
     bcf: true
     description: "V2 with LoRA constraints, Neo4j graph, CLIP reranking (best configuration)"
 
+  # V2 with LoRA constraints extraction (requires --adapter_path)
+  v2_lora:
+    pipeline: v2
+    constraints_model: lora
+    retrieval: neo4j
+    use_clip: false
+    thin_agent: false
+    rq2_schema: true
+    bcf: false
+    description: "V2 with LoRA-based constraints (Qwen2.5-VL), Neo4j, no CLIP"
+
   # V2 with prompt-only extraction
   v2_prompt:
     pipeline: v2

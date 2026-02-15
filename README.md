@@ -355,6 +355,21 @@ This ensures **full reproducibility** — you can regenerate any result months l
 
 See [experiments.yaml](experiments.yaml) for full configuration.
 
+### LoRA Training:
+
+# Train (default config)
+./training/train.sh
+
+# Train with custom hyperparams
+./training/train.sh --epochs 5 --lr 1e-4
+
+# Download adapter after training
+./training/train.sh --download-only
+
+# Evaluate
+python script/run.py --profile v2_lora \
+  --cases ../data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl \
+  --adapter_path models/adapters/v2_lora_qwen
 ---
 
 ## Architecture

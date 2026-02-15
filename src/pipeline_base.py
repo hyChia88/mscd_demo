@@ -136,6 +136,17 @@ class V2Pipeline(PipelineBase):
 
         self.image_parser = ImageParserReader(llm)
 
+        # Pre-build LoRA extractor if profile uses lora (load model once)
+        self.lora_extractor = None
+        if profile.get("constraints_model") == "lora" and adapter_path:
+            from src.v2.constraints_extractor_lora import LoRAConstraintsExtractor
+
+            image_dir = config.get("ground_truth", {}).get("image_dir", "")
+            self.lora_extractor = LoRAConstraintsExtractor(
+                adapter_path=adapter_path,
+                image_dir=image_dir,
+            )
+
     async def run_case(
         self,
         case: Dict[str, Any],
@@ -161,6 +172,7 @@ class V2Pipeline(PipelineBase):
             rq2_schema_id=self.rq2_schema_id,
             tool_by_name=self.tool_by_name,
             image_parser=self.image_parser,
+            lora_extractor=self.lora_extractor,
         )
 
         return trace, v2_trace
