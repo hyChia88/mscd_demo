@@ -31,8 +31,9 @@ def extract_condition_from_trace(trace: Dict[str, Any]) -> str:
     Extract experimental condition (A1-C3) from trace.
 
     Tries multiple sources in order:
-    1. scenario.bench.condition (legacy format from synthetic dataset)
-    2. run_id suffix (e.g., "20260211_011004_v2_prompt_A1" -> "A1")
+    1. trace.bench.condition (set by run.py since v0.3)
+    2. scenario.bench.condition (legacy format from synthetic dataset)
+    3. run_id suffix (e.g., "20260211_011004_v2_prompt_A1" -> "A1")
 
     Args:
         trace: Evaluation trace dictionary
@@ -40,8 +41,13 @@ def extract_condition_from_trace(trace: Dict[str, Any]) -> str:
     Returns:
         Condition string (A1-C3) or "Unknown"
     """
-    # Try legacy format first
-    cond = trace.get("scenario", {}).get("bench", {}).get("condition")
+    # Top-level bench field (set by run.py)
+    cond = (trace.get("bench") or {}).get("condition")
+    if cond:
+        return cond
+
+    # Legacy: nested inside scenario
+    cond = (trace.get("scenario") or {}).get("bench", {}).get("condition")
     if cond:
         return cond
 

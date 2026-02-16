@@ -182,32 +182,45 @@ class ExperimentManager:
         if not dry_run:
             self.save_metadata(experiment_name, output_dir)
 
-        # Run each condition
-        for condition in config.get("conditions", []):
-            print(f"\n  → Running condition {condition}...")
+        # Build conditions list — empty means run all (no --condition filter)
+        conditions = config.get("conditions", [])
+        if not conditions:
+            conditions = [None]  # Single run without --condition filter
+
+        for condition in conditions:
+            if condition:
+                print(f"\n  -> Running condition {condition}...")
+            else:
+                print(f"\n  -> Running all conditions...")
 
             cmd = [
                 "conda", "run", "-n", "mscd_demo",
                 "python", "script/run.py",
                 "--profile", config["profile"],
                 "--cases", config["cases"],
-                "--condition", condition,
                 "--output_dir", str(output_dir)
             ]
+
+            if condition:
+                cmd.extend(["--condition", condition])
+
+            if "precomputed" in config:
+                cmd.extend(["--precomputed", config["precomputed"]])
 
             if "percent" in config:
                 cmd.extend(["--percent", str(config["percent"])])
             elif "limit" in config:
                 cmd.extend(["--limit", str(config["limit"])])
 
+            label = f"condition {condition}" if condition else "all conditions"
             if dry_run:
                 print(f"    [DRY RUN] {' '.join(cmd)}")
             else:
                 try:
                     subprocess.run(cmd, check=True, cwd=PROJECT_ROOT)
-                    print(f"    ✓ Condition {condition} completed")
+                    print(f"    -> {label} completed")
                 except subprocess.CalledProcessError as e:
-                    print(f"    ✗ Condition {condition} failed: {e}")
+                    print(f"    x {label} failed: {e}")
                     return None
 
         if not dry_run:

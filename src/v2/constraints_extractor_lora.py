@@ -64,8 +64,8 @@ class LoRAConstraintsExtractor:
         """
         Initialize LoRA extractor.
 
-        Loads the base model + LoRA adapter once. If adapter_path is None
-        or loading fails, falls back to returning empty constraints.
+        Loads the base model (4-bit quantized) + LoRA adapter once.
+        Raises on failure — no silent fallback.
 
         Args:
             adapter_path: Path to LoRA adapter directory (contains
@@ -79,38 +79,61 @@ class LoRAConstraintsExtractor:
         self._loaded = False
 
         if adapter_path:
-            self._load_model(adapter_path)
+            self._load_model(adapter_path)  # Raises on failure — no silent fallback
 
     def _load_model(self, adapter_path: str):
-        """Load base model + LoRA adapter."""
-        try:
-            from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
-            from peft import PeftModel
-            import torch
+        """Load base model (4-bit quantized) + LoRA adapter.
 
-            base_model_id = "Qwen/Qwen2.5-VL-7B-Instruct"
+        Raises on failure — no silent fallback.
+        """
+        from transformers import (
+            Qwen2_5_VLForConditionalGeneration,
+            AutoProcessor,
+            BitsAndBytesConfig,
+        )
+        from peft import PeftModel
+        import torch
 
-            print(f"  [LoRA] Loading base model: {base_model_id}")
-            base_model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-                base_model_id,
-                torch_dtype=torch.float16,
-                device_map="auto",
+        adapter_path_obj = Path(adapter_path)
+        if not (adapter_path_obj / "adapter_config.json").exists():
+            raise FileNotFoundError(
+                f"[LoRA] adapter_config.json not found in: {adapter_path}\n"
+                f"  Expected files: adapter_config.json + adapter_model.safetensors"
             )
 
-            print(f"  [LoRA] Loading adapter: {adapter_path}")
-            self.model = PeftModel.from_pretrained(base_model, adapter_path)
-            self.model.eval()
+        base_model_id = "Qwen/Qwen2.5-VL-7B-Instruct"
 
-            self.processor = AutoProcessor.from_pretrained(base_model_id)
-            self._loaded = True
-            print(f"  [LoRA] Model ready (adapter from {adapter_path})")
+        # 4-bit quantization — fits ~5GB VRAM (vs 14GB for float16)
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.float16,
+            bnb_4bit_use_double_quant=True,
+        )
 
-        except ImportError as e:
-            print(f"  [LoRA] WARNING: Missing dependency: {e}")
-            print("  [LoRA] Install: pip install transformers peft torch qwen-vl-utils")
-        except Exception as e:
-            print(f"  [LoRA] WARNING: Failed to load model: {e}")
-            print("  [LoRA] Falling back to empty constraints")
+        if torch.cuda.is_available():
+            vram_gb = torch.cuda.get_device_properties(0).total_memory / 1e9
+            print(f"  [LoRA] GPU: {torch.cuda.get_device_name(0)} ({vram_gb:.1f} GB)")
+            if vram_gb < 5.0:
+                print(f"  [LoRA] WARNING: {vram_gb:.1f} GB VRAM may be insufficient "
+                      f"for Qwen2.5-VL-7B 4-bit (~5GB needed)")
+        else:
+            print("  [LoRA] WARNING: No CUDA GPU — inference will be very slow on CPU")
+
+        print(f"  [LoRA] Loading base model: {base_model_id} (4-bit quantized)")
+        base_model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+            base_model_id,
+            quantization_config=bnb_config,
+            device_map="auto",
+        )
+
+        print(f"  [LoRA] Loading adapter: {adapter_path}")
+        self.model = PeftModel.from_pretrained(base_model, adapter_path)
+        self.model.eval()
+
+        self.processor = AutoProcessor.from_pretrained(base_model_id)
+        self._loaded = True
+        print(f"  [LoRA] Model ready ({adapter_path})")
 
     async def extract(
         self,
@@ -134,9 +157,9 @@ class LoRAConstraintsExtractor:
             Constraints object with extracted fields
         """
         if not self._loaded:
-            return Constraints(
-                confidence=0.0,
-                source="lora_not_loaded",
+            raise RuntimeError(
+                "[LoRA] Model not loaded! Check adapter_path and GPU availability. "
+                "Will NOT fall back silently — fix the root cause."
             )
 
         # Apply condition mask (respects A1-C3 modality control)

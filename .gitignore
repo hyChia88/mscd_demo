@@ -1,26 +1,14 @@
 .env
 data/archive/
-mscd_demo/src/__pycache__
-mscd_demo/src/__pycache__/*.pyc
-mscd_demo/tests/__pycache__
-mscd_demo/tests/__pycache__/*.pyc
-mscd_demo/src/eval/__pycache__
-mscd_demo/src/eval/__pycache__/*.pyc
-mscd_demo/src/rq2_schema/__pycache__
-mscd_demo/src/rq2_schema/__pycache__/*.pyc
-mscd_demo/script/__pycache__
-mscd_demo/script/__pycache__/*.pyc
-mscd_demo/src/handoff/__pycache__
-mscd_demo/src/handoff/__pycache__/*.pyc
-mscd_demo/mcp_servers/__pycache__
-mscd_demo/mcp_servers/__pycache__/*.pyc
-mscd_demo/outputs/
-mscd_demo/outputs/
-mscd_demo/src/v2/__pycache__
-mscd_demo/src/v2/__pycache__/*.pyc
-mscd_demo/src/common/__pycache__
-mscd_demo/src/common/__pycache__/*.pyc
-mscd_demo/src/__pycache__
-mscd_demo/src/__pycache__/*.pyc
-mscd_demo/logs
-mscd_demo/models
+data/
+
+# Python
+__pycache__/
+*.pyc
+
+# Outputs and logs
+outputs/
+logs/
+
+# Large model files
+models/

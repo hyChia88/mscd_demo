@@ -365,13 +365,23 @@ See [experiments.yaml](experiments.yaml) for full configuration.
 
 # Download adapter after training
 ./training/train.sh --download-only
-
-# Evaluate
-python script/run.py --profile v2_lora \
-  --cases ../data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl \
-  --adapter_path models/adapters/v2_lora_qwen
 ---
+### Full Evaluation Pipeline Flow
+```
+# End-to-end (after Modal adapters are ready):
+./training/eval.sh                    # Full: Modal → Local → Charts
 
+# Or step-by-step:
+./training/eval.sh --step modal       # Extract constraints on GPU
+./training/eval.sh --step local       # Run retrieval+scoring locally
+./training/eval.sh --step plots       # Generate comparison charts
+
+# Or standalone comparison:
+python script/compare_results.py \
+  --traces logs/evaluations/traces_A.jsonl --label "V2 Prompt" \
+  --traces logs/evaluations/traces_B.jsonl --label "V2 LoRA" \
+  --plots --output logs/comparisons/v03_full
+```
 ## Architecture
 
 **Code Organization Note:**
@@ -606,6 +616,14 @@ There are three datasets. Both pipelines (V1 and V2) read from the same JSONL fo
 | **T1** (Visual Texture) | Grounding from defect images | ~35% | RQ1 | defect | deictic |
 | **T2** (Spatial/4D) | Alignment via floorplan + 4D metadata | ~35% | RQ2 | defect | relative |
 | **T3** (Conflict/Negative) | Governance — mismatch or pristine | ~30% | RQ3 | mismatch/pristine | misleading |
+
+Cases are assigned to benchmark groups for controlled experiments:
+
+|   |                  | T1 (Visual Texture) | T2 (Spatial/4D) | T3 (Conflict/Negative) |
+|---|------------------|---------------------|-----------------|------------------------|
+| A | (text-only)      | A1 = 12             | A2 = 11         | A3 = 8                 |
+| B | (img+text)       | B1 = 14             | B2 = 8          | B3 = 6                 |
+| C | (full multimodal)| C1 = 10             | C2 = 5          | C3 = 10                |
 
 Each case includes: photoreal site photos (Gemini-generated from IFC wireframes), floorplan patches (matplotlib from IFC geometry), and structured chat context.
 

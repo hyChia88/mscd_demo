@@ -110,6 +110,7 @@ class V2Pipeline(PipelineBase):
         tool_by_name: Optional[Dict[str, Any]] = None,
         rq2_schema: Optional[Dict[str, Any]] = None,
         rq2_schema_id: Optional[str] = None,
+        precomputed_constraints: Optional[Dict] = None,
     ):
         self.engine = engine
         self.llm = llm
@@ -120,6 +121,7 @@ class V2Pipeline(PipelineBase):
         self.tool_by_name = tool_by_name
         self.rq2_schema = rq2_schema
         self.rq2_schema_id = rq2_schema_id
+        self.precomputed_constraints = precomputed_constraints
 
         # Build retrieval backend from profile
         from src.v2.retrieval_backend import RetrievalBackend
@@ -137,8 +139,9 @@ class V2Pipeline(PipelineBase):
         self.image_parser = ImageParserReader(llm)
 
         # Pre-build LoRA extractor if profile uses lora (load model once)
+        # Skip model loading when precomputed constraints are available
         self.lora_extractor = None
-        if profile.get("constraints_model") == "lora" and adapter_path:
+        if profile.get("constraints_model") == "lora" and adapter_path and not precomputed_constraints:
             from src.v2.constraints_extractor_lora import LoRAConstraintsExtractor
 
             image_dir = config.get("ground_truth", {}).get("image_dir", "")
@@ -173,6 +176,7 @@ class V2Pipeline(PipelineBase):
             tool_by_name=self.tool_by_name,
             image_parser=self.image_parser,
             lora_extractor=self.lora_extractor,
+            precomputed_constraints=self.precomputed_constraints,
         )
 
         return trace, v2_trace

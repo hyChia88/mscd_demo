@@ -117,6 +117,7 @@ async def run_v2_case(
     tool_by_name: Optional[Dict] = None,
     image_parser: Optional[Any] = None,  # ImageParserReader instance
     lora_extractor: Optional[Any] = None,  # Pre-built LoRAConstraintsExtractor
+    precomputed_constraints: Optional[Dict] = None,  # {case_id: Constraints} from Modal eval
 ) -> Tuple[EvalTrace, V2Trace]:
     """
     Run the V2 pipeline on a single case.
@@ -142,16 +143,26 @@ async def run_v2_case(
 
     # ── 2. extract constraints ─────────────────────────────────────────────
     t_ext = time.perf_counter()
-    if constraints_model == "lora" and lora_extractor is not None:
+    case_id = case.get("case_id", "")
+    if precomputed_constraints and case_id in precomputed_constraints:
+        # Use pre-extracted constraints from Modal eval (skip GPU inference)
+        constraints = precomputed_constraints[case_id]
+    elif constraints_model == "lora" and lora_extractor is not None:
         extractor = lora_extractor
+        constraints = await extractor.extract(
+            masked_case, condition_overrides, image_context=image_parse_result
+        )
     elif constraints_model == "lora":
         # Fallback: create extractor (slow — model loaded per call)
         extractor = LoRAConstraintsExtractor(adapter_path, image_dir=image_dir)
+        constraints = await extractor.extract(
+            masked_case, condition_overrides, image_context=image_parse_result
+        )
     else:
         extractor = PromptConstraintsExtractor(llm)
-    constraints = await extractor.extract(
-        masked_case, condition_overrides, image_context=image_parse_result
-    )
+        constraints = await extractor.extract(
+            masked_case, condition_overrides, image_context=image_parse_result
+        )
     constraints_ms = (time.perf_counter() - t_ext) * 1000
 
     # ── 3. plan queries ────────────────────────────────────────────────────

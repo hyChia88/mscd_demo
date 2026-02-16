@@ -92,6 +92,49 @@ experiments:
     tags: [v2, comparison, comprehensive]
     git_ref: null
 
+  # ===========================================================================
+  # SYNTH V0.3 EXPERIMENTS (84 cases, harder dataset)
+  # ===========================================================================
+
+  # V1 baseline on synth_v0.3
+  v1_baseline_v03:
+    description: "V1 agent-driven pipeline on synth_v0.3 (84 cases)"
+    profile: v1_baseline
+    conditions: []  # All conditions (no filter)
+    cases: ../data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl
+    output_dir: logs/evaluations
+    tags: [v1, baseline, synth_v0.3]
+
+  # V2 prompt baseline on synth_v0.3 (already run — Exp 3)
+  v2_prompt_v03:
+    description: "V2 prompt-only on synth_v0.3 (84 cases)"
+    profile: v2_prompt
+    conditions: []  # All conditions
+    cases: ../data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl
+    output_dir: logs/evaluations
+    tags: [v2, prompt, synth_v0.3]
+    existing_traces: logs/evaluations/traces_20260214_210555_v2_prompt.jsonl
+
+  # V2 LoRA (final adapter) on synth_v0.3
+  v2_lora_final_v03:
+    description: "V2 LoRA (final adapter) on synth_v0.3 (84 cases)"
+    profile: v2_lora
+    conditions: []
+    cases: ../data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl
+    output_dir: logs/evaluations
+    precomputed: logs/evaluations/eval_constraints_final.jsonl
+    tags: [v2, lora, final, synth_v0.3]
+
+  # V2 LoRA (checkpoint-180) on synth_v0.3
+  v2_lora_ckpt180_v03:
+    description: "V2 LoRA (checkpoint-180) on synth_v0.3 (84 cases)"
+    profile: v2_lora
+    conditions: []
+    cases: ../data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl
+    output_dir: logs/evaluations
+    precomputed: logs/evaluations/eval_constraints_checkpoint-180.jsonl
+    tags: [v2, lora, ckpt180, synth_v0.3]
+
 # Comparison groups - define which experiments to compare
 comparisons:
   vlm_impact:
@@ -110,6 +153,12 @@ comparisons:
     before: v1_baseline_test
     after: v2_prompt_test
     output_dir: logs/comparisons/v1_vs_v2
+
+  # synth_v0.3: V1 vs V2-prompt vs V2-LoRA (4-way comparison)
+  v03_full_comparison:
+    description: "V1 vs V2-Prompt vs V2-LoRA-Final vs V2-LoRA-Ckpt180 on synth_v0.3"
+    experiments: [v1_baseline_v03, v2_prompt_v03, v2_lora_final_v03, v2_lora_ckpt180_v03]
+    output_dir: logs/comparisons/v03_full
 
 # Metadata tracking
 tracking:

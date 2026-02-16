@@ -282,6 +282,9 @@ class EvalTrace(BaseModel):
     api_cost_estimate: float = 0.0  # Estimated cost in USD
     pipeline_type: str = "unknown"  # "v1" or "v2"
 
+    # Experimental condition metadata from dataset bench field
+    bench: Optional[Dict[str, str]] = None  # e.g. {"group": "A", "condition": "A1"}
+
     # Ground truth comparison
     guid_match: bool = False
     name_match: bool = False

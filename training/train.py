@@ -409,7 +409,7 @@ def train(
     # ── 8. Manual inference check ────────────────────────────────────────
     print("\nInference check on test samples...")
     FastVisionModel.for_inference(model)
-    _run_inference_check(model, tokenizer, test_samples)
+    _run_inference_check(model, tokenizer, test_samples, step=result.global_step)
 
     # ── 9. Save adapter ─────────────────────────────────────────────────
     final_path = os.path.join(config.output_dir, "final")
@@ -437,7 +437,7 @@ def train(
     }
 
 
-def _run_inference_check(model, tokenizer, test_samples):
+def _run_inference_check(model, tokenizer, test_samples, step=0):
     """Quick inference on test samples to verify JSON output quality."""
     import torch
     import wandb
@@ -541,6 +541,7 @@ def _run_inference_check(model, tokenizer, test_samples):
                 "test_json_rate": n_valid_json / n_total if n_total else 0,
                 "test_class_accuracy": n_class_match / n_total if n_total else 0,
                 "test_storey_accuracy": n_storey_match / n_total if n_total else 0,
+                "train/global_step": step,
             })
         except Exception:
             pass  # 忽略任何日志错误，避免打断流程

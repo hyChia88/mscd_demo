@@ -43,7 +43,7 @@ load_dotenv(PROJECT_ROOT / ".env")
 from src.eval.contracts import EvalTrace
 from src.eval.metrics import compute_summary
 from src.v2.metrics_v2 import compute_v2_metrics, compute_v2_summary
-from src.v2.types import V2Trace
+from src.v2.types import Constraints, V2Trace
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -228,6 +228,29 @@ async def main(args: argparse.Namespace) -> None:
         print("No cases matched — exiting.")
         return
 
+    # ── 2.5. load precomputed constraints (from Modal eval) ──────────────
+    precomputed_constraints: Optional[Dict[str, Constraints]] = None
+    if args.precomputed:
+        precomputed_constraints = {}
+        with open(args.precomputed, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                entry = json.loads(line)
+                cid = entry["case_id"]
+                c = entry["constraints"]
+                precomputed_constraints[cid] = Constraints(
+                    storey_name=c.get("storey_name"),
+                    ifc_class=c.get("ifc_class"),
+                    near_keywords=c.get("near_keywords", []),
+                    relations=c.get("relations", []),
+                    confidence=0.85 if entry.get("status") == "OK" else 0.0,
+                    source="lora_precomputed",
+                )
+        print(f"Loaded {len(precomputed_constraints)} precomputed constraints "
+              f"from {args.precomputed}")
+
     # ── 3. initialise shared components ────────────────────────────────────
     engine = init_engine(config)
     llm = init_llm(config)
@@ -246,6 +269,7 @@ async def main(args: argparse.Namespace) -> None:
             profile=profile,
             config=config,
             adapter_path=args.adapter_path,
+            precomputed_constraints=precomputed_constraints,
         )
     elif pipeline_type == "v1":
         # V1 pipeline uses MCP agent executor with real tool-calling
@@ -329,6 +353,7 @@ async def main(args: argparse.Namespace) -> None:
                 try:
                     trace, v2_trace = await pipeline.run_case(case, cond_overrides, run_id)
                     trace.pipeline_type = "v1"  # Mark as V1
+                    trace.bench = case.get("bench")
                     traces.append(trace)
 
                     hit = "HIT" if trace.guid_match else "miss"
@@ -341,6 +366,7 @@ async def main(args: argparse.Namespace) -> None:
                         scenario_id=case_id,
                         run_id=run_id,
                         scenario=None,      # type: ignore  – error trace
+                        bench=case.get("bench"),
                         error=str(exc),
                         success=False,
                         pipeline_type="v1",
@@ -363,6 +389,7 @@ async def main(args: argparse.Namespace) -> None:
             try:
                 trace, v2_trace = await pipeline.run_case(case, cond_overrides, run_id)
                 trace.pipeline_type = "v2"  # Mark as V2
+                trace.bench = case.get("bench")
                 traces.append(trace)
 
                 hit = "HIT" if trace.guid_match else "miss"
@@ -383,6 +410,7 @@ async def main(args: argparse.Namespace) -> None:
                     scenario_id=case_id,
                     run_id=run_id,
                     scenario=None,      # type: ignore  – error trace
+                    bench=case.get("bench"),
                     error=str(exc),
                     success=False,
                     pipeline_type="v2",
@@ -459,6 +487,11 @@ def cli() -> argparse.Namespace:
     p.add_argument(
         "--adapter_path", default=None,
         help="LoRA adapter checkpoint path (for v2 lora mode)",
+    )
+    p.add_argument(
+        "--precomputed", default=None,
+        help="Path to precomputed constraints JSONL (from Modal eval). "
+             "Skips LoRA extraction, uses pre-extracted constraints instead.",
     )
     p.add_argument(
         "--output_dir", default="logs/evaluations",
