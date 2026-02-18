@@ -1,0 +1,61 @@
+flowchart TB
+    %% ── Input Layer ──────────────────────────────────
+    subgraph INPUT ["Input Layer"]
+        U["User / CLI<br>run_mcp.sh · script/run.py"]
+        SC["Scenario Input<br>chat · images · floorplan · 4D metadata"]
+        CM["Condition Mask (A1–C3)<br>modality ablation"]
+        U --> SC --> CM
+    end
+
+    %% ── V1: Agent-Driven Pipeline ────────────────────
+    subgraph V1 ["V1 · Agent-Driven Pipeline (main_mcp.py)"]
+        AG["LangGraph ReAct Agent<br>Gemini 2.5 Flash + system prompt"]
+        MCP["MCP Dispatcher<br>mcp_langchain_adapter"]
+        IFC_T["IFC MCP Server<br>list_spaces · search_by_type<br>get_by_storey · get_details"]
+        VIS_T["Visual MCP Server<br>analyze_image · match_elements"]
+        RP["Response Parser<br>extract GUID + candidates"]
+        AG <-->|"tool calls"| MCP
+        MCP --> IFC_T
+        MCP -.->|"if visual"| VIS_T
+        AG --> RP
+    end
+
+    %% ── V2: Constraints-Driven Pipeline ──────────────
+    subgraph V2 ["V2 · Constraints-Driven Pipeline (v2/pipeline.py)"]
+        IP["Image Parser<br>Gemini 2.5 Flash VLM"]
+        CE["Constraints Extractor<br>prompt (LLM) | LoRA (Qwen2.5-VL)"]
+        QP["Query Planner<br>5-priority templates<br>storey+type · storey · type · keyword · fallback"]
+        RB["Retrieval Backend<br>+ optional CLIP rerank"]
+        IP --> CE --> QP --> RB
+    end
+
+    %% ── Shared Backend ───────────────────────────────
+    subgraph BACK ["Shared Backend"]
+        ENG["IFC Engine<br>ifcopenshell + spatial index"]
+        NEO[("Neo4j IFC Graph<br>(optional)")]
+        CLIP["CLIP Visual Aligner<br>clip-vit-base-patch32"]
+        ENG <-.->|"cypher"| NEO
+    end
+
+    %% ── Evaluation & Output ──────────────────────────
+    subgraph DOWN ["Evaluation & Output"]
+        EVAL["Evaluation Framework<br>top-1 · top-k · search-space reduction"]
+        RQ2["RQ2 Schema Mapping<br>CoreNetX-min JSON validation"]
+        BCF["P2 BCF Handoff<br>trace · issue.json · .bcfzip"]
+        OUT["Output Artifacts<br>traces.jsonl · summary.csv<br>bcf/ · logs/evaluations/"]
+        EVAL --> RQ2 --> BCF --> OUT
+    end
+
+    %% ── Cross-subgraph edges ─────────────────────────
+    CM -->|"V1"| AG
+    CM -->|"V2"| IP
+
+    IFC_T --> ENG
+    VIS_T --> CLIP
+
+    RB -->|"memory"| ENG
+    RB -->|"neo4j"| NEO
+    RB -.->|"rerank"| CLIP
+
+    RP --> EVAL
+    RB --> EVAL
