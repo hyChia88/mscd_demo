@@ -286,7 +286,7 @@ def generate_comparison_charts(
     )
 
     print(f"\n{'=' * 60}")
-    print(f"Generating Comparison Charts ({len(experiments)} experiments, 6 charts)")
+    print(f"Generating Comparison Charts ({len(experiments)} experiments, 9 charts)")
     print(f"{'=' * 60}\n")
 
     for label, traces in experiments.items():
@@ -316,6 +316,15 @@ def generate_comparison_charts(
 
     # ── Chart 6: Per-case detail (all 84 cases: hit + SSR) ──
     _plot_per_case_detail(experiments, f"{output_dir}/6_accuracy_heatmap_details.png", title)
+
+    # ── Chart 7: Modality gain (A vs B vs C per difficulty level) ──
+    _plot_modality_gain(experiments, f"{output_dir}/7_modality_gain.png", title)
+
+    # ── Chart 8: Difficulty degradation (X1 → X2 → X3 per system) ──
+    _plot_difficulty_degradation(experiments, f"{output_dir}/8_difficulty_degradation.png", title)
+
+    # ── Chart 9: Candidate density vs accuracy (scatter) ──
+    _plot_density_vs_accuracy(experiments, f"{output_dir}/9_density_vs_accuracy.png", title)
 
     print(f"\n{'=' * 60}")
     print(f"Charts saved to: {output_dir}/")
@@ -703,6 +712,250 @@ def _plot_per_case_detail(
     plt.close()
 
 
+def _plot_modality_gain(
+    experiments: dict, output_path: str, title: str = ""
+) -> None:
+    """Chart 7: Modality gain — grouped bar chart.
+
+    For each difficulty level (X1/X2/X3), compare accuracy across modalities
+    (A/B/C) for each experiment. Shows whether richer input helps.
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    exp_labels = list(experiments.keys())
+    n_exp = len(exp_labels)
+    modalities = ["A", "B", "C"]
+    mod_display = {"A": "Text Only", "B": "Img + Text", "C": "Full Multimodal"}
+    difficulty_levels = ["1", "2", "3"]
+    diff_display = {"1": "T1 (Easy)", "2": "T2 (Medium)", "3": "T3 (Hard)"}
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6), sharey=True)
+    colors = ["#3498db", "#2ecc71", "#e74c3c", "#f39c12", "#9b59b6", "#1abc9c"]
+
+    for di, diff in enumerate(difficulty_levels):
+        ax = axes[di]
+        x = np.arange(len(modalities))
+        width = 0.8 / n_exp
+
+        for ei, label in enumerate(exp_labels):
+            traces = experiments[label]
+            vals = []
+            for mod in modalities:
+                cond = f"{mod}{diff}"
+                subset = [t for t in traces if _extract_condition(t) == cond]
+                if subset:
+                    acc = sum(1 for t in subset if t.get("guid_match", False)) / len(subset) * 100
+                else:
+                    acc = 0
+                vals.append(acc)
+
+            offset = (ei - n_exp / 2 + 0.5) * width
+            bars = ax.bar(
+                x + offset, vals, width, label=label if di == 0 else None,
+                color=colors[ei % len(colors)], alpha=0.85,
+                edgecolor="black", linewidth=0.5,
+            )
+            for bar in bars:
+                h = bar.get_height()
+                if h > 0:
+                    ax.text(
+                        bar.get_x() + bar.get_width() / 2, h + 1,
+                        f"{h:.0f}", ha="center", va="bottom", fontsize=7,
+                        fontweight="bold",
+                    )
+
+        ax.set_xticks(x)
+        ax.set_xticklabels([mod_display[m] for m in modalities], fontsize=9)
+        ax.set_title(diff_display[diff], fontsize=12, fontweight="bold")
+        ax.set_ylim(0, 110)
+        ax.grid(axis="y", alpha=0.3, linestyle="--")
+
+    axes[0].set_ylabel("Top-1 Accuracy (%)", fontsize=12)
+    fig.legend(
+        loc="upper center", ncol=n_exp, fontsize=10,
+        bbox_to_anchor=(0.5, 1.02), frameon=True, shadow=True,
+    )
+    fig.suptitle(
+        f"{title} — Modality Gain" if title else "Modality Gain (A → B → C)",
+        fontsize=14, fontweight="bold", y=1.08,
+    )
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    print(f"  Saved: {output_path}")
+    plt.close()
+
+
+def _plot_difficulty_degradation(
+    experiments: dict, output_path: str, title: str = ""
+) -> None:
+    """Chart 8: Difficulty degradation — line chart.
+
+    For each modality group (A/B/C), plot accuracy as difficulty increases
+    (X1 → X2 → X3) for each experiment. Shows robustness to harder cases.
+    """
+    import matplotlib.pyplot as plt
+
+    exp_labels = list(experiments.keys())
+    modalities = ["A", "B", "C"]
+    mod_display = {"A": "Text Only (A)", "B": "Img + Text (B)", "C": "Full Multimodal (C)"}
+    difficulty_levels = ["1", "2", "3"]
+    diff_labels = ["X1\n(Easy)", "X2\n(Medium)", "X3\n(Hard)"]
+    colors = ["#3498db", "#2ecc71", "#e74c3c", "#f39c12", "#9b59b6", "#1abc9c"]
+    markers = ["o", "s", "D", "^", "v", "P"]
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6), sharey=True)
+
+    for mi, mod in enumerate(modalities):
+        ax = axes[mi]
+        for ei, label in enumerate(exp_labels):
+            traces = experiments[label]
+            accs = []
+            for diff in difficulty_levels:
+                cond = f"{mod}{diff}"
+                subset = [t for t in traces if _extract_condition(t) == cond]
+                if subset:
+                    acc = sum(1 for t in subset if t.get("guid_match", False)) / len(subset) * 100
+                else:
+                    acc = 0
+                accs.append(acc)
+
+            ax.plot(
+                range(3), accs,
+                marker=markers[ei % len(markers)], markersize=10,
+                color=colors[ei % len(colors)], linewidth=2.5,
+                label=label if mi == 0 else None, alpha=0.85,
+            )
+            # Annotate points
+            for xi, acc in enumerate(accs):
+                ax.annotate(
+                    f"{acc:.0f}%", (xi, acc),
+                    textcoords="offset points", xytext=(0, 12),
+                    ha="center", fontsize=8, fontweight="bold",
+                    color=colors[ei % len(colors)],
+                )
+
+        ax.set_xticks(range(3))
+        ax.set_xticklabels(diff_labels, fontsize=10)
+        ax.set_title(mod_display[mod], fontsize=12, fontweight="bold")
+        ax.set_ylim(-5, 115)
+        ax.grid(axis="y", alpha=0.3, linestyle="--")
+        ax.grid(axis="x", alpha=0.15, linestyle=":")
+
+    axes[0].set_ylabel("Top-1 Accuracy (%)", fontsize=12)
+    fig.legend(
+        loc="upper center", ncol=len(exp_labels), fontsize=10,
+        bbox_to_anchor=(0.5, 1.02), frameon=True, shadow=True,
+    )
+    fig.suptitle(
+        f"{title} — Difficulty Degradation" if title else "Difficulty Degradation (X1 → X2 → X3)",
+        fontsize=14, fontweight="bold", y=1.08,
+    )
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    print(f"  Saved: {output_path}")
+    plt.close()
+
+
+def _plot_density_vs_accuracy(
+    experiments: dict, output_path: str, title: str = ""
+) -> None:
+    """Chart 9: Candidate density (k) vs accuracy — scatter plot.
+
+    Shows how system performance degrades as the candidate pool grows.
+    Each dot is a case; x = candidate_density_k, y = hit (jittered).
+    Also plots a binned trend line (moving average).
+    Requires traces enriched with difficulty_tags from --cases.
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    exp_labels = list(experiments.keys())
+    colors = ["#3498db", "#2ecc71", "#e74c3c", "#f39c12", "#9b59b6", "#1abc9c"]
+
+    # Check if any traces have difficulty_tags
+    has_tags = False
+    for traces in experiments.values():
+        if any(t.get("difficulty_tags") for t in traces):
+            has_tags = True
+            break
+    if not has_tags:
+        print("  Skipped: 9_density_vs_accuracy.png (no difficulty_tags; use --cases to enrich)")
+        return
+
+    fig, ax = plt.subplots(figsize=(14, 7))
+
+    for ei, label in enumerate(exp_labels):
+        traces = experiments[label]
+        ks = []
+        hits = []
+        for t in traces:
+            dt = t.get("difficulty_tags") or {}
+            k = dt.get("candidate_density_k")
+            if k is not None:
+                ks.append(k)
+                hits.append(1 if t.get("guid_match", False) else 0)
+
+        if not ks:
+            continue
+
+        ks = np.array(ks, dtype=float)
+        hits = np.array(hits, dtype=float)
+
+        # Jitter y for visibility
+        jitter = (np.random.RandomState(42 + ei).rand(len(hits)) - 0.5) * 0.08
+        ax.scatter(
+            ks, hits + jitter,
+            color=colors[ei % len(colors)], alpha=0.35, s=40,
+            edgecolors="none",
+        )
+
+        # Binned trend line
+        bin_edges = [0, 2, 10, 20, 50, 100, 200]
+        bin_centers = []
+        bin_accs = []
+        for b0, b1 in zip(bin_edges[:-1], bin_edges[1:]):
+            mask = (ks >= b0) & (ks < b1)
+            if mask.sum() >= 2:
+                bin_centers.append((b0 + b1) / 2)
+                bin_accs.append(hits[mask].mean() * 100)
+
+        if bin_centers:
+            ax.plot(
+                bin_centers, [a / 100 for a in bin_accs],
+                color=colors[ei % len(colors)], linewidth=2.5,
+                marker="o", markersize=8, label=f"{label} (trend)",
+                alpha=0.9,
+            )
+
+    ax.set_xlabel("Candidate Density (k = same-type elements on storey)", fontsize=12)
+    ax.set_ylabel("Top-1 Hit (1 = correct, 0 = wrong)", fontsize=12)
+    ax.set_yticks([0, 1])
+    ax.set_yticklabels(["Miss", "Hit"], fontsize=11)
+    ax.set_xscale("symlog", linthresh=2)
+    ax.set_xlim(-0.5, 200)
+    ax.legend(fontsize=10, loc="center right", frameon=True, shadow=True)
+    ax.grid(axis="both", alpha=0.3, linestyle="--")
+
+    ax.set_title(
+        f"{title} — Candidate Density vs Accuracy" if title else "Candidate Density vs Accuracy",
+        fontsize=14, fontweight="bold",
+    )
+
+    # Annotate density zones
+    ax.axvspan(-0.5, 2, alpha=0.06, color="green", label="_S1 zone")
+    ax.axvspan(20, 200, alpha=0.06, color="red", label="_S2 zone")
+    ax.text(1, -0.15, "S1\nSingleton", ha="center", fontsize=8, color="green", style="italic")
+    ax.text(80, -0.15, "S2\nDense Cluster", ha="center", fontsize=8, color="red", style="italic")
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    print(f"  Saved: {output_path}")
+    plt.close()
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # display
 # ─────────────────────────────────────────────────────────────────────────────
@@ -916,18 +1169,23 @@ def main():
                 cases_path = project_root / cases_path
             if cases_path.exists():
                 bench_map = {}
+                difficulty_map = {}
                 with open(cases_path, "r", encoding="utf-8") as f:
                     for line in f:
                         line = line.strip()
                         if line:
                             c = json.loads(line)
                             bench_map[c["case_id"]] = c.get("bench")
+                            difficulty_map[c["case_id"]] = c.get("difficulty_tags")
                 enriched = 0
                 for traces in experiments.values():
                     for t in traces:
-                        if not t.get("bench") and t.get("scenario_id") in bench_map:
-                            t["bench"] = bench_map[t["scenario_id"]]
+                        sid = t.get("scenario_id")
+                        if not t.get("bench") and sid in bench_map:
+                            t["bench"] = bench_map[sid]
                             enriched += 1
+                        if not t.get("difficulty_tags") and sid in difficulty_map:
+                            t["difficulty_tags"] = difficulty_map[sid]
                 if enriched:
                     print(f"  Enriched {enriched} traces with bench/condition from {cases_path.name}")
             else:
