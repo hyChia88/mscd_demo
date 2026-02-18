@@ -36,12 +36,12 @@ cp .env.example .env
 
 ### 3. Run
 
-**V1 — Agent-driven evaluation (original):**
+**V1 — Agent-driven evaluation:**
 ```bash
-python src/main_mcp.py
+./run.sh mcp
 ```
 
-**V2 — Constraints-driven evaluation (new):**
+**V2 — Constraints-driven evaluation:**
 ```bash
 python script/run.py --profile v2_prompt \
   --cases data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl
@@ -146,26 +146,25 @@ Each case in `cases_v2.jsonl` has a `bench.condition` field. Conditions control 
 ### V1 Agent-Driven Pipeline
 
 ```bash
-# Full MCP-based evaluation
-python src/main_mcp.py
+# Single V1 run (config.yaml defaults)
+./run.sh mcp
 
 # With specific experiment mode
-python src/main_mcp.py --experiment memory        # In-memory spatial index
-python src/main_mcp.py --experiment neo4j         # Neo4j graph queries
-python src/main_mcp.py --experiment memory+clip   # In-memory + CLIP
-python src/main_mcp.py --experiment neo4j+clip    # Neo4j + CLIP
-
+./run.sh mcp -e memory        # In-memory spatial index
+./run.sh mcp -e neo4j         # Neo4j graph queries
+./run.sh mcp -e memory+clip   # In-memory + CLIP
+./run.sh mcp -e neo4j+clip    # Neo4j + CLIP
 ```
 
 ### Run All Experiments and Compare
 
-Use `run_mcp.sh --all` to run all 4 V1 experiment modes in a row, then automatically compare results.
+Use `./run.sh mcp --all` to run all 4 V1 experiment modes in a row, then automatically compare results.
 
 ```bash
-./run_mcp.sh --all                        # Run all V1 modes (memory, neo4j, memory+clip, neo4j+clip)
-./run_mcp.sh --all -d synth              # Run all on synthetic dataset
-./run_mcp.sh --all --v2                  # Also run V2 profiles after V1
-./run_mcp.sh --all --delay 15            # 15s delay between runs (default: 10)
+./run.sh mcp --all                        # Run all V1 modes (memory, neo4j, memory+clip, neo4j+clip)
+./run.sh mcp --all -d synth              # Run all on synthetic dataset
+./run.sh mcp --all --v2                  # Also run V2 profiles after V1
+./run.sh mcp --all --delay 15            # 15s delay between runs (default: 10)
 ```
 
 Failed runs don't stop the batch. At the end you get a summary of which succeeded/failed, total time, and a comparison table.
@@ -176,10 +175,10 @@ All runs use the synthetic dataset (84 cases, synth_v0.3). LLM API is Gemini 2.5
 
 | # | Run | What it tests | Cases | Est. Time | Est. Cost | Command |
 |---|-----|--------------|-------|-----------|-----------|---------|
-| 1 | V1 memory | Baseline retrieval | 84 | ~8 min | ~$0.20 | `./run_mcp.sh -e memory -d synth` |
-| 2 | V1 neo4j | Graph queries | 84 | ~8 min | ~$0.20 | `./run_mcp.sh -e neo4j -d synth` |
-| 3 | V1 memory+clip | CLIP reranking | 84 | ~30 min | ~$0.20 | `./run_mcp.sh -e memory+clip -d synth` |
-| 4 | V1 neo4j+clip | Graph + CLIP | 84 | ~30 min | ~$0.20 | `./run_mcp.sh -e neo4j+clip -d synth` |
+| 1 | V1 memory | Baseline retrieval | 84 | ~8 min | ~$0.20 | `./run.sh mcp -e memory -d synth` |
+| 2 | V1 neo4j | Graph queries | 84 | ~8 min | ~$0.20 | `./run.sh mcp -e neo4j -d synth` |
+| 3 | V1 memory+clip | CLIP reranking | 84 | ~30 min | ~$0.20 | `./run.sh mcp -e memory+clip -d synth` |
+| 4 | V1 neo4j+clip | Graph + CLIP | 84 | ~30 min | ~$0.20 | `./run.sh mcp -e neo4j+clip -d synth` |
 | 5 | V2 v2_prompt | Constraints extraction | 84 | ~4 min | ~$0.04 | `python script/run.py --profile v2_prompt --cases ../data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl` |
 | 6 | V2 v2_memory | V2 baseline | 84 | ~3 min | ~$0.04 | `python script/run.py --profile v2_memory --cases ../data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl` |
 | 7-15 | V2 x 9 conditions | A1-C3 ablations | ~9 each | ~20 min | ~$0.10 | See below |
@@ -187,8 +186,8 @@ All runs use the synthetic dataset (84 cases, synth_v0.3). LLM API is Gemini 2.5
 
 **Run all V1 modes at once:**
 ```bash
-./run_mcp.sh --all -d synth                  # Runs #1-4
-./run_mcp.sh --all --v2 -d synth             # Runs #1-6
+./run.sh mcp --all -d synth                  # Runs #1-4
+./run.sh mcp --all --v2 -d synth             # Runs #1-6
 ```
 
 **Run V2 condition ablations (A1-C3):**
@@ -247,17 +246,14 @@ python src/chat_cli.py --scenario GT_007  # Pre-load a scenario
 ```bash
 conda activate mscd_demo
 
-# V2 smoke tests (no LLM or IFC needed)
-python -m pytest test/test_v2_smoke.py -v
+# Run all tests
+python -m pytest test/ -v
 
-# RQ2 schema smoke test
-python script/rq2_schema_smoke_test.py
-
-# BCF generation test
-python script/test_bcf_generation.py
-
-# Visual aligner test
-python script/test_visual_aligner.py
+# Individual test modules
+python -m pytest test/test_ifc_engine.py -v       # IFC engine tests
+python -m pytest test/test_bcf_generation.py -v    # BCF generation tests
+python -m pytest test/test_visual_aligner.py -v    # Visual aligner tests
+python -m pytest test/rq2_schema_smoke_test.py -v  # RQ2 schema validation
 ```
 
 ### Generating Evaluation Plots
@@ -307,21 +303,21 @@ experiments:
 **Run experiments:**
 ```bash
 # List all available experiments
-python script/experiment.py list
+./run.sh experiment list
 
 # Run a single experiment
-python script/experiment.py run vlm_integration
+./run.sh experiment vlm_integration
 
 # Run multiple experiments and compare
-python script/experiment.py run baseline_v2 vlm_integration --compare vlm_impact
+./run.sh experiment baseline_v2 vlm_integration --compare vlm_impact
 
 # Quick test (5 cases)
-python script/experiment.py run quick_test
+./run.sh experiment quick_test
 ```
 
 **One-click VLM comparison (main thesis experiment):**
 ```bash
-./run_vlm_comparison.sh
+./run.sh vlm-compare
 ```
 
 This will:
@@ -385,7 +381,7 @@ python script/compare_results.py \
 ## Architecture
 
 **Code Organization Note:**
-V1 components are at `src/` root level (e.g., `main_mcp.py`, `mcp_langchain_adapter.py`), while V2 components are in `src/v2/` subdirectory. This asymmetry exists for historical reasons (V1 developed first, V2 added later). Shared components (`eval/`, `visual/`, `ifc_engine.py`) work for both pipelines. Both produce compatible `EvalTrace` output, enabling unified visualization and comparison.
+V1 components are at `src/` root level (e.g., `main_mcp.py`, `chat_cli.py`), while V2 components are in `src/v2/` subdirectory. This asymmetry exists for historical reasons (V1 developed first, V2 added later). Shared components (`eval/`, `visual/`, `ifc_engine.py`) work for both pipelines. Both produce compatible `EvalTrace` output, enabling unified visualization and comparison.
 
 ### V2 Pipeline (Constraints-Driven)
 
@@ -456,8 +452,8 @@ mscd_demo/
 ├── src/
 │   ├── # V1 Components (at root level - historical)
 │   ├── main_mcp.py              # [V1] Entry point (MCP agent)
-│   ├── mcp_langchain_adapter.py # [V1] MCP to LangChain adapter
 │   ├── chat_cli.py              # [V1] Interactive chat CLI
+│   ├── chat_logger.py           # [V1] Conversation logging
 │   │
 │   ├── # Shared Infrastructure
 │   ├── pipeline_base.py         # [SHARED] Pipeline abstraction (V1Pipeline, V2Pipeline)
@@ -503,7 +499,8 @@ mscd_demo/
 │       └── bcf_zip.py           # BCF 2.1 zip generation
 │
 ├── mcp_servers/
-│   └── ifc_server.py            # MCP server with IFC + visual tools
+│   ├── ifc_server.py            # MCP server with IFC query tools
+│   └── visual_server.py         # MCP server with visual analysis tools
 │
 ├── schemas/
 │   └── corenetx_min/
@@ -518,14 +515,15 @@ mscd_demo/
 │   ├── experiment.py            # Experiment management orchestrator
 │   ├── generate_plots.py        # Visualization generator
 │   ├── compare_results.py       # Compare eval results across experiments
-│   ├── baseline_experiment.py   # Redundancy quantification
-│   └── ...
+│   └── render_worker.py         # Blender rendering subprocess
 │
-├── run_experiment.sh            # Quick experiment runner
-├── run_vlm_comparison.sh        # One-click VLM before/after comparison
+├── run.sh                       # Unified eval launcher (mcp | experiment | vlm-compare)
 │
 ├── test/
-│   └── test_v2_smoke.py         # V2 smoke tests (17 tests)
+│   ├── test_ifc_engine.py       # IFC engine tests
+│   ├── test_bcf_generation.py   # BCF generation tests
+│   ├── test_visual_aligner.py   # Visual aligner tests
+│   └── rq2_schema_smoke_test.py # RQ2 schema validation tests
 │
 ├── logs/
 │   ├── evaluations/             # Ad-hoc evaluation runs (traces + summaries)
@@ -533,7 +531,17 @@ mscd_demo/
 │   ├── comparisons/             # Comparison plots between experiments
 │   └── plots/                   # Generated visualization charts
 │
-└── outputs/                     # BCF artifacts, renders
+├── outputs/                     # BCF artifacts, renders
+│
+└── legacy/                      # Archived unused/superseded code
+    ├── run_mcp.sh                    # Replaced by ./run.sh mcp
+    ├── run_experiment.sh             # Replaced by ./run.sh experiment
+    ├── run_vlm_comparison.sh         # Replaced by ./run.sh vlm-compare
+    ├── src/mcp_langchain_adapter.py  # Replaced by langchain-mcp-adapters package
+    ├── test/03_clip_test.py          # Ad-hoc CLIP experiment
+    ├── test/ifc_test.py              # Superseded by src/ifc_engine.py
+    ├── script/ifc_to_neo4j.py        # One-off Neo4j setup utility
+    └── docs/log_20260211.md          # Dated log
 ```
 
 ---
@@ -775,8 +783,8 @@ docker run -d --name neo4j \
   -e NEO4J_AUTH=neo4j/password123 \
   neo4j:latest
 
-# Export IFC model to Neo4j
-python script/ifc_to_neo4j.py
+# Export IFC model to Neo4j (utility in legacy/)
+python legacy/script/ifc_to_neo4j.py
 
 # Browse at http://localhost:7474
 ```
@@ -815,4 +823,4 @@ python script/ifc_to_neo4j.py
 ---
 
 **Last Updated:** February 2026
-**Status:** V1 + V2 pipelines operational on synth_v0.3 (84 cases). V2 prompt baseline: Top-1=3.57%, SSR=92.65%. LoRA training data prepared (192 samples); adapter training next.
+**Status:** V1 + V2 pipelines operational on synth_v0.3 (84 cases). V2 prompt baseline: Top-1=3.57%, SSR=92.65%. LoRA adapter trained (Qwen2.5-VL, checkpoint-180 + final). Unused code archived to `legacy/`.
