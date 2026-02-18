@@ -23,11 +23,7 @@ from typing import Any, Dict, List, Optional
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-# Adapter import: official package → custom fallback
-try:
-    from langchain_mcp_adapters import convert_mcp_to_langchain_tools
-except ImportError:
-    from mcp_langchain_adapter import convert_mcp_to_langchain_tools
+from langchain_mcp_adapters import convert_mcp_to_langchain_tools
 
 
 @dataclass

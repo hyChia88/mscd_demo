@@ -10,7 +10,7 @@ flowchart TB
     %% ── V1: Agent-Driven Pipeline ────────────────────
     subgraph V1 ["V1 · Agent-Driven Pipeline (main_mcp.py)"]
         AG["LangGraph ReAct Agent<br>Gemini 2.5 Flash + system prompt"]
-        MCP["MCP Dispatcher<br>mcp_langchain_adapter"]
+        MCP["MCP Dispatcher<br>langchain_mcp_adapters"]
         IFC_T["IFC MCP Server<br>list_spaces · search_by_type<br>get_by_storey · get_details"]
         VIS_T["Visual MCP Server<br>analyze_image · match_elements"]
         RP["Response Parser<br>extract GUID + candidates"]
