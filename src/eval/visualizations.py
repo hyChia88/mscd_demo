@@ -570,8 +570,23 @@ def plot_condition_wise_comparison(
     """
     print(f"\n→ Generating Condition-Wise Comparison...")
 
-    conditions = ["A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3"]
     exp_names = list(experiments.keys())
+
+    # Detect conditions dynamically from traces
+    all_conds_found: set = set()
+    for traces in experiments.values():
+        for t in traces:
+            c = extract_condition_from_trace(t)
+            if c:
+                all_conds_found.add(c)
+    std_order = ["A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3"]
+    abl_order = ["MA", "MB", "MC"]
+    if all_conds_found <= set(abl_order):
+        conditions = [c for c in abl_order if c in all_conds_found]
+    elif all_conds_found <= set(std_order):
+        conditions = [c for c in std_order if c in all_conds_found]
+    else:
+        conditions = sorted(all_conds_found)
 
     # Calculate accuracy for each experiment × condition
     data = []
@@ -579,7 +594,7 @@ def plot_condition_wise_comparison(
         traces = experiments[exp_name]
 
         # Group by condition
-        by_condition = {}
+        by_condition: dict = {}
         for trace in traces:
             cond = extract_condition_from_trace(trace)
             if cond not in by_condition:
@@ -646,28 +661,37 @@ def plot_condition_wise_comparison(
     ax.legend(fontsize=11, loc='upper left', frameon=True, shadow=True, ncol=min(3, n_exp))
     ax.grid(axis='y', alpha=0.3, linestyle='--')
 
-    # Add condition group separators
-    ax.axvline(x=2.5, color='gray', linestyle='--', alpha=0.6, linewidth=2)
-    ax.axvline(x=5.5, color='gray', linestyle='--', alpha=0.6, linewidth=2)
-
-    # Group labels
-    ax.text(1, 105, 'Text Only\n(No Images)', ha='center', fontsize=10,
-            style='italic', color='gray', bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.3))
-    ax.text(4, 105, 'Images + Text\n(No Floorplan)', ha='center', fontsize=10,
-            style='italic', color='gray', bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.3))
-    ax.text(7.5, 105, 'Full Multimodal\n(Images + Floorplan)', ha='center', fontsize=10,
-            style='italic', color='gray', bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.3))
-
-    # Add condition details legend
-    condition_info = (
-        "Condition Details:\n"
-        "A1: -Img -Plan -4D ~Blur | A2: -Img -Plan +4D Clear | A3: -Img -Plan +4D+ Clear\n"
-        "B1: +Img -Plan -4D ~Blur | B2: +Img -Plan +4D Clear | B3: +Img -Plan -4D Clear\n"
-        "C1: +Img +Plan -4D Clear | C2: +Img +Plan +4D Clear | C3: +Img +Plan +4D+ Clear+CLIP"
-    )
-
-    fig.text(0.5, 0.01, condition_info, ha='center', fontsize=9,
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.4))
+    # Add condition group separators and labels (layout depends on condition set)
+    if conditions == ["A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3"]:
+        ax.axvline(x=2.5, color='gray', linestyle='--', alpha=0.6, linewidth=2)
+        ax.axvline(x=5.5, color='gray', linestyle='--', alpha=0.6, linewidth=2)
+        ax.text(1, 105, 'Text Only\n(No Images)', ha='center', fontsize=10,
+                style='italic', color='gray', bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.3))
+        ax.text(4, 105, 'Images + Text\n(No Floorplan)', ha='center', fontsize=10,
+                style='italic', color='gray', bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.3))
+        ax.text(7.5, 105, 'Full Multimodal\n(Images + Floorplan)', ha='center', fontsize=10,
+                style='italic', color='gray', bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.3))
+        condition_info = (
+            "Condition Details:\n"
+            "A1: -Img -Plan -4D ~Blur | A2: -Img -Plan +4D Clear | A3: -Img -Plan +4D+ Clear\n"
+            "B1: +Img -Plan -4D ~Blur | B2: +Img -Plan +4D Clear | B3: +Img -Plan -4D Clear\n"
+            "C1: +Img +Plan -4D Clear | C2: +Img +Plan +4D Clear | C3: +Img +Plan +4D+ Clear+CLIP"
+        )
+        fig.text(0.5, 0.01, condition_info, ha='center', fontsize=9,
+                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.4))
+    elif conditions == ["MA", "MB", "MC"]:
+        ax.text(0, 105, 'Text Only\n(MA)', ha='center', fontsize=10,
+                style='italic', color='gray', bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.3))
+        ax.text(1, 105, 'Img + Text\n(MB)', ha='center', fontsize=10,
+                style='italic', color='gray', bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.3))
+        ax.text(2, 105, 'Full Multimodal\n(MC)', ha='center', fontsize=10,
+                style='italic', color='gray', bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.3))
+        condition_info = (
+            "Paired Modality Ablation (same 84 cases under all 3 conditions)\n"
+            "MA: Text-only  |  MB: Site photos + Text  |  MC: Site photos + Floorplan + Text"
+        )
+        fig.text(0.5, 0.01, condition_info, ha='center', fontsize=9,
+                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.4))
 
     plt.tight_layout(rect=[0, 0.03, 1, 1])
     if output_path:

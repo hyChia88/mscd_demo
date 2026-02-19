@@ -261,6 +261,7 @@ def generate_comparison_charts(
     experiments: dict,  # label -> list of traces
     output_dir: str,
     title: str = "Evaluation Comparison",
+    paired_ablation: bool = False,
 ) -> None:
     """Generate N-way comparison charts from trace data.
 
@@ -286,7 +287,8 @@ def generate_comparison_charts(
     )
 
     print(f"\n{'=' * 60}")
-    print(f"Generating Comparison Charts ({len(experiments)} experiments, 9 charts)")
+    n_charts = 12 if paired_ablation else 9
+    print(f"Generating Comparison Charts ({len(experiments)} experiments, {n_charts} charts)")
     print(f"{'=' * 60}\n")
 
     for label, traces in experiments.items():
@@ -318,13 +320,20 @@ def generate_comparison_charts(
     _plot_per_case_detail(experiments, f"{output_dir}/6_accuracy_heatmap_details.png", title)
 
     # ── Chart 7: Modality gain (A vs B vs C per difficulty level) ──
-    _plot_modality_gain(experiments, f"{output_dir}/7_modality_gain.png", title)
+    _plot_modality_gain(experiments, f"{output_dir}/7_modality_gain.png", title, paired_ablation)
 
     # ── Chart 8: Difficulty degradation (X1 → X2 → X3 per system) ──
-    _plot_difficulty_degradation(experiments, f"{output_dir}/8_difficulty_degradation.png", title)
+    _plot_difficulty_degradation(experiments, f"{output_dir}/8_difficulty_degradation.png", title, paired_ablation)
 
     # ── Chart 9: Candidate density vs accuracy (scatter) ──
     _plot_density_vs_accuracy(experiments, f"{output_dir}/9_density_vs_accuracy.png", title)
+
+    # ── Charts 10-12: Paired modality ablation (MA/MB/MC) ──
+    if paired_ablation:
+        print("\n  --- Paired Modality Ablation Charts ---")
+        _plot_paired_modality_accuracy(experiments, f"{output_dir}/10_paired_modality.png", title)
+        _plot_modality_delta(experiments, f"{output_dir}/11_modality_delta.png", title)
+        _plot_modality_x_difficulty(experiments, f"{output_dir}/12_modality_x_difficulty.png", title)
 
     print(f"\n{'=' * 60}")
     print(f"Charts saved to: {output_dir}/")
@@ -503,13 +512,27 @@ def _plot_accuracy_heatmap(
     import matplotlib.pyplot as plt
     import numpy as np
 
-    conditions = ["A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3"]
+    # Detect conditions present in traces (support both A1-C3 and MA/MB/MC)
+    all_conds_found: set = set()
+    for traces in experiments.values():
+        for t in traces:
+            c = _extract_condition(t)
+            if c:
+                all_conds_found.add(c)
+    std_order = ["A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3"]
+    abl_order = ["MA", "MB", "MC"]
+    if all_conds_found <= set(abl_order):
+        conditions = [c for c in abl_order if c in all_conds_found]
+    elif all_conds_found <= set(std_order):
+        conditions = [c for c in std_order if c in all_conds_found]
+    else:
+        conditions = sorted(all_conds_found)
     labels = list(experiments.keys())
 
     matrix = []
     for label in labels:
         traces = experiments[label]
-        by_cond = {}
+        by_cond: dict = {}
         for t in traces:
             c = _extract_condition(t)
             if c not in by_cond:
@@ -543,14 +566,17 @@ def _plot_accuracy_heatmap(
             ax.text(j, i, f"{val:.0f}%", ha="center", va="center",
                     fontsize=10, fontweight="bold", color=color)
 
-    # Add condition group separators
-    ax.axvline(x=2.5, color="gray", linestyle="--", alpha=0.8, linewidth=2)
-    ax.axvline(x=5.5, color="gray", linestyle="--", alpha=0.8, linewidth=2)
-
-    # Group labels
-    ax.text(1, -0.8, "Text Only", ha="center", fontsize=9, style="italic", color="gray")
-    ax.text(4, -0.8, "Images+Text", ha="center", fontsize=9, style="italic", color="gray")
-    ax.text(7, -0.8, "Full Multimodal", ha="center", fontsize=9, style="italic", color="gray")
+    # Add condition group separators and labels (only for full A1-C3 layout)
+    if conditions == ["A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3"]:
+        ax.axvline(x=2.5, color="gray", linestyle="--", alpha=0.8, linewidth=2)
+        ax.axvline(x=5.5, color="gray", linestyle="--", alpha=0.8, linewidth=2)
+        ax.text(1, -0.8, "Text Only", ha="center", fontsize=9, style="italic", color="gray")
+        ax.text(4, -0.8, "Images+Text", ha="center", fontsize=9, style="italic", color="gray")
+        ax.text(7, -0.8, "Full Multimodal", ha="center", fontsize=9, style="italic", color="gray")
+    elif conditions == ["MA", "MB", "MC"]:
+        ax.text(0, -0.8, "Text Only", ha="center", fontsize=9, style="italic", color="gray")
+        ax.text(1, -0.8, "Img+Text", ha="center", fontsize=9, style="italic", color="gray")
+        ax.text(2, -0.8, "Full Multimodal", ha="center", fontsize=9, style="italic", color="gray")
 
     cbar = fig.colorbar(im, ax=ax, shrink=0.8)
     cbar.set_label("Top-1 Accuracy (%)", fontsize=11)
@@ -713,63 +739,115 @@ def _plot_per_case_detail(
 
 
 def _plot_modality_gain(
-    experiments: dict, output_path: str, title: str = ""
+    experiments: dict, output_path: str, title: str = "", paired_ablation: bool = False
 ) -> None:
     """Chart 7: Modality gain — grouped bar chart.
 
-    For each difficulty level (X1/X2/X3), compare accuracy across modalities
-    (A/B/C) for each experiment. Shows whether richer input helps.
+    Standard mode: For each difficulty level (T1/T2/T3), compare accuracy
+    across modalities (A/B/C).
+    Paired ablation mode: For each difficulty tier (T1/T2/T3), compare
+    accuracy across MA/MB/MC conditions per extractor.
     """
     import matplotlib.pyplot as plt
     import numpy as np
 
     exp_labels = list(experiments.keys())
     n_exp = len(exp_labels)
-    modalities = ["A", "B", "C"]
-    mod_display = {"A": "Text Only", "B": "Img + Text", "C": "Full Multimodal"}
-    difficulty_levels = ["1", "2", "3"]
-    diff_display = {"1": "T1 (Easy)", "2": "T2 (Medium)", "3": "T3 (Hard)"}
+    colors = ["#3498db", "#2ecc71", "#e74c3c", "#f39c12", "#9b59b6", "#1abc9c",
+              "#e67e22", "#1abc9c", "#8e44ad"]
 
-    fig, axes = plt.subplots(1, 3, figsize=(18, 6), sharey=True)
-    colors = ["#3498db", "#2ecc71", "#e74c3c", "#f39c12", "#9b59b6", "#1abc9c"]
+    if paired_ablation:
+        # Paired mode: facets = T1/T2/T3, x-axis = MA/MB/MC, colors = extractor
+        modalities_pa = _split_by_modality(experiments)
+        mod_order = [m for m in ("MA", "MB", "MC") if m in modalities_pa]
+        mod_display_pa = {"MA": "Text Only\n(MA)", "MB": "Img+Text\n(MB)", "MC": "Full\n(MC)"}
+        tiers = [("T1", "T1 (Easy)"), ("T2", "T2 (Medium)"), ("T3", "T3 (Hard)")]
+        extractors = sorted({k for md in modalities_pa.values() for k in md})
+        n_ext = len(extractors)
 
-    for di, diff in enumerate(difficulty_levels):
-        ax = axes[di]
-        x = np.arange(len(modalities))
-        width = 0.8 / n_exp
+        fig, axes = plt.subplots(1, 3, figsize=(18, 6), sharey=True)
+        for ti, (tier_key, tier_label) in enumerate(tiers):
+            ax = axes[ti]
+            x = np.arange(len(mod_order))
+            width = 0.8 / max(n_ext, 1)
 
-        for ei, label in enumerate(exp_labels):
-            traces = experiments[label]
-            vals = []
-            for mod in modalities:
-                cond = f"{mod}{diff}"
-                subset = [t for t in traces if _extract_condition(t) == cond]
-                if subset:
-                    acc = sum(1 for t in subset if t.get("guid_match", False)) / len(subset) * 100
-                else:
-                    acc = 0
-                vals.append(acc)
+            for ei, ext in enumerate(extractors):
+                vals = []
+                for mod in mod_order:
+                    traces = modalities_pa.get(mod, {}).get(ext, [])
+                    subset = [t for t in traces
+                              if (t.get("difficulty_tags") or {}).get("tier") == tier_key]
+                    if subset:
+                        acc = sum(1 for t in subset if t.get("guid_match", False)) / len(subset) * 100
+                    else:
+                        acc = 0
+                    vals.append(acc)
 
-            offset = (ei - n_exp / 2 + 0.5) * width
-            bars = ax.bar(
-                x + offset, vals, width, label=label if di == 0 else None,
-                color=colors[ei % len(colors)], alpha=0.85,
-                edgecolor="black", linewidth=0.5,
-            )
-            for bar in bars:
-                h = bar.get_height()
-                if h > 0:
-                    ax.text(
-                        bar.get_x() + bar.get_width() / 2, h + 1,
-                        f"{h:.0f}", ha="center", va="bottom", fontsize=7,
-                        fontweight="bold",
-                    )
+                offset = (ei - n_ext / 2 + 0.5) * width
+                bars = ax.bar(
+                    x + offset, vals, width, label=ext if ti == 0 else None,
+                    color=colors[ei % len(colors)], alpha=0.85,
+                    edgecolor="black", linewidth=0.5,
+                )
+                for bar in bars:
+                    h = bar.get_height()
+                    if h > 0:
+                        ax.text(
+                            bar.get_x() + bar.get_width() / 2, h + 1,
+                            f"{h:.0f}", ha="center", va="bottom", fontsize=7,
+                            fontweight="bold",
+                        )
 
-        ax.set_xticks(x)
-        ax.set_xticklabels([mod_display[m] for m in modalities], fontsize=9)
-        ax.set_title(diff_display[diff], fontsize=12, fontweight="bold")
-        ax.set_ylim(0, 110)
-        ax.grid(axis="y", alpha=0.3, linestyle="--")
+            ax.set_xticks(x)
+            ax.set_xticklabels([mod_display_pa[m] for m in mod_order], fontsize=9)
+            ax.set_title(tier_label, fontsize=12, fontweight="bold")
+            ax.set_ylim(0, 110)
+            ax.grid(axis="y", alpha=0.3, linestyle="--")
+    else:
+        modalities = ["A", "B", "C"]
+        mod_display = {"A": "Text Only", "B": "Img + Text", "C": "Full Multimodal"}
+        difficulty_levels = ["1", "2", "3"]
+        diff_display = {"1": "T1 (Easy)", "2": "T2 (Medium)", "3": "T3 (Hard)"}
+
+        fig, axes = plt.subplots(1, 3, figsize=(18, 6), sharey=True)
+
+        for di, diff in enumerate(difficulty_levels):
+            ax = axes[di]
+            x = np.arange(len(modalities))
+            width = 0.8 / n_exp
+
+            for ei, label in enumerate(exp_labels):
+                traces = experiments[label]
+                vals = []
+                for mod in modalities:
+                    cond = f"{mod}{diff}"
+                    subset = [t for t in traces if _extract_condition(t) == cond]
+                    if subset:
+                        acc = sum(1 for t in subset if t.get("guid_match", False)) / len(subset) * 100
+                    else:
+                        acc = 0
+                    vals.append(acc)
+
+                offset = (ei - n_exp / 2 + 0.5) * width
+                bars = ax.bar(
+                    x + offset, vals, width, label=label if di == 0 else None,
+                    color=colors[ei % len(colors)], alpha=0.85,
+                    edgecolor="black", linewidth=0.5,
+                )
+                for bar in bars:
+                    h = bar.get_height()
+                    if h > 0:
+                        ax.text(
+                            bar.get_x() + bar.get_width() / 2, h + 1,
+                            f"{h:.0f}", ha="center", va="bottom", fontsize=7,
+                            fontweight="bold",
+                        )
+
+            ax.set_xticks(x)
+            ax.set_xticklabels([mod_display[m] for m in modalities], fontsize=9)
+            ax.set_title(diff_display[diff], fontsize=12, fontweight="bold")
+            ax.set_ylim(0, 110)
+            ax.grid(axis="y", alpha=0.3, linestyle="--")
 
     axes[0].set_ylabel("Top-1 Accuracy (%)", fontsize=12)
     fig.legend(
@@ -788,68 +866,116 @@ def _plot_modality_gain(
 
 
 def _plot_difficulty_degradation(
-    experiments: dict, output_path: str, title: str = ""
+    experiments: dict, output_path: str, title: str = "", paired_ablation: bool = False
 ) -> None:
     """Chart 8: Difficulty degradation — line chart.
 
-    For each modality group (A/B/C), plot accuracy as difficulty increases
-    (X1 → X2 → X3) for each experiment. Shows robustness to harder cases.
+    Standard mode: For each modality group (A/B/C), plot accuracy as
+    difficulty increases (T1 → T2 → T3).
+    Paired ablation mode: For each MA/MB/MC condition, plot accuracy
+    across difficulty tiers (T1 → T2 → T3) per extractor.
     """
     import matplotlib.pyplot as plt
 
-    exp_labels = list(experiments.keys())
-    modalities = ["A", "B", "C"]
-    mod_display = {"A": "Text Only (A)", "B": "Img + Text (B)", "C": "Full Multimodal (C)"}
-    difficulty_levels = ["1", "2", "3"]
-    diff_labels = ["X1\n(Easy)", "X2\n(Medium)", "X3\n(Hard)"]
-    colors = ["#3498db", "#2ecc71", "#e74c3c", "#f39c12", "#9b59b6", "#1abc9c"]
-    markers = ["o", "s", "D", "^", "v", "P"]
+    colors = ["#3498db", "#2ecc71", "#e74c3c", "#f39c12", "#9b59b6", "#1abc9c",
+              "#e67e22", "#16a085", "#8e44ad"]
+    markers = ["o", "s", "D", "^", "v", "P", "X", "h", "*"]
 
-    fig, axes = plt.subplots(1, 3, figsize=(18, 6), sharey=True)
+    if paired_ablation:
+        modalities_pa = _split_by_modality(experiments)
+        mod_order = [m for m in ("MA", "MB", "MC") if m in modalities_pa]
+        mod_display_pa = {"MA": "Text Only (MA)", "MB": "Img+Text (MB)", "MC": "Full Multimodal (MC)"}
+        tiers = [("T1", "T1\n(Easy)"), ("T2", "T2\n(Med)"), ("T3", "T3\n(Hard)")]
+        extractors = sorted({k for md in modalities_pa.values() for k in md})
 
-    for mi, mod in enumerate(modalities):
-        ax = axes[mi]
-        for ei, label in enumerate(exp_labels):
-            traces = experiments[label]
-            accs = []
-            for diff in difficulty_levels:
-                cond = f"{mod}{diff}"
-                subset = [t for t in traces if _extract_condition(t) == cond]
-                if subset:
-                    acc = sum(1 for t in subset if t.get("guid_match", False)) / len(subset) * 100
-                else:
-                    acc = 0
-                accs.append(acc)
+        fig, axes = plt.subplots(1, len(mod_order), figsize=(18, 6), sharey=True)
+        if len(mod_order) == 1:
+            axes = [axes]
 
-            ax.plot(
-                range(3), accs,
-                marker=markers[ei % len(markers)], markersize=10,
-                color=colors[ei % len(colors)], linewidth=2.5,
-                label=label if mi == 0 else None, alpha=0.85,
-            )
-            # Annotate points
-            for xi, acc in enumerate(accs):
-                ax.annotate(
-                    f"{acc:.0f}%", (xi, acc),
-                    textcoords="offset points", xytext=(0, 12),
-                    ha="center", fontsize=8, fontweight="bold",
-                    color=colors[ei % len(colors)],
+        for mi, mod in enumerate(mod_order):
+            ax = axes[mi]
+            for ei, ext in enumerate(extractors):
+                traces = modalities_pa.get(mod, {}).get(ext, [])
+                accs = []
+                for tier_key, _ in tiers:
+                    subset = [t for t in traces
+                              if (t.get("difficulty_tags") or {}).get("tier") == tier_key]
+                    acc = sum(1 for t in subset if t.get("guid_match", False)) / len(subset) * 100 \
+                          if subset else 0
+                    accs.append(acc)
+
+                ax.plot(
+                    range(len(tiers)), accs,
+                    marker=markers[ei % len(markers)], markersize=10,
+                    color=colors[ei % len(colors)], linewidth=2.5,
+                    label=ext if mi == 0 else None, alpha=0.85,
                 )
+                for xi, acc in enumerate(accs):
+                    ax.annotate(
+                        f"{acc:.0f}%", (xi, acc),
+                        textcoords="offset points", xytext=(0, 12),
+                        ha="center", fontsize=8, fontweight="bold",
+                        color=colors[ei % len(colors)],
+                    )
 
-        ax.set_xticks(range(3))
-        ax.set_xticklabels(diff_labels, fontsize=10)
-        ax.set_title(mod_display[mod], fontsize=12, fontweight="bold")
-        ax.set_ylim(-5, 115)
-        ax.grid(axis="y", alpha=0.3, linestyle="--")
-        ax.grid(axis="x", alpha=0.15, linestyle=":")
+            ax.set_xticks(range(len(tiers)))
+            ax.set_xticklabels([lbl for _, lbl in tiers], fontsize=10)
+            ax.set_title(mod_display_pa[mod], fontsize=12, fontweight="bold")
+            ax.set_ylim(-5, 115)
+            ax.grid(axis="y", alpha=0.3, linestyle="--")
+            ax.grid(axis="x", alpha=0.15, linestyle=":")
+    else:
+        exp_labels = list(experiments.keys())
+        modalities = ["A", "B", "C"]
+        mod_display = {"A": "Text Only (A)", "B": "Img + Text (B)", "C": "Full Multimodal (C)"}
+        difficulty_levels = ["1", "2", "3"]
+        diff_labels = ["T1\n(Easy)", "T2\n(Medium)", "T3\n(Hard)"]
+
+        fig, axes = plt.subplots(1, 3, figsize=(18, 6), sharey=True)
+
+        for mi, mod in enumerate(modalities):
+            ax = axes[mi]
+            for ei, label in enumerate(exp_labels):
+                traces = experiments[label]
+                accs = []
+                for diff in difficulty_levels:
+                    cond = f"{mod}{diff}"
+                    subset = [t for t in traces if _extract_condition(t) == cond]
+                    if subset:
+                        acc = sum(1 for t in subset if t.get("guid_match", False)) / len(subset) * 100
+                    else:
+                        acc = 0
+                    accs.append(acc)
+
+                ax.plot(
+                    range(3), accs,
+                    marker=markers[ei % len(markers)], markersize=10,
+                    color=colors[ei % len(colors)], linewidth=2.5,
+                    label=label if mi == 0 else None, alpha=0.85,
+                )
+                for xi, acc in enumerate(accs):
+                    ax.annotate(
+                        f"{acc:.0f}%", (xi, acc),
+                        textcoords="offset points", xytext=(0, 12),
+                        ha="center", fontsize=8, fontweight="bold",
+                        color=colors[ei % len(colors)],
+                    )
+
+            ax.set_xticks(range(3))
+            ax.set_xticklabels(diff_labels, fontsize=10)
+            ax.set_title(mod_display[mod], fontsize=12, fontweight="bold")
+            ax.set_ylim(-5, 115)
+            ax.grid(axis="y", alpha=0.3, linestyle="--")
+            ax.grid(axis="x", alpha=0.15, linestyle=":")
 
     axes[0].set_ylabel("Top-1 Accuracy (%)", fontsize=12)
+    legend_ncol = len(extractors) if paired_ablation else len(experiments)
     fig.legend(
-        loc="upper center", ncol=len(exp_labels), fontsize=10,
+        loc="upper center", ncol=legend_ncol, fontsize=10,
         bbox_to_anchor=(0.5, 1.02), frameon=True, shadow=True,
     )
     fig.suptitle(
-        f"{title} — Difficulty Degradation" if title else "Difficulty Degradation (X1 → X2 → X3)",
+        f"{title} — Difficulty Degradation" if title else "Difficulty Degradation (T1 → T2 → T3)",
         fontsize=14, fontweight="bold", y=1.08,
     )
 
@@ -949,6 +1075,358 @@ def _plot_density_vs_accuracy(
     ax.axvspan(20, 200, alpha=0.06, color="red", label="_S2 zone")
     ax.text(1, -0.15, "S1\nSingleton", ha="center", fontsize=8, color="green", style="italic")
     ax.text(80, -0.15, "S2\nDense Cluster", ha="center", fontsize=8, color="red", style="italic")
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    print(f"  Saved: {output_path}")
+    plt.close()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Charts 10-12: Paired Modality Ablation
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _split_by_modality(experiments: dict) -> dict:
+    """Group experiments by modality condition (MA/MB/MC).
+
+    Returns:
+        Dict mapping modality -> {extractor_label: [traces]}
+        e.g. {"MA": {"V2 Prompt": [...]}, "MB": {"V2 Prompt": [...]}}
+    """
+    modalities = {}
+    for label, traces in experiments.items():
+        # Detect modality from label (e.g., "v2_prompt-MA" → "MA")
+        # or from trace bench.condition
+        for mod in ("MA", "MB", "MC"):
+            if mod in label:
+                base_label = label.replace(f"-{mod}", "").replace(f"_{mod}", "")
+                if not base_label:
+                    base_label = label
+                modalities.setdefault(mod, {})[base_label] = traces
+                break
+        else:
+            # Try from trace bench.condition
+            sample_conds = set()
+            for t in traces[:5]:
+                cond = _extract_condition(t)
+                if cond in ("MA", "MB", "MC"):
+                    sample_conds.add(cond)
+            if len(sample_conds) == 1:
+                mod = sample_conds.pop()
+                modalities.setdefault(mod, {})[label] = traces
+
+    return modalities
+
+
+def _paired_case_map(modalities: dict) -> dict:
+    """Build case_id -> {modality: trace} mapping for paired analysis.
+
+    Returns:
+        Dict[case_id, Dict[modality, trace]]
+    """
+    paired = {}
+    for mod, exp_dict in modalities.items():
+        for _label, traces in exp_dict.items():
+            for t in traces:
+                cid = t.get("scenario_id", "")
+                paired.setdefault(cid, {})[mod] = t
+    return paired
+
+
+def _plot_paired_modality_accuracy(
+    experiments: dict, output_path: str, title: str = ""
+) -> None:
+    """Chart 10: Paired modality accuracy — grouped bar chart.
+
+    Same cases under MA (text-only), MB (img+text), MC (full multimodal).
+    If multiple extractors (Prompt, LoRA), show side-by-side.
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    modalities = _split_by_modality(experiments)
+    if len(modalities) < 2:
+        print("  Skipped: 10_paired_modality.png (need at least 2 modality conditions)")
+        return
+
+    mod_order = [m for m in ("MA", "MB", "MC") if m in modalities]
+    mod_display = {"MA": "Text Only\n(MA)", "MB": "Img + Text\n(MB)", "MC": "Full Multimodal\n(MC)"}
+
+    # Get all extractor labels (union across modalities)
+    all_extractors = set()
+    for mod_exps in modalities.values():
+        all_extractors.update(mod_exps.keys())
+    extractor_labels = sorted(all_extractors)
+
+    colors = ["#3498db", "#2ecc71", "#e74c3c", "#f39c12"]
+    n_ext = len(extractor_labels)
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    x = np.arange(len(mod_order))
+    width = 0.7 / max(n_ext, 1)
+
+    for ei, ext_label in enumerate(extractor_labels):
+        accs = []
+        counts = []
+        for mod in mod_order:
+            traces = modalities.get(mod, {}).get(ext_label, [])
+            if traces:
+                hits = sum(1 for t in traces if t.get("guid_match", False))
+                accs.append(hits / len(traces) * 100)
+                counts.append(len(traces))
+            else:
+                accs.append(0)
+                counts.append(0)
+
+        offset = (ei - n_ext / 2 + 0.5) * width
+        bars = ax.bar(
+            x + offset, accs, width,
+            label=ext_label, color=colors[ei % len(colors)],
+            alpha=0.85, edgecolor="black", linewidth=0.5,
+        )
+        for bar, acc, cnt in zip(bars, accs, counts):
+            if acc > 0:
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2, bar.get_height() + 1.5,
+                    f"{acc:.1f}%\n(n={cnt})", ha="center", va="bottom",
+                    fontsize=8, fontweight="bold",
+                )
+
+    ax.set_xticks(x)
+    ax.set_xticklabels([mod_display.get(m, m) for m in mod_order], fontsize=11)
+    ax.set_ylabel("Top-1 Accuracy (%)", fontsize=12)
+    ax.set_ylim(0, max(50, ax.get_ylim()[1] + 15))
+    ax.legend(fontsize=10, frameon=True, shadow=True)
+    ax.grid(axis="y", alpha=0.3, linestyle="--")
+
+    ax.set_title(
+        f"{title} — Paired Modality Ablation" if title else "Paired Modality Ablation",
+        fontsize=14, fontweight="bold",
+    )
+
+    # Add arrow annotations
+    ax.annotate(
+        "", xy=(len(mod_order) - 0.7, ax.get_ylim()[1] * 0.9),
+        xytext=(0.3, ax.get_ylim()[1] * 0.9),
+        arrowprops=dict(arrowstyle="->", color="grey", lw=1.5),
+    )
+    ax.text(
+        len(mod_order) / 2 - 0.2, ax.get_ylim()[1] * 0.93,
+        "More evidence →", ha="center", fontsize=9, color="grey", style="italic",
+    )
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    print(f"  Saved: {output_path}")
+    plt.close()
+
+
+def _plot_modality_delta(
+    experiments: dict, output_path: str, title: str = ""
+) -> None:
+    """Chart 11: Per-case modality delta — histogram.
+
+    For each case, compute: did adding images (MB vs MA) help or hurt?
+    Shows distribution of per-case deltas.
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    modalities = _split_by_modality(experiments)
+    if "MA" not in modalities or "MB" not in modalities:
+        print("  Skipped: 11_modality_delta.png (need both MA and MB)")
+        return
+
+    fig, axes_list = plt.subplots(1, 2, figsize=(16, 6))
+
+    comparisons = [
+        ("MA", "MB", "+Images (MB − MA)", axes_list[0]),
+        ("MB", "MC", "+Floorplan (MC − MB)", axes_list[1]) if "MC" in modalities else None,
+    ]
+    comparisons = [c for c in comparisons if c is not None]
+
+    # If only MA vs MB, use single plot
+    if len(comparisons) == 1:
+        plt.close(fig)
+        fig, ax_single = plt.subplots(figsize=(10, 6))
+        comparisons = [("MA", "MB", "+Images (MB − MA)", ax_single)]
+
+    colors_bar = {"helped": "#2ecc71", "hurt": "#e74c3c", "same": "#95a5a6"}
+
+    for mod_base, mod_new, comp_title, ax in comparisons:
+        # Get all extractor labels for this pair
+        base_exps = modalities.get(mod_base, {})
+        new_exps = modalities.get(mod_new, {})
+        common_extractors = set(base_exps.keys()) & set(new_exps.keys())
+
+        for ext_label in sorted(common_extractors):
+            base_traces = {t.get("scenario_id"): t for t in base_exps[ext_label]}
+            new_traces = {t.get("scenario_id"): t for t in new_exps[ext_label]}
+
+            common_ids = set(base_traces.keys()) & set(new_traces.keys())
+            helped = 0
+            hurt = 0
+            same = 0
+
+            for cid in common_ids:
+                base_hit = base_traces[cid].get("guid_match", False)
+                new_hit = new_traces[cid].get("guid_match", False)
+                if new_hit and not base_hit:
+                    helped += 1
+                elif base_hit and not new_hit:
+                    hurt += 1
+                else:
+                    same += 1
+
+            total = len(common_ids)
+            categories = ["Helped\n(0→1)", "Hurt\n(1→0)", "No Change"]
+            values = [helped, hurt, same]
+            bar_colors = [colors_bar["helped"], colors_bar["hurt"], colors_bar["same"]]
+
+            bars = ax.bar(categories, values, color=bar_colors, alpha=0.85,
+                         edgecolor="black", linewidth=0.5)
+
+            for bar, val in zip(bars, values):
+                if val > 0:
+                    pct = val / total * 100 if total > 0 else 0
+                    ax.text(
+                        bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.5,
+                        f"{val} ({pct:.0f}%)", ha="center", va="bottom",
+                        fontsize=10, fontweight="bold",
+                    )
+
+            ax.set_ylabel("Number of Cases", fontsize=12)
+            ax.set_title(f"{comp_title}\n({ext_label}, n={total})",
+                        fontsize=12, fontweight="bold")
+            ax.grid(axis="y", alpha=0.3, linestyle="--")
+
+            # Net effect annotation
+            net = helped - hurt
+            net_text = f"Net: {'+' if net > 0 else ''}{net} cases"
+            net_color = "#2ecc71" if net > 0 else "#e74c3c" if net < 0 else "#95a5a6"
+            ax.text(
+                0.95, 0.95, net_text, transform=ax.transAxes,
+                ha="right", va="top", fontsize=12, fontweight="bold",
+                color=net_color,
+                bbox=dict(boxstyle="round,pad=0.3", facecolor="white", edgecolor=net_color, alpha=0.8),
+            )
+
+    fig.suptitle(
+        f"{title} — Per-Case Modality Delta" if title else "Per-Case Modality Delta",
+        fontsize=14, fontweight="bold", y=1.02,
+    )
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    print(f"  Saved: {output_path}")
+    plt.close()
+
+
+def _plot_modality_x_difficulty(
+    experiments: dict, output_path: str, title: str = ""
+) -> None:
+    """Chart 12: Modality × Difficulty heatmap.
+
+    Rows = modality (MA/MB/MC), Columns = difficulty tier or H-tag.
+    Cell value = accuracy. Shows where images help most.
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    modalities = _split_by_modality(experiments)
+    if len(modalities) < 2:
+        print("  Skipped: 12_modality_x_difficulty.png (need at least 2 modalities)")
+        return
+
+    mod_order = [m for m in ("MA", "MB", "MC") if m in modalities]
+    mod_display = {"MA": "Text Only (MA)", "MB": "Img+Text (MB)", "MC": "Full (MC)"}
+
+    # Difficulty categories from difficulty_tags
+    diff_categories = [
+        ("Tier 1", lambda t: (t.get("difficulty_tags") or {}).get("tier") in ("T1", "Tier 1")),
+        ("Tier 2", lambda t: (t.get("difficulty_tags") or {}).get("tier") in ("T2", "Tier 2")),
+        ("Tier 3", lambda t: (t.get("difficulty_tags") or {}).get("tier") in ("T3", "Tier 3")),
+        ("H1 (k≥20)", lambda t: (t.get("difficulty_tags") or {}).get("candidate_density_k", 0) >= 20),
+        ("H2 (relational)", lambda t: (t.get("difficulty_tags") or {}).get("requires_relation", False)),
+        ("H3 (conflict)", lambda t: (t.get("difficulty_tags") or {}).get("conflict_injected", False)),
+    ]
+
+    # Check if any traces have difficulty_tags
+    has_tags = False
+    for mod_exps in modalities.values():
+        for traces in mod_exps.values():
+            if any(t.get("difficulty_tags") for t in traces):
+                has_tags = True
+                break
+
+    if not has_tags:
+        # Fall back to tier from bench condition (less precise)
+        diff_categories = [
+            ("Overall", lambda t: True),
+        ]
+        print("  Note: No difficulty_tags found; showing overall accuracy only")
+
+    # Build accuracy matrix: rows = modalities, cols = difficulty categories
+    # Use first extractor found for simplicity (or average across extractors)
+    all_extractors = set()
+    for mod_exps in modalities.values():
+        all_extractors.update(mod_exps.keys())
+    extractor_labels = sorted(all_extractors)
+
+    n_rows = len(mod_order) * len(extractor_labels)
+    n_cols = len(diff_categories)
+    matrix = np.full((n_rows, n_cols), np.nan)
+    count_matrix = np.zeros((n_rows, n_cols), dtype=int)
+    row_labels = []
+
+    for mi, mod in enumerate(mod_order):
+        for ei, ext_label in enumerate(extractor_labels):
+            row_idx = mi * len(extractor_labels) + ei
+            row_labels.append(f"{mod_display.get(mod, mod)}\n{ext_label}")
+            traces = modalities.get(mod, {}).get(ext_label, [])
+            for ci, (cat_name, cat_fn) in enumerate(diff_categories):
+                subset = [t for t in traces if cat_fn(t)]
+                if subset:
+                    hits = sum(1 for t in subset if t.get("guid_match", False))
+                    matrix[row_idx, ci] = hits / len(subset) * 100
+                    count_matrix[row_idx, ci] = len(subset)
+
+    fig, ax = plt.subplots(figsize=(max(10, n_cols * 2), max(5, n_rows * 0.8)))
+
+    # Heatmap
+    cmap = plt.cm.RdYlGn
+    im = ax.imshow(matrix, cmap=cmap, aspect="auto", vmin=0, vmax=50)
+
+    # Text annotations
+    for i in range(n_rows):
+        for j in range(n_cols):
+            val = matrix[i, j]
+            cnt = count_matrix[i, j]
+            if not np.isnan(val):
+                text_color = "white" if val < 15 or val > 85 else "black"
+                ax.text(
+                    j, i, f"{val:.0f}%\n(n={cnt})",
+                    ha="center", va="center", fontsize=9, fontweight="bold",
+                    color=text_color,
+                )
+
+    ax.set_xticks(range(n_cols))
+    ax.set_xticklabels([c[0] for c in diff_categories], fontsize=10, rotation=30, ha="right")
+    ax.set_yticks(range(n_rows))
+    ax.set_yticklabels(row_labels, fontsize=9)
+
+    # Modality group separators
+    for mi in range(1, len(mod_order)):
+        sep_y = mi * len(extractor_labels) - 0.5
+        ax.axhline(y=sep_y, color="black", linewidth=1.5)
+
+    plt.colorbar(im, ax=ax, label="Accuracy (%)", shrink=0.8)
+
+    ax.set_title(
+        f"{title} — Modality × Difficulty" if title else "Modality × Difficulty",
+        fontsize=14, fontweight="bold",
+    )
 
     plt.tight_layout()
     plt.savefig(output_path, dpi=300, bbox_inches="tight")
@@ -1125,6 +1603,12 @@ def main():
         "--cases", default=None,
         help="Path to cases JSONL file (to enrich older traces with bench/condition info)",
     )
+    parser.add_argument(
+        "--paired-ablation", action="store_true",
+        dest="paired_ablation",
+        help="Generate paired modality ablation charts (Charts 10-12). "
+             "Expects traces with MA/MB/MC conditions.",
+    )
     args = parser.parse_args()
 
     project_root = Path(__file__).resolve().parent.parent
@@ -1199,7 +1683,10 @@ def main():
             if not Path(output_dir).is_absolute():
                 output_dir = str(project_root / output_dir)
             title = args.title or f"Evaluation ({len(results)} experiments)"
-            generate_comparison_charts(experiments, output_dir, title)
+            generate_comparison_charts(
+                experiments, output_dir, title,
+                paired_ablation=args.paired_ablation,
+            )
 
         if args.csv:
             export_csv(results, Path(args.csv))

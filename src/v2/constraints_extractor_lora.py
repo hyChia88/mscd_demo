@@ -9,6 +9,7 @@ The inference prompt format is identical to the training format produced
 by data_curation/scripts/synth/7_prepare_lora_data.py to ensure
 train-inference alignment.
 """
+# TODO: enhance and verify the constraint rules!!!
 
 import json
 import re

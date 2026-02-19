@@ -220,3 +220,30 @@ conditions:
     chat_blur: false
     4d_metadata: true
     4d_enhanced: true
+
+  # ---------------------------------------------------------------------------
+  # Paired Modality Ablation (MA/MB/MC)
+  # ---------------------------------------------------------------------------
+  # Same chat (no blur) + same 4D metadata — only modality differs.
+  # Use with --condition-override to run ALL cases under one condition.
+
+  MA:
+    # Text-only baseline (no visual evidence)
+    use_images: false
+    use_floorplan: false
+    chat_blur: false
+    4d_metadata: true
+
+  MB:
+    # Images + text (site photos, no floorplan)
+    use_images: true
+    use_floorplan: false
+    chat_blur: false
+    4d_metadata: true
+
+  MC:
+    # Full multimodal (site photos + floorplan)
+    use_images: true
+    use_floorplan: true
+    chat_blur: false
+    4d_metadata: true

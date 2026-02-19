@@ -83,6 +83,7 @@ The prompt-only extractor only works when chat literally names the element type.
 3. **Neo4j was not running** for V1 neo4j modes (fell back to memory).
 4. **v0.3 Top-1 drop** (3.6% vs v0.2's 11.6% overall) is expected — v0.3 cases are intentionally harder with vague/deictic text.
 
+4. The current A/B/C grouping assigns different cases to each modality condition rather than testing the same case under multiple evidence configurations. As a result, observed accuracy differences between modality groups may be confounded by case-level difficulty variation (e.g., candidate density k). A controlled modality-ablation study — where the same skeleton is tested with text-only, image+text, and full multimodal inputs — is needed to isolate the true effect of visual evidence.
 ---
 
 ## Appendix: Run Commands

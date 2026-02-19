@@ -61,11 +61,12 @@ section() { echo -e "\n${BOLD}════════════════�
 
 # ── Parse arguments ──────────────────────────────────────────────────────────
 
-STEP="full"              # full | modal | local | plots
+STEP="full"              # full | modal | local | plots | paired-ablation
 ADAPTERS=("final" "checkpoint-180")
 SKIP_V2_PROMPT=false
 LIMIT_ARG=""
 CONDA_ENV="mscd_demo"
+CONDITION_OVERRIDE=""    # For paired ablation: MA, MB, MC
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -74,8 +75,21 @@ while [[ $# -gt 0 ]]; do
         --skip-v2-prompt) SKIP_V2_PROMPT=true; shift ;;
         --limit)         LIMIT_ARG="--limit $2"; shift 2 ;;
         --conda)         CONDA_ENV="$2"; shift 2 ;;
+        --condition-override) CONDITION_OVERRIDE="$2"; shift 2 ;;
         -h|--help)
-            echo "Usage: ./training/eval.sh [--step modal|local|plots] [--adapter NAME] [--limit N]"
+            echo "Usage: ./training/eval.sh [--step modal|local|plots|paired-ablation] [--adapter NAME] [--limit N]"
+            echo ""
+            echo "Steps:"
+            echo "  full              Run all steps (modal + local + plots)"
+            echo "  modal             Modal GPU extraction only"
+            echo "  local             Local pipeline (needs precomputed)"
+            echo "  plots             Comparison charts only"
+            echo "  paired-ablation   Run MA/MB/MC paired ablation on Modal"
+            echo ""
+            echo "Options:"
+            echo "  --adapter NAME              Adapter name (default: final + checkpoint-180)"
+            echo "  --condition-override COND   Override condition for all cases (MA/MB/MC)"
+            echo "  --limit N                   Limit to first N cases"
             exit 0 ;;
         *)
             warn "Unknown argument: $1"; shift ;;
@@ -130,10 +144,20 @@ fi
 # ═════════════════════════════════════════════════════════════════════════════
 
 run_modal_extraction() {
+    local cond_override="${1:-}"
     section "Step 1: Modal GPU LoRA Extraction"
 
+    local cond_arg=""
+    local cond_suffix=""
+    if [[ -n "$cond_override" ]]; then
+        cond_arg="--condition-override $cond_override"
+        cond_suffix="_${cond_override}"
+        info "Condition override: $cond_override"
+    fi
+
     for adapter in "${ADAPTERS[@]}"; do
-        local precomputed_file="$EVAL_DIR/eval_constraints_${adapter}.jsonl"
+        local tag="${adapter}${cond_suffix}"
+        local precomputed_file="$EVAL_DIR/eval_constraints_${tag}.jsonl"
 
         # Skip if already exists
         if [[ -f "$precomputed_file" ]]; then
@@ -141,13 +165,13 @@ run_modal_extraction() {
             continue
         fi
 
-        info "Running Modal extraction for adapter: $adapter"
+        info "Running Modal extraction for adapter: $adapter (condition: ${cond_override:-per-case})"
         cd "$PROJECT_DIR"
-        modal run training/eval.py --adapter-dir "/mscd-lora/${adapter}" $LIMIT_ARG
+        modal run training/eval.py --adapter-dir "/mscd-lora/${adapter}" $LIMIT_ARG $cond_arg
 
         info "Downloading precomputed constraints..."
         modal volume get mscd-checkpoints \
-            "/mscd-lora/eval_constraints_${adapter}.jsonl" \
+            "/mscd-lora/eval_constraints_${tag}.jsonl" \
             "$EVAL_DIR/"
 
         if [[ -f "$precomputed_file" ]]; then
@@ -165,31 +189,41 @@ run_modal_extraction() {
 # ═════════════════════════════════════════════════════════════════════════════
 
 run_local_pipeline() {
+    local cond_override="${1:-}"
     section "Step 2: Local Pipeline (Retrieval + Scoring)"
 
     cd "$PROJECT_DIR"
 
+    local cond_suffix=""
+    local cond_run_arg=""
+    if [[ -n "$cond_override" ]]; then
+        cond_suffix="_${cond_override}"
+        cond_run_arg="--condition-override $cond_override"
+        info "Condition override: $cond_override"
+    fi
+
     for adapter in "${ADAPTERS[@]}"; do
-        local precomputed_file="$EVAL_DIR/eval_constraints_${adapter}.jsonl"
+        local tag="${adapter}${cond_suffix}"
+        local precomputed_file="$EVAL_DIR/eval_constraints_${tag}.jsonl"
 
         if [[ ! -f "$precomputed_file" ]]; then
-            warn "Precomputed constraints missing for $adapter — run --step modal first"
+            warn "Precomputed constraints missing for $tag — run --step modal first"
             continue
         fi
 
-        info "Running local pipeline with adapter: $adapter"
+        info "Running local pipeline with adapter: $adapter (condition: ${cond_override:-per-case})"
         conda run -n "$CONDA_ENV" python script/run.py \
             --profile v2_lora \
             --cases "$CASES" \
             --precomputed "$precomputed_file" \
             --output_dir "$EVAL_DIR" \
-            $LIMIT_ARG
+            $LIMIT_ARG $cond_run_arg
 
-        ok "Local pipeline complete for $adapter"
+        ok "Local pipeline complete for $tag"
     done
 
     # Run V2 prompt baseline if not done and not skipped
-    if [[ "$SKIP_V2_PROMPT" == false && ! -f "$V2_PROMPT_TRACES" ]]; then
+    if [[ "$SKIP_V2_PROMPT" == false && ! -f "$V2_PROMPT_TRACES" && -z "$cond_override" ]]; then
         info "Running V2 prompt baseline..."
         conda run -n "$CONDA_ENV" python script/run.py \
             --profile v2_prompt \
@@ -267,23 +301,67 @@ run_comparison_charts() {
 # Execute selected steps
 # ═════════════════════════════════════════════════════════════════════════════
 
+run_paired_ablation() {
+    section "Paired Modality Ablation (LoRA × MA/MB/MC)"
+
+    local CONDITIONS=("MA" "MB" "MC")
+
+    for cond in "${CONDITIONS[@]}"; do
+        info "━━━ Running ${cond} ━━━"
+        run_modal_extraction "$cond"
+        run_local_pipeline "$cond"
+    done
+
+    section "Paired Ablation Charts"
+
+    # Collect trace files for each condition
+    cd "$PROJECT_DIR"
+    local plot_args=()
+    for cond in "${CONDITIONS[@]}"; do
+        for adapter in "${ADAPTERS[@]}"; do
+            local latest_trace
+            latest_trace=$(ls -t "$EVAL_DIR"/traces_*_v2_lora_${cond}.jsonl 2>/dev/null | head -1)
+            if [[ -n "$latest_trace" ]]; then
+                plot_args+=(--traces "$latest_trace" --label "LoRA-${adapter}-${cond}")
+                break  # Use first adapter's latest trace per condition
+            fi
+        done
+    done
+
+    if [[ ${#plot_args[@]} -ge 4 ]]; then  # At least 2 trace files (4 args: --traces X --label Y)
+        info "Generating paired ablation comparison charts..."
+        conda run -n "$CONDA_ENV" python script/compare_results.py \
+            "${plot_args[@]}" \
+            --cases "$CASES" \
+            --plots --paired-ablation \
+            --output "$PLOTS_DIR" \
+            --title "LoRA Paired Modality Ablation"
+        ok "Charts saved to: $PLOTS_DIR"
+    else
+        warn "Not enough trace files for paired comparison"
+    fi
+}
+
 case "$STEP" in
     full)
-        run_modal_extraction
-        run_local_pipeline
+        run_modal_extraction "$CONDITION_OVERRIDE"
+        run_local_pipeline "$CONDITION_OVERRIDE"
         run_comparison_charts
         ;;
     modal)
-        run_modal_extraction
+        run_modal_extraction "$CONDITION_OVERRIDE"
         ;;
     local)
-        run_local_pipeline
+        run_local_pipeline "$CONDITION_OVERRIDE"
         ;;
     plots)
         run_comparison_charts
         ;;
+    paired-ablation)
+        run_paired_ablation
+        ;;
     *)
-        fail "Unknown step: $STEP (use: full, modal, local, plots)"
+        fail "Unknown step: $STEP (use: full, modal, local, plots, paired-ablation)"
         ;;
 esac
 

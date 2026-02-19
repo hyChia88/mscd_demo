@@ -205,6 +205,9 @@ async def main(args: argparse.Namespace) -> None:
     else:
         print(f"Loaded {len(cases)} cases (all conditions)")
 
+    if args.condition_override:
+        print(f"Condition override: ALL cases will use condition={args.condition_override}")
+
     # Apply percentage or limit if specified
     total_cases_after_filter = len(cases)
     percent_used = 100.0  # Default: use 100% of data
@@ -284,7 +287,9 @@ async def main(args: argparse.Namespace) -> None:
 
     # ── 5. run evaluation ──────────────────────────────────────────────────
     run_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{profile_name}"
-    if args.condition:
+    if args.condition_override:
+        run_id += f"_{args.condition_override}"
+    elif args.condition:
         run_id += f"_{args.condition}"
 
     traces: List[EvalTrace] = []
@@ -345,15 +350,19 @@ async def main(args: argparse.Namespace) -> None:
             # Run evaluation loop inside MCP context
             for idx, case in enumerate(cases, 1):
                 case_id = case.get("case_id", f"case_{idx}")
-                case_cond = case.get("bench", {}).get("condition", "")
-                cond_overrides = conditions_map.get(case_cond, {})
+                if args.condition_override:
+                    case_cond = args.condition_override
+                    cond_overrides = conditions_map.get(args.condition_override, {})
+                else:
+                    case_cond = case.get("bench", {}).get("condition", "")
+                    cond_overrides = conditions_map.get(case_cond, {})
 
                 print(f"[{idx:>3}/{len(cases)}] {case_id}  cond={case_cond}", end="")
 
                 try:
                     trace, v2_trace = await pipeline.run_case(case, cond_overrides, run_id)
                     trace.pipeline_type = "v1"  # Mark as V1
-                    trace.bench = case.get("bench")
+                    trace.bench = {"group": case_cond[0], "condition": case_cond} if args.condition_override else case.get("bench")
                     traces.append(trace)
 
                     hit = "HIT" if trace.guid_match else "miss"
@@ -375,8 +384,12 @@ async def main(args: argparse.Namespace) -> None:
         # V2 pipeline - direct execution (no MCP needed)
         for idx, case in enumerate(cases, 1):
             case_id = case.get("case_id", f"case_{idx}")
-            case_cond = case.get("bench", {}).get("condition", "")
-            cond_overrides = conditions_map.get(case_cond, {})
+            if args.condition_override:
+                case_cond = args.condition_override
+                cond_overrides = conditions_map.get(args.condition_override, {})
+            else:
+                case_cond = case.get("bench", {}).get("condition", "")
+                cond_overrides = conditions_map.get(case_cond, {})
 
             # force_clip override from condition
             if cond_overrides.get("force_clip"):
@@ -389,7 +402,7 @@ async def main(args: argparse.Namespace) -> None:
             try:
                 trace, v2_trace = await pipeline.run_case(case, cond_overrides, run_id)
                 trace.pipeline_type = "v2"  # Mark as V2
-                trace.bench = case.get("bench")
+                trace.bench = {"group": case_cond[0], "condition": case_cond} if args.condition_override else case.get("bench")
                 traces.append(trace)
 
                 hit = "HIT" if trace.guid_match else "miss"
@@ -437,6 +450,8 @@ async def main(args: argparse.Namespace) -> None:
     output_dir = Path(args.output_dir)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     tag = f"{ts}_{profile_name}"
+    if args.condition_override:
+        tag += f"_{args.condition_override}"
 
     traces_file = output_dir / f"traces_{tag}.jsonl"
     summary_file = output_dir / f"summary_{tag}.csv"
@@ -483,6 +498,12 @@ def cli() -> argparse.Namespace:
         "--condition", default=None,
         choices=["A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3"],
         help="Filter cases by experimental condition (optional)",
+    )
+    p.add_argument(
+        "--condition-override", default=None,
+        dest="condition_override",
+        help="Override condition for ALL cases (e.g., MA, MB, MC for paired ablation). "
+             "Ignores each case's bench.condition and applies this condition uniformly.",
     )
     p.add_argument(
         "--adapter_path", default=None,

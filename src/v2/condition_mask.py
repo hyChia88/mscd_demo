@@ -222,6 +222,25 @@ class ConditionMask:
                 "chat_blur": False,
                 "4d_metadata": True,
                 "4d_enhanced": True
+            },
+            # Paired modality ablation conditions
+            "MA": {
+                "use_images": False,
+                "use_floorplan": False,
+                "chat_blur": False,
+                "4d_metadata": True
+            },
+            "MB": {
+                "use_images": True,
+                "use_floorplan": False,
+                "chat_blur": False,
+                "4d_metadata": True
+            },
+            "MC": {
+                "use_images": True,
+                "use_floorplan": True,
+                "chat_blur": False,
+                "4d_metadata": True
             }
         }
 

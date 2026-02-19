@@ -99,6 +99,10 @@ CONDITION_CONFIGS = {
     "C1": {"use_images": False, "use_floorplan": True, "chat_blur": False, "4d_metadata": False},
     "C2": {"use_images": True, "use_floorplan": True, "chat_blur": True, "4d_metadata": False},
     "C3": {"use_images": True, "use_floorplan": True, "chat_blur": False, "4d_metadata": True, "4d_enhanced": True},
+    # Paired modality ablation conditions
+    "MA": {"use_images": False, "use_floorplan": False, "chat_blur": False, "4d_metadata": True},
+    "MB": {"use_images": True, "use_floorplan": False, "chat_blur": False, "4d_metadata": True},
+    "MC": {"use_images": True, "use_floorplan": True, "chat_blur": False, "4d_metadata": True},
 }
 
 BLUR_REPLACEMENTS = {
@@ -267,6 +271,7 @@ def _parse_json(text: str) -> Optional[dict]:
 def run_eval(
     adapter_dir: str = "/mscd-lora/final",
     limit: int = 0,
+    condition_override: str = "",
 ):
     """Run LoRA constraint extraction on all cases (Modal A100)."""
     import torch
@@ -319,9 +324,12 @@ def run_eval(
     n_parsed = 0
     total_latency = 0.0
 
+    if condition_override:
+        print(f"Condition override: ALL cases will use condition={condition_override}")
+
     for idx, case in enumerate(cases, 1):
         case_id = case.get("case_id", f"case_{idx}")
-        condition = case.get("bench", {}).get("condition", "")
+        condition = condition_override if condition_override else case.get("bench", {}).get("condition", "")
 
         # Apply condition mask (same as local pipeline)
         masked_case = apply_condition_mask(case, condition)
@@ -418,6 +426,8 @@ def run_eval(
     # ── 5. Save results to Modal volume ──────────────────────────────────
     # Use adapter dir name as tag (e.g., "final" or "checkpoint-180")
     tag = adapter_dir.rstrip("/").split("/")[-1]
+    if condition_override:
+        tag = f"{tag}_{condition_override}"
     output_path = f"/checkpoints/mscd-lora/eval_constraints_{tag}.jsonl"
 
     with open(output_path, "w") as f:
@@ -464,6 +474,7 @@ def run_eval(
 def main(
     adapter_dir: str = "/mscd-lora/final",
     limit: int = 0,
+    condition_override: str = "",
 ):
     """Launch LoRA evaluation on Modal GPU."""
     print("Launching MSCD LoRA evaluation on Modal...")
@@ -471,10 +482,13 @@ def main(
     print(f"  Cases:    {CASES_FILE}")
     if limit > 0:
         print(f"  Limit:    {limit} cases")
+    if condition_override:
+        print(f"  Condition override: {condition_override}")
 
     result = run_eval.remote(
         adapter_dir=adapter_dir,
         limit=limit,
+        condition_override=condition_override,
     )
 
     print(f"\n{'=' * 60}")
