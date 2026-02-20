@@ -1,0 +1,94 @@
+# IFC Spatial Registry Prompts
+# Used by: src/ifc_engine.py — _build_storey_registry() and _build_space_registry()
+# Called: once at IFC load time (batch parse, NOT per-query)
+#
+# Design principle:
+#   LLM parses container entities (Storey + Space) into structured attributes at load time.
+#   Query resolution is then O(1) structured lookup — zero LLM calls at query time.
+
+
+# =============================================================================
+# STOREY REGISTRY — IfcBuildingStorey name → {floor_num, category}
+# =============================================================================
+# Input:  JSON array of raw IFC storey names
+# Output: JSON array of {floor_num, category} in the same order
+#
+# Usage in code:
+#   prompt = yaml_data["storey_registry_prompt"].format(names=json.dumps(names))
+
+storey_registry_prompt: |
+  Parse these building storey/floor names from an IFC file.
+  For each name return:
+    floor_num : integer floor number (0 = ground level, negative = below ground, null if unclear)
+    category  : one of the values listed in storey_categories below
+
+  Rules:
+  - "G/F", "Ground Floor", "Lobby", "Entrance Level" → category: ground, floor_num: 0
+  - "B1", "Basement", "Carpark", "Underground" → category: basement, floor_num: -1 (or lower)
+  - "Roof", "Rooftop", "Sky Lobby" → category: roof
+  - "Mezzanine", "Mezz" → category: mezzanine
+  - "Podium" → category: podium
+  - All others (Level 1, 2F, Third Floor, etc.) → category: normal
+  - Non-English names (主楼, 地下室, 屋顶) follow the same logic
+
+  Names (JSON array): {names}
+
+  Return ONLY a JSON array in the same order, no explanation, no markdown:
+  [{{"floor_num": 1, "category": "normal"}}, ...]
+
+storey_categories:
+  - ground      # grade level, G/F, lobby floor
+  - basement    # below ground: B1, B2, carpark, underground
+  - roof        # topmost: rooftop, sky lobby
+  - mezzanine   # intermediate level between two main floors
+  - podium      # podium/transfer floor above ground
+  - normal      # standard numbered floors (default)
+
+
+# =============================================================================
+# SPACE REGISTRY — IfcSpace name → {space_type, unit_id}
+# =============================================================================
+# Input:  JSON array of raw IFC space LongNames (or Names)
+# Output: JSON array of {space_type, unit_id} in the same order
+#
+# Usage in code:
+#   types_str = " | ".join(yaml_data["space_types"])
+#   prompt = yaml_data["space_registry_prompt"].format(
+#       space_types=types_str, names=json.dumps(names))
+
+space_registry_prompt: |
+  Parse these room/space names from an IFC building file.
+  For each name return:
+    space_type : one of the values listed in space_types below
+    unit_id    : apartment or unit identifier if present (e.g. "3B", "A02", "601"), else null
+
+  Rules:
+  - Prioritise longer matches: "Master Bedroom" → master_bedroom, not bedroom
+  - unit_id: extract alphanumeric unit codes like "3B", "A02", "601", "Unit-12"
+  - Chinese room names: 主卧→master_bedroom, 卧室→bedroom, 厨房→kitchen,
+    客厅→living_room, 卫生间→bathroom, 走廊→corridor, 电梯→elevator, 楼梯→stairwell
+  - If type is ambiguous, use "unknown"
+
+  Names (JSON array): {names}
+
+  Return ONLY a JSON array in the same order, no explanation, no markdown:
+  [{{"space_type": "kitchen", "unit_id": "3B"}}, ...]
+
+space_types:
+  - bedroom           # standard bedroom
+  - master_bedroom    # master / principal bedroom
+  - bathroom          # bathroom, shower room, wet room
+  - toilet            # WC, powder room (no shower/bath)
+  - kitchen           # kitchen, kitchenette
+  - living_room       # living room, lounge, sitting room
+  - dining_room       # dining room, dining area
+  - corridor          # hallway, passage, walkway
+  - lobby             # entrance lobby, reception, foyer
+  - office            # office, study, workroom
+  - storage           # store room, utility room, cupboard
+  - mechanical        # plant room, mechanical room, machine room
+  - parking           # carpark bay, garage, parking space
+  - stairwell         # staircase, stair hall
+  - elevator          # lift shaft, elevator lobby
+  - balcony           # balcony, terrace, loggia
+  - unknown           # cannot determine type

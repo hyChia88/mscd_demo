@@ -76,12 +76,21 @@ SYSTEM_PROMPT = (
     '  "storey_name": "exact floor name or null",\n'
     '  "ifc_class": "IfcWall|IfcWindow|IfcDoor|IfcSlab|IfcStair|IfcRailing|... or null",\n'
     '  "near_keywords": ["spatial", "hints"],\n'
-    '  "relations": ["spatial_relationships"]\n'
+    '  "relations": ["spatial_relationships"],\n'
+    '  "space_name": "room/space name or null",\n'
+    '  "target_name_keyword": "equipment brand/ID/unique name or null",\n'
+    '  "neighbor_type": "IfcClass of nearby reference element or null"\n'
     "}\n\n"
     "Rules:\n"
     "- storey_name must match exact IFC storey names (e.g., '1 - First Floor', "
     "'Level 1', '-1 - Garage')\n"
     "- ifc_class must use Ifc prefix (e.g., 'IfcWindow' not 'window')\n"
+    "- space_name: extract if user says 'in the kitchen', 'room 601', 'the bathroom window'; "
+    "null otherwise\n"
+    "- target_name_keyword: extract specific equipment IDs like 'AHU-03', 'Daikin unit', "
+    "'Fire Pump FP-01'; null for generic types\n"
+    "- neighbor_type: extract IFC class of reference element if user says 'next to the column', "
+    "'near the staircase'; must use Ifc prefix; null otherwise\n"
     "- Be conservative: use null if uncertain\n"
     "- Look at the image carefully for element type and defect clues"
 )
@@ -410,6 +419,9 @@ def run_eval(
                 "ifc_class": parsed.get("ifc_class"),
                 "near_keywords": parsed.get("near_keywords", []),
                 "relations": parsed.get("relations", []),
+                "space_name": parsed.get("space_name"),
+                "target_name_keyword": parsed.get("target_name_keyword"),
+                "neighbor_type": parsed.get("neighbor_type"),
             },
             "raw_output": raw_output[:500],
             "latency_ms": round(latency_ms, 1),

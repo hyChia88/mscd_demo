@@ -30,18 +30,37 @@ prompt_only_system: |
      - Examples: "adjacent_to", "near", "in_room", "between"
      - Leave empty if no explicit relationships mentioned
 
+  5. space_name: The specific room or space name (e.g., "Living Room", "Kitchen", "Corridor")
+     - Extract if user says "in the kitchen", "in room 601", "the bathroom window"
+     - Only if a named room is clearly mentioned; null otherwise
+     - Do NOT duplicate storey_name here — space_name is a room, not a floor
+
+  6. target_name_keyword: A specific equipment brand, ID, or unique element name
+     - Extract if user says "the Daikin unit", "AHU-03", "Fire Pump FP-01"
+     - Do NOT use for generic types like "window" or "wall" — those go to ifc_class
+     - null if no specific equipment name or ID mentioned
+
+  7. neighbor_type: IFC class of a nearby reference element for spatial location
+     - Extract if user says "next to the column", "near the staircase", "beside the door"
+     - Must use Ifc prefix: "IfcColumn", "IfcStair", "IfcDoor", "IfcWall"
+     - null if no topological reference element mentioned
+
   Output ONLY valid JSON. No explanation, no markdown, just JSON:
   {
     "storey_name": "string or null",
     "ifc_class": "string or null",
     "near_keywords": [],
-    "relations": []
+    "relations": [],
+    "space_name": "string or null",
+    "target_name_keyword": "string or null",
+    "neighbor_type": "string or null"
   }
 
   Important:
   - Be conservative: if uncertain, use null or empty array
   - storey_name must be exact (not "floor 6" but "6 - Sixth Floor" or "Level 6")
   - ifc_class must start with "Ifc" prefix (e.g., "IfcWindow" not "window")
+  - neighbor_type must start with "Ifc" prefix (e.g., "IfcColumn" not "column")
 
 
 # =============================================================================

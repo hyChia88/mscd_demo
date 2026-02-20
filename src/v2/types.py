@@ -21,6 +21,26 @@ class Constraints(BaseModel):
     near_keywords: List[str] = Field(default_factory=list)  # e.g., ["north", "elevator"]
     relations: List[str] = Field(default_factory=list)  # e.g., ["adjacent_to", "in_room"]
 
+    # ── NEW FIELDS (Phase 2 — Granularity Upgrade) ─────────────────────────
+    space_name: Optional[str] = None
+    # Specific room/space name, one level below storey.
+    # e.g. "Living Room", "Master Bedroom", "Corridor 6A"
+    # Source: LLM extraction from chat + floorplan.spatial_zone fallback (Phase 3)
+    # Enables: space+type query (Priority 0) → ~5 candidates
+
+    target_name_keyword: Optional[str] = None
+    # Equipment brand, ID, or unique element name fragment.
+    # e.g. "Daikin", "AHU-03", "Fire Pump FP-01"
+    # NOT for generic type words ("window", "wall") — those go to ifc_class.
+    # Enables: name_keyword query (Priority 1) → ~1-3 candidates
+
+    neighbor_type: Optional[str] = None
+    # IFC class of a nearby reference element for topological location.
+    # e.g. "IfcColumn", "IfcStair", "IfcDoor"
+    # Source: "next to the column", "beside the door", "near the staircase"
+    # Enables: neighbor+type query (Priority 2, Neo4j only, HAS_OPENING/FILLS)
+    # ───────────────────────────────────────────────────────────────────────
+
     # Diagnostics
     confidence: float = 0.0  # Confidence score (0.0-1.0)
     source: str = "unknown"  # "prompt" | "lora" | "prompt_failed"

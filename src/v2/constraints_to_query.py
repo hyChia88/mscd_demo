@@ -19,11 +19,53 @@ class QueryPlanner:
 
     # Priority rules: ordered from most specific to most general
     PRIORITY_RULES = [
+        # ── Phase 4 NEW rules (priorities 0-2, finer granularity) ────────────
+        {
+            "priority": 0,
+            "strategy": "space+type",
+            "requires": ["space_name", "ifc_class"],
+            "description": "Most specific: element type within a named room/space (~5 candidates)",
+            "template_memory": "filter_by_space_and_type",
+            "template_cypher": """
+                MATCH (sp:IFCSpace)-[:CONTAINS]->(e:IFCElement)
+                WHERE toLower(sp.name) CONTAINS toLower($space_name)
+                  AND e.ifc_type = $type
+                RETURN e.guid as guid, e.name as name, e.ifc_type as type,
+                       sp.name as space
+            """
+        },
         {
             "priority": 1,
+            "strategy": "name_keyword",
+            "requires": ["target_name_keyword"],
+            "description": "Equipment brand/ID fuzzy name match (~1-3 candidates)",
+            "template_memory": "search_by_name_keyword",
+            "template_cypher": """
+                MATCH (e:IFCElement)
+                WHERE toLower(e.name) CONTAINS toLower($name_keyword)
+                RETURN e.guid as guid, e.name as name, e.ifc_type as type
+                LIMIT 20
+            """
+        },
+        {
+            "priority": 2,
+            "strategy": "neighbor+type",
+            "requires": ["neighbor_type", "ifc_class"],
+            "description": "Topological: element adjacent to known neighbor type — Neo4j only (~3-8 candidates)",
+            "template_memory": "filter_by_neighbor_type",
+            "template_cypher": """
+                MATCH (e:IFCElement)-[:HAS_OPENING|FILLS]-(nb:IFCElement)
+                WHERE e.ifc_type = $type
+                  AND nb.ifc_type = $neighbor_type
+                RETURN DISTINCT e.guid as guid, e.name as name, e.ifc_type as type
+            """
+        },
+        # ── Original rules (renumbered 1-5 → 3-7) ───────────────────────────
+        {
+            "priority": 3,
             "strategy": "storey+type",
             "requires": ["storey_name", "ifc_class"],
-            "description": "Most specific: both storey and IFC type known",
+            "description": "Both storey and IFC type known (~50 candidates)",
             "template_memory": "filter_by_storey_and_type",
             "template_cypher": """
                 MATCH (s:IFCStorey)-[:CONTAINS]->(e:IFCElement)
@@ -34,10 +76,10 @@ class QueryPlanner:
             """
         },
         {
-            "priority": 2,
+            "priority": 4,
             "strategy": "storey_only",
             "requires": ["storey_name"],
-            "description": "Narrow to storey/floor only",
+            "description": "Narrow to storey/floor only (~200 candidates)",
             "template_memory": "filter_by_storey",
             "template_cypher": """
                 MATCH (s:IFCStorey)-[:CONTAINS]->(e:IFCElement)
@@ -47,10 +89,10 @@ class QueryPlanner:
             """
         },
         {
-            "priority": 3,
+            "priority": 5,
             "strategy": "type_only",
             "requires": ["ifc_class"],
-            "description": "Filter by IFC type across all storeys",
+            "description": "Filter by IFC type across all storeys (~150 candidates)",
             "template_memory": "filter_by_type",
             "template_cypher": """
                 MATCH (e:IFCElement)
@@ -59,10 +101,10 @@ class QueryPlanner:
             """
         },
         {
-            "priority": 4,
+            "priority": 6,
             "strategy": "keyword",
             "requires": ["near_keywords"],
-            "description": "Text search using spatial keywords",
+            "description": "Text search using spatial keywords (~100 candidates)",
             "template_memory": "search_by_keywords",
             "template_cypher": """
                 MATCH (e:IFCElement)
@@ -72,7 +114,7 @@ class QueryPlanner:
             """
         },
         {
-            "priority": 5,
+            "priority": 7,
             "strategy": "fallback",
             "requires": [],
             "description": "Return first 100 elements (escalation candidate)",
@@ -113,7 +155,7 @@ class QueryPlanner:
         # Always include fallback as last resort if not already present
         if not plans or plans[-1].strategy != "fallback":
             plans.append(QueryPlan(
-                priority=5,
+                priority=7,
                 strategy="fallback",
                 params={},
                 expected_pool_size=100
@@ -183,6 +225,17 @@ class QueryPlanner:
         if "relations" in required_fields and constraints.relations:
             params["relations"] = constraints.relations
 
+        # Phase 4 new field mappings
+        if "space_name" in required_fields:
+            params["space_name"] = constraints.space_name
+
+        if "target_name_keyword" in required_fields:
+            params["name_keyword"] = constraints.target_name_keyword
+
+        if "neighbor_type" in required_fields:
+            params["neighbor_type"] = constraints.neighbor_type
+            params["type"] = constraints.ifc_class  # neighbor query also needs ifc_class
+
         return params
 
     def _estimate_pool_size(self, strategy: str, params: Dict[str, Any]) -> int:
@@ -200,11 +253,14 @@ class QueryPlanner:
         """
         # Rough estimates (order of magnitude)
         estimates = {
-            "storey+type": 50,    # Very specific - small pool
-            "storey_only": 200,   # All elements on one floor
-            "type_only": 150,     # All elements of one type
-            "keyword": 100,       # Keyword search - variable
-            "fallback": 100       # Capped at 100
+            "space+type":    5,    # Most specific: room + type
+            "name_keyword":  3,    # Equipment brand/ID match
+            "neighbor+type": 8,    # Topological adjacency (Neo4j only)
+            "storey+type":  50,    # Floor + element type
+            "storey_only":  200,   # All elements on one floor
+            "type_only":    150,   # All elements of one type
+            "keyword":      100,   # Keyword search - variable
+            "fallback":     100    # Capped at 100
         }
 
         return estimates.get(strategy, 100)

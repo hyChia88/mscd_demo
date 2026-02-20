@@ -146,12 +146,12 @@ def _fmt(v: Any) -> str:
 # initialisation
 # ─────────────────────────────────────────────────────────────────────────────
 
-def init_engine(config: Dict[str, Any]):
+def init_engine(config: Dict[str, Any], llm_client: Optional[Any] = None):
     """Return an IFCEngine (v1 component, reused)."""
     from src.ifc_engine import IFCEngine
 
     ifc_path = config.get("ifc", {}).get("model_path", "")
-    return IFCEngine(ifc_path)
+    return IFCEngine(ifc_path, llm_client=llm_client)
 
 
 def init_llm(config: Dict[str, Any]):
@@ -248,6 +248,10 @@ async def main(args: argparse.Namespace) -> None:
                     ifc_class=c.get("ifc_class"),
                     near_keywords=c.get("near_keywords", []),
                     relations=c.get("relations", []),
+                    # Phase 2 new fields
+                    space_name=c.get("space_name"),
+                    target_name_keyword=c.get("target_name_keyword"),
+                    neighbor_type=c.get("neighbor_type"),
                     confidence=0.85 if entry.get("status") == "OK" else 0.0,
                     source="lora_precomputed",
                 )
@@ -255,8 +259,11 @@ async def main(args: argparse.Namespace) -> None:
               f"from {args.precomputed}")
 
     # ── 3. initialise shared components ────────────────────────────────────
-    engine = init_engine(config)
+    # Registry LLM must be created before engine (used during IFC load)
+    from src.common.config import init_registry_llm
+    registry_llm = init_registry_llm(config)
     llm = init_llm(config)
+    engine = init_engine(config, llm_client=registry_llm)
     visual_aligner = init_visual_aligner(profile.get("use_clip", False))
 
     # ── 4. build pipeline ──────────────────────────────────────────────────

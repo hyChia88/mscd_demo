@@ -98,7 +98,34 @@ class RetrievalBackend:
         strategy = plan.strategy
         params = plan.params
 
-        if strategy == "storey+type":
+        # ── Phase 5A: new high-priority strategies ──────────────────────────
+        if strategy == "space+type":
+            # Most specific: elements in a named room filtered by type
+            space_key = (params.get("space_name") or "").lower()
+            target_type = params.get("type") or ""
+            results = self.engine.find_elements_in_space(space_key)
+            filtered = [r for r in results if r.get("type") == target_type]
+            # Graceful degradation: room found but type filter removes all → return unfiltered
+            return filtered if filtered else results
+
+        elif strategy == "name_keyword":
+            # Equipment brand/ID fuzzy name match
+            keyword = params.get("name_keyword") or ""
+            return self.engine.query_elements_by_name_keyword(keyword)
+
+        elif strategy == "neighbor+type":
+            # Topology requires graph — memory mode has no adjacency data.
+            # Degrade to type_only so caller still gets a useful candidate pool.
+            type_only_plan = QueryPlan(
+                priority=5,
+                strategy="type_only",
+                params={"type": params.get("type", "")},
+                expected_pool_size=150
+            )
+            return self._execute_memory(type_only_plan)
+
+        # ── Original strategies ─────────────────────────────────────────────
+        elif strategy == "storey+type":
             # Most specific: filter by storey AND type
             storey_key = (params.get("storey") or "").lower()
             target_type = params.get("type") or ""
@@ -170,7 +197,26 @@ class RetrievalBackend:
         strategy = plan.strategy
         params = plan.params
 
-        if strategy == "storey+type":
+        # ── Phase 5B: new high-priority strategies (Neo4j graph queries) ──────
+        if strategy == "space+type":
+            # IFCSpace-level query via Phase 1a method
+            space_name = params.get("space_name", "")
+            target_type = params.get("type", "")
+            return self.engine.query_elements_in_space(space_name, ifc_type=target_type)
+
+        elif strategy == "name_keyword":
+            # Fuzzy name match via Phase 1a method
+            keyword = params.get("name_keyword", "")
+            return self.engine.query_elements_by_name_keyword(keyword)
+
+        elif strategy == "neighbor+type":
+            # Topological adjacency via Phase 1a method (Neo4j only)
+            neighbor_type = params.get("neighbor_type", "")
+            target_type = params.get("type", "")
+            return self.engine.query_elements_by_neighbor(target_type, neighbor_type)
+
+        # ── Original strategies ─────────────────────────────────────────────
+        elif strategy == "storey+type":
             # Use IFCEngine's query_elements_by_level with type filter
             storey_name = params.get("storey", "")
             target_type = params.get("type", "")
@@ -201,6 +247,38 @@ class RetrievalBackend:
             return self._execute_memory(plan)
 
         return []
+
+    def _apply_property_filter(
+        self,
+        candidates: List[Dict[str, Any]],
+        params: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """
+        Phase 5C — Post-filter candidates by Pset property values.
+
+        Only runs when params contains a recognised property constraint key
+        (firerating, loadbearing, isexternal, material, acousticrating).
+        Currently not triggered — reserved for future Constraints fields.
+
+        Graceful degrade: if filter removes all candidates, return original list.
+        """
+        _PROP_KEYS = ("firerating", "loadbearing", "isexternal",
+                      "material", "acousticrating")
+        active = {k: params[k] for k in _PROP_KEYS if k in params and params[k] is not None}
+        if not active:
+            return candidates  # no property constraint — skip entirely
+
+        filtered = []
+        for c in candidates:
+            props = self.engine.get_element_properties(c["guid"])
+            flat = {}
+            for pset in props.get("PropertySets", {}).values():
+                for k, v in pset.items():
+                    flat[k.lower()] = v
+            if all(flat.get(k) == v for k, v in active.items()):
+                filtered.append(c)
+
+        return filtered if filtered else candidates
 
     def _rerank_with_clip(
         self,

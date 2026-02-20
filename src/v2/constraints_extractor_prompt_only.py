@@ -86,6 +86,10 @@ class PromptConstraintsExtractor:
                     ifc_class=data.get("ifc_class"),
                     near_keywords=data.get("near_keywords", []),
                     relations=data.get("relations", []),
+                    # Phase 2 new fields
+                    space_name=data.get("space_name"),
+                    target_name_keyword=data.get("target_name_keyword"),
+                    neighbor_type=data.get("neighbor_type"),
                     confidence=0.8,  # Reasonable confidence for successful parse
                     source="prompt"
                 )
@@ -96,6 +100,9 @@ class PromptConstraintsExtractor:
                         constraints.ifc_class = image_context.inferred_ifc_class
                     if not constraints.storey_name and image_context.inferred_storey:
                         constraints.storey_name = image_context.inferred_storey
+                    # Pull space_name from floorplan spatial_zone if LLM didn't extract one
+                    if not constraints.space_name and image_context.floorplan:
+                        constraints.space_name = image_context.floorplan.spatial_zone
                     for cue in image_context.all_location_cues:
                         if cue not in constraints.near_keywords:
                             constraints.near_keywords.append(cue)
@@ -104,6 +111,9 @@ class PromptConstraintsExtractor:
             else:
                 # Parse failed — still try image-derived hints
                 if image_context and (image_context.inferred_ifc_class or image_context.inferred_storey):
+                    print(f"⚠️  Constraints: JSON parse failed, falling back to image-derived hints "
+                          f"(ifc_class={image_context.inferred_ifc_class}, "
+                          f"storey={image_context.inferred_storey})")
                     return Constraints(
                         storey_name=image_context.inferred_storey,
                         ifc_class=image_context.inferred_ifc_class,
@@ -111,6 +121,7 @@ class PromptConstraintsExtractor:
                         confidence=0.5,
                         source="prompt_failed+image"
                     )
+                print("⚠️  Constraints: JSON parse failed, no image context — returning empty constraints.")
                 return Constraints(
                     confidence=0.0,
                     source="prompt_failed"
@@ -204,8 +215,8 @@ class PromptConstraintsExtractor:
             except json.JSONDecodeError:
                 pass
 
-        # Try finding JSON object directly
-        json_obj_pattern = r'(\{[^{]*"storey_name"[^}]*\})'
+        # Try finding JSON object directly (any known field is sufficient anchor)
+        json_obj_pattern = r'(\{[^{}]*"(?:storey_name|ifc_class|space_name)"[^{}]*\})'
         match = re.search(json_obj_pattern, response_text, re.DOTALL)
         if match:
             try:

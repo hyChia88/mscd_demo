@@ -20,13 +20,16 @@ class IFCEngine:
             └── Property Extraction Layer
     """
 
-    def __init__(self, file_path: str, neo4j_conn=None):
+    def __init__(self, file_path: str, neo4j_conn=None, llm_client=None):
         """
         Initialize IFC Engine with optional Neo4j connection.
 
         Args:
             file_path: Path to IFC file
             neo4j_conn: Optional py2neo Graph connection for graph export
+            llm_client: Optional LLM client for registry parsing.
+                Must expose .complete(prompt: str) -> str.
+                If None, registry parsing falls back to regex.
         """
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"IFC file not found: {file_path}")
@@ -36,6 +39,7 @@ class IFCEngine:
         self.file_path = file_path
         self.spatial_index = {}
         self.neo4j_conn = neo4j_conn
+        self._llm_client = llm_client  # set before _build_spatial_graph so registries use it
         self._build_spatial_graph()
 
     def _build_spatial_graph(self):
@@ -120,21 +124,354 @@ class IFCEngine:
                             "description": el.Description if hasattr(el, "Description") else ""
                         })
 
+        self._build_storey_registry()   # LLM parse: floor_num + category
+        import time; time.sleep(1)      # avoid rate-limit between two LLM registry calls
+        self._build_space_registry()    # LLM parse: space_type + unit_id
         print(f"✅  Graph Index Ready: {len(self.spatial_index)} groups indexed.")
+
+    # =========================================================================
+    # Phase 0 — Storey & Space Registry (LLM Structured Parsing)
+    # =========================================================================
+
+    def _llm_complete(self, prompt: str) -> str:
+        """
+        LLM completion stub for registry parsing.
+
+        Wire up your LLM client here, or set self._llm_client before IFC load:
+            engine = IFCEngine("model.ifc")
+            engine._llm_client = my_client   # must expose .complete(prompt) -> str
+
+        If not configured, raises NotImplementedError and the caller's
+        regex fallback takes over automatically.
+        """
+        if hasattr(self, '_llm_client') and self._llm_client:
+            return self._llm_client.complete(prompt)
+        raise NotImplementedError(
+            "LLM client not configured — regex fallback will be used."
+        )
+
+    def _build_storey_registry(self):
+        """
+        Parse every IfcBuildingStorey name into structured attributes via one LLM batch call.
+        Falls back to regex patterns if LLM is unavailable.
+
+        Stores:
+            self.storey_registry  : {canonical → {"floor_num": int|None, "category": str, "raw": str}}
+            self._storey_by_num   : {floor_num (int) → canonical}
+            self._storey_by_cat   : {category (str)  → [canonicals]}
+        """
+        import json
+        import re
+        import yaml
+        from pathlib import Path
+
+        storeys = list(self.file.by_type("IfcBuildingStorey"))
+        names = [s.Name or f"Storey_{s.id()}" for s in storeys]
+
+        # ── Load prompt from YAML & call LLM ──────────────────────────────────
+        parsed = []
+        _llm_error: str | None = None
+        try:
+            _yaml = yaml.safe_load(
+                (Path(__file__).parent.parent / "prompts" / "ifc_registry.yaml").read_text()
+            )
+            prompt = _yaml["storey_registry_prompt"].format(names=json.dumps(names))
+            raw = self._llm_complete(prompt)
+            parsed = json.loads(raw)
+        except Exception as exc:
+            _llm_error = str(exc)
+
+        # ── Regex fallback (if LLM unavailable / parse error) ─────────────────
+        _CAT_RE = [
+            (re.compile(r'ground|g/?f|lobby|entrance',          re.I), 'ground'),
+            (re.compile(r'basement|b\d|underground|carpark|park', re.I), 'basement'),
+            (re.compile(r'roof|rooftop|sky\s*lobby',            re.I), 'roof'),
+            (re.compile(r'mezzanine|mezz',                      re.I), 'mezzanine'),
+            (re.compile(r'podium',                              re.I), 'podium'),
+        ]
+
+        def _fallback_parse(name: str) -> dict:
+            m = re.search(r'(-?\d+)', name)
+            floor_num = int(m.group(1)) if m else None
+            for pat, cat in _CAT_RE:
+                if pat.search(name):
+                    return {"floor_num": floor_num, "category": cat}
+            return {"floor_num": floor_num, "category": "normal"}
+
+        if len(parsed) != len(names):
+            print(f"⚠️  storey_registry: LLM parse failed ({_llm_error}), "
+                  f"using regex fallback for {len(names)} storeys.")
+            parsed = [_fallback_parse(n) for n in names]
+
+        # ── Build registry & secondary indices ────────────────────────────────
+        self.storey_registry = {}
+        self._storey_by_num  = {}
+        self._storey_by_cat  = {}
+
+        for name, info in zip(names, parsed):
+            canonical = name.lower()
+            floor_num = info.get("floor_num")
+            category  = info.get("category", "normal")
+            self.storey_registry[canonical] = {
+                "raw": name, "floor_num": floor_num, "category": category
+            }
+            if floor_num is not None:
+                self._storey_by_num[floor_num] = canonical
+            self._storey_by_cat.setdefault(category, []).append(canonical)
+
+    def _resolve_storey_query(self, query: str):
+        """
+        Resolve a natural-language storey reference → canonical key in storey_registry.
+
+        Strategy (ordered by cost):
+        1. Exact canonical match    O(1)   "6 - sixth floor" as-is
+        2. Floor number extraction  O(1)   "level 6", "6f" → floor_num=6
+        3. Category keyword         O(k)   "ground floor", "basement" → category lookup
+        4. difflib fuzzy            O(n)   typo fallback, last resort
+
+        Returns canonical key (str) or None if unresolved.
+        """
+        import re
+        from difflib import get_close_matches
+
+        q = query.lower().strip()
+        registry = getattr(self, 'storey_registry', {})
+        if not registry:
+            return None
+
+        # 1. Exact
+        if q in registry:
+            return q
+
+        # 2. Floor number
+        m = re.search(r'(-?\d+)', q)
+        if m:
+            num = int(m.group(1))
+            if num in getattr(self, '_storey_by_num', {}):
+                return self._storey_by_num[num]
+
+        # 3. Category keyword (universal English vocabulary, not project-specific)
+        _QUERY_CAT = {
+            "ground": "ground", "g/f": "ground", "gf": "ground", "grade": "ground",
+            "basement": "basement", "carpark": "basement", "underground": "basement",
+            "roof": "roof", "rooftop": "roof",
+            "mezzanine": "mezzanine", "mezz": "mezzanine",
+            "podium": "podium",
+        }
+        by_cat = getattr(self, '_storey_by_cat', {})
+        for kw, cat in _QUERY_CAT.items():
+            if kw in q:
+                candidates = by_cat.get(cat, [])
+                if len(candidates) == 1:
+                    return candidates[0]
+                if len(candidates) > 1:
+                    # Multiple in same category (B1/B2) — disambiguate by floor_num
+                    if m:
+                        num = int(m.group(1))
+                        for c in candidates:
+                            if self.storey_registry[c].get("floor_num") == num:
+                                return c
+                    return candidates[0]  # default to first
+                break
+
+        # 4. difflib fallback
+        close = get_close_matches(q, list(registry.keys()), n=1, cutoff=0.60)
+        return close[0] if close else None
+
+    def _build_space_registry(self):
+        """
+        Parse every IfcSpace name into structured attributes via one LLM batch call.
+        Uses LongName if available (more descriptive), falls back to Name.
+        Falls back to regex patterns if LLM is unavailable.
+
+        Stores:
+            self.space_registry  : {canonical → {"space_type": str, "unit_id": str|None, "raw": str}}
+            self._space_by_type  : {space_type → [canonicals]}
+            self._space_by_unit  : {unit_id    → [canonicals]}
+        """
+        import json
+        import re
+        import yaml
+        from pathlib import Path
+
+        spaces = list(self.file.by_type("IfcSpace"))
+        if not spaces:
+            self.space_registry = {}
+            self._space_by_type = {}
+            self._space_by_unit = {}
+            return
+
+        names = [s.LongName or s.Name or f"Space_{s.id()}" for s in spaces]
+
+        # ── Load prompt from YAML & call LLM ──────────────────────────────────
+        parsed = []
+        _llm_error: str | None = None
+        try:
+            _yaml = yaml.safe_load(
+                (Path(__file__).parent.parent / "prompts" / "ifc_registry.yaml").read_text()
+            )
+            space_types_str = " | ".join(_yaml["space_types"])
+            prompt = _yaml["space_registry_prompt"].format(
+                space_types=space_types_str,
+                names=json.dumps(names),
+            )
+            raw = self._llm_complete(prompt)
+            parsed = json.loads(raw)
+        except Exception as exc:
+            _llm_error = str(exc)
+
+        # ── Regex fallback ─────────────────────────────────────────────────────
+        _TYPE_RE = [
+            (re.compile(r'master.?bed|主卧|master\s*room',    re.I), 'master_bedroom'),
+            (re.compile(r'bed|bedroom|卧室|睡房',              re.I), 'bedroom'),
+            (re.compile(r'bath|wc|toilet|lavatory|卫生间|厕', re.I), 'bathroom'),
+            (re.compile(r'kitchen|kitch|厨房',                re.I), 'kitchen'),
+            (re.compile(r'living|lounge|客厅',                re.I), 'living_room'),
+            (re.compile(r'dining|餐厅',                       re.I), 'dining_room'),
+            (re.compile(r'corridor|hallway|走廊|过道',         re.I), 'corridor'),
+            (re.compile(r'lobby|reception|大堂',              re.I), 'lobby'),
+            (re.compile(r'office|study|书房|办公',             re.I), 'office'),
+            (re.compile(r'store|storage|storeroom|储藏',      re.I), 'storage'),
+            (re.compile(r'mech|plant|machine|机房',           re.I), 'mechanical'),
+            (re.compile(r'park|carpark|garage|车库',          re.I), 'parking'),
+            (re.compile(r'stair|楼梯',                        re.I), 'stairwell'),
+            (re.compile(r'lift|elevator|elev|电梯',           re.I), 'elevator'),
+            (re.compile(r'balcony|terrace|阳台',              re.I), 'balcony'),
+        ]
+        _UNIT_RE = re.compile(r'\b([A-Z]?\d{1,4}[A-Z]?)\b')
+
+        def _fallback_parse_space(name: str) -> dict:
+            for pat, stype in _TYPE_RE:
+                if pat.search(name):
+                    um = _UNIT_RE.search(name)
+                    return {"space_type": stype, "unit_id": um.group(1) if um else None}
+            um = _UNIT_RE.search(name)
+            return {"space_type": "unknown", "unit_id": um.group(1) if um else None}
+
+        if len(parsed) != len(names):
+            print(f"⚠️  space_registry: LLM parse failed ({_llm_error}), "
+                  f"using regex fallback for {len(names)} spaces.")
+            parsed = [_fallback_parse_space(n) for n in names]
+
+        # ── Build registry & secondary indices ────────────────────────────────
+        self.space_registry = {}
+        self._space_by_type = {}
+        self._space_by_unit = {}
+
+        for name, info in zip(names, parsed):
+            canonical  = name.lower()
+            space_type = info.get("space_type", "unknown")
+            unit_id    = (info.get("unit_id") or "").lower() or None
+            self.space_registry[canonical] = {
+                "raw": name, "space_type": space_type, "unit_id": unit_id
+            }
+            self._space_by_type.setdefault(space_type, []).append(canonical)
+            if unit_id:
+                self._space_by_unit.setdefault(unit_id, []).append(canonical)
+
+    def _resolve_space_query(self, query: str) -> list:
+        """
+        Resolve a room/space reference → list of matching canonical keys in space_registry.
+
+        Returns a list because multiple spaces can share the same type
+        (e.g. "the kitchen" may match kitchens on multiple floors).
+
+        Strategy:
+        1. Exact canonical match        → [exact_key]
+        2. Space type keyword detection → _space_by_type[type]
+        3. Unit ID detection            → _space_by_unit[unit_id]
+        4. difflib fuzzy                → [best_matches]
+        """
+        import re
+        from difflib import get_close_matches
+
+        q = query.lower().strip()
+        registry = getattr(self, 'space_registry', {})
+        if not registry:
+            return []
+
+        # 1. Exact
+        if q in registry:
+            return [q]
+
+        # 2. Space type keyword (longest match first)
+        _QUERY_TYPE = {
+            "master bedroom": "master_bedroom", "master bed": "master_bedroom",
+            "bedroom": "bedroom", "bed room": "bedroom",
+            "bathroom": "bathroom", "bath": "bathroom",
+            "toilet": "toilet", "wc": "toilet",
+            "kitchen": "kitchen",
+            "living room": "living_room", "living": "living_room", "lounge": "living_room",
+            "dining room": "dining_room", "dining": "dining_room",
+            "corridor": "corridor", "hallway": "corridor",
+            "lobby": "lobby",
+            "office": "office",
+            "storage": "storage", "store room": "storage", "storeroom": "storage",
+            "mechanical": "mechanical", "plant room": "mechanical",
+            "parking": "parking", "carpark": "parking",
+            "stairwell": "stairwell", "staircase": "stairwell",
+            "elevator": "elevator", "lift": "elevator",
+            "balcony": "balcony", "terrace": "balcony",
+        }
+        by_type = getattr(self, '_space_by_type', {})
+        for kw in sorted(_QUERY_TYPE, key=len, reverse=True):
+            if kw in q:
+                candidates = by_type.get(_QUERY_TYPE[kw], [])
+                if candidates:
+                    return candidates
+
+        # 3. Unit ID
+        um = re.search(r'\b([a-z]?\d{1,4}[a-z]?)\b', q)
+        if um:
+            uid = um.group(1)
+            by_unit = getattr(self, '_space_by_unit', {})
+            if uid in by_unit:
+                return by_unit[uid]
+
+        # 4. difflib fallback
+        close = get_close_matches(q, list(registry.keys()), n=3, cutoff=0.60)
+        return close
 
     def find_elements_in_space(self, room_query: str):
         """
-        根据房间名模糊查找 (Semantic Search Simulation)
+        Spatial lookup: storey name or room/space name.
+
+        Resolution order:
+        1. Exact substring on spatial_index  (fast path, original behaviour)
+        2. Structured storey resolution      "level 6" → floor_num lookup
+        3. Structured space resolution       "the kitchen" → space_type lookup
+        4. difflib on spatial_index keys     typo/fuzzy fallback
         """
-        room_query = room_query.lower()
-        found_elements = []
-        
-        # 简单的包含匹配 (在完整 Thesis 中这里可以是 Vector Search)
-        for room_name, elements in self.spatial_index.items():
-            if room_query in room_name:
-                found_elements.extend(elements)
-        
-        return found_elements
+        from difflib import get_close_matches
+
+        q = room_query.lower().strip()
+        if not q:
+            return []
+
+        # 1. Exact substring
+        matches = [elems for key, elems in self.spatial_index.items() if q in key]
+        if matches:
+            return [e for elems in matches for e in elems]
+
+        # 2. Structured storey resolution
+        storey_key = self._resolve_storey_query(q)
+        if storey_key and storey_key in self.spatial_index:
+            return self.spatial_index[storey_key]
+
+        # 3. Structured space resolution (may return multiple spaces of same type)
+        space_keys = self._resolve_space_query(q)
+        if space_keys:
+            results = [e for k in space_keys if k in self.spatial_index
+                       for e in self.spatial_index[k]]
+            if results:
+                return results
+
+        # 4. difflib fallback on all spatial_index keys
+        close = get_close_matches(q, list(self.spatial_index.keys()), n=1, cutoff=0.60)
+        if close:
+            return self.spatial_index[close[0]]
+
+        return []
 
     def get_element_properties(self, guid: str) -> Dict[str, Any]:
         """
@@ -414,16 +751,17 @@ class IFCEngine:
         Useful for RQ3 abductive reasoning: "Which elements are on Level 6?"
         """
         if not self.neo4j_conn:
-            # Fallback to local spatial index
             return self.find_elements_in_space(level_name)
 
+        # Structured resolve before Cypher — handles "level 6" → "6 - sixth floor"
+        canonical = self._resolve_storey_query(level_name.lower()) or level_name
         query = """
         MATCH (s:IFCStorey)-[:CONTAINS]->(e:IFCElement)
         WHERE toLower(s.name) CONTAINS toLower($level_name)
         RETURN e.guid as guid, e.name as name, e.ifc_type as type,
                e.FireRating as fire_rating, e.LoadBearing as load_bearing
         """
-        result = self.neo4j_conn.run(query, level_name=level_name)
+        result = self.neo4j_conn.run(query, level_name=canonical)
         return [dict(record) for record in result]
 
     def query_elements_by_property(self, property_name: str, property_value: Any) -> List[Dict]:
@@ -458,3 +796,93 @@ class IFCEngine:
         """
         result = self.neo4j_conn.run(query, guid=guid)
         return [dict(record) for record in result]
+
+    # =========================================================================
+    # Phase 1a — New Query Primitives (required by Phase 5 RetrievalBackend)
+    # =========================================================================
+
+    def query_elements_in_space(self, space_name: str, ifc_type: str = "") -> List[Dict]:
+        """
+        Query elements within a named room/space.
+
+        Memory mode: delegates to find_elements_in_space() (Phase 0 registry-aware).
+        Neo4j mode:  Cypher MATCH on IFCSpace-[:CONTAINS]->IFCElement.
+
+        Args:
+            space_name: Room/space query string (e.g. "living room", "kitchen")
+            ifc_type:   Optional IFC class filter (e.g. "IfcWindow"). Empty = no filter.
+        """
+        if not self.neo4j_conn:
+            results = self.find_elements_in_space(space_name)
+            if ifc_type:
+                results = [r for r in results if r.get("type") == ifc_type]
+            return results
+
+        type_clause = "AND e.ifc_type = $ifc_type" if ifc_type else ""
+        query = f"""
+        MATCH (sp:IFCSpace)-[:CONTAINS]->(e:IFCElement)
+        WHERE toLower(sp.name) CONTAINS toLower($space_name)
+        {type_clause}
+        RETURN e.guid as guid, e.name as name, e.ifc_type as type,
+               sp.name as space
+        """
+        result = self.neo4j_conn.run(query, space_name=space_name.lower(),
+                                     ifc_type=ifc_type)
+        return [dict(r) for r in result]
+
+    def query_elements_by_name_keyword(self, keyword: str) -> List[Dict]:
+        """
+        Search elements whose name contains a keyword (fuzzy, deduped).
+
+        Memory mode: scans all elements in spatial_index by .name field.
+        Neo4j mode:  Cypher CONTAINS on e.name, LIMIT 20.
+
+        Args:
+            keyword: Equipment brand, ID, or name fragment (e.g. "Daikin", "AHU-03")
+        """
+        if not self.neo4j_conn:
+            kw = keyword.lower()
+            results: List[Dict] = []
+            seen: set = set()
+            for elems in self.spatial_index.values():
+                for e in elems:
+                    if e["guid"] not in seen and kw in (e.get("name") or "").lower():
+                        results.append(e)
+                        seen.add(e["guid"])
+            return results
+
+        query = """
+        MATCH (e:IFCElement)
+        WHERE toLower(e.name) CONTAINS toLower($keyword)
+        RETURN e.guid as guid, e.name as name, e.ifc_type as type
+        LIMIT 20
+        """
+        result = self.neo4j_conn.run(query, keyword=keyword)
+        return [dict(r) for r in result]
+
+    def query_elements_by_neighbor(self, ifc_type: str, neighbor_type: str) -> List[Dict]:
+        """
+        Find elements of ifc_type structurally connected to neighbor_type (Neo4j only).
+
+        Uses HAS_OPENING and FILLS — the only element↔element adjacency edges
+        currently in the graph (covers door/window in opening relationships).
+        NEAR edges for full spatial adjacency are deferred to Step 3.
+
+        Memory fallback: returns [] — topology requires the graph.
+
+        Args:
+            ifc_type:      Target element class (e.g. "IfcWindow")
+            neighbor_type: Adjacent element class (e.g. "IfcColumn", "IfcDoor")
+        """
+        if not self.neo4j_conn:
+            return []  # No memory fallback — topology requires graph
+
+        query = """
+        MATCH (e:IFCElement)-[:HAS_OPENING|FILLS]-(nb:IFCElement)
+        WHERE e.ifc_type = $type
+          AND nb.ifc_type = $neighbor_type
+        RETURN DISTINCT e.guid as guid, e.name as name, e.ifc_type as type
+        """
+        result = self.neo4j_conn.run(query, type=ifc_type,
+                                     neighbor_type=neighbor_type)
+        return [dict(r) for r in result]

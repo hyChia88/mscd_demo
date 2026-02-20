@@ -137,6 +137,64 @@ def load_ground_truth(file_path: str = "data/ground_truth/gt_1/gt_1.json") -> Li
         return json.load(f)
 
 
+def init_registry_llm(config: Dict[str, Any]):
+    """
+    Initialize a synchronous LLM client for IFCEngine storey/space registry parsing.
+
+    Uses google.generativeai directly (not LangChain) because:
+    - Registry parsing is called synchronously during IFC load
+    - gemini-2.5-flash is a thinking model; LangChain's wrapper returns empty .content
+    - google.generativeai provides reliable sync text generation
+
+    Registry model defaults to gemini-2.0-flash (fast, cheap, no thinking overhead).
+    Override with llm.registry_model in config.yaml if needed.
+
+    Returns:
+        Object with .complete(prompt: str) -> str interface,
+        or None if GOOGLE_API_KEY is not set (falls back to regex).
+    """
+    import google.generativeai as genai
+
+    api_key = os.environ.get("GOOGLE_API_KEY", "")
+    if not api_key:
+        return None  # ifc_engine will use regex fallback
+
+    genai.configure(api_key=api_key)
+    llm_cfg = config.get("llm", {})
+    model_name = llm_cfg.get("registry_model", "gemini-2.0-flash")
+
+    class _RegistryClient:
+        def __init__(self, m):
+            self._model = m
+
+        def complete(self, prompt: str) -> str:
+            import re
+            import time
+            for attempt in range(3):
+                try:
+                    resp = self._model.generate_content(prompt)
+                    # Extract text robustly — resp.text raises ValueError if blocked
+                    text = ""
+                    if resp.candidates:
+                        for part in resp.candidates[0].content.parts:
+                            text += getattr(part, "text", "")
+                    text = text.strip()
+                    if not text:
+                        time.sleep(2 ** attempt)
+                        continue
+                    # Strip markdown code fences (model often wraps JSON in ```json...```)
+                    text = re.sub(r'^```(?:json)?\s*', '', text)
+                    text = re.sub(r'\s*```$', '', text).strip()
+                    return text
+                except Exception as e:
+                    if attempt == 2:
+                        raise
+                    time.sleep(2 ** attempt)
+            return ""
+
+    return _RegistryClient(genai.GenerativeModel(model_name))
+
+
 def init_llm(config: Dict[str, Any]):
     """
     Create a LangChain LLM instance from config.
