@@ -6,14 +6,13 @@ pipelines so the unified runner (script/run.py) can invoke either.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from src.eval.contracts import EvalTrace
-from src.v2.types import V2Trace
 
 
 class PipelineBase(ABC):
-    """Abstract base for v1 / v2 evaluation pipelines."""
+    """Abstract base for v1 / v2 / v3+ evaluation pipelines."""
 
     @abstractmethod
     async def run_case(
@@ -21,13 +20,13 @@ class PipelineBase(ABC):
         case: Dict[str, Any],
         condition_overrides: Dict[str, Any],
         run_id: str,
-    ) -> Tuple[EvalTrace, Optional[V2Trace]]:
+    ) -> EvalTrace:
         """
         Run pipeline on a single case.
 
-        Returns:
-            (EvalTrace, V2Trace | None)
-            V2Trace is None when running a v1 pipeline.
+        Returns a single EvalTrace containing all inputs, outputs, evaluation
+        results, and pipeline-specific internals (in trace.internals, keyed
+        by pipeline_type: "v1" | "v2" | "v3" …).
         """
         ...
 
@@ -66,7 +65,7 @@ class V1Pipeline(PipelineBase):
         case: Dict[str, Any],
         condition_overrides: Dict[str, Any],
         run_id: str,
-    ) -> Tuple[EvalTrace, Optional[V2Trace]]:
+    ) -> EvalTrace:
         from src.v2.condition_mask import ConditionMask
         from src.v2.pipeline import _build_scenario_input
 
@@ -89,7 +88,7 @@ class V1Pipeline(PipelineBase):
             tool_by_name=self.tool_by_name,
         )
 
-        return trace, None          # no V2Trace for v1
+        return trace
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -155,12 +154,12 @@ class V2Pipeline(PipelineBase):
         case: Dict[str, Any],
         condition_overrides: Dict[str, Any],
         run_id: str,
-    ) -> Tuple[EvalTrace, Optional[V2Trace]]:
+    ) -> EvalTrace:
         from src.v2.pipeline import run_v2_case
 
         image_dir = self.config.get("ground_truth", {}).get("image_dir", "")
 
-        trace, v2_trace = await run_v2_case(
+        trace, _ = await run_v2_case(
             case=case,
             condition_overrides=condition_overrides,
             constraints_model=self.profile.get("constraints_model", "prompt"),
@@ -179,4 +178,4 @@ class V2Pipeline(PipelineBase):
             precomputed_constraints=self.precomputed_constraints,
         )
 
-        return trace, v2_trace
+        return trace

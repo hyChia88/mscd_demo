@@ -1,0 +1,18 @@
+{
+  "name": "mscd-demo-viewer",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "esbuild src/main.js --bundle --outfile=static/viewer.bundle.js --format=esm --minify",
+    "dev": "esbuild src/main.js --bundle --outfile=static/viewer.bundle.js --format=esm --watch"
+  },
+  "dependencies": {
+    "@thatopen/components": "^3.3.2",
+    "@thatopen/fragments": "^3.3.5",
+    "three": "^0.175.0",
+    "web-ifc": "^0.0.74"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.0"
+  }
+}

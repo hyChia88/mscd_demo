@@ -44,6 +44,7 @@ from src.eval.contracts import EvalTrace
 from src.eval.metrics import compute_summary
 from src.v2.metrics_v2 import compute_v2_metrics, compute_v2_summary
 from src.v2.types import Constraints, V2Trace
+from src.common.trace_io import write_trace
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -367,10 +368,11 @@ async def main(args: argparse.Namespace) -> None:
                 print(f"[{idx:>3}/{len(cases)}] {case_id}  cond={case_cond}", end="")
 
                 try:
-                    trace, v2_trace = await pipeline.run_case(case, cond_overrides, run_id)
+                    trace = await pipeline.run_case(case, cond_overrides, run_id)
                     trace.pipeline_type = "v1"  # Mark as V1
                     trace.bench = {"group": case_cond[0], "condition": case_cond} if args.condition_override else case.get("bench")
                     traces.append(trace)
+                    write_trace(trace, out_dir=str(Path(args.output_dir) / "traces"))
 
                     hit = "HIT" if trace.guid_match else "miss"
                     pool = trace.final_pool_size or 0
@@ -407,16 +409,20 @@ async def main(args: argparse.Namespace) -> None:
             print(f"[{idx:>3}/{len(cases)}] {case_id}  cond={case_cond}", end="")
 
             try:
-                trace, v2_trace = await pipeline.run_case(case, cond_overrides, run_id)
+                trace = await pipeline.run_case(case, cond_overrides, run_id)
                 trace.pipeline_type = "v2"  # Mark as V2
                 trace.bench = {"group": case_cond[0], "condition": case_cond} if args.condition_override else case.get("bench")
                 traces.append(trace)
+                write_trace(trace, out_dir=str(Path(args.output_dir) / "traces"))
 
                 hit = "HIT" if trace.guid_match else "miss"
                 pool = trace.final_pool_size or 0
                 print(f"  pool={pool:<5}  {hit}")
 
-                if v2_trace:
+                if trace.internals:
+                    # Reconstruct V2Trace locally — only needed here for metrics functions.
+                    # trace.internals is the authoritative source; V2Trace is not persisted.
+                    v2_trace = V2Trace.model_validate(trace.internals)
                     v2_traces.append(v2_trace)
                     # Per-case v2 metrics
                     labels = case.get("labels")

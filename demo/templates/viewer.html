@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en" style="margin:0;padding:0;overflow:hidden;background:#0f172a;">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f172a; overflow: hidden; }
+    #viewer {
+      width: 100vw;
+      height: 100vh;
+    }
+    #progress-wrap {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 300px;
+      text-align: center;
+      font-family: monospace;
+      color: #94a3b8;
+    }
+    #progress-track {
+      width: 100%;
+      height: 4px;
+      background: #1e293b;
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    #progress-bar {
+      height: 100%;
+      width: 0%;
+      background: #3b82f6;
+      border-radius: 2px;
+      transition: width 0.2s ease;
+    }
+    #progress-label {
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+    #legend {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      font-family: monospace;
+      font-size: 11px;
+      color: #cbd5e1;
+      background: rgba(15,23,42,0.85);
+      padding: 6px 10px;
+      border-radius: 6px;
+      line-height: 1.8;
+      display: none;
+    }
+    .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+  </style>
+</head>
+<body>
+  <div id="viewer"></div>
+
+  <div id="progress-wrap">
+    <div id="progress-label">Initialising…</div>
+    <div id="progress-track">
+      <div id="progress-bar"></div>
+    </div>
+  </div>
+
+  <div id="legend">
+    __LEGEND__
+  </div>
+
+  <script>
+    window.VIEWER_CONFIG = __CONFIG_JSON__;
+  </script>
+  <script type="module" src="__BUNDLE_URL__"></script>
+
+  <script>
+    // Show legend once viewer is ready (polled)
+    const legend = document.getElementById("legend");
+    const check = setInterval(() => {
+      if (document.getElementById("progress-wrap").style.display === "none") {
+        legend.style.display = "block";
+        clearInterval(check);
+      }
+    }, 500);
+  </script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 """Common utilities shared across all pipelines and entry points."""
 
 from .guid import extract_guids_from_text, extract_first_ifc_guid
+from .trace_io import write_trace, read_trace
 from .config import (
     get_base_dir,
     load_config,
@@ -26,6 +27,9 @@ __all__ = [
     # guid
     "extract_guids_from_text",
     "extract_first_ifc_guid",
+    # trace_io
+    "write_trace",
+    "read_trace",
     # config
     "get_base_dir",
     "load_config",

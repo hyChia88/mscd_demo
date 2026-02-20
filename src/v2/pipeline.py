@@ -307,4 +307,7 @@ async def run_v2_case(
     v2_metrics = compute_v2_metrics(v2_trace, gt_dict, labels)
     v2_trace.rerank_gain = v2_metrics.get("rerank_gain")
 
+    # Embed all V2 internals into the single EvalTrace artifact.
+    trace.internals = v2_trace.model_dump(mode="json")
+
     return trace, v2_trace

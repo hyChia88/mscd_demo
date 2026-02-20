@@ -297,6 +297,14 @@ class EvalTrace(BaseModel):
     # RQ2: Schema validation result (only for RQ2 cases)
     rq2_result: Optional[RQ2Result] = None
 
+    # Pipeline internals — pipeline-specific data, discriminated by pipeline_type.
+    #   V1: {"tool_steps": [...]}  (reserved, currently empty — agent data is in tool_steps above)
+    #   V2: {"constraints": {...}, "query_plans": [...], "retrieval_results": [...], ...}
+    #   V3+: superset of whichever prior versions apply
+    # Kept as plain dict so no cross-module type dependency and new versions need
+    # zero schema changes here.
+    internals: Optional[Dict[str, Any]] = None
+
     # Error tracking
     error: Optional[str] = None
     success: bool = True
