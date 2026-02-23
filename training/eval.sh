@@ -36,13 +36,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 DATA_ROOT="$(dirname "$PROJECT_DIR")/data_curation"
 
-CASES="$DATA_ROOT/datasets/synth_v0.3/cases_v3_filtered.jsonl"
-EVAL_DIR="$PROJECT_DIR/logs/evaluations"
-PLOTS_DIR="$PROJECT_DIR/logs/comparisons/v03_full"
+CASES="$DATA_ROOT/datasets/synth_v0.4_merged/train/test_holdout.jsonl"  # 50 holdout cases (AP=20, BH=20, DXA=10)
+EVAL_DIR="$PROJECT_DIR/logs/evaluations/synth_v04"   # new runs land here
+PLOTS_DIR="$PROJECT_DIR/logs/comparisons/synth_v0.4_lora_2"
 
-# Existing V2 prompt baseline (Exp 3)
-V2_PROMPT_TRACES="$EVAL_DIR/traces_20260214_210555_v2_prompt.jsonl"
-V2_PROMPT_SUMMARY="$EVAL_DIR/summary_20260214_210555_v2_prompt.csv"
+# V2 prompt baseline from Exp 2 (synth_v0.3, 84 cases — for reference only)
+V2_PROMPT_TRACES="$PROJECT_DIR/logs/evaluations/synth_v03/traces/traces_20260214_210555_v2_prompt.jsonl"
+V2_PROMPT_SUMMARY="$PROJECT_DIR/logs/evaluations/synth_v03/summaries/summary_20260214_210555_v2_prompt.csv"
 
 # ── Colors ───────────────────────────────────────────────────────────────────
 
@@ -61,7 +61,7 @@ section() { echo -e "\n${BOLD}════════════════�
 
 # ── Parse arguments ──────────────────────────────────────────────────────────
 
-STEP="full"              # full | modal | local | plots | paired-ablation
+STEP="full"              # full | modal | local | plots | paired-ablation | overall
 ADAPTERS=("final" "checkpoint-180")
 SKIP_V2_PROMPT=false
 LIMIT_ARG=""
@@ -84,7 +84,8 @@ while [[ $# -gt 0 ]]; do
             echo "  modal             Modal GPU extraction only"
             echo "  local             Local pipeline (needs precomputed)"
             echo "  plots             Comparison charts only"
-            echo "  paired-ablation   Run MA/MB/MC paired ablation on Modal"
+            echo "  paired-ablation   LoRA+Prompt MA/MB/MC ablation + overall comparison"
+            echo "  overall           Overall comparison only (LoRA final vs Prompt v2, per-case)"
             echo ""
             echo "Options:"
             echo "  --adapter NAME              Adapter name (default: final + checkpoint-180)"
@@ -292,7 +293,7 @@ run_comparison_charts() {
         --cases "$CASES" \
         --plots \
         --output "$PLOTS_DIR" \
-        --title "synth_v0.3 Evaluation (${CASE_COUNT:-84} cases)"
+        --title "synth_v0.4 Holdout — LoRA v2 (50 cases)"
 
     ok "Charts saved to: $PLOTS_DIR"
 }
@@ -301,42 +302,182 @@ run_comparison_charts() {
 # Execute selected steps
 # ═════════════════════════════════════════════════════════════════════════════
 
+# ═════════════════════════════════════════════════════════════════════════════
+# STEP: Overall Comparison (LoRA final vs Prompt v2, per-case conditions)
+# Requires eval_constraints_final.jsonl (no condition override) on the volume.
+# Run: modal run training/eval.py --adapter-dir /mscd-lora/final
+# ═════════════════════════════════════════════════════════════════════════════
+
+run_overall_comparison() {
+    section "Overall Comparison — LoRA final vs Prompt v2 (per-case conditions)"
+
+    cd "$PROJECT_DIR"
+    local overall_plot_args=()
+
+    # ── 1. LoRA (per-case conditions) ──────────────────────────────────────
+    # Needs eval_constraints_final.jsonl WITHOUT a condition override.
+    local overall_precomputed="$EVAL_DIR/eval_constraints_final.jsonl"
+
+    if [[ ! -f "$overall_precomputed" ]]; then
+        info "Downloading eval_constraints_final.jsonl from Modal volume..."
+        if conda run -n "$CONDA_ENV" modal volume get mscd-checkpoints \
+                "/mscd-lora/eval_constraints_final.jsonl" "$EVAL_DIR/" 2>&1; then
+            ok "Downloaded eval_constraints_final.jsonl"
+        else
+            warn "eval_constraints_final.jsonl not yet on volume."
+            warn "Run this first, then re-run --step overall:"
+            warn "  modal run training/eval.py --adapter-dir /mscd-lora/final"
+            overall_precomputed=""
+        fi
+    fi
+
+    # Validate it is the synth_v0.4 run (50 cases), not an old v0.3 file (84 cases)
+    if [[ -f "$overall_precomputed" ]]; then
+        local row_count
+        row_count=$(wc -l < "$overall_precomputed")
+        if [[ "$row_count" -ne 50 ]]; then
+            warn "eval_constraints_final.jsonl has $row_count rows (expected 50 for synth_v0.4)."
+            warn "Likely a stale synth_v0.3 file. Delete and re-run Modal extraction:"
+            warn "  rm $overall_precomputed"
+            warn "  modal run training/eval.py --adapter-dir /mscd-lora/final"
+            overall_precomputed=""
+        else
+            ok "eval_constraints_final.jsonl validated: $row_count cases"
+        fi
+    fi
+
+    if [[ -n "$overall_precomputed" ]]; then
+        local existing_lora_overall
+        existing_lora_overall=$(ls -t "$EVAL_DIR"/traces_*_v2_lora.jsonl 2>/dev/null \
+            | grep -v "_MA\.jsonl\|_MB\.jsonl\|_MC\.jsonl" | head -1)
+        if [[ -n "$existing_lora_overall" ]]; then
+            ok "LoRA per-case traces exist: $(basename "$existing_lora_overall") (skipping)"
+        else
+            info "Running v2_lora (per-case conditions)..."
+            conda run -n "$CONDA_ENV" python script/run.py \
+                --profile v2_lora \
+                --cases "$CASES" \
+                --precomputed "$overall_precomputed" \
+                --output_dir "$EVAL_DIR" \
+                $LIMIT_ARG
+            existing_lora_overall=$(ls -t "$EVAL_DIR"/traces_*_v2_lora.jsonl 2>/dev/null \
+                | grep -v "_MA\.jsonl\|_MB\.jsonl\|_MC\.jsonl" | head -1)
+            ok "v2_lora per-case complete"
+        fi
+        [[ -n "$existing_lora_overall" ]] && \
+            overall_plot_args+=(--traces "$existing_lora_overall" --label "V2 LoRA (final)")
+    fi
+
+    # ── 2. Prompt v2 (per-case conditions) ─────────────────────────────────
+    if [[ "$SKIP_V2_PROMPT" == false ]]; then
+        local existing_prompt_overall
+        existing_prompt_overall=$(ls -t "$EVAL_DIR"/traces_*_v2_prompt.jsonl 2>/dev/null \
+            | grep -v "_MA\.jsonl\|_MB\.jsonl\|_MC\.jsonl" | head -1)
+        if [[ -n "$existing_prompt_overall" ]]; then
+            ok "Prompt per-case traces exist: $(basename "$existing_prompt_overall") (skipping)"
+        else
+            info "Running v2_prompt (per-case conditions)..."
+            conda run -n "$CONDA_ENV" python script/run.py \
+                --profile v2_prompt \
+                --cases "$CASES" \
+                --output_dir "$EVAL_DIR" \
+                $LIMIT_ARG
+            existing_prompt_overall=$(ls -t "$EVAL_DIR"/traces_*_v2_prompt.jsonl 2>/dev/null \
+                | grep -v "_MA\.jsonl\|_MB\.jsonl\|_MC\.jsonl" | head -1)
+            ok "v2_prompt per-case complete"
+        fi
+        [[ -n "$existing_prompt_overall" ]] && \
+            overall_plot_args+=(--traces "$existing_prompt_overall" --label "V2 Prompt")
+    fi
+
+    # ── 3. Generate overall metrics chart ──────────────────────────────────
+    if [[ ${#overall_plot_args[@]} -ge 4 ]]; then
+        info "Generating overall metrics chart..."
+        mkdir -p "${PLOTS_DIR}/overall"
+        conda run -n "$CONDA_ENV" python script/compare_results.py \
+            "${overall_plot_args[@]}" \
+            --cases "$CASES" \
+            --plots \
+            --output "${PLOTS_DIR}/overall" \
+            --title "LoRA final vs Prompt v2 — Overall (synth_v0.4, 50 holdout cases)"
+        ok "Overall charts saved to: ${PLOTS_DIR}/overall"
+    else
+        warn "Need both LoRA and Prompt traces for overall chart — skipping"
+    fi
+}
+
+# ═════════════════════════════════════════════════════════════════════════════
+# STEP: Paired Ablation (LoRA + Prompt, MA/MB/MC forced conditions)
+# ═════════════════════════════════════════════════════════════════════════════
+
 run_paired_ablation() {
-    section "Paired Modality Ablation (LoRA × MA/MB/MC)"
+    section "Paired Modality Ablation (LoRA + Prompt × MA/MB/MC)"
 
     local CONDITIONS=("MA" "MB" "MC")
 
+    # ── Per-condition runs ──────────────────────────────────────────────────
     for cond in "${CONDITIONS[@]}"; do
-        info "━━━ Running ${cond} ━━━"
+        info "━━━ Condition: ${cond} ━━━"
+
+        # LoRA: Modal extraction + local pipeline
         run_modal_extraction "$cond"
         run_local_pipeline "$cond"
+
+        # Prompt v2: local pipeline (Gemini, no Modal needed)
+        if [[ "$SKIP_V2_PROMPT" == false ]]; then
+            local existing_prompt
+            existing_prompt=$(ls -t "$EVAL_DIR"/traces_*_v2_prompt_${cond}.jsonl 2>/dev/null | head -1)
+            if [[ -n "$existing_prompt" ]]; then
+                ok "Prompt traces exist for $cond: $(basename "$existing_prompt") (skipping)"
+            else
+                info "Running v2_prompt (condition=$cond)..."
+                cd "$PROJECT_DIR"
+                conda run -n "$CONDA_ENV" python script/run.py \
+                    --profile v2_prompt \
+                    --cases "$CASES" \
+                    --output_dir "$EVAL_DIR" \
+                    --condition-override "$cond" \
+                    $LIMIT_ARG
+                ok "v2_prompt complete for $cond"
+            fi
+        fi
     done
 
-    section "Paired Ablation Charts"
+    # ── Overall comparison (per-case conditions) ────────────────────────────
+    run_overall_comparison
 
-    # Collect trace files for each condition
+    # ── Paired ablation charts (Charts 10-12) ───────────────────────────────
+    section "Paired Ablation Charts (LoRA vs Prompt × MA/MB/MC)"
+
     cd "$PROJECT_DIR"
     local plot_args=()
     for cond in "${CONDITIONS[@]}"; do
-        for adapter in "${ADAPTERS[@]}"; do
-            local latest_trace
-            latest_trace=$(ls -t "$EVAL_DIR"/traces_*_v2_lora_${cond}.jsonl 2>/dev/null | head -1)
-            if [[ -n "$latest_trace" ]]; then
-                plot_args+=(--traces "$latest_trace" --label "LoRA-${adapter}-${cond}")
-                break  # Use first adapter's latest trace per condition
+        # LoRA traces for this condition
+        local latest_lora
+        latest_lora=$(ls -t "$EVAL_DIR"/traces_*_v2_lora_${cond}.jsonl 2>/dev/null | head -1)
+        if [[ -n "$latest_lora" ]]; then
+            plot_args+=(--traces "$latest_lora" --label "LoRA_${cond}")
+        fi
+
+        # Prompt traces for this condition
+        if [[ "$SKIP_V2_PROMPT" == false ]]; then
+            local latest_prompt
+            latest_prompt=$(ls -t "$EVAL_DIR"/traces_*_v2_prompt_${cond}.jsonl 2>/dev/null | head -1)
+            if [[ -n "$latest_prompt" ]]; then
+                plot_args+=(--traces "$latest_prompt" --label "Prompt_${cond}")
             fi
-        done
+        fi
     done
 
-    if [[ ${#plot_args[@]} -ge 4 ]]; then  # At least 2 trace files (4 args: --traces X --label Y)
-        info "Generating paired ablation comparison charts..."
+    if [[ ${#plot_args[@]} -ge 4 ]]; then
+        info "Generating paired ablation charts..."
         conda run -n "$CONDA_ENV" python script/compare_results.py \
             "${plot_args[@]}" \
             --cases "$CASES" \
             --plots --paired-ablation \
             --output "$PLOTS_DIR" \
-            --title "LoRA Paired Modality Ablation"
-        ok "Charts saved to: $PLOTS_DIR"
+            --title "LoRA v2 vs Prompt v2 — Paired Modality Ablation (synth_v0.4, 50 holdout cases)"
+        ok "Paired ablation charts saved to: $PLOTS_DIR"
     else
         warn "Not enough trace files for paired comparison"
     fi
@@ -360,8 +501,11 @@ case "$STEP" in
     paired-ablation)
         run_paired_ablation
         ;;
+    overall)
+        run_overall_comparison
+        ;;
     *)
-        fail "Unknown step: $STEP (use: full, modal, local, plots, paired-ablation)"
+        fail "Unknown step: $STEP (use: full, modal, local, plots, paired-ablation, overall)"
         ;;
 esac
 

@@ -132,9 +132,12 @@ async def run_v2_case(
     scenario = _build_scenario_input(masked_case, image_dir)
 
     # ── 1.5 parse images (VLM) ────────────────────────────────────────────
+    # Skip when using LoRA: LoRA reads raw images directly via its own vision
+    # encoder and explicitly ignores image_parse_result. Running the parser
+    # here would waste a VLM call with no downstream effect.
     image_parse_result = None
     image_parse_ms = 0.0
-    if image_parser is not None:
+    if image_parser is not None and constraints_model != "lora":
         t_img = time.perf_counter()
         image_parse_result = await image_parser.parse_case_images(
             masked_case, condition_overrides, image_dir

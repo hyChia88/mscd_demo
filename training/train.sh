@@ -18,9 +18,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 DATA_ROOT="$(dirname "$PROJECT_DIR")/data_curation"
 
-TRAIN_DIR="$DATA_ROOT/datasets/synth_v0.3/train"
-IMGS_DIR="$DATA_ROOT/datasets/synth_v0.3/cases/imgs"
-PLANS_DIR="$DATA_ROOT/datasets/synth_v0.3/cases/plans"
+TRAIN_DIR="$DATA_ROOT/datasets/synth_v0.4_merged/train"
+AP_IMGS="$DATA_ROOT/datasets/synth_v0.4_ap/cases/imgs"
+AP_PLANS="$DATA_ROOT/datasets/synth_v0.4_ap/cases/plans"
+BH_IMGS="$DATA_ROOT/datasets/synth_v0.4_bh/cases/imgs"
+BH_PLANS="$DATA_ROOT/datasets/synth_v0.4_bh/cases/plans"
+DXA_IMGS="$DATA_ROOT/datasets/synth_v0.4_dxa/cases/imgs"
+DXA_PLANS="$DATA_ROOT/datasets/synth_v0.4_dxa/cases/plans"
 
 ADAPTER_LOCAL="$PROJECT_DIR/models/adapters/v2_lora_qwen"
 MODAL_VOLUME_PATH="/mscd-lora/final"
@@ -43,7 +47,7 @@ fail()  { echo -e "${RED}[FAIL]${NC}  $*"; exit 1; }
 if [[ "${1:-}" == "--download-only" ]]; then
     info "Downloading trained adapter from Modal volume..."
     mkdir -p "$ADAPTER_LOCAL"
-    modal volume get mscd-checkpoints "$MODAL_VOLUME_PATH" "$ADAPTER_LOCAL"
+    modal volume get --force mscd-checkpoints "$MODAL_VOLUME_PATH" "$ADAPTER_LOCAL"
     ok "Adapter downloaded to: $ADAPTER_LOCAL"
     echo ""
     echo "Run evaluation with:"
@@ -103,20 +107,17 @@ else
     fail "Test data not found: $TRAIN_DIR/lora_test.jsonl"
 fi
 
-# 5. Images
-if [[ -d "$IMGS_DIR" ]]; then
-    IMG_COUNT=$(ls "$IMGS_DIR"/*.png 2>/dev/null | wc -l)
-    ok "Site photos:   $IMG_COUNT images ($IMGS_DIR)"
-else
-    warn "Image directory not found: $IMGS_DIR"
-fi
-
-if [[ -d "$PLANS_DIR" ]]; then
-    PLAN_COUNT=$(ls "$PLANS_DIR"/*.png 2>/dev/null | wc -l)
-    ok "Floorplans:    $PLAN_COUNT patches ($PLANS_DIR)"
-else
-    warn "Plans directory not found: $PLANS_DIR"
-fi
+# 5. Images (AP + BH + DXA) — use find to avoid glob-fail under set -e
+IMG_COUNT=0
+PLAN_COUNT=0
+for d in "$AP_IMGS" "$BH_IMGS" "$DXA_IMGS"; do
+    [[ -d "$d" ]] && IMG_COUNT=$(( IMG_COUNT + $(find "$d" -maxdepth 1 \( -name "*.png" -o -name "*.jpg" \) 2>/dev/null | wc -l) )) || true
+done
+for d in "$AP_PLANS" "$BH_PLANS" "$DXA_PLANS"; do
+    [[ -d "$d" ]] && PLAN_COUNT=$(( PLAN_COUNT + $(find "$d" -maxdepth 1 -name "*.png" 2>/dev/null | wc -l) )) || true
+done
+ok "Site photos:   $IMG_COUNT images (AP+BH+DXA)"
+ok "Floorplans:    $PLAN_COUNT patches (AP+BH+DXA)"
 
 echo ""
 echo "============================================================"
@@ -127,19 +128,22 @@ echo ""
 # ── Run training ─────────────────────────────────────────────────────────────
 
 cd "$PROJECT_DIR"
-modal run training/train.py "$@"
+# --detach: job runs on Modal even if the local connection drops (avoids gRPC Deadline exceeded)
+modal run --detach training/train.py "$@"
 
 # ── Post-training ────────────────────────────────────────────────────────────
 
 echo ""
 echo "============================================================"
-echo "  Post-Training"
+echo "  Training launched in detached mode"
 echo "============================================================"
 echo ""
-echo "To download the trained adapter:"
+echo "Monitor progress:"
+echo "  modal app logs mscd-vlm-lora-train"
+echo "  # or watch Wandb: project=mscd-vlm-lora, run=qwen25vl-7b-r16-synth_v04"
+echo ""
+echo "When complete, download the adapter:"
 echo "  ./training/train.sh --download-only"
 echo ""
-echo "To evaluate:"
-echo "  python script/run.py --profile v2_lora \\"
-echo "    --cases ../data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl \\"
-echo "    --adapter_path models/adapters/v2_lora_qwen"
+echo "Then evaluate:"
+echo "  ./training/eval.sh --step full"

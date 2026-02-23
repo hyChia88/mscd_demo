@@ -29,10 +29,21 @@ import modal
 
 # ── Local data paths ─────────────────────────────────────────────────────────
 
-DATA_ROOT = Path(__file__).parent.parent.parent / "data_curation"
-TRAIN_DIR = DATA_ROOT / "datasets" / "synth_v0.3" / "train"
-IMGS_DIR = DATA_ROOT / "datasets" / "synth_v0.3" / "cases" / "imgs"
-PLANS_DIR = DATA_ROOT / "datasets" / "synth_v0.3" / "cases" / "plans"
+DATA_ROOT    = Path(__file__).parent.parent.parent / "data_curation"
+DATASETS_DIR = DATA_ROOT / "datasets"
+
+# synth_v0.4 — merged JSONL (AP 690 + BH 33 + DXA 210 = 933 train / 50 test)
+MERGED_DIR  = DATASETS_DIR / "synth_v0.4_merged" / "train"
+TRAIN_JSONL = MERGED_DIR / "lora_train.jsonl"
+TEST_JSONL  = MERGED_DIR / "lora_test.jsonl"
+
+# Per-dataset image directories (baked into container under /data/images/<tag>/)
+AP_IMGS_DIR   = DATASETS_DIR / "synth_v0.4_ap"  / "cases" / "imgs"
+AP_PLANS_DIR  = DATASETS_DIR / "synth_v0.4_ap"  / "cases" / "plans"
+BH_IMGS_DIR   = DATASETS_DIR / "synth_v0.4_bh"  / "cases" / "imgs"
+BH_PLANS_DIR  = DATASETS_DIR / "synth_v0.4_bh"  / "cases" / "plans"
+DXA_IMGS_DIR  = DATASETS_DIR / "synth_v0.4_dxa" / "cases" / "imgs"
+DXA_PLANS_DIR = DATASETS_DIR / "synth_v0.4_dxa" / "cases" / "plans"
 
 # ── Modal infrastructure ─────────────────────────────────────────────────────
 
@@ -59,10 +70,16 @@ train_image = (
     .pip_install("transformers==4.56.2")
     .run_commands("pip install --no-deps trl==0.22.2")
     .env({"HF_HOME": "/model_cache"})
-    # Bake local data into the image (replaces deprecated modal.Mount)
-    .add_local_dir(str(TRAIN_DIR), remote_path="/data/train")
-    .add_local_dir(str(IMGS_DIR), remote_path="/data/images/imgs")
-    .add_local_dir(str(PLANS_DIR), remote_path="/data/images/plans")
+    # Bake merged JSONL files into the image
+    .add_local_file(str(TRAIN_JSONL), remote_path="/data/train/lora_train.jsonl")
+    .add_local_file(str(TEST_JSONL),  remote_path="/data/train/lora_test.jsonl")
+    # Bake per-dataset image directories (imgs + plans for each of AP, BH, DXA)
+    .add_local_dir(str(AP_IMGS_DIR),   remote_path="/data/images/ap/imgs")
+    .add_local_dir(str(AP_PLANS_DIR),  remote_path="/data/images/ap/plans")
+    .add_local_dir(str(BH_IMGS_DIR),   remote_path="/data/images/bh/imgs")
+    .add_local_dir(str(BH_PLANS_DIR),  remote_path="/data/images/bh/plans")
+    .add_local_dir(str(DXA_IMGS_DIR),  remote_path="/data/images/dxa/imgs")
+    .add_local_dir(str(DXA_PLANS_DIR), remote_path="/data/images/dxa/plans")
 )
 
 # Persistent volumes
@@ -98,13 +115,11 @@ class TrainConfig:
 
     # Wandb
     wandb_project: str = "mscd-vlm-lora"
-    wandb_run: str = "qwen25vl-7b-r16-synth_v03"
+    wandb_run: str = "qwen25vl-7b-r16-synth_v04"
 
     # Paths (inside Modal container)
     train_file: str = "/data/train/lora_train.jsonl"
     test_file: str = "/data/train/lora_test.jsonl"
-    images_dir: str = "/data/images/imgs"
-    plans_dir: str = "/data/images/plans"
     output_dir: str = "/checkpoints/mscd-lora"
 
     seed: int = 42
@@ -112,25 +127,34 @@ class TrainConfig:
 
 # ── Path remapping ───────────────────────────────────────────────────────────
 
-LOCAL_IMG_PREFIX = "file:///root/cmu/master_thesis/data_curation/datasets/synth_v0.3/cases/"
+# Maps local dataset prefix → container image prefix under /data/images/<tag>/
+_LOCAL_ROOT  = "file:///root/cmu/master_thesis/data_curation/datasets/"
+_REMOTE_ROOT = "file:///data/images/"
+_DATASET_MAP = {
+    "synth_v0.4_ap/cases/":  "ap/",
+    "synth_v0.4_bh/cases/":  "bh/",
+    "synth_v0.4_dxa/cases/": "dxa/",
+}
 
 def remap_image_paths(sample: dict, config: TrainConfig) -> dict:
-    """Remap local absolute paths to Modal container paths."""
+    """Remap local absolute paths to Modal container paths.
+
+    e.g. file:///root/.../synth_v0.4_ap/cases/plans/plan_XXX.png
+      →  file:///data/images/ap/plans/plan_XXX.png
+    """
     for msg in sample.get("messages", []):
         content = msg.get("content")
         if isinstance(content, list):
             for part in content:
                 if isinstance(part, dict) and part.get("type") == "image":
                     path = part["image"]
-                    if path.startswith(LOCAL_IMG_PREFIX):
-                        rel = path[len(LOCAL_IMG_PREFIX):]
-                        part["image"] = f"file:///data/images/{rel}"
-                    elif "file:///root/" in path:
-                        fname = path.split("/")[-1]
-                        if fname.startswith("img_"):
-                            part["image"] = f"file://{config.images_dir}/{fname}"
-                        elif fname.startswith("plan_"):
-                            part["image"] = f"file://{config.plans_dir}/{fname}"
+                    if path.startswith(_LOCAL_ROOT):
+                        rel = path[len(_LOCAL_ROOT):]  # e.g. "synth_v0.4_ap/cases/plans/plan_XXX.png"
+                        for ds_prefix, remote_prefix in _DATASET_MAP.items():
+                            if rel.startswith(ds_prefix):
+                                rel = remote_prefix + rel[len(ds_prefix):]  # "ap/plans/plan_XXX.png"
+                                break
+                        part["image"] = _REMOTE_ROOT + rel  # "file:///data/images/ap/plans/plan_XXX.png"
     return sample
 
 
@@ -217,9 +241,11 @@ def train(
     assert os.path.exists(config.train_file), f"Missing: {config.train_file}"
     assert os.path.exists(config.test_file), f"Missing: {config.test_file}"
 
-    n_imgs = len(os.listdir(config.images_dir))
-    n_plans = len(os.listdir(config.plans_dir))
-    print(f"  Images:    {n_imgs} site photos, {n_plans} floorplans")
+    _img_dirs  = ["/data/images/ap/imgs",  "/data/images/bh/imgs",  "/data/images/dxa/imgs"]
+    _plan_dirs = ["/data/images/ap/plans", "/data/images/bh/plans", "/data/images/dxa/plans"]
+    n_imgs  = sum(len(os.listdir(d)) for d in _img_dirs  if os.path.isdir(d))
+    n_plans = sum(len(os.listdir(d)) for d in _plan_dirs if os.path.isdir(d))
+    print(f"  Images:    {n_imgs} site photos, {n_plans} floorplans (AP+BH+DXA)")
 
     # ── 2. Load and remap data ───────────────────────────────────────────
     # Returns plain Python list — NOT HF Dataset (matches notebook pattern)
@@ -566,12 +592,19 @@ def main(
     wandb_run: str = "",
 ):
     """Launch training on Modal GPU."""
+    n_train = sum(1 for _ in open(TRAIN_JSONL))
+    n_test  = sum(1 for _ in open(TEST_JSONL))
+    n_imgs  = sum(len(list(d.glob("*"))) for d in [AP_IMGS_DIR, BH_IMGS_DIR, DXA_IMGS_DIR] if d.exists())
+    n_plans = sum(len(list(d.glob("*"))) for d in [AP_PLANS_DIR, BH_PLANS_DIR, DXA_PLANS_DIR] if d.exists())
+
     print("Launching MSCD VLM LoRA training on Modal...")
     print(f"  Config: epochs={epochs}, lr={lr}, r={lora_r}, alpha={lora_alpha}")
-    print(f"  Data:   {TRAIN_DIR}")
-    print(f"  Images: {IMGS_DIR} ({len(list(IMGS_DIR.glob('*.png')))} files)")
+    print(f"  Data:   {MERGED_DIR} ({n_train} train / {n_test} test)")
+    print(f"  Images: {n_imgs} site photos, {n_plans} floorplans (AP+BH+DXA)")
 
-    result = train.remote(
+    # .spawn() submits the job and returns immediately — no blocking, no gRPC timeout.
+    # .remote() blocks until the result is ready (~25 min) and hits Deadline exceeded.
+    handle = train.spawn(
         epochs=epochs,
         lr=lr,
         lora_r=lora_r,
@@ -582,16 +615,13 @@ def main(
     )
 
     print("\n" + "=" * 60)
-    print("TRAINING COMPLETE")
+    print("TRAINING JOB SUBMITTED")
     print("=" * 60)
-    print(f"  Train loss:  {result['train_loss']:.4f}")
-    print(f"  Eval loss:   {result['eval_loss']:.4f}")
-    print(f"  Steps:       {result['steps']}")
-    print(f"\nDownload adapter:")
-    print(f"  modal volume get mscd-checkpoints /mscd-lora/final "
-          f"./models/adapters/v2_lora_qwen")
-    print(f"\nRun evaluation:")
-    print(f"  python script/run.py --profile v2_lora \\")
-    print(f"    --cases ../data_curation/datasets/synth_v0.3/"
-          f"cases_v3_filtered.jsonl \\")
-    print(f"    --adapter_path models/adapters/v2_lora_qwen")
+    print(f"  Job ID: {handle.object_id}")
+    print(f"\nMonitor:")
+    print(f"  modal app logs mscd-vlm-lora-train")
+    print(f"  wandb: project=mscd-vlm-lora  run=qwen25vl-7b-r16-synth_v04")
+    print(f"\nWhen complete, download adapter:")
+    print(f"  ./training/train.sh --download-only")
+    print(f"\nThen evaluate:")
+    print(f"  ./training/eval.sh --step paired-ablation --adapter final --skip-v2-prompt")

@@ -29,9 +29,15 @@ import modal
 # ── Local data paths ─────────────────────────────────────────────────────────
 
 DATA_ROOT = Path(__file__).parent.parent.parent / "data_curation"
-CASES_FILE = DATA_ROOT / "datasets" / "synth_v0.3" / "cases_v3_filtered.jsonl"
-IMGS_DIR = DATA_ROOT / "datasets" / "synth_v0.3" / "cases" / "imgs"
-PLANS_DIR = DATA_ROOT / "datasets" / "synth_v0.3" / "cases" / "plans"
+# v0.4 merged holdout — 50 non-training cases (AP=20, BH=20, DXA=10)
+CASES_FILE = DATA_ROOT / "datasets" / "synth_v0.4_merged" / "train" / "test_holdout.jsonl"
+# Image dirs per IFC model
+AP_IMGS_DIR   = DATA_ROOT / "datasets" / "synth_v0.4_ap"  / "cases" / "imgs"
+AP_PLANS_DIR  = DATA_ROOT / "datasets" / "synth_v0.4_ap"  / "cases" / "plans"
+BH_IMGS_DIR   = DATA_ROOT / "datasets" / "synth_v0.4_bh"  / "cases" / "imgs"
+BH_PLANS_DIR  = DATA_ROOT / "datasets" / "synth_v0.4_bh"  / "cases" / "plans"
+DXA_IMGS_DIR  = DATA_ROOT / "datasets" / "synth_v0.4_dxa" / "cases" / "imgs"
+DXA_PLANS_DIR = DATA_ROOT / "datasets" / "synth_v0.4_dxa" / "cases" / "plans"
 
 # ── Modal infrastructure ─────────────────────────────────────────────────────
 
@@ -54,10 +60,14 @@ eval_image = (
     .pip_install("transformers==4.56.2")
     .run_commands("pip install --no-deps trl==0.22.2")
     .env({"HF_HOME": "/model_cache"})
-    # Bake evaluation data into the image
-    .add_local_file(str(CASES_FILE), remote_path="/data/cases_v3_filtered.jsonl")
-    .add_local_dir(str(IMGS_DIR), remote_path="/data/images/imgs")
-    .add_local_dir(str(PLANS_DIR), remote_path="/data/images/plans")
+    # Bake evaluation data into the image (v0.4 merged holdout, 50 cases)
+    .add_local_file(str(CASES_FILE), remote_path="/data/test_holdout.jsonl")
+    .add_local_dir(str(AP_IMGS_DIR),   remote_path="/data/images/ap/imgs")
+    .add_local_dir(str(AP_PLANS_DIR),  remote_path="/data/images/ap/plans")
+    .add_local_dir(str(BH_IMGS_DIR),   remote_path="/data/images/bh/imgs")
+    .add_local_dir(str(BH_PLANS_DIR),  remote_path="/data/images/bh/plans")
+    .add_local_dir(str(DXA_IMGS_DIR),  remote_path="/data/images/dxa/imgs")
+    .add_local_dir(str(DXA_PLANS_DIR), remote_path="/data/images/dxa/plans")
 )
 
 model_cache = modal.Volume.from_name("mscd-model-cache", create_if_missing=True)
@@ -162,21 +172,34 @@ def apply_condition_mask(case: dict, condition: str) -> dict:
 
 # ── Image path remapping ─────────────────────────────────────────────────────
 
-LOCAL_PREFIX = "datasets/synth_v0.3/cases/"
+# Map case_id model prefix → remote /data/images/<model>/ directory
+_MODEL_IMAGE_ROOT = {
+    "ap":  "/data/images/ap",
+    "bh":  "/data/images/bh",
+    "dxa": "/data/images/dxa",
+}
 
 
-def _remap_to_modal(path: str) -> str:
-    """Remap local case image path to Modal container path."""
+def _remap_to_modal(path: str, case_id: str = "") -> str:
+    """Remap local case image path to Modal container path.
+
+    Derives the model subdirectory from the case_id (e.g. _AP_, _BH_, _DXA_).
+    Falls back to /data/images/ap for legacy paths.
+    """
     path_str = str(path)
-    if LOCAL_PREFIX in path_str:
-        rel = path_str.split(LOCAL_PREFIX, 1)[1]
-        return f"/data/images/{rel}"
+    # Determine model key from case_id
+    model_key = "ap"
+    if "_BH_" in case_id:
+        model_key = "bh"
+    elif "_DXA_" in case_id:
+        model_key = "dxa"
+    model_root = _MODEL_IMAGE_ROOT[model_key]
+
+    # Determine imgs vs plans from path content, then return filename under model root
     p = Path(path_str)
-    if p.name.startswith("img_"):
-        return f"/data/images/imgs/{p.name}"
-    elif p.name.startswith("plan_"):
-        return f"/data/images/plans/{p.name}"
-    return path_str
+    filename = p.name
+    subdir = "plans" if ("plans" in p.parts or filename.startswith("plan_")) else "imgs"
+    return f"{model_root}/{subdir}/{filename}"
 
 
 # ── Build inference messages (mirrors constraints_extractor_lora.py) ─────────
@@ -214,10 +237,11 @@ def _build_messages(case: dict) -> list:
     """Build ChatML messages for VLM inference."""
     user_content = []
     inputs = case.get("inputs", {})
+    case_id = case.get("case_id", "")
 
     # Site photos
     for img in inputs.get("images", []):
-        modal_path = _remap_to_modal(img)
+        modal_path = _remap_to_modal(img, case_id)
         if os.path.exists(modal_path):
             user_content.append({"type": "image", "image": f"file://{modal_path}"})
         else:
@@ -226,7 +250,7 @@ def _build_messages(case: dict) -> list:
     # Floorplan patch
     fp = inputs.get("floorplan_patch")
     if fp:
-        modal_path = _remap_to_modal(fp)
+        modal_path = _remap_to_modal(fp, case_id)
         if os.path.exists(modal_path):
             user_content.append({"type": "image", "image": f"file://{modal_path}"})
 
@@ -319,7 +343,7 @@ def run_eval(
 
     # ── 3. Load cases ────────────────────────────────────────────────────
     cases = []
-    with open("/data/cases_v3_filtered.jsonl") as f:
+    with open("/data/test_holdout.jsonl") as f:
         for line in f:
             if line.strip():
                 cases.append(json.loads(line))
@@ -466,8 +490,7 @@ def run_eval(
           f"./logs/evaluations/")
     print(f"\nRun local pipeline with pre-computed constraints:")
     print(f"  python script/run.py --profile v2_lora \\")
-    print(f"    --cases ../data_curation/datasets/synth_v0.3/"
-          f"cases_v3_filtered.jsonl \\")
+    print(f"    --cases ../data_curation/datasets/synth_v0.4_merged/train/test_holdout.jsonl \\")
     print(f"    --precomputed logs/evaluations/eval_constraints_{tag}.jsonl")
 
     return {
@@ -481,6 +504,32 @@ def run_eval(
 
 
 # ── CLI entry point ──────────────────────────────────────────────────────────
+
+
+def _is_transient_poll_error(exc: BaseException) -> bool:
+    """Return True for retryable local poll errors while waiting for Modal output."""
+    cls_name = exc.__class__.__name__.lower()
+    cls_module = exc.__class__.__module__.lower()
+    msg = str(exc).lower()
+
+    if "connectionerror" in cls_name:
+        return True
+    if "grpc" in cls_module and (
+        "deadline exceeded" in msg
+        or "timed out" in msg
+        or "unavailable" in msg
+    ):
+        return True
+
+    transient_markers = (
+        "deadline exceeded",
+        "timed out",
+        "connection reset",
+        "temporarily unavailable",
+        "transport is closing",
+    )
+    return any(marker in msg for marker in transient_markers)
+
 
 @app.local_entrypoint()
 def main(
@@ -497,11 +546,34 @@ def main(
     if condition_override:
         print(f"  Condition override: {condition_override}")
 
-    result = run_eval.remote(
+    # Spawn + poll loop: each .get() call opens a fresh gRPC connection with a
+    # short window. If the connection drops (ConnectionError / Deadline exceeded)
+    # we simply reconnect and keep waiting. This is resilient to multi-hour runs
+    # where any single gRPC stream would time out.
+    call = run_eval.spawn(
         adapter_dir=adapter_dir,
         limit=limit,
         condition_override=condition_override,
     )
+    result = None
+    poll_secs = 120  # re-open gRPC connection every 2 minutes
+    transient_errors = 0
+    while result is None:
+        try:
+            result = call.get(timeout=poll_secs)
+        except TimeoutError:
+            print("  [local] still waiting for Modal function...")
+        except Exception as e:
+            if not _is_transient_poll_error(e):
+                raise
+            transient_errors += 1
+            backoff_secs = min(30.0, 1.5 ** min(transient_errors, 8))
+            print(
+                "  [local] transient poll failure "
+                f"({type(e).__module__}.{type(e).__name__}: {e}); "
+                f"retrying in {backoff_secs:.1f}s"
+            )
+            time.sleep(backoff_secs)
 
     print(f"\n{'=' * 60}")
     print("DONE")
@@ -516,6 +588,5 @@ def main(
           f"./logs/evaluations/")
     print(f"\nRun local pipeline:")
     print(f"  python script/run.py --profile v2_lora \\")
-    print(f"    --cases ../data_curation/datasets/synth_v0.3/"
-          f"cases_v3_filtered.jsonl \\")
+    print(f"    --cases ../data_curation/datasets/synth_v0.4_merged/train/test_holdout.jsonl \\")
     print(f"    --precomputed logs/evaluations/eval_constraints_{tag}.jsonl")

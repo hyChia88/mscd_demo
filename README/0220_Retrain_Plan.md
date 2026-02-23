@@ -39,228 +39,6 @@ Using `v2_prompt` (Gemini, already 7-field capable) with Phase 5 retrieval:
 
 A retrained LoRA (stronger constraint extractor than Gemini for this domain) with Phase 5 is expected to exceed the old 10.71% baseline.
 
----
-
-## 2. Dataset Expansion: synth_v0.4
-
-### IFC Model Split Strategy
-
-Each IFC model contributes **20% test / 80% train**, so both train and test sets contain cases from both buildings. This is a standard stratified split that:
-- Trains the model on diverse building types
-- Tests on held-out cases from both buildings (not just one)
-- Avoids the bias of "model has never seen BasicHouse at all" (which tests generalization, not accuracy)
-
-| IFC Model | Total Cases | Train (80%) | Test (20%) |
-|---|---|---|---|
-| `AdvancedProject.ifc` (synth_v0.3) | 84 | **67** | **17** |
-| `BasicHouse.ifc` (new, synth_v0.4_bh) | ~25 | **~20** | **~5** |
-| **Total** | **~109** | **~87** | **~22** |
-
-```
-synth_v0.4/
-  train/
-    lora_train.jsonl   # ~87 cases: 67 AdvancedProject + ~20 BasicHouse
-    lora_test.jsonl    # ~22 cases: 17 AdvancedProject + ~5 BasicHouse
-```
-
-> **How to split within each model**: Use a deterministic random seed (seed=42) on the case list sorted by `case_id`. This ensures reproducibility and the same split every time `7_prepare_lora_data.py` is run.
-
-### New Fields: Ground Truth Generation Strategy
-
-The 3 new fields need ground truth labels. They can be **auto-generated from the IFC model** using ifcopenshell — no manual annotation required for the majority of cases.
-
-#### `space_name` — Containing Room/Space
-```python
-# For each target element (by GUID):
-element = ifc.by_guid(target_guid)
-# Find IfcSpace containing the element via IfcRelContainedInSpatialStructure
-# or IfcRelSpaceBoundary
-space_name = space.LongName or space.Name  # e.g., "Living Room", "Module 606"
-# If no IfcSpace → null (element is directly in a storey)
-```
-
-#### `target_name_keyword` — Equipment ID / Unique Name
-```python
-# For each target element:
-name = element.Name  # e.g., "AHU-03", "Fire Pump FP-01"
-# Rule: only populate if name contains a unique equipment ID pattern
-# Pattern: alphanumeric code with hyphens (e.g., "AHU-03", "FP-01")
-# Generic names like "Basic Wall:MockUp..." → null
-# Conservative: null for architectural elements (IfcWall, IfcWindow, etc.)
-```
-
-#### `neighbor_type` — Adjacent Reference Element
-```python
-# For each target element:
-# Use adjacency graph from ifc_engine._build_spatial_graph()
-# Find neighbors that are NOT the same type as the target
-# Pick the most "distinctive" neighbor type (IfcColumn > IfcWall)
-# Only populate if neighbor is clearly mentioned in the chat or scene
-# Otherwise → null
-```
-
-**Expected fill rates in synth_v0.3** (based on current cases):
-- `space_name`: ~40–60% of cases (elements inside IfcSpaces)
-- `target_name_keyword`: ~5–10% of cases (mostly null — architectural elements)
-- `neighbor_type`: ~20–30% of cases (only when topological reference is clear)
-
----
-
-## 3. Development Plan
-
-### Phase A — Dataset Preparation (synth_v0.4)
-
-#### A1. Run Data Curation Pipeline on BasicHouse.ifc
-
-The existing pipeline (scripts 1–6) generates cases from an IFC model. Run for BasicHouse:
-
-```bash
-cd data_curation/scripts/synth
-
-# 1. Build element index from BasicHouse.ifc
-python 1_build_index.py --ifc ../ifc_models/BasicHouse.ifc --out ../datasets/synth_v0.4_bh/
-
-# 2. Hunt skeleton cases (query skeletons from element index)
-python 2b_hunt_skeletons_v3.py --index ../datasets/synth_v0.4_bh/
-
-# 3. Generate cases with chat + metadata
-python 3c_generate_cases_v3.py --skeletons ../datasets/synth_v0.4_bh/
-
-# 4. Validate case quality
-python 4_validate.py --cases ../datasets/synth_v0.4_bh/cases_raw.jsonl
-
-# 5. Generate site photos and floorplan patches
-python 5b_generate_photoreal.py --cases ../datasets/synth_v0.4_bh/
-
-# 6. Augment text variations
-python 6_augment_text.py --cases ../datasets/synth_v0.4_bh/
-```
-
-Target: **~25 cases** from BasicHouse. Take the top-quality cases (4_validate.py score > threshold).
-
-#### A2. Add 7-Field Ground Truth Labels
-
-Create a new script: `8_annotate_phase2_fields.py`
-
-```python
-"""
-8_annotate_phase2_fields.py
-
-Auto-annotates space_name, target_name_keyword, neighbor_type
-for existing and new cases using ifcopenshell + IFC spatial data.
-
-Usage:
-    python 8_annotate_phase2_fields.py \
-        --ifc ../ifc_models/AdvancedProject.ifc \
-        --cases ../datasets/synth_v0.3/augmented.jsonl \
-        --out   ../datasets/synth_v0.3/augmented_v2.jsonl
-"""
-```
-
-Logic:
-1. For each case, look up `target_guid` in the IFC model
-2. Traverse `IfcRelSpaceBoundary` / `IfcRelContainedInSpatialStructure` to find containing IfcSpace
-3. Extract `space_name` from `IfcSpace.LongName`
-4. Check element name pattern → `target_name_keyword` (null for most architectural elements)
-5. Query adjacency graph → `neighbor_type` (only if a clear topological reference in chat)
-
-Output: enriched JSONL with `labels.constraints` containing all 7 fields.
-
-#### A3. Edit `7_prepare_lora_data.py` In-Place
-
-Three changes directly in the existing script:
-
-**System prompt change** (must match `eval.py` SYSTEM_PROMPT):
-```python
-SYSTEM_PROMPT = """
-You are a construction site assistant...
-Output ONLY valid JSON with these fields:
-{
-  "storey_name": "exact floor name or null",
-  "ifc_class": "IfcWall|IfcWindow|... or null",
-  "near_keywords": ["spatial", "hints"],
-  "relations": ["spatial_relationships"],
-  "space_name": "room/space name or null",
-  "target_name_keyword": "equipment brand/ID/unique name or null",
-  "neighbor_type": "IfcClass of nearby reference element or null"
-}
-Rules:
-- space_name: extract if user says 'in the kitchen', 'room 601'; null otherwise
-- target_name_keyword: extract specific IDs like 'AHU-03'; null for generic types
-- neighbor_type: extract if user says 'next to the column'; must use Ifc prefix; null otherwise
-- Be conservative: use null if uncertain
-"""
-```
-
-**Assistant response format** (must match new labels):
-```python
-def format_assistant_response(case: dict) -> str:
-    c = case["labels"]["constraints"]
-    return json.dumps({
-        "storey_name": c.get("storey_name"),
-        "ifc_class": c.get("ifc_class"),
-        "near_keywords": c.get("near_keywords", []),
-        "relations": c.get("relations", []),
-        "space_name": c.get("space_name"),          # NEW
-        "target_name_keyword": c.get("target_name_keyword"),  # NEW
-        "neighbor_type": c.get("neighbor_type"),    # NEW
-    }, ensure_ascii=False)
-```
-
-**Train/test split** (80/20 per IFC model, deterministic):
-```python
-import random
-
-def split_cases(cases, test_ratio=0.2, seed=42):
-    """Deterministic 80/20 split within a model's case list."""
-    cases_sorted = sorted(cases, key=lambda c: c["case_id"])
-    rng = random.Random(seed)
-    rng.shuffle(cases_sorted)
-    n_test = max(1, int(len(cases_sorted) * test_ratio))
-    return cases_sorted[n_test:], cases_sorted[:n_test]  # train, test
-
-adv_train, adv_test = split_cases(synth_v03_cases)       # 67 train, 17 test
-bh_train,  bh_test  = split_cases(basichouse_cases)      # ~20 train, ~5 test
-
-train_cases = adv_train + bh_train   # ~87 total
-test_cases  = adv_test  + bh_test    # ~22 total
-
-write_jsonl("lora_train.jsonl", train_cases)
-write_jsonl("lora_test.jsonl",  test_cases)
-```
-
-#### A4. Dataset Version Manifest
-
-Create `datasets/synth_v0.4/manifest.json`:
-```json
-{
-  "version": "synth_v0.4",
-  "created": "2026-02-20",
-  "schema_version": "v2",
-  "constraint_fields": [
-    "storey_name", "ifc_class", "near_keywords", "relations",
-    "space_name", "target_name_keyword", "neighbor_type"
-  ],
-  "sources": [
-    {
-      "ifc_model": "AdvancedProject.ifc",
-      "cases": 84,
-      "split": "train",
-      "version": "synth_v0.3"
-    },
-    {
-      "ifc_model": "BasicHouse.ifc",
-      "cases": 20,
-      "split": "test",
-      "version": "synth_v0.4_bh"
-    }
-  ],
-  "total_train": 84,
-  "total_test": 20
-}
-```
-
----
 
 ### Phase B — LoRA Retraining
 
@@ -397,13 +175,16 @@ The retrained LoRA should benefit from:
 
 | File | Change | Why |
 |---|---|---|
-| `data_curation/scripts/synth/8_annotate_phase2_fields.py` | **NEW script** | Genuinely new functionality — IFC spatial lookup for Phase 2 fields |
-| `data_curation/scripts/synth/7_prepare_lora_data.py` | **EDIT in-place** | Add 3 fields to SYSTEM_PROMPT, `format_assistant_response()`, and 80/20 split logic |
-| `data_curation/datasets/synth_v0.4/` | **NEW directory** | New dataset version combining both IFC models |
+| `data_curation/scripts/synth/1_build_index.py` | **EDIT in-place** | Add `_get_space_name`, `_get_name_keyword`, `_get_neighbor_type` helpers; write 3 new fields into each element record. IFC is already open here — natural place for IFC-level lookups. |
+| `data_curation/scripts/synth/3c_generate_cases_v3.py` | **EDIT in-place** | (1) Extend `Constraints` Pydantic model with 3 new optional fields; (2) update `generate_constraints_v3()` to read them from enriched index; (3) remove old `space_name → near_keywords` hack (line 441) |
+| `data_curation/scripts/synth/7_prepare_lora_data.py` | **EDIT in-place** | (1) Add `--ifc` arg + retroactive backfill for synth_v0.3 cases; (2) update SYSTEM_PROMPT to 7 fields; (3) update `format_assistant_response()` to 7 fields |
+| `data_curation/datasets/synth_v0.4/` | **NEW directory** | Combined dataset (AdvancedProject + BasicHouse). Script 6 runs separately per model, outputs are merged manually (cat). No script change needed. |
 | `mscd_demo/training/train.py` | **EDIT in-place** | Update data paths + run name (`synth_v04`) |
 | `mscd_demo/training/eval.py` | Already updated (7-field schema) ✓ | — |
 | `mscd_demo/src/v2/retrieval_backend.py` | Already updated (Phase 5) ✓ | — |
 | `mscd_demo/script/run.py` | Already updated (Phase 2 fields loading) ✓ | — |
+
+> **No script 8**: phase 2 annotation belongs in script 1 (IFC already open). Train/test split belongs in script 6 (already implemented as `stratified_split()`). Script 7 only needs retroactive backfill via `--ifc` for old synth_v0.3 cases that predate the enriched index.
 
 ---
 
@@ -440,15 +221,14 @@ Week 2:
 
 ## 8. Appendix: Data Curation Scripts Reference
 
-| Script | Purpose |
-|---|---|
-| `1_build_index.py` | Extract all IFC elements, build spatial index |
-| `1b_render_wireframes.py` | Generate wireframe renders |
-| `1c_quality_gate.py` | Filter low-quality elements |
-| `2b_hunt_skeletons_v3.py` | Generate query skeletons (defect scenarios) |
-| `3c_generate_cases_v3.py` | Generate full cases with chat + metadata |
-| `4_validate.py` | Quality validation |
-| `5b_generate_photoreal.py` | Generate photo-realistic site images |
-| `6_augment_text.py` | Text augmentation variants |
-| `7_prepare_lora_data.py` | **EDIT** — upgrade to 7-field schema + 80/20 split logic |
-| **`8_annotate_phase2_fields.py`** | **NEW** — auto-annotate Phase 2 ground truth from IFC |
+| Script | Purpose | Change for v0.4 |
+|---|---|---|
+| `1_build_index.py` | Extract all IFC elements, build element_index.jsonl | **EDIT** — add 3 new phase 2 fields to each record |
+| `1b_render_wireframes.py` | Generate wireframe renders | None |
+| `1c_quality_gate.py` | Filter low-quality elements | None |
+| `2b_hunt_skeletons_v3.py` | Generate query skeletons | None |
+| `3c_generate_cases_v3.py` | Generate cases with chat + metadata | **EDIT** — extend `Constraints` model; read phase 2 fields from enriched index |
+| `4_validate.py` | Quality validation | None |
+| `5b_generate_photoreal.py` | Generate photo-realistic site images | None |
+| `6_augment_text.py` | Text augmentation + **train/test split** | None (run separately per model, merge manually) |
+| `7_prepare_lora_data.py` | Format cases into ChatML for LoRA training | **EDIT** — 7-field SYSTEM_PROMPT, response format, `--ifc` backfill |

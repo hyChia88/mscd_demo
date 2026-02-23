@@ -264,7 +264,25 @@ async def main(args: argparse.Namespace) -> None:
     from src.common.config import init_registry_llm
     registry_llm = init_registry_llm(config)
     llm = init_llm(config)
-    engine = init_engine(config, llm_client=registry_llm)
+
+    # Multi-model IFC routing: pre-load one engine per IFC model referenced in the cases.
+    # Engine loading (ifcopenshell.open + spatial graph) is expensive — done once at startup,
+    # not per-case.  The correct engine is swapped in before each V2 case run.
+    _ifc_models_cfg = config.get("ifc", {}).get("models", {})
+    _engines: Dict[str, Any] = {}
+    if _ifc_models_cfg:
+        _needed = {
+            next((k for k in _ifc_models_cfg if f"_{k}_" in c.get("case_id", "")), "AP")
+            for c in cases
+        }
+        for key in _needed:
+            if key in _ifc_models_cfg:
+                _cfg = {**config, "ifc": {"model_path": _ifc_models_cfg[key]}}
+                print(f"Loading IFC engine [{key}]: {_ifc_models_cfg[key]}")
+                _engines[key] = init_engine(_cfg, llm_client=registry_llm)
+    # Default engine (single-model runs, or AP fallback)
+    engine = _engines.get("AP") or init_engine(config, llm_client=registry_llm)
+
     visual_aligner = init_visual_aligner(profile.get("use_clip", False))
 
     # ── 4. build pipeline ──────────────────────────────────────────────────
@@ -399,6 +417,16 @@ async def main(args: argparse.Namespace) -> None:
             else:
                 case_cond = case.get("bench", {}).get("condition", "")
                 cond_overrides = conditions_map.get(case_cond, {})
+
+            # Per-case IFC engine routing: swap engine based on case_id model prefix
+            if _engines:
+                _model_key = next(
+                    (k for k in _engines if f"_{k}_" in case_id), "AP"
+                )
+                _case_engine = _engines.get(_model_key, engine)
+                if pipeline.engine is not _case_engine:
+                    pipeline.engine = _case_engine
+                    pipeline.retrieval_backend.engine = _case_engine
 
             # force_clip override from condition
             if cond_overrides.get("force_clip"):
