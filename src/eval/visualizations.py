@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib.lines import Line2D
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -919,11 +921,871 @@ def generate_all_plots(
     print(f"{'='*60}\n")
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Modality Analysis — Charts 9-11
+# Analyzes the contribution of each input modality and 4D project context.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# What each condition makes available to the model at inference time.
+# Source of truth: profiles.yaml → conditions section.
+_CONDITION_META: Dict[str, Dict] = {
+    # Paired modality ablation — 4D context ON
+    "MA":  {"images": False, "floorplan": False, "context_4d": True},
+    "MB":  {"images": True,  "floorplan": False, "context_4d": True},
+    "MC":  {"images": True,  "floorplan": True,  "context_4d": True},
+    # 4D ablation variants — same modalities as MA/MB/MC but 4D context OFF
+    "MA-": {"images": False, "floorplan": False, "context_4d": False},
+    "MB-": {"images": True,  "floorplan": False, "context_4d": False},
+    "MC-": {"images": True,  "floorplan": True,  "context_4d": False},
+    # Full A1-C3 grid
+    "A1": {"images": False, "floorplan": False, "context_4d": True},
+    "A2": {"images": False, "floorplan": False, "context_4d": True},
+    "A3": {"images": False, "floorplan": False, "context_4d": True},
+    "B1": {"images": True,  "floorplan": False, "context_4d": False},
+    "B2": {"images": True,  "floorplan": False, "context_4d": False},
+    "B3": {"images": True,  "floorplan": False, "context_4d": False},
+    "C1": {"images": False, "floorplan": True,  "context_4d": False},
+    "C2": {"images": True,  "floorplan": True,  "context_4d": False},
+    "C3": {"images": True,  "floorplan": True,  "context_4d": True},
+}
+
+_PALETTE = {
+    "text_4d":   "#3b82f6",  # blue  — text + 4D
+    "photo":     "#f59e0b",  # amber — site photos added
+    "floorplan": "#10b981",  # green — floorplan added
+    "no_4d":     "#ef4444",  # red   — 4D masked
+}
+_DARK_BG  = "white"
+_GRID_COL = "#94a3b8"   # slate-400 — visible on white, used for spines/grid/separators
+
+
+def _load_traces_from_files(
+    roots: Optional[List[str]] = None,
+    run_filter: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Load individual *.trace.json files from evaluation log directories.
+
+    Args:
+        roots: Override list of root directories (default: logs/evaluations/synth_v*/traces)
+        run_filter: Only load from run dirs containing this substring (e.g. "lora")
+    """
+    import re as _re
+    repo_root = Path(__file__).parent.parent.parent
+    default_roots = [
+        repo_root / "logs" / "evaluations" / "synth_v03" / "traces",
+        repo_root / "logs" / "evaluations" / "synth_v04" / "traces",
+    ]
+    search_roots = [Path(r) for r in roots] if roots else default_roots
+
+    traces: List[Dict[str, Any]] = []
+    for root in search_roots:
+        if not root.exists():
+            continue
+        for run_dir in sorted(root.iterdir()):
+            if not run_dir.is_dir():
+                continue
+            if run_filter and run_filter not in run_dir.name:
+                continue
+            for tf in sorted(run_dir.glob("*.trace.json")):
+                try:
+                    t = json.loads(tf.read_text(encoding="utf-8"))
+                    cond = (t.get("bench") or {}).get("condition", "")
+                    if cond and cond != "Unknown":
+                        t["_profile"] = (
+                            "LoRA" if "lora" in run_dir.name
+                            else "Prompt" if "prompt" in run_dir.name
+                            else "Other"
+                        )
+                        m = _re.search(r"_([A-Z]+)_SK_", t.get("scenario_id", ""))
+                        t["_building"] = m.group(1) if m else "?"
+                        traces.append(t)
+                except Exception:
+                    pass
+    return traces
+
+
+def _load_traces_from_jsonl(
+    paths: List[str],
+) -> List[Dict[str, Any]]:
+    """
+    Load traces from JSONL files, tagging _profile and _building from filename.
+
+    Profile is inferred from filename:  'lora' → 'LoRA', 'prompt' → 'Prompt'.
+    Building is extracted from scenario_id using regex _([A-Z]+)_SK_.
+    Condition is read from bench.condition (set by --condition-override at run time).
+    """
+    import re as _re
+
+    traces: List[Dict[str, Any]] = []
+    for path in paths:
+        p = Path(path)
+        if not p.exists():
+            continue
+        name = p.stem.lower()
+        if "lora" in name:
+            profile = "LoRA"
+        elif "prompt" in name:
+            profile = "Prompt"
+        else:
+            profile = "Other"
+
+        for line in p.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                t = json.loads(line)
+                cond = (t.get("bench") or {}).get("condition", "")
+                if cond and cond != "Unknown":
+                    t["_profile"] = profile
+                    m = _re.search(r"_([A-Z]+)_SK_", t.get("scenario_id", ""))
+                    t["_building"] = m.group(1) if m else "?"
+                    traces.append(t)
+            except Exception:
+                pass
+    return traces
+
+
+def _wilson_ci(hits: int, n: int, z: float = 1.96) -> Tuple[float, float]:
+    """Wilson score 95% confidence interval. Returns (lo, hi) as fractions."""
+    if n == 0:
+        return 0.0, 0.0
+    p = hits / n
+    denom = 1 + z**2 / n
+    center = (p + z**2 / (2 * n)) / denom
+    margin = (z * (p * (1 - p) / n + z**2 / (4 * n**2)) ** 0.5) / denom
+    return max(0.0, center - margin), min(1.0, center + margin)
+
+
+def _style_dark(fig: Any, ax: Any) -> None:
+    """Apply the publication theme (white background, black text)."""
+    fig.patch.set_facecolor(_DARK_BG)
+    ax.set_facecolor(_DARK_BG)
+    ax.tick_params(colors="black")
+    ax.spines[:].set_color(_GRID_COL)
+    ax.grid(axis="y", alpha=0.3, color=_GRID_COL, linestyle="--")
+    ax.yaxis.label.set_color("black")
+    ax.xaxis.label.set_color("black")
+    ax.title.set_color("black")
+
+
+# ── Chart 9: Visual Modality Stack (MA / MB / MC) ────────────────────────────
+
+def plot_modality_stack(
+    traces: List[Dict[str, Any]],
+    output_path: Optional[str] = None,
+    title: str = "Visual Modality Contribution (Paired Ablation)",
+) -> None:
+    """
+    Grouped bar chart: MA vs MB vs MC × LoRA vs Prompt.
+
+    Shows the incremental accuracy gain when site photos (MB) and
+    floorplan (MC) are added on top of 4D text context (MA).
+    All three conditions have 4D project context active.
+    """
+    conds    = ["MA", "MB", "MC"]
+    profiles = ["LoRA", "Prompt"]
+    colors   = {"LoRA": _PALETTE["floorplan"], "Prompt": _PALETTE["text_4d"]}
+
+    by_cp: Dict[Tuple, List] = {(c, p): [] for c in conds for p in profiles}
+    for t in traces:
+        c = (t.get("bench") or {}).get("condition", "")
+        if c in conds:
+            p = t.get("_profile", "Other")
+            if p in profiles:
+                by_cp[(c, p)].append(t)
+
+    fig, ax = plt.subplots(figsize=(11, 5.5))
+    _style_dark(fig, ax)
+
+    x = np.arange(len(conds))
+    bar_w = 0.32
+    offsets = [-bar_w / 2, bar_w / 2]
+
+    for pi, prof in enumerate(profiles):
+        accs, lo_errs, hi_errs, ns = [], [], [], []
+        for c in conds:
+            grp = by_cp[(c, prof)]
+            hits = sum(1 for t in grp if t.get("guid_match", False))
+            n    = len(grp)
+            acc  = hits / n if n else 0.0
+            lo, hi = _wilson_ci(hits, n)
+            accs.append(acc * 100)
+            lo_errs.append((acc - lo) * 100)
+            hi_errs.append((hi - acc) * 100)
+            ns.append(n)
+
+        bars = ax.bar(
+            x + offsets[pi], accs, bar_w,
+            yerr=[lo_errs, hi_errs],
+            label=prof, color=colors[prof], alpha=0.88,
+            edgecolor="none", linewidth=0.6,
+            capsize=4, error_kw={"ecolor": "black", "linewidth": 1.0},
+        )
+        for bar, acc, n in zip(bars, accs, ns):
+            if acc > 0:
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    bar.get_height() + 2.0,
+                    f"{acc:.0f}%\n(n={n})",
+                    ha="center", va="bottom", fontsize=8.5,
+                    color="black", fontweight="bold",
+                )
+
+        # Delta annotations between consecutive conditions
+        for ci in range(len(conds) - 1):
+            a0 = accs[ci]; a1 = accs[ci + 1]
+            delta = a1 - a0
+            if abs(delta) > 0.5:
+                ax.annotate(
+                    f"{delta:+.0f}%",
+                    xy=(ci + 1 + offsets[pi], a1 + 3),
+                    xytext=((ci + ci + 1) / 2 + offsets[pi], max(a0, a1) + 16),
+                    fontsize=8, color="#b45309", ha="center",
+                    arrowprops=dict(arrowstyle="-|>", color="#b45309", lw=0.9),
+                )
+
+    # Background bands showing what each condition adds
+    band_info = [
+        (0, "Text only\n+ 4D context"),
+        (1, "+ Site photos"),
+        (2, "+ Floorplan"),
+    ]
+    for xi, label in band_info:
+        ax.axvspan(xi - 0.45, xi + 0.45, alpha=0.06, color="#e2e8f0", zorder=0)
+        ax.text(xi, -9, label, ha="center", va="top",
+                fontsize=8.5, color="#94a3b8", style="italic")
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(["MA", "MB", "MC"], fontsize=13, color="black", fontweight="bold")
+    ax.set_ylabel("Top-1 Accuracy (%)", fontsize=12)
+    ax.set_ylim(0, 108)
+    ax.set_xlim(-0.6, len(conds) - 0.4)
+    ax.legend(fontsize=10, facecolor=_DARK_BG, edgecolor=_GRID_COL,
+              labelcolor="black", loc="upper left")
+    ax.set_title(
+        f"{title}\n"
+        "MA = Text + 4D context  ·  MB = + Site Photos  ·  MC = + Floorplan",
+        fontsize=12, fontweight="bold", pad=12,
+    )
+
+    plt.tight_layout()
+    if output_path:
+        plt.savefig(output_path, dpi=180, bbox_inches="tight",
+                    facecolor=fig.get_facecolor())
+        print(f"✓ Saved: {output_path}")
+    plt.close()
+
+
+# ── Chart 10: 4D Context Impact (A1-C3 grid) ─────────────────────────────────
+
+def plot_4d_context_impact(
+    traces: List[Dict[str, Any]],
+    output_path: Optional[str] = None,
+    title: str = "4D Project Context Impact (A1–C3 Conditions)",
+) -> None:
+    """
+    Bar chart of all nine A1-C3 conditions, colour-coded by 4D context availability.
+
+    Blue bars = 4D project context active (task_status available to model).
+    Red bars  = 4D masked to N/A.
+    Dashed reference lines show the average accuracy for each group.
+    """
+    grid_conds_order = ["A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3"]
+    present = {(t.get("bench") or {}).get("condition", "") for t in traces}
+    grid_conds = [c for c in grid_conds_order if c in present]
+
+    if not grid_conds:
+        print("⚠  No A1-C3 traces — skipping Chart 10 (4D context impact)")
+        return
+
+    by_cond: Dict[str, List] = {c: [] for c in grid_conds}
+    for t in traces:
+        c = (t.get("bench") or {}).get("condition", "")
+        if c in grid_conds:
+            by_cond[c].append(t)
+
+    fig, ax = plt.subplots(figsize=(13, 6))
+    _style_dark(fig, ax)
+
+    x = np.arange(len(grid_conds))
+    bar_w = 0.6
+    accs: List[float] = []
+    lo_errs: List[float] = []
+    hi_errs: List[float] = []
+    bar_colors: List[str] = []
+    counts: List[int] = []
+
+    for c in grid_conds:
+        grp  = by_cond[c]
+        hits = sum(1 for t in grp if t.get("guid_match", False))
+        n    = len(grp)
+        acc  = hits / n if n else 0.0
+        lo, hi = _wilson_ci(hits, n)
+        accs.append(acc * 100)
+        lo_errs.append((acc - lo) * 100)
+        hi_errs.append((hi - acc) * 100)
+        counts.append(n)
+        has_4d = _CONDITION_META.get(c, {}).get("context_4d", False)
+        bar_colors.append(_PALETTE["text_4d"] if has_4d else _PALETTE["no_4d"])
+
+    ax.bar(
+        x, accs, bar_w,
+        yerr=[lo_errs, hi_errs],
+        color=bar_colors, alpha=0.88,
+        edgecolor="none", linewidth=0.8,
+        capsize=4, error_kw={"ecolor": "black", "linewidth": 1.2},
+    )
+
+    for xi, (acc, n, c) in enumerate(zip(accs, counts, grid_conds)):
+        ax.text(xi, acc + 2.2, f"{acc:.0f}%\n(n={n})",
+                ha="center", va="bottom", fontsize=8.5,
+                color="black", fontweight="bold")
+        # Modality icon row below x-axis
+        meta = _CONDITION_META.get(c, {})
+        icons = []
+        if meta.get("images"):     icons.append("img")
+        if meta.get("floorplan"):  icons.append("plan")
+        if meta.get("context_4d"): icons.append("4D")
+        ax.text(xi, -9, " ".join(icons) or "-",
+                ha="center", va="top", fontsize=7.5, color="#94a3b8")
+
+    # Group separator verticals
+    ax.axvline(2.5, color="#475569", linewidth=1.5, linestyle="--", alpha=0.6)
+    ax.axvline(5.5, color="#475569", linewidth=1.5, linestyle="--", alpha=0.6)
+    for gx, glabel in [(1, "Group A\nText-only"), (4, "Group B\nSite Photos"),
+                       (7.5, "Group C\nFloorplan")]:
+        ax.text(gx, 103, glabel, ha="center", fontsize=9,
+                color="#94a3b8", style="italic")
+
+    # Average reference lines for 4D ON vs OFF
+    with_4d = [a for a, c in zip(accs, grid_conds)
+               if _CONDITION_META.get(c, {}).get("context_4d")]
+    no_4d   = [a for a, c in zip(accs, grid_conds)
+               if not _CONDITION_META.get(c, {}).get("context_4d")]
+    handles = [
+        mpatches.Patch(color=_PALETTE["text_4d"], label="4D context ON"),
+        mpatches.Patch(color=_PALETTE["no_4d"],   label="4D context OFF"),
+    ]
+    if with_4d:
+        ax.axhline(np.mean(with_4d), color=_PALETTE["text_4d"],
+                   linewidth=1.5, linestyle=":", alpha=0.8)
+        handles.append(Line2D([0], [0], color=_PALETTE["text_4d"], linewidth=1.5,
+                               linestyle=":", label=f"Avg 4D ON: {np.mean(with_4d):.0f}%"))
+    if no_4d:
+        ax.axhline(np.mean(no_4d), color=_PALETTE["no_4d"],
+                   linewidth=1.5, linestyle=":", alpha=0.8)
+        handles.append(Line2D([0], [0], color=_PALETTE["no_4d"], linewidth=1.5,
+                               linestyle=":", label=f"Avg 4D OFF: {np.mean(no_4d):.0f}%"))
+
+    ax.legend(handles=handles, fontsize=9, facecolor=_DARK_BG,
+              edgecolor=_GRID_COL, labelcolor="black", loc="upper right")
+    ax.set_xticks(x)
+    ax.set_xticklabels(grid_conds, fontsize=11, color="black", fontweight="bold")
+    ax.set_ylabel("Top-1 Accuracy (%)", fontsize=12)
+    ax.set_ylim(0, 115)
+    ax.set_title(
+        f"{title}\n"
+        "Blue = 4D task status available to model  ·  Red = 4D masked to N/A",
+        fontsize=12, fontweight="bold", pad=12,
+    )
+
+    plt.tight_layout()
+    if output_path:
+        plt.savefig(output_path, dpi=180, bbox_inches="tight",
+                    facecolor=fig.get_facecolor())
+        print(f"✓ Saved: {output_path}")
+    plt.close()
+
+
+# ── Chart 11: Modality × Building heatmap ────────────────────────────────────
+
+def plot_modality_x_building(
+    traces: List[Dict[str, Any]],
+    output_path: Optional[str] = None,
+    title: str = "Accuracy by Building × Modality Condition",
+) -> None:
+    """
+    Heatmap: rows = building (AP, BH, DXA), columns = condition (MA/MB/MC).
+    Shows whether modality importance is consistent across building types.
+    Yellow delta annotations show per-row incremental gain.
+    """
+    conds     = ["MA", "MB", "MC"]
+    buildings = ["AP", "BH", "DXA"]
+    cond_labels = {
+        "MA": "MA\n(Text + 4D)",
+        "MB": "MB\n(Photos + 4D)",
+        "MC": "MC\n(Floorplan\n+ Photos + 4D)",
+    }
+    bld_labels = {
+        "AP":  "AP\nAdvancedProject\n(10-storey office)",
+        "BH":  "BH  BasicHouse\n(2-storey residential)",
+        "DXA": "DXA  Duplex_A\n(split-level duplex)",
+    }
+
+    paired = [t for t in traces
+              if (t.get("bench") or {}).get("condition", "") in conds]
+    if not paired:
+        print("⚠  No MA/MB/MC traces — skipping Chart 11 (modality × building)")
+        return
+
+    data   = np.full((len(buildings), len(conds)), np.nan)
+    counts = np.zeros_like(data, dtype=int)
+
+    for bi, bld in enumerate(buildings):
+        for ci, cond in enumerate(conds):
+            grp = [t for t in paired
+                   if t.get("_building") == bld
+                   and (t.get("bench") or {}).get("condition") == cond]
+            if grp:
+                hits = sum(1 for t in grp if t.get("guid_match", False))
+                data[bi, ci]   = hits / len(grp) * 100
+                counts[bi, ci] = len(grp)
+
+    fig, ax = plt.subplots(figsize=(9, 5.5))
+    _style_dark(fig, ax)
+
+    masked = np.ma.masked_invalid(data)
+    im = ax.imshow(masked, cmap="RdYlGn", vmin=0, vmax=100, aspect="auto")
+
+    # Cell annotations
+    for bi in range(len(buildings)):
+        for ci in range(len(conds)):
+            if not np.isnan(data[bi, ci]):
+                val = data[bi, ci]
+                n   = counts[bi, ci]
+                txt_col = "black" if 25 < val < 78 else "white"
+                ax.text(ci, bi, f"{val:.0f}%\n(n={n})",
+                        ha="center", va="center",
+                        fontsize=10, fontweight="bold", color=txt_col)
+                # Delta from previous column
+                if ci > 0 and not np.isnan(data[bi, ci - 1]):
+                    delta = data[bi, ci] - data[bi, ci - 1]
+                    ax.text(ci, bi + 0.38, f"{delta:+.0f}%",
+                            ha="center", va="center",
+                            fontsize=7.5, color="#b45309", style="italic")
+            else:
+                ax.text(ci, bi, "n/a", ha="center", va="center",
+                        fontsize=10, color="#64748b")
+
+    cbar = plt.colorbar(im, ax=ax, fraction=0.035, pad=0.02)
+    cbar.ax.tick_params(colors="black", labelsize=9)
+    cbar.set_label("Top-1 Accuracy (%)", color="black", fontsize=10)
+
+    ax.set_xticks(range(len(conds)))
+    ax.set_xticklabels([cond_labels[c] for c in conds], fontsize=9, color="black")
+    ax.set_yticks(range(len(buildings)))
+    ax.set_yticklabels([bld_labels[b] for b in buildings], fontsize=9, color="black")
+    ax.tick_params(colors="black", length=0)
+    ax.set_title(
+        f"{title}\n"
+        "Yellow = Δ accuracy vs previous condition",
+        fontsize=12, fontweight="bold", pad=12,
+    )
+
+    plt.tight_layout()
+    if output_path:
+        plt.savefig(output_path, dpi=180, bbox_inches="tight",
+                    facecolor=fig.get_facecolor())
+        print(f"✓ Saved: {output_path}")
+    plt.close()
+
+
+# ── Chart 12: Paired 4D Ablation (MA vs MA-, MB vs MB-, MC vs MC-) ───────────
+
+def plot_4d_paired_ablation(
+    traces: List[Dict[str, Any]],
+    output_path: Optional[str] = None,
+    title: str = "4D Project Context Impact — Paired Modality Ablation",
+) -> None:
+    """
+    Grouped bar chart showing the isolated impact of 4D project context.
+
+    Each group is one modality level (Text-only / Photos / Full).
+    Within each group: two bars — 4D ON (blue) vs 4D OFF (red).
+    The delta annotation between bars shows the pure 4D contribution
+    at each modality level, controlling for visual inputs.
+
+    Requires runs under MA/MB/MC (4D ON) AND MA-/MB-/MC- (4D OFF).
+    """
+    pairs = [
+        ("MA",  "MA-",  "Text-only\n(no images)"),
+        ("MB",  "MB-",  "+ Site Photos"),
+        ("MC",  "MC-",  "+ Floorplan"),
+    ]
+    color_on  = _PALETTE["text_4d"]   # blue  — 4D ON
+    color_off = _PALETTE["no_4d"]     # red   — 4D OFF
+
+    # Check we have any data at all
+    all_conds = {(t.get("bench") or {}).get("condition", "") for t in traces}
+    needed = {c for pair in pairs for c in (pair[0], pair[1])}
+    present = needed & all_conds
+    if not present:
+        print("⚠  No MA/MB/MC or MA-/MB-/MC- traces — skipping Chart 12 (4D paired ablation)")
+        return
+
+    # Bucket traces per condition
+    by_cond: Dict[str, List] = {c: [] for pair in pairs for c in (pair[0], pair[1])}
+    for t in traces:
+        c = (t.get("bench") or {}).get("condition", "")
+        if c in by_cond:
+            by_cond[c].append(t)
+
+    n_groups = len(pairs)
+    x = np.arange(n_groups)
+    bar_w = 0.30
+    offsets = [-bar_w / 2, bar_w / 2]
+
+    fig, ax = plt.subplots(figsize=(11, 6))
+    _style_dark(fig, ax)
+
+    for label, color, side, cond_idx in [
+        ("4D ON",  color_on,  0, 0),
+        ("4D OFF", color_off, 1, 1),
+    ]:
+        accs, lo_errs, hi_errs, ns = [], [], [], []
+        for with_cond, without_cond, _ in pairs:
+            cond = with_cond if cond_idx == 0 else without_cond
+            grp  = by_cond[cond]
+            hits = sum(1 for t in grp if t.get("guid_match", False))
+            n    = len(grp)
+            acc  = hits / n if n else 0.0
+            lo, hi = _wilson_ci(hits, n)
+            accs.append(acc * 100)
+            lo_errs.append((acc - lo) * 100)
+            hi_errs.append((hi - acc) * 100)
+            ns.append(n)
+
+        bars = ax.bar(
+            x + offsets[side], accs, bar_w,
+            yerr=[lo_errs, hi_errs],
+            label=label, color=color, alpha=0.88,
+            edgecolor="none", linewidth=0.6,
+            capsize=4, error_kw={"ecolor": "black", "linewidth": 1.0},
+        )
+        for bar, acc, n in zip(bars, accs, ns):
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 1.5,
+                f"{acc:.0f}%\n(n={n})" if n else "n/a",
+                ha="center", va="bottom", fontsize=8.5,
+                color="black", fontweight="bold",
+            )
+
+    # Delta annotation: 4D ON − 4D OFF for each group
+    for gi, (with_cond, without_cond, _) in enumerate(pairs):
+        grp_on  = by_cond[with_cond]
+        grp_off = by_cond[without_cond]
+        if not grp_on or not grp_off:
+            continue
+        acc_on  = sum(1 for t in grp_on  if t.get("guid_match")) / len(grp_on)  * 100
+        acc_off = sum(1 for t in grp_off if t.get("guid_match")) / len(grp_off) * 100
+        delta = acc_on - acc_off
+        top = max(acc_on, acc_off) + 8
+        ax.annotate(
+            f"4D = {delta:+.0f}%",
+            xy=(gi, top),
+            ha="center", va="bottom",
+            fontsize=9, color="#b45309", fontweight="bold",
+            bbox=dict(boxstyle="round,pad=0.25", fc=_DARK_BG, ec="#b45309", lw=0.8),
+        )
+
+    # Band backgrounds + x-axis group labels
+    for gi, (_, _, group_label) in enumerate(pairs):
+        ax.axvspan(gi - 0.45, gi + 0.45, alpha=0.06, color="#e2e8f0", zorder=0)
+        ax.text(gi, -10, group_label, ha="center", va="top",
+                fontsize=8.5, color="#94a3b8", style="italic")
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(
+        [f"{w}\nvs {wo}" for w, wo, _ in pairs],
+        fontsize=11, color="black", fontweight="bold",
+    )
+    ax.set_ylabel("Top-1 Accuracy (%)", fontsize=12)
+    ax.set_ylim(0, 115)
+    ax.set_xlim(-0.6, n_groups - 0.4)
+    ax.legend(
+        fontsize=10, facecolor=_DARK_BG, edgecolor=_GRID_COL,
+        labelcolor="black", loc="upper left",
+    )
+    ax.set_title(
+        f"{title}\n"
+        "Each group: same modality inputs — only 4D project context differs",
+        fontsize=12, fontweight="bold", pad=12,
+    )
+
+    plt.tight_layout()
+    if output_path:
+        plt.savefig(output_path, dpi=180, bbox_inches="tight",
+                    facecolor=fig.get_facecolor())
+        print(f"✓ Saved: {output_path}")
+    plt.close()
+
+
+# ── Chart 13: Full 6-condition × 2-profile dual view ─────────────────────────
+#
+# Two sub-plots in one figure:
+#   Left  — Line chart: modality progression for 4 series
+#              LoRA+4D (solid orange), LoRA−4D (dashed orange)
+#              Prompt+4D (solid blue),  Prompt−4D (dashed blue)
+#   Right — Grouped bar: 3 groups (Text / Images / Img+Plan)
+#              4 bars per group: LoRA-ON | Prompt-ON | LoRA-OFF | Prompt-OFF
+#              Shading: darker = 4D ON, lighter+hatched = 4D OFF
+
+# Color palettes: warm (LoRA) and cool (Prompt)
+_LORA_ON    = "#f97316"   # orange-500  — LoRA + 4D
+_LORA_OFF   = "#fdba74"   # orange-300  — LoRA − 4D
+_PROMPT_ON  = "#3b82f6"   # blue-500    — Prompt + 4D
+_PROMPT_OFF = "#93c5fd"   # blue-300    — Prompt − 4D
+
+_MODALITY_LEVELS = [
+    ("MA",  "MA-", "Text only"),
+    ("MB",  "MB-", "Images"),
+    ("MC",  "MC-", "Img + Plan"),
+]
+
+
+def _acc_ci(traces_list):
+    """Return (accuracy_pct, lo_err, hi_err, n) for a list of traces."""
+    hits = sum(1 for t in traces_list if t.get("guid_match", False))
+    n    = len(traces_list)
+    acc  = hits / n if n else 0.0
+    lo, hi = _wilson_ci(hits, n)
+    return acc * 100, (acc - lo) * 100, (hi - acc) * 100, n
+
+
+def plot_modality_dual_profile(
+    traces: List[Dict[str, Any]],
+    output_path: Optional[str] = None,
+    title: str = "Modality Ablation — LoRA vs Prompt × 4D Context",
+) -> None:
+    """
+    Chart 13: Side-by-side line + grouped-bar figure showing all 12 runs.
+
+    Left subplot  — Line chart with 4 series (profile × 4D):
+      Shows modality progression from Text → Images → Img+Plan.
+
+    Right subplot — Grouped bar chart (3 modality levels × 4 bars):
+      LoRA-4D-ON | Prompt-4D-ON | LoRA-4D-OFF | Prompt-4D-OFF
+      Warm (orange) = LoRA, Cool (blue) = Prompt.
+      Solid = 4D ON, hatched lighter = 4D OFF.
+    """
+    # ── Bucket traces ────────────────────────────────────────────────────────
+    all_conds = {(t.get("bench") or {}).get("condition", "") for t in traces}
+    needed = {c for on, off, _ in _MODALITY_LEVELS for c in (on, off)}
+    if not (needed & all_conds):
+        print("⚠  No MA/MB/MC/MA-/MB-/MC- traces — skipping Chart 13")
+        return
+
+    by_cp: Dict[Tuple, List] = {}
+    for t in traces:
+        c = (t.get("bench") or {}).get("condition", "")
+        p = t.get("_profile", "Other")
+        if c in needed and p in ("LoRA", "Prompt"):
+            by_cp.setdefault((c, p), []).append(t)
+
+    def _get(cond, profile):
+        return by_cp.get((cond, profile), [])
+
+    # ── Figure layout ────────────────────────────────────────────────────────
+    fig, (ax_line, ax_bar) = plt.subplots(
+        1, 2, figsize=(15, 6),
+        gridspec_kw={"width_ratios": [1, 1.3]},
+    )
+    for ax in (ax_line, ax_bar):
+        _style_dark(fig, ax)
+
+    x_line = np.arange(len(_MODALITY_LEVELS))
+    xlabels = [lbl for _, _, lbl in _MODALITY_LEVELS]
+
+    # ── Left: Line chart ─────────────────────────────────────────────────────
+    series = [
+        ("LoRA",   True,  _LORA_ON,   "LoRA + 4D",    "o",  "-"),
+        ("LoRA",   False, _LORA_OFF,  "LoRA − 4D",    "o",  "--"),
+        ("Prompt", True,  _PROMPT_ON, "Prompt + 4D",  "s",  "-"),
+        ("Prompt", False, _PROMPT_OFF,"Prompt − 4D",  "s",  "--"),
+    ]
+    for profile, is_4d_on, color, label, marker, ls in series:
+        accs, lo_errs, hi_errs = [], [], []
+        for on_cond, off_cond, _ in _MODALITY_LEVELS:
+            cond = on_cond if is_4d_on else off_cond
+            grp  = _get(cond, profile)
+            a, lo, hi, _ = _acc_ci(grp)
+            accs.append(a); lo_errs.append(lo); hi_errs.append(hi)
+
+        has_data = any(len(_get(on if is_4d_on else off, profile)) > 0
+                       for on, off, _ in _MODALITY_LEVELS)
+        if not has_data:
+            continue
+
+        ax_line.plot(x_line, accs, marker=marker, ls=ls, color=color,
+                     linewidth=2.0, markersize=7, label=label, alpha=0.92)
+        ax_line.fill_between(
+            x_line,
+            [a - lo for a, lo in zip(accs, lo_errs)],
+            [a + hi for a, hi in zip(accs, hi_errs)],
+            color=color, alpha=0.12,
+        )
+
+    # Shade between LoRA ON/OFF and Prompt ON/OFF to show 4D gap
+    for profile, color_on, color_off in [("LoRA", _LORA_ON, _LORA_OFF),
+                                          ("Prompt", _PROMPT_ON, _PROMPT_OFF)]:
+        on_vals  = [_acc_ci(_get(on,  profile))[0] for on,  off, _ in _MODALITY_LEVELS]
+        off_vals = [_acc_ci(_get(off, profile))[0] for on,  off, _ in _MODALITY_LEVELS]
+        if any(v > 0 for v in on_vals) and any(v > 0 for v in off_vals):
+            ax_line.fill_between(x_line, off_vals, on_vals,
+                                 color=color_on, alpha=0.08, zorder=0)
+
+    ax_line.set_xticks(x_line)
+    ax_line.set_xticklabels(xlabels, fontsize=11, color="black")
+    ax_line.set_ylabel("Top-1 Accuracy (%)", fontsize=11)
+    ax_line.set_ylim(0, 110)
+    ax_line.set_title("Modality Progression", fontsize=12, color="black", pad=8)
+    ax_line.legend(fontsize=9, facecolor=_DARK_BG, edgecolor=_GRID_COL,
+                   labelcolor="black", loc="lower right")
+
+    # ── Right: Grouped bar chart ─────────────────────────────────────────────
+    n_groups = len(_MODALITY_LEVELS)
+    x_bar    = np.arange(n_groups)
+    bar_w    = 0.18
+    # 4 bars per group: LoRA-ON | Prompt-ON || LoRA-OFF | Prompt-OFF
+    bar_defs = [
+        ("LoRA",   True,  _LORA_ON,    "",     -1.5),
+        ("Prompt", True,  _PROMPT_ON,  "",     -0.5),
+        ("LoRA",   False, _LORA_OFF,   "////",  0.5),
+        ("Prompt", False, _PROMPT_OFF, "////",  1.5),
+    ]
+    for profile, is_4d_on, color, hatch, offset in bar_defs:
+        accs, lo_errs, hi_errs, ns = [], [], [], []
+        for on_cond, off_cond, _ in _MODALITY_LEVELS:
+            cond = on_cond if is_4d_on else off_cond
+            grp  = _get(cond, profile)
+            a, lo, hi, n = _acc_ci(grp)
+            accs.append(a); lo_errs.append(lo); hi_errs.append(hi); ns.append(n)
+
+        has_data = any(n > 0 for n in ns)
+        if not has_data:
+            continue
+
+        label = f"{'LoRA' if profile == 'LoRA' else 'Prompt'} {'+ 4D' if is_4d_on else '− 4D'}"
+        bars = ax_bar.bar(
+            x_bar + offset * bar_w, accs, bar_w,
+            yerr=[lo_errs, hi_errs],
+            label=label, color=color, hatch=hatch,
+            alpha=0.88 if is_4d_on else 0.70,
+            edgecolor="none", linewidth=0.5,
+            capsize=3, error_kw={"ecolor": "black", "linewidth": 0.8},
+        )
+        for bar, a, n in zip(bars, accs, ns):
+            if n > 0:
+                ax_bar.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    bar.get_height() + 1.2,
+                    f"{a:.0f}%",
+                    ha="center", va="bottom", fontsize=7.5,
+                    color="black", fontweight="bold",
+                )
+
+    # Vertical dividers between modality groups
+    for xi in x_bar[1:]:
+        ax_bar.axvline(xi - 0.5, color=_GRID_COL, linewidth=0.8, alpha=0.5)
+
+    ax_bar.set_xticks(x_bar)
+    ax_bar.set_xticklabels(xlabels, fontsize=11, color="black")
+    ax_bar.set_ylabel("Top-1 Accuracy (%)", fontsize=11)
+    ax_bar.set_ylim(0, 120)
+    ax_bar.set_title("Per-Condition Detail", fontsize=12, color="black", pad=8)
+    ax_bar.legend(fontsize=8.5, facecolor=_DARK_BG, edgecolor=_GRID_COL,
+                  labelcolor="black", loc="upper left", ncol=2)
+
+    # ── Shared title ─────────────────────────────────────────────────────────
+    fig.suptitle(
+        f"{title}\n"
+        "Orange = LoRA  ·  Blue = Prompt  ·  Solid = 4D ON  ·  Hatched = 4D OFF",
+        fontsize=12, fontweight="bold", color="black", y=1.02,
+    )
+
+    plt.tight_layout()
+    if output_path:
+        plt.savefig(output_path, dpi=180, bbox_inches="tight",
+                    facecolor=fig.get_facecolor())
+        print(f"✓ Saved: {output_path}")
+    plt.close()
+
+
+# ── Modality analysis entry point ────────────────────────────────────────────
+
+def generate_modality_plots(
+    output_dir: str = "docs/plots/modality",
+    roots: Optional[List[str]] = None,
+    run_filter: Optional[str] = None,
+    traces_jsonl: Optional[List[str]] = None,
+) -> None:
+    """
+    Generate all modality-importance charts and save to *output_dir*.
+
+    Two loading modes:
+      - traces_jsonl: list of JSONL paths (profile inferred from filename)
+      - roots/run_filter: load from *.trace.json subdirectory trees (legacy)
+
+    Args:
+        output_dir:    Destination folder (created if absent).
+        roots:         Override trace root directories (legacy mode).
+        run_filter:    Only include runs whose name contains this substring (legacy).
+        traces_jsonl:  List of JSONL file paths to load (new mode).
+    """
+    import os
+    os.makedirs(output_dir, exist_ok=True)
+
+    print(f"\n{'='*60}")
+    print("Modality Importance Analysis")
+    print(f"{'='*60}")
+
+    if traces_jsonl:
+        traces = _load_traces_from_jsonl(traces_jsonl)
+    else:
+        traces = _load_traces_from_files(roots=roots, run_filter=run_filter)
+    if not traces:
+        print("⚠  No traces loaded — check TRACE_ROOTS paths")
+        return
+
+    from collections import Counter
+    cond_counts = Counter(
+        (t.get("bench") or {}).get("condition", "?") for t in traces
+    )
+    print(f"Loaded {len(traces)} traces | conditions: {dict(sorted(cond_counts.items()))}\n")
+
+    plot_modality_stack(
+        traces,
+        output_path=f"{output_dir}/9_modality_stack_MA_MB_MC.png",
+    )
+    plot_4d_context_impact(
+        traces,
+        output_path=f"{output_dir}/10_4d_context_impact_A1_C3.png",
+    )
+    plot_modality_x_building(
+        traces,
+        output_path=f"{output_dir}/11_modality_x_building.png",
+    )
+    plot_4d_paired_ablation(
+        traces,
+        output_path=f"{output_dir}/12_4d_paired_ablation.png",
+    )
+    plot_modality_dual_profile(
+        traces,
+        output_path=f"{output_dir}/13_modality_dual_profile.png",
+    )
+
+    print(f"\n✓ Modality plots saved to: {output_dir}/")
+
+
 if __name__ == "__main__":
     import sys
 
     if len(sys.argv) < 2:
         print("Usage: python visualizations.py <traces_jsonl> [v2_traces_jsonl] [before_traces_jsonl] [output_dir]")
+        print("       Use script/generate_plots.py for a full CLI interface (including --modality).")
         sys.exit(1)
 
     traces_path = sys.argv[1]

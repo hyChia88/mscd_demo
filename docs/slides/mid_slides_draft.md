@@ -1,4 +1,5 @@
 Goal: (1) progress review (2) emphasize the contribution of my research (3) methods sharing
+Cross-Modal Spatial Mapping and Grounding, and VLM-Assisted Constraint Retrieval and Structured Data Management.
 
 (1) Intro
 - thesis title
@@ -36,4 +37,5 @@ Goal: (1) progress review (2) emphasize the contribution of my research (3) meth
 5. Evaluation metrics
 6. Preliminary results（表/图的占位符）
 7. Failure cases & insights
-8. Next steps
+8. Next steps:
+- AEC 领域中那些低频但关键的几何关系（如“悬挑”、“交汇”），

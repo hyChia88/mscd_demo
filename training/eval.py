@@ -26,11 +26,16 @@ from typing import Any, Dict, List, Optional
 
 import modal
 
-# ── Local data paths ─────────────────────────────────────────────────────────
+# ── Local data + config paths ─────────────────────────────────────────────────
 
-DATA_ROOT = Path(__file__).parent.parent.parent / "data_curation"
-# v0.4 merged holdout — 50 non-training cases (AP=20, BH=20, DXA=10)
-CASES_FILE = DATA_ROOT / "datasets" / "synth_v0.4_merged" / "train" / "test_holdout.jsonl"
+PROJECT_ROOT  = Path(__file__).parent.parent
+DATA_ROOT     = PROJECT_ROOT.parent / "data_curation"
+PROFILES_YAML = PROJECT_ROOT / "profiles.yaml"
+PROMPTS_YAML  = PROJECT_ROOT / "prompts" / "constraints_extraction.yaml"
+COND_MASK_PY  = PROJECT_ROOT / "src" / "v2" / "condition_mask.py"
+
+# v0.4 merged holdout — 50 cases, all assets complete (images + floorplans)
+CASES_FILE = DATA_ROOT / "datasets" / "synth_v0.4_merged" / "train" / "test_holdout_with_images.jsonl"
 # Image dirs per IFC model
 AP_IMGS_DIR   = DATA_ROOT / "datasets" / "synth_v0.4_ap"  / "cases" / "imgs"
 AP_PLANS_DIR  = DATA_ROOT / "datasets" / "synth_v0.4_ap"  / "cases" / "plans"
@@ -43,7 +48,10 @@ DXA_PLANS_DIR = DATA_ROOT / "datasets" / "synth_v0.4_dxa" / "cases" / "plans"
 
 app = modal.App("mscd-vlm-lora-eval")
 
-# Same image as training — ensures identical environment
+# Same image as training — ensures identical environment.
+# Config files (profiles.yaml, prompts yaml, condition_mask.py) are baked in
+# so that CONDITION_CONFIGS, SYSTEM_PROMPT, and blur logic are loaded at
+# runtime from the same sources as the local pipeline — no more duplication.
 eval_image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("git")
@@ -52,6 +60,7 @@ eval_image = (
         "qwen-vl-utils",
         "datasets==4.3.0",
         "hf-transfer",
+        "pyyaml",          # required to load profiles.yaml + prompts yaml
     )
     .run_commands(
         "pip install --no-deps --force-reinstall "
@@ -60,7 +69,11 @@ eval_image = (
     .pip_install("transformers==4.56.2")
     .run_commands("pip install --no-deps trl==0.22.2")
     .env({"HF_HOME": "/model_cache"})
-    # Bake evaluation data into the image (v0.4 merged holdout, 50 cases)
+    # ── Config: loaded at runtime to keep single source of truth ─────────────
+    .add_local_file(str(PROFILES_YAML), remote_path="/app/profiles.yaml")
+    .add_local_file(str(PROMPTS_YAML),  remote_path="/app/constraints_extraction.yaml")
+    .add_local_file(str(COND_MASK_PY),  remote_path="/app/condition_mask.py")
+    # ── Evaluation data ───────────────────────────────────────────────────────
     .add_local_file(str(CASES_FILE), remote_path="/data/test_holdout.jsonl")
     .add_local_dir(str(AP_IMGS_DIR),   remote_path="/data/images/ap/imgs")
     .add_local_dir(str(AP_PLANS_DIR),  remote_path="/data/images/ap/plans")
@@ -70,104 +83,42 @@ eval_image = (
     .add_local_dir(str(DXA_PLANS_DIR), remote_path="/data/images/dxa/plans")
 )
 
-model_cache = modal.Volume.from_name("mscd-model-cache", create_if_missing=True)
-checkpoint_vol = modal.Volume.from_name("mscd-checkpoints", create_if_missing=True)
+model_cache    = modal.Volume.from_name("mscd-model-cache",  create_if_missing=True)
+checkpoint_vol = modal.Volume.from_name("mscd-checkpoints",  create_if_missing=True)
 
 
-# ── System prompt (must match training data from 7_prepare_lora_data.py) ─────
+# ── Runtime config helpers (run inside Modal container) ───────────────────────
 
-SYSTEM_PROMPT = (
-    "You are a construction site assistant that extracts search constraints "
-    "from multimodal inputs (photos, floorplans, chat messages, and metadata). "
-    "Given the conversation and any attached images, extract structured JSON "
-    "constraints to identify the BIM element being discussed.\n\n"
-    "Output ONLY valid JSON with these fields:\n"
-    "{\n"
-    '  "storey_name": "exact floor name or null",\n'
-    '  "ifc_class": "IfcWall|IfcWindow|IfcDoor|IfcSlab|IfcStair|IfcRailing|... or null",\n'
-    '  "near_keywords": ["spatial", "hints"],\n'
-    '  "relations": ["spatial_relationships"],\n'
-    '  "space_name": "room/space name or null",\n'
-    '  "target_name_keyword": "equipment brand/ID/unique name or null",\n'
-    '  "neighbor_type": "IfcClass of nearby reference element or null"\n'
-    "}\n\n"
-    "Rules:\n"
-    "- storey_name must match exact IFC storey names (e.g., '1 - First Floor', "
-    "'Level 1', '-1 - Garage')\n"
-    "- ifc_class must use Ifc prefix (e.g., 'IfcWindow' not 'window')\n"
-    "- space_name: extract if user says 'in the kitchen', 'room 601', 'the bathroom window'; "
-    "null otherwise\n"
-    "- target_name_keyword: extract specific equipment IDs like 'AHU-03', 'Daikin unit', "
-    "'Fire Pump FP-01'; null for generic types\n"
-    "- neighbor_type: extract IFC class of reference element if user says 'next to the column', "
-    "'near the staircase'; must use Ifc prefix; null otherwise\n"
-    "- Be conservative: use null if uncertain\n"
-    "- Look at the image carefully for element type and defect clues"
-)
+def _load_condition_configs() -> Dict[str, Dict]:
+    """Load condition configs from /app/profiles.yaml (single source of truth)."""
+    import yaml
+    with open("/app/profiles.yaml", "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    return data.get("conditions", {})
 
 
-# ── Condition masking (inlined from src/v2/condition_mask.py) ────────────────
-
-CONDITION_CONFIGS = {
-    "A1": {"use_images": False, "use_floorplan": False, "chat_blur": False, "4d_metadata": True},
-    "A2": {"use_images": False, "use_floorplan": False, "chat_blur": True, "4d_metadata": True},
-    "A3": {"use_images": False, "use_floorplan": False, "chat_blur": True, "4d_metadata": True, "4d_enhanced": True},
-    "B1": {"use_images": True, "use_floorplan": False, "chat_blur": True, "4d_metadata": False},
-    "B2": {"use_images": True, "use_floorplan": False, "chat_blur": True, "4d_metadata": False, "force_clip": True},
-    "B3": {"use_images": True, "use_floorplan": False, "chat_blur": False, "4d_metadata": False},
-    "C1": {"use_images": False, "use_floorplan": True, "chat_blur": False, "4d_metadata": False},
-    "C2": {"use_images": True, "use_floorplan": True, "chat_blur": True, "4d_metadata": False},
-    "C3": {"use_images": True, "use_floorplan": True, "chat_blur": False, "4d_metadata": True, "4d_enhanced": True},
-    # Paired modality ablation conditions
-    "MA": {"use_images": False, "use_floorplan": False, "chat_blur": False, "4d_metadata": True},
-    "MB": {"use_images": True, "use_floorplan": False, "chat_blur": False, "4d_metadata": True},
-    "MC": {"use_images": True, "use_floorplan": True, "chat_blur": False, "4d_metadata": True},
-}
-
-BLUR_REPLACEMENTS = {
-    "window": "opening", "Window": "Opening", "door": "opening", "Door": "Opening",
-    "wall": "surface", "Wall": "Surface", "slab": "surface", "Slab": "Surface",
-    "sixth": "upper", "Sixth": "Upper", "first": "lower", "First": "Lower",
-    "second": "middle", "Second": "Middle", "third": "middle", "Third": "Middle",
-    "fourth": "middle", "Fourth": "Middle", "fifth": "upper", "Fifth": "Upper",
-    "north": "side", "North": "Side", "south": "side", "South": "Side",
-    "east": "side", "East": "Side", "west": "side", "West": "Side",
-    "elevator": "area", "Elevator": "Area", "stair": "area", "Stair": "Area",
-    "entrance": "location", "Entrance": "Location",
-}
+def _load_system_prompt() -> str:
+    """Load LoRA system prompt from /app/constraints_extraction.yaml."""
+    import yaml
+    with open("/app/constraints_extraction.yaml", "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    return data.get("lora_system", data.get("system", ""))
 
 
-def _blur_text(text: str) -> str:
-    for old, new in BLUR_REPLACEMENTS.items():
-        text = re.sub(r'\b' + re.escape(old) + r'\b', new, text)
-    return text
+def _load_condition_mask():
+    """Import ConditionMask from /app/condition_mask.py (baked into image)."""
+    import sys
+    sys.path.insert(0, "/app")
+    from condition_mask import ConditionMask  # noqa: PLC0415
+    return ConditionMask
 
 
-def apply_condition_mask(case: dict, condition: str) -> dict:
-    """Apply A1-C3 condition masking (mirrors src/v2/condition_mask.py)."""
-    overrides = CONDITION_CONFIGS.get(condition, {})
-    masked = copy.deepcopy(case)
-    inputs = masked.get("inputs", {})
-
-    if overrides.get("chat_blur", False):
-        if "chat_history" in inputs:
-            inputs["chat_history"] = [
-                {"role": m.get("role", ""), "text": _blur_text(m.get("text", ""))}
-                for m in inputs["chat_history"]
-            ]
-
-    if not overrides.get("use_images", True):
-        inputs["images"] = []
-
-    if not overrides.get("use_floorplan", False):
-        inputs.pop("floorplan_patch", None)
-
-    if not overrides.get("4d_metadata", True):
-        if "project_context" in inputs:
-            inputs["project_context"]["4d_task_status"] = "N/A"
-
-    masked["inputs"] = inputs
-    return masked
+def apply_condition_mask(case: dict, condition: str,
+                         condition_configs: Dict[str, Dict],
+                         ConditionMask) -> dict:
+    """Apply condition masking using ConditionMask.apply() + loaded configs."""
+    overrides = condition_configs.get(condition, {})
+    return ConditionMask.apply(case, overrides)
 
 
 # ── Image path remapping ─────────────────────────────────────────────────────
@@ -233,7 +184,7 @@ def _build_user_text(case: dict) -> str:
     return "\n".join(parts)
 
 
-def _build_messages(case: dict) -> list:
+def _build_messages(case: dict, system_prompt: str) -> list:
     """Build ChatML messages for VLM inference."""
     user_content = []
     inputs = case.get("inputs", {})
@@ -258,7 +209,7 @@ def _build_messages(case: dict) -> list:
     user_content.append({"type": "text", "text": _build_user_text(case)})
 
     return [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_content},
     ]
 
@@ -310,6 +261,13 @@ def run_eval(
     import torch
     from unsloth import FastVisionModel
     from qwen_vl_utils import process_vision_info
+
+    # ── 0. Load config from baked-in files (single source of truth) ──────
+    condition_configs = _load_condition_configs()   # from /app/profiles.yaml
+    system_prompt     = _load_system_prompt()       # from /app/constraints_extraction.yaml
+    ConditionMask     = _load_condition_mask()      # from /app/condition_mask.py
+    print(f"Loaded {len(condition_configs)} conditions from profiles.yaml")
+    print(f"System prompt: {len(system_prompt)} chars (lora_system)")
 
     # ── 1. Locate adapter ────────────────────────────────────────────────
     adapter_path = f"/checkpoints{adapter_dir}"
@@ -365,10 +323,10 @@ def run_eval(
         condition = condition_override if condition_override else case.get("bench", {}).get("condition", "")
 
         # Apply condition mask (same as local pipeline)
-        masked_case = apply_condition_mask(case, condition)
+        masked_case = apply_condition_mask(case, condition, condition_configs, ConditionMask)
 
         # Build messages
-        messages = _build_messages(masked_case)
+        messages = _build_messages(masked_case, system_prompt)
 
         # Count images for logging
         n_images = sum(

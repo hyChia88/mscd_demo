@@ -182,29 +182,55 @@ class ExperimentManager:
         if not dry_run:
             self.save_metadata(experiment_name, output_dir)
 
-        # Build conditions list — empty means run all (no --condition filter)
-        conditions = config.get("conditions", [])
-        if not conditions:
-            conditions = [None]  # Single run without --condition filter
+        # Build run list.
+        # `conditions`         → passed as --condition  (filters dataset rows by bench.condition)
+        # `condition_overrides` → passed as --condition-override (applies one condition to ALL rows)
+        # Use `condition_overrides` for MA/MB/MC-style paired ablation where the dataset
+        # doesn't have those condition labels natively.
+        conditions         = config.get("conditions", [])
+        cond_overrides     = config.get("condition_overrides", [])
 
-        for condition in conditions:
+        # Flatten both lists into (flag, value) pairs so the loop stays uniform
+        run_items: List[tuple] = []
+        for c in conditions:
+            run_items.append(("--condition", c))
+        for c in cond_overrides:
+            run_items.append(("--condition-override", c))
+        if not run_items:
+            run_items = [(None, None)]  # Single run, no condition filter
+
+        for flag, condition in run_items:
             if condition:
-                print(f"\n  -> Running condition {condition}...")
+                print(f"\n  -> Running {flag} {condition}...")
             else:
                 print(f"\n  -> Running all conditions...")
 
             cmd = [
                 "conda", "run", "-n", "mscd_demo",
-                "python", "script/run.py",
+                "python", "-u", "script/run.py",
                 "--profile", config["profile"],
                 "--cases", config["cases"],
                 "--output_dir", str(output_dir)
             ]
 
-            if condition:
-                cmd.extend(["--condition", condition])
+            if flag and condition:
+                cmd.extend([flag, condition])
 
-            if "precomputed" in config:
+            if "adapter_path" in config:
+                cmd.extend(["--adapter_path", config["adapter_path"]])
+
+            # Per-condition precomputed takes priority over global precomputed.
+            # precomputed_map: {MA: path, MB: path, ...} — used for Modal LoRA
+            # × 6-condition runs where each condition produces a separate JSONL.
+            precomputed_map = config.get("precomputed_map", {})
+            precomp_path = precomputed_map.get(condition) if condition else None
+            if precomp_path:
+                if Path(precomp_path).exists():
+                    cmd.extend(["--precomputed", precomp_path])
+                else:
+                    print(f"    ⚠  precomputed_map[{condition}] not found: {precomp_path}")
+                    print(f"       → live inference will run (GPU required for LoRA)")
+            elif "precomputed" in config:
                 cmd.extend(["--precomputed", config["precomputed"]])
 
             if "percent" in config:
@@ -212,7 +238,7 @@ class ExperimentManager:
             elif "limit" in config:
                 cmd.extend(["--limit", str(config["limit"])])
 
-            label = f"condition {condition}" if condition else "all conditions"
+            label = f"{flag} {condition}" if condition else "all conditions"
             if dry_run:
                 print(f"    [DRY RUN] {' '.join(cmd)}")
             else:

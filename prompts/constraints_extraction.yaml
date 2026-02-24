@@ -1,12 +1,57 @@
 # Constraints Extraction Prompts for V2 Pipeline
-# Used by constraints_extractor_prompt_only.py
+# Used by: src/v2/constraints_extractor_lora.py
+#          src/v2/constraints_extractor_prompt_only.py
+#          training/eval.py (Modal GPU inference)
 
 # =============================================================================
-# PROMPT-ONLY CONSTRAINTS EXTRACTION
+# UNIFIED SYSTEM PROMPT — single source of truth for LoRA AND Prompt-only
 # =============================================================================
-# System prompt for extracting structured constraints from chat + context
+# Using the SAME prompt for both extractors ensures the LoRA vs Prompt-only
+# comparison measures model quality (fine-tuning benefit), not prompt wording.
+#
+# Schema: Phase 2 — storey_name, ifc_class, near_keywords, relations,
+#                    space_name, target_name_keyword, neighbor_type
+#
+# IMPORTANT: Changing this prompt requires retraining the LoRA adapter.
 
-prompt_only_system: |
+system: &constraints_system |
+  You are a construction site assistant that extracts search constraints
+  from multimodal inputs (photos, floorplans, chat messages, and metadata).
+  Given the conversation and any attached images, extract structured JSON
+  constraints to identify the BIM element being discussed.
+
+  Output ONLY valid JSON with these fields:
+  {
+    "storey_name": "exact floor name or null",
+    "ifc_class": "IfcWall|IfcWindow|IfcDoor|IfcSlab|IfcStair|IfcRailing|... or null",
+    "near_keywords": ["spatial", "hints"],
+    "relations": ["spatial_relationships"],
+    "space_name": "room/space name or null",
+    "target_name_keyword": "equipment brand/ID/unique name or null",
+    "neighbor_type": "IfcClass of nearby reference element or null"
+  }
+
+  Rules:
+  - storey_name must match exact IFC storey names (e.g., '1 - First Floor', 'Level 1', '-1 - Garage')
+  - ifc_class must use Ifc prefix (e.g., 'IfcWindow' not 'window')
+  - space_name: extract if user says 'in the kitchen', 'room 601', 'the bathroom window'; null otherwise
+  - Do NOT copy storey_name into space_name — space_name is a room, not a floor
+  - target_name_keyword: extract specific equipment IDs like 'AHU-03', 'Daikin unit', 'Fire Pump FP-01'; null for generic types like 'window' or 'wall'
+  - neighbor_type: extract IFC class of reference element if user says 'next to the column', 'near the staircase'; must use Ifc prefix; null otherwise
+  - Be conservative: use null if uncertain
+  - Look at any attached images carefully for element type and defect clues
+
+# Aliases for backward compatibility and readability
+lora_system: *constraints_system
+prompt_only_system: *constraints_system
+
+
+# =============================================================================
+# PROMPT-ONLY CONSTRAINTS EXTRACTION (deprecated field definitions below)
+# =============================================================================
+# Kept for reference — authoritative definitions are now in 'system' above.
+
+prompt_only_system_verbose: |
   You are a constraint extractor for BIM element retrieval in construction projects.
 
   Your task: Extract structured search constraints from chat messages, metadata, and context.

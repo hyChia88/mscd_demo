@@ -3,17 +3,18 @@
 Generate evaluation plots from trace files.
 
 Usage:
-  # From latest run
+  # Standard mode — from JSONL trace files
   python script/generate_plots.py --latest
-
-  # From specific traces
-  python script/generate_plots.py --traces logs/evaluations/traces_20240210_143022_v2_prompt.jsonl
-
-  # Compare before/after VLM
-  python script/generate_plots.py \
-    --traces logs/evaluations/new_pipeline/traces_*.jsonl \
-    --before logs/evaluations/old_pipeline/traces_*.jsonl \
+  python script/generate_plots.py --traces logs/evaluations/traces_*.jsonl
+  python script/generate_plots.py \\
+    --traces logs/evaluations/new_pipeline/traces_*.jsonl \\
+    --before logs/evaluations/old_pipeline/traces_*.jsonl \\
     --output logs/plots/comparison
+
+  # Modality analysis mode — loads *.trace.json files directly
+  python script/generate_plots.py --modality
+  python script/generate_plots.py --modality --output docs/plots/modality
+  python script/generate_plots.py --modality --run-filter lora
 """
 
 import argparse
@@ -26,7 +27,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from src.eval.visualizations import generate_all_plots
+from src.eval.visualizations import generate_all_plots, generate_modality_plots
 
 
 def find_latest_traces(base_dir: str = "logs/evaluations") -> str:
@@ -44,11 +45,13 @@ def main():
     )
     parser.add_argument(
         "--traces",
-        help="Path to main traces JSONL file (supports glob patterns)"
+        nargs="+",
+        help="Path(s) to traces JSONL file(s). Supports glob patterns and multiple values."
     )
     parser.add_argument(
         "--before",
-        help="Path to 'before VLM' traces for comparison (optional)"
+        nargs="+",
+        help="Path(s) to 'before VLM' traces for comparison (optional). Supports globs."
     )
     parser.add_argument(
         "--output",
@@ -60,20 +63,58 @@ def main():
         action="store_true",
         help="Use the latest traces file from logs/evaluations"
     )
+    parser.add_argument(
+        "--modality",
+        action="store_true",
+        help="Generate modality importance plots (Charts 9-11) from *.trace.json files"
+    )
+    parser.add_argument(
+        "--run-filter",
+        default=None,
+        metavar="SUBSTRING",
+        help="With --modality: only load runs whose directory name contains SUBSTRING (e.g. 'lora')"
+    )
 
     args = parser.parse_args()
 
+    def expand_patterns(patterns: list) -> list:
+        """Expand a list of glob patterns into a deduplicated sorted file list."""
+        matches = []
+        for p in patterns:
+            matches.extend(glob(p))
+        return sorted(set(matches))
+
+    # ── Modality analysis mode ────────────────────────────────────────────────
+    if args.modality:
+        output_dir = args.output or "docs/plots/modality"
+        traces_jsonl = None
+        if args.traces:
+            matches = expand_patterns(args.traces)
+            if not matches:
+                print(f"ERROR: No files match: {args.traces}")
+                sys.exit(1)
+            traces_jsonl = matches
+            print(f"Using {len(matches)} JSONL files for modality analysis:")
+            for f in matches:
+                print(f"  - {f}")
+        generate_modality_plots(
+            output_dir=output_dir,
+            run_filter=args.run_filter,
+            traces_jsonl=traces_jsonl,
+        )
+        return
+
+    # ── Standard JSONL mode ───────────────────────────────────────────────────
     # Determine traces path
     if args.latest:
         traces_path = find_latest_traces()
         print(f"Using latest traces: {traces_path}")
     elif args.traces:
-        # Handle glob patterns
-        matches = glob(args.traces)
+        matches = expand_patterns(args.traces)
         if not matches:
-            print(f"ERROR: No files match pattern: {args.traces}")
+            print(f"ERROR: No files match: {args.traces}")
             sys.exit(1)
-        traces_path = sorted(matches)  # Use ALL matching files
+        traces_path = sorted(matches)
         if len(traces_path) == 1:
             traces_path = traces_path[0]
             print(f"Using traces: {traces_path}")
@@ -89,9 +130,9 @@ def main():
     # Determine before traces (optional)
     before_traces_path = None
     if args.before:
-        matches = glob(args.before)
+        matches = expand_patterns(args.before)
         if matches:
-            before_traces_path = sorted(matches)  # Use ALL matching files
+            before_traces_path = sorted(matches)
             if len(before_traces_path) == 1:
                 before_traces_path = before_traces_path[0]
                 print(f"Using before traces: {before_traces_path}")
@@ -100,7 +141,7 @@ def main():
                 for f in before_traces_path:
                     print(f"  - {f}")
         else:
-            print(f"WARNING: No files match --before pattern: {args.before}")
+            print(f"WARNING: No files match --before: {args.before}")
 
     # Auto-generate output directory with timestamp if not specified
     output_dir = args.output

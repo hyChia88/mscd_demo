@@ -135,6 +135,68 @@ experiments:
     precomputed: logs/evaluations/eval_constraints_checkpoint-180.jsonl
     tags: [v2, lora, ckpt180, synth_v0.3]
 
+  # ===========================================================================
+  # MODALITY × 4D ABLATION (synth_v0.4)
+  # Six runs: MA/MB/MC (4D ON) + MA-/MB-/MC- (4D OFF)
+  # Isolates the pure contribution of 4D project context at each modality level.
+  # Visualised by: python script/generate_plots.py --modality (Chart 12)
+  # ===========================================================================
+
+  modality_4d_ablation_lora:
+    description: "4D ablation: MA/MB/MC vs MA-/MB-/MC- (LoRA, synth_v0.4_merged) — isolates 4D context impact"
+    profile: v2_lora
+    adapter_path: models/adapters/v2_lora_qwen/final
+    # condition_overrides uses --condition-override (applies one condition to ALL cases)
+    # This is required for MA/MB/MC-style runs where cases lack those bench.condition labels.
+    condition_overrides: [MA, MB, MC, "MA-", "MB-", "MC-"]
+    cases: ../data_curation/datasets/synth_v0.4_merged/train/test_holdout.jsonl
+    output_dir: logs/evaluations/synth_v04
+    tags: [modality, 4d-ablation, v2, lora, synth_v0.4_merged]
+
+  modality_4d_ablation_prompt:
+    description: "4D ablation: MA/MB/MC vs MA-/MB-/MC- (Prompt, synth_v0.4_merged) — isolates 4D context impact"
+    profile: v2_prompt
+    condition_overrides: [MA, MB, MC, "MA-", "MB-", "MC-"]
+    cases: ../data_curation/datasets/synth_v0.4_merged/train/test_holdout.jsonl
+    output_dir: logs/evaluations/synth_v04
+    tags: [modality, 4d-ablation, v2, prompt, synth_v0.4_merged]
+
+  # ===========================================================================
+  # FULL 6-CONDITION MODALITY ABLATION × 2 PROFILES (primary experiment)
+  # MA/MB/MC (4D ON) + MA-/MB-/MC- (4D OFF) × LoRA + Prompt = 12 runs
+  # Uses test_holdout_with_images.jsonl (50/50 cases, all assets complete)
+  # Visualised by: python script/generate_plots.py --modality (Chart 13)
+  # ===========================================================================
+
+  modality_6cond_lora:
+    description: "Full 6-condition modality ablation — LoRA (synth_v0.4_merged, 50 cases)"
+    profile: v2_lora
+    adapter_path: models/adapters/v2_lora_qwen/final
+    condition_overrides: [MA, MB, MC, "MA-", "MB-", "MC-"]
+    cases: ../data_curation/datasets/synth_v0.4_merged/train/test_holdout_with_images.jsonl
+    output_dir: logs/evaluations/synth_v04
+    # Per-condition precomputed files from Modal LoRA inference.
+    # Run on Modal:  modal run training/eval.py --condition-override <COND>
+    # Download:      modal volume get mscd-checkpoints \
+    #                  /mscd-lora/eval_constraints_final_<COND>.jsonl \
+    #                  logs/evaluations/synth_v04/precomputed/
+    precomputed_map:
+      MA:   logs/evaluations/synth_v04/precomputed/eval_constraints_final_MA.jsonl
+      MB:   logs/evaluations/synth_v04/precomputed/eval_constraints_final_MB.jsonl
+      MC:   logs/evaluations/synth_v04/precomputed/eval_constraints_final_MC.jsonl
+      "MA-": logs/evaluations/synth_v04/precomputed/eval_constraints_final_MA-.jsonl
+      "MB-": logs/evaluations/synth_v04/precomputed/eval_constraints_final_MB-.jsonl
+      "MC-": logs/evaluations/synth_v04/precomputed/eval_constraints_final_MC-.jsonl
+    tags: [modality, 6cond, v2, lora, synth_v0.4_merged]
+
+  modality_6cond_prompt:
+    description: "Full 6-condition modality ablation — Prompt (synth_v0.4_merged, 50 cases)"
+    profile: v2_prompt
+    condition_overrides: [MA, MB, MC, "MA-", "MB-", "MC-"]
+    cases: ../data_curation/datasets/synth_v0.4_merged/train/test_holdout_with_images.jsonl
+    output_dir: logs/evaluations/synth_v04
+    tags: [modality, 6cond, v2, prompt, synth_v0.4_merged]
+
 # Comparison groups - define which experiments to compare
 comparisons:
   vlm_impact:

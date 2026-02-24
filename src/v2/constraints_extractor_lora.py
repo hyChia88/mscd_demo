@@ -18,28 +18,14 @@ from typing import Any, Dict, List, Optional
 
 from .condition_mask import ConditionMask
 from .types import Constraints, ImageParseResult
+from common.config import load_yaml_prompts
 
+# ── System prompt — loaded from prompts/constraints_extraction.yaml ───────────
+# Shared with constraints_extractor_prompt_only.py and training/eval.py so that
+# LoRA vs Prompt comparison measures model quality, not prompt wording.
 
-# ── System prompt (must match 7_prepare_lora_data.py exactly) ────────────────
-
-SYSTEM_PROMPT = (
-    "You are a construction site assistant that extracts search constraints "
-    "from multimodal inputs (photos, floorplans, chat messages, and metadata). "
-    "Given the conversation and any attached images, extract structured JSON "
-    "constraints to identify the BIM element being discussed.\n\n"
-    "Output ONLY valid JSON with these fields:\n"
-    "{\n"
-    '  "storey_name": "exact floor name or null",\n'
-    '  "ifc_class": "IfcWall|IfcWindow|IfcDoor|IfcSlab|IfcStair|IfcRailing|... or null",\n'
-    '  "near_keywords": ["spatial", "hints"],\n'
-    '  "relations": ["spatial_relationships"]\n'
-    "}\n\n"
-    "Rules:\n"
-    "- storey_name must match exact IFC storey names (e.g., '1 - First Floor', 'Level 1', '-1 - Garage')\n"
-    "- ifc_class must use Ifc prefix (e.g., 'IfcWindow' not 'window')\n"
-    "- Be conservative: use null if uncertain\n"
-    "- Look at the image carefully for element type and defect clues"
-)
+_PROMPTS_PATH = Path(__file__).parent.parent.parent / "prompts" / "constraints_extraction.yaml"
+SYSTEM_PROMPT: str = load_yaml_prompts(str(_PROMPTS_PATH)).get("lora_system", "")
 
 
 class LoRAConstraintsExtractor:

@@ -153,96 +153,26 @@ class ConditionMask:
     @staticmethod
     def apply_from_condition_name(case: Dict[str, Any], condition: str) -> Dict[str, Any]:
         """
-        Apply masking based on condition name (A1-C3).
+        Apply masking based on condition name (A1-C3, MA/MB/MC, MA-/MB-/MC-).
 
-        This is a convenience method that looks up the condition config internally.
+        Reads condition config from profiles.yaml — the single source of truth.
+        Any condition defined in profiles.yaml under `conditions:` is supported
+        here without code changes.
 
         Args:
             case: Original case dict
-            condition: Condition name (A1, A2, A3, B1, B2, B3, C1, C2, C3)
+            condition: Condition name (e.g. "A1", "MA", "MB-")
 
         Returns:
             Masked case dict
         """
-        # Hardcoded condition configs (matches profiles.yaml)
-        CONDITION_CONFIGS = {
-            "A1": {
-                "use_images": False,
-                "use_floorplan": False,
-                "chat_blur": False,
-                "4d_metadata": True
-            },
-            "A2": {
-                "use_images": False,
-                "use_floorplan": False,
-                "chat_blur": True,
-                "4d_metadata": True
-            },
-            "A3": {
-                "use_images": False,
-                "use_floorplan": False,
-                "chat_blur": True,
-                "4d_metadata": True,
-                "4d_enhanced": True
-            },
-            "B1": {
-                "use_images": True,
-                "use_floorplan": False,
-                "chat_blur": True,
-                "4d_metadata": False
-            },
-            "B2": {
-                "use_images": True,
-                "use_floorplan": False,
-                "chat_blur": True,
-                "4d_metadata": False,
-                "force_clip": True
-            },
-            "B3": {
-                "use_images": True,
-                "use_floorplan": False,
-                "chat_blur": False,
-                "4d_metadata": False
-            },
-            "C1": {
-                "use_images": False,
-                "use_floorplan": True,
-                "chat_blur": False,
-                "4d_metadata": False
-            },
-            "C2": {
-                "use_images": True,
-                "use_floorplan": True,
-                "chat_blur": True,
-                "4d_metadata": False
-            },
-            "C3": {
-                "use_images": True,
-                "use_floorplan": True,
-                "chat_blur": False,
-                "4d_metadata": True,
-                "4d_enhanced": True
-            },
-            # Paired modality ablation conditions
-            "MA": {
-                "use_images": False,
-                "use_floorplan": False,
-                "chat_blur": False,
-                "4d_metadata": True
-            },
-            "MB": {
-                "use_images": True,
-                "use_floorplan": False,
-                "chat_blur": False,
-                "4d_metadata": True
-            },
-            "MC": {
-                "use_images": True,
-                "use_floorplan": True,
-                "chat_blur": False,
-                "4d_metadata": True
-            }
-        }
-
-        condition_overrides = CONDITION_CONFIGS.get(condition, {})
+        import yaml
+        from pathlib import Path
+        profiles_path = Path(__file__).parent.parent.parent / "profiles.yaml"
+        try:
+            with open(profiles_path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+            condition_overrides = data.get("conditions", {}).get(condition, {})
+        except Exception:
+            condition_overrides = {}
         return ConditionMask.apply(case, condition_overrides)

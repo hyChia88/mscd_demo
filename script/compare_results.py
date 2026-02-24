@@ -804,50 +804,104 @@ def _plot_modality_gain(
             ax.set_ylim(0, 110)
             ax.grid(axis="y", alpha=0.3, linestyle="--")
     else:
-        modalities = ["A", "B", "C"]
-        mod_display = {"A": "Text Only", "B": "Img + Text", "C": "Full Multimodal"}
-        difficulty_levels = ["1", "2", "3"]
-        diff_display = {"1": "T1 (Easy)", "2": "T2 (Medium)", "3": "T3 (Hard)"}
+        # Auto-detect condition style: MA/MB/MC vs A1/B1/C1
+        _sample_conds = set()
+        for _tr in experiments.values():
+            for _t in _tr[:20]:
+                _c = _extract_condition(_t)
+                if _c:
+                    _sample_conds.add(_c)
+        use_ma_style = bool(_sample_conds & {"MA", "MB", "MC"}) and not bool(_sample_conds & {"A1", "B1", "C1"})
 
-        fig, axes = plt.subplots(1, 3, figsize=(18, 6), sharey=True)
+        if use_ma_style:
+            # MA/MB/MC mode: facets = T1/T2/T3, x-axis = modality (4D-ON only)
+            ma_mods = ["MA", "MB", "MC"]
+            mod_display_ma = {"MA": "Text Only\n(MA)", "MB": "Img + Text\n(MB)", "MC": "Full Multimodal\n(MC)"}
+            tiers = [("T1", "T1 (Easy)"), ("T2", "T2 (Medium)"), ("T3", "T3 (Hard)")]
 
-        for di, diff in enumerate(difficulty_levels):
-            ax = axes[di]
-            x = np.arange(len(modalities))
-            width = 0.8 / n_exp
+            fig, axes = plt.subplots(1, 3, figsize=(18, 6), sharey=True)
 
-            for ei, label in enumerate(exp_labels):
-                traces = experiments[label]
-                vals = []
-                for mod in modalities:
-                    cond = f"{mod}{diff}"
-                    subset = [t for t in traces if _extract_condition(t) == cond]
-                    if subset:
-                        acc = sum(1 for t in subset if t.get("guid_match", False)) / len(subset) * 100
-                    else:
-                        acc = 0
-                    vals.append(acc)
+            for di, (tier_key, tier_label) in enumerate(tiers):
+                ax = axes[di]
+                x = np.arange(len(ma_mods))
+                width = 0.8 / n_exp
 
-                offset = (ei - n_exp / 2 + 0.5) * width
-                bars = ax.bar(
-                    x + offset, vals, width, label=label if di == 0 else None,
-                    color=colors[ei % len(colors)], alpha=0.85,
-                    edgecolor="black", linewidth=0.5,
-                )
-                for bar in bars:
-                    h = bar.get_height()
-                    if h > 0:
-                        ax.text(
-                            bar.get_x() + bar.get_width() / 2, h + 1,
-                            f"{h:.0f}", ha="center", va="bottom", fontsize=7,
-                            fontweight="bold",
-                        )
+                for ei, label in enumerate(exp_labels):
+                    traces = experiments[label]
+                    vals = []
+                    for mod in ma_mods:
+                        subset = [t for t in traces
+                                  if _extract_condition(t) == mod
+                                  and (t.get("difficulty_tags") or {}).get("tier") == tier_key]
+                        acc = sum(1 for t in subset if t.get("guid_match", False)) / len(subset) * 100 \
+                              if subset else 0
+                        vals.append(acc)
 
-            ax.set_xticks(x)
-            ax.set_xticklabels([mod_display[m] for m in modalities], fontsize=9)
-            ax.set_title(diff_display[diff], fontsize=12, fontweight="bold")
-            ax.set_ylim(0, 110)
-            ax.grid(axis="y", alpha=0.3, linestyle="--")
+                    offset = (ei - n_exp / 2 + 0.5) * width
+                    bars = ax.bar(
+                        x + offset, vals, width, label=label if di == 0 else None,
+                        color=colors[ei % len(colors)], alpha=0.85,
+                        edgecolor="black", linewidth=0.5,
+                    )
+                    for bar in bars:
+                        h = bar.get_height()
+                        if h > 0:
+                            ax.text(
+                                bar.get_x() + bar.get_width() / 2, h + 1,
+                                f"{h:.0f}", ha="center", va="bottom", fontsize=7,
+                                fontweight="bold",
+                            )
+
+                ax.set_xticks(x)
+                ax.set_xticklabels([mod_display_ma[m] for m in ma_mods], fontsize=9)
+                ax.set_title(tier_label, fontsize=12, fontweight="bold")
+                ax.set_ylim(0, 110)
+                ax.grid(axis="y", alpha=0.3, linestyle="--")
+        else:
+            modalities = ["A", "B", "C"]
+            mod_display = {"A": "Text Only", "B": "Img + Text", "C": "Full Multimodal"}
+            difficulty_levels = ["1", "2", "3"]
+            diff_display = {"1": "T1 (Easy)", "2": "T2 (Medium)", "3": "T3 (Hard)"}
+
+            fig, axes = plt.subplots(1, 3, figsize=(18, 6), sharey=True)
+
+            for di, diff in enumerate(difficulty_levels):
+                ax = axes[di]
+                x = np.arange(len(modalities))
+                width = 0.8 / n_exp
+
+                for ei, label in enumerate(exp_labels):
+                    traces = experiments[label]
+                    vals = []
+                    for mod in modalities:
+                        cond = f"{mod}{diff}"
+                        subset = [t for t in traces if _extract_condition(t) == cond]
+                        if subset:
+                            acc = sum(1 for t in subset if t.get("guid_match", False)) / len(subset) * 100
+                        else:
+                            acc = 0
+                        vals.append(acc)
+
+                    offset = (ei - n_exp / 2 + 0.5) * width
+                    bars = ax.bar(
+                        x + offset, vals, width, label=label if di == 0 else None,
+                        color=colors[ei % len(colors)], alpha=0.85,
+                        edgecolor="black", linewidth=0.5,
+                    )
+                    for bar in bars:
+                        h = bar.get_height()
+                        if h > 0:
+                            ax.text(
+                                bar.get_x() + bar.get_width() / 2, h + 1,
+                                f"{h:.0f}", ha="center", va="bottom", fontsize=7,
+                                fontweight="bold",
+                            )
+
+                ax.set_xticks(x)
+                ax.set_xticklabels([mod_display[m] for m in modalities], fontsize=9)
+                ax.set_title(diff_display[diff], fontsize=12, fontweight="bold")
+                ax.set_ylim(0, 110)
+                ax.grid(axis="y", alpha=0.3, linestyle="--")
 
     axes[0].set_ylabel("Top-1 Accuracy (%)", fontsize=12)
     fig.legend(
@@ -926,47 +980,99 @@ def _plot_difficulty_degradation(
             ax.grid(axis="x", alpha=0.15, linestyle=":")
     else:
         exp_labels = list(experiments.keys())
-        modalities = ["A", "B", "C"]
-        mod_display = {"A": "Text Only (A)", "B": "Img + Text (B)", "C": "Full Multimodal (C)"}
-        difficulty_levels = ["1", "2", "3"]
-        diff_labels = ["T1\n(Easy)", "T2\n(Medium)", "T3\n(Hard)"]
 
-        fig, axes = plt.subplots(1, 3, figsize=(18, 6), sharey=True)
+        # Auto-detect condition style: MA/MB/MC vs A1/B1/C1
+        _sample_conds = set()
+        for _tr in experiments.values():
+            for _t in _tr[:20]:
+                _c = _extract_condition(_t)
+                if _c:
+                    _sample_conds.add(_c)
+        use_ma_style = bool(_sample_conds & {"MA", "MB", "MC"}) and not bool(_sample_conds & {"A1", "B1", "C1"})
 
-        for mi, mod in enumerate(modalities):
-            ax = axes[mi]
-            for ei, label in enumerate(exp_labels):
-                traces = experiments[label]
-                accs = []
-                for diff in difficulty_levels:
-                    cond = f"{mod}{diff}"
-                    subset = [t for t in traces if _extract_condition(t) == cond]
-                    if subset:
-                        acc = sum(1 for t in subset if t.get("guid_match", False)) / len(subset) * 100
-                    else:
-                        acc = 0
-                    accs.append(acc)
+        if use_ma_style:
+            # MA/MB/MC mode: facets = MA/MB/MC (4D-ON only), x-axis = T1/T2/T3 from difficulty_tags.tier
+            ma_mods = ["MA", "MB", "MC"]
+            mod_display_ma = {"MA": "Text Only (MA)", "MB": "Img + Text (MB)", "MC": "Full Multimodal (MC)"}
+            tiers = [("T1", "T1\n(Easy)"), ("T2", "T2\n(Medium)"), ("T3", "T3\n(Hard)")]
 
-                ax.plot(
-                    range(3), accs,
-                    marker=markers[ei % len(markers)], markersize=10,
-                    color=colors[ei % len(colors)], linewidth=2.5,
-                    label=label if mi == 0 else None, alpha=0.85,
-                )
-                for xi, acc in enumerate(accs):
-                    ax.annotate(
-                        f"{acc:.0f}%", (xi, acc),
-                        textcoords="offset points", xytext=(0, 12),
-                        ha="center", fontsize=8, fontweight="bold",
-                        color=colors[ei % len(colors)],
+            fig, axes = plt.subplots(1, 3, figsize=(18, 6), sharey=True)
+
+            for mi, mod in enumerate(ma_mods):
+                ax = axes[mi]
+                for ei, label in enumerate(exp_labels):
+                    traces = experiments[label]
+                    accs = []
+                    for tier_key, _ in tiers:
+                        subset = [t for t in traces
+                                  if _extract_condition(t) == mod
+                                  and (t.get("difficulty_tags") or {}).get("tier") == tier_key]
+                        acc = sum(1 for t in subset if t.get("guid_match", False)) / len(subset) * 100 \
+                              if subset else 0
+                        accs.append(acc)
+
+                    ax.plot(
+                        range(len(tiers)), accs,
+                        marker=markers[ei % len(markers)], markersize=10,
+                        color=colors[ei % len(colors)], linewidth=2.5,
+                        label=label if mi == 0 else None, alpha=0.85,
                     )
+                    for xi, acc in enumerate(accs):
+                        ax.annotate(
+                            f"{acc:.0f}%", (xi, acc),
+                            textcoords="offset points", xytext=(0, 12),
+                            ha="center", fontsize=8, fontweight="bold",
+                            color=colors[ei % len(colors)],
+                        )
 
-            ax.set_xticks(range(3))
-            ax.set_xticklabels(diff_labels, fontsize=10)
-            ax.set_title(mod_display[mod], fontsize=12, fontweight="bold")
-            ax.set_ylim(-5, 115)
-            ax.grid(axis="y", alpha=0.3, linestyle="--")
-            ax.grid(axis="x", alpha=0.15, linestyle=":")
+                ax.set_xticks(range(len(tiers)))
+                ax.set_xticklabels([lbl for _, lbl in tiers], fontsize=10)
+                ax.set_title(mod_display_ma[mod], fontsize=12, fontweight="bold")
+                ax.set_ylim(-5, 115)
+                ax.grid(axis="y", alpha=0.3, linestyle="--")
+                ax.grid(axis="x", alpha=0.15, linestyle=":")
+        else:
+            modalities = ["A", "B", "C"]
+            mod_display = {"A": "Text Only (A)", "B": "Img + Text (B)", "C": "Full Multimodal (C)"}
+            difficulty_levels = ["1", "2", "3"]
+            diff_labels = ["T1\n(Easy)", "T2\n(Medium)", "T3\n(Hard)"]
+
+            fig, axes = plt.subplots(1, 3, figsize=(18, 6), sharey=True)
+
+            for mi, mod in enumerate(modalities):
+                ax = axes[mi]
+                for ei, label in enumerate(exp_labels):
+                    traces = experiments[label]
+                    accs = []
+                    for diff in difficulty_levels:
+                        cond = f"{mod}{diff}"
+                        subset = [t for t in traces if _extract_condition(t) == cond]
+                        if subset:
+                            acc = sum(1 for t in subset if t.get("guid_match", False)) / len(subset) * 100
+                        else:
+                            acc = 0
+                        accs.append(acc)
+
+                    ax.plot(
+                        range(3), accs,
+                        marker=markers[ei % len(markers)], markersize=10,
+                        color=colors[ei % len(colors)], linewidth=2.5,
+                        label=label if mi == 0 else None, alpha=0.85,
+                    )
+                    for xi, acc in enumerate(accs):
+                        ax.annotate(
+                            f"{acc:.0f}%", (xi, acc),
+                            textcoords="offset points", xytext=(0, 12),
+                            ha="center", fontsize=8, fontweight="bold",
+                            color=colors[ei % len(colors)],
+                        )
+
+                ax.set_xticks(range(3))
+                ax.set_xticklabels(diff_labels, fontsize=10)
+                ax.set_title(mod_display[mod], fontsize=12, fontweight="bold")
+                ax.set_ylim(-5, 115)
+                ax.grid(axis="y", alpha=0.3, linestyle="--")
+                ax.grid(axis="x", alpha=0.15, linestyle=":")
 
     axes[0].set_ylabel("Top-1 Accuracy (%)", fontsize=12)
     legend_ncol = len(extractors) if paired_ablation else len(experiments)

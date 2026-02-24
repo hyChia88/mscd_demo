@@ -247,3 +247,29 @@ conditions:
     use_floorplan: true
     chat_blur: false
     4d_metadata: true
+
+  # ---------------------------------------------------------------------------
+  # 4D Context Ablation (MA-/MB-/MC-): identical to MA/MB/MC but with 4D OFF
+  # Pair each with its MA/MB/MC counterpart to isolate pure 4D contribution.
+  # Run via:  python script/run.py --profile v2_lora --condition-override MA-
+  # ---------------------------------------------------------------------------
+  "MA-":
+    # Text-only, NO 4D project context → measures 4D impact on text-only setting
+    use_images: false
+    use_floorplan: false
+    chat_blur: false
+    4d_metadata: false
+
+  "MB-":
+    # Site photos + text, NO 4D project context → measures 4D impact with vision
+    use_images: true
+    use_floorplan: false
+    chat_blur: false
+    4d_metadata: false
+
+  "MC-":
+    # Full multimodal (photos + floorplan), NO 4D → measures 4D impact at full modality
+    use_images: true
+    use_floorplan: true
+    chat_blur: false
+    4d_metadata: false

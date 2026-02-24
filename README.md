@@ -64,9 +64,15 @@ python script/run.py --profile v2_lora \
 ./training/train.sh --download-only   # download after training
 ```
 
-**End-to-end LoRA evaluation (synth_v0.4 holdout):**
+**End-to-end LoRA evaluation (synth_v0.4 holdout, 6-condition modality ablation):**
 ```bash
-./training/eval.sh --step paired-ablation --adapter final
+./training/eval.sh --step modality-6cond --adapter final
+```
+
+**Regenerate plots from latest traces (never overwrites existing):**
+```bash
+./training/eval.sh --step update-plots
+./training/eval.sh --step update-plots --experiment modality_6cond_lora   # LoRA only
 ```
 
 **Interactive chat (for testing):**
@@ -93,7 +99,7 @@ python script/run.py --profile <profile_name> --cases <path_to_cases.jsonl>
 |----------|----------|-------------|
 | `--profile` | Yes | Profile name from `profiles.yaml` |
 | `--cases` | Yes | Path to cases JSONL file |
-| `--condition` | No | Filter cases by condition (A1-C3) |
+| `--condition` | No | Filter cases by condition (A1-C3 or MA/MB/MC/MA-/MB-/MC-) |
 | `--adapter_path` | No | LoRA adapter checkpoint path (for v2 lora mode) |
 | `--output_dir` | No | Output directory (default: `logs/evaluations`) |
 | `--config` | No | Path to `config.yaml` (default: `config.yaml`) |
@@ -148,9 +154,27 @@ Profiles are defined in `profiles.yaml`. Each profile specifies the full experim
 | `ablate_no_graph` | v2 | lora | memory | yes | Ablation: no graph database |
 | `ablate_no_schema` | v2 | lora | neo4j | yes | Ablation: no RQ2 validation |
 
-### Experimental Conditions (A1–C3)
+### Experimental Conditions
 
-Each case in `cases_v2.jsonl` has a `bench.condition` field. Conditions control which input modalities are available, simulating different real-world scenarios.
+#### LoRA_2 Modality Ablation (MA/MB/MC — synth_v0.4)
+
+The LoRA_2 evaluation uses a 6-condition paired ablation design to isolate the contribution of each visual modality and 4D project context independently.
+
+| Condition | Visual Inputs | 4D Context | Purpose |
+|-----------|---------------|------------|---------|
+| **MA** | Text only | **ON** | Text + 4D baseline |
+| **MB** | Text + Site photos | **ON** | +Photos vs MA |
+| **MC** | Text + Photos + Floorplan | **ON** | +Floorplan vs MB |
+| **MA-** | Text only | **OFF** | MA without 4D |
+| **MB-** | Text + Site photos | **OFF** | MB without 4D |
+| **MC-** | Text + Photos + Floorplan | **OFF** | MC without 4D |
+
+Each condition runs 50 holdout cases × 2 profiles (LoRA + Prompt) = 600 traces total.
+Comparing MA vs MA-, MB vs MB-, MC vs MC- isolates the pure 4D contribution at each modality level.
+
+#### V2 Prompt Ablation (A1–C3 — synth_v0.3)
+
+The older condition grid (used for V1/V2 prompt baseline experiments on synth_v0.3):
 
 | Condition | Chat | Images | Floorplan | 4D Metadata | CLIP Rerank |
 |-----------|------|--------|-----------|-------------|-------------|
@@ -284,28 +308,48 @@ python -m pytest test/rq2_schema_smoke_test.py -v  # RQ2 schema validation
 After running evaluations, generate publication-ready visualizations:
 
 ```bash
-# Auto-generate plots from latest evaluation
-conda run -n mscd_demo python script/generate_plots.py --latest
+# Regenerate from latest traces — creates dated, never-overwrites directory
+./training/eval.sh --step update-plots
 
-# Compare before/after VLM integration
+# LoRA only or Prompt only
+./training/eval.sh --step update-plots --experiment modality_6cond_lora
+./training/eval.sh --step update-plots --experiment modality_6cond_prompt
+
+# Standalone comparison chart (any two JSONL trace files)
+python script/compare_results.py \
+  --traces logs/evaluations/synth_v04/traces_*_v2_lora_MA.jsonl  --label "LoRA MA" \
+  --traces logs/evaluations/synth_v04/traces_*_v2_prompt_MA.jsonl --label "Prompt MA" \
+  --cases ../data_curation/datasets/synth_v0.4_merged/train/test_holdout.jsonl \
+  --plots --output docs/plots/my_comparison
+
+# Modality-only charts (Charts 9–13) from JSONL files
 conda run -n mscd_demo python script/generate_plots.py \
-  --traces logs/evaluations/new_pipeline/traces_*.jsonl \
-  --before logs/evaluations/old_pipeline/traces_*.jsonl
+  --modality \
+  --traces logs/evaluations/synth_v04/traces_*_v2_lora_M*.jsonl \
+           logs/evaluations/synth_v04/traces_*_v2_prompt_M*.jsonl \
+  --output docs/plots/my_modality
 ```
 
-**Output**: Plots saved to `logs/plots/<timestamp>_<profile>/`
+**Output**: Plots saved to `docs/plots/<MMDD>_<experiment>/` (versioned `_v2`, `_v3`… if directory exists)
 
-**Available charts**:
-- Top-1 Accuracy by Condition
-- Search Space Reduction (funnel chart — **key metric for thesis**)
-- Constraints Parse Rate
-- Image Parse Timing (VLM overhead)
-- Vision Impact (before/after comparison)
-- Per-Case Success Heatmap
+**Charts 1–8** (comparison, via `compare_results.py`):
+1. Overall Top-1 Accuracy (LoRA vs Prompt)
+2. Condition-wise comparison (MA/MB/MC/MA-/MB-/MC-)
+3. Search Space Reduction (funnel — **key thesis metric**)
+4. Efficiency (latency)
+5. Accuracy heatmap
+6. Accuracy heatmap detail
+7. Modality gain by difficulty tier (T1/T2/T3)
+8. Difficulty degradation by modality (T1→T2→T3)
+9. Candidate density vs accuracy scatter
 
-**For thesis**: All plots are 300 DPI PNG files ready for LaTeX/Word.
+**Charts 9–13** (modality analysis, via `generate_plots.py --modality`):
+- `9_modality_stack_MA_MB_MC.png` — Grouped bars: MA/MB/MC × LoRA/Prompt
+- `11_modality_x_building.png` — Heatmap: building (AP/BH/DXA) × modality
+- `12_4d_paired_ablation.png` — 4D ON vs OFF per modality level
+- `13_modality_dual_profile.png` — Line + bar dual view, all 12 conditions
 
-See [logs/plots/PLOTS_README.md](logs/plots/PLOTS_README.md) for detailed usage and examples.
+**For thesis**: All plots are 180–300 DPI PNG, white background, publication-ready.
 
 ### Experiment Management
 
@@ -399,22 +443,23 @@ modal app logs mscd-vlm-lora-train
 ---
 ### Full Evaluation Pipeline Flow
 ```bash
-# End-to-end LoRA_2 evaluation (synth_v0.4 holdout, all conditions MA/MB/MC):
-./training/eval.sh --step paired-ablation --adapter final
+# Full 6-condition modality ablation (MA/MB/MC × 4D ON/OFF, LoRA + Prompt):
+./training/eval.sh --step modality-6cond --adapter final
 
 # Or step-by-step:
-./training/eval.sh --step modal --adapter final  # Run constraint extraction on Modal GPU
-./training/eval.sh --step local --adapter final  # Run retrieval+scoring locally
-./training/eval.sh --step plots                  # Generate comparison charts
+./training/eval.sh --step modal --adapter final  # GPU constraint extraction (Modal A100)
+./training/eval.sh --step local --adapter final  # Local retrieval + scoring
+./training/eval.sh --step update-plots           # Regenerate docs/plots (never overwrites)
 
-# Overall comparison (LoRA vs Prompt, per-case natural conditions):
-./training/eval.sh --step overall
+# Paired ablation only (MA/MB/MC LoRA vs Prompt, no 4D-OFF conditions):
+./training/eval.sh --step paired-ablation --adapter final
 
-# Standalone comparison chart (any trace files):
+# Standalone comparison (any trace files → charts 1–9):
 python script/compare_results.py \
-  --traces logs/evaluations/synth_v04/traces_*_v2_lora_MA.jsonl --label "LoRA_MA" \
-  --traces logs/evaluations/synth_v04/traces_*_v2_prompt_MA.jsonl --label "Prompt_MA" \
-  --plots --output logs/comparisons/lora2_vs_prompt
+  --traces logs/evaluations/synth_v04/traces_*_v2_lora_MA.jsonl  --label "LoRA MA" \
+  --traces logs/evaluations/synth_v04/traces_*_v2_prompt_MA.jsonl --label "Prompt MA" \
+  --cases ../data_curation/datasets/synth_v0.4_merged/train/test_holdout.jsonl \
+  --plots --output docs/plots/lora2_vs_prompt
 ```
 ## Architecture
 
@@ -723,6 +768,18 @@ Each case includes: photoreal site photos (Gemini-generated from IFC wireframes)
 
 The low Top-1 reflects the challenge: many cases use vague/deictic text (e.g., "Look at this.") by design, forcing the model to rely on visual grounding rather than keyword matching. This is the baseline the LoRA adapter aims to improve.
 
+### LoRA_2 Evaluation Results (synth_v0.4, 50 holdout cases)
+
+6-condition modality ablation × 2 profiles (300 traces each):
+
+| Profile | Conditions | Top-1 Accuracy |
+|---------|------------|---------------|
+| **V2 LoRA** (LoRA_2 adapter) | MA/MB/MC/MA-/MB-/MC- (all 6) | **35.3%** |
+| **V2 Prompt** (Gemini baseline) | MA/MB/MC/MA-/MB-/MC- (all 6) | 25.7% |
+
+LoRA_2 outperforms the Gemini prompt baseline by **+9.6 pp** on the same 50-case holdout.
+Charts: [docs/plots/0224_modality_6cond_v3/](docs/plots/0224_modality_6cond_v3/)
+
 ### synth_v0.4 (LoRA_2 Training Dataset)
 
 synth_v0.4 expands the dataset to three IFC building models, giving the LoRA adapter
@@ -933,4 +990,4 @@ python legacy/script/ifc_to_neo4j.py
 ---
 
 **Last Updated:** February 2026
-**Status:** V1 + V2 pipelines operational. synth_v0.3 (84 cases): V2 prompt baseline Top-1=3.57%, SSR=92.65%. synth_v0.4 (361 cases, 3 IFC models): LoRA_2 adapter trained (Qwen2.5-VL r=16, 933 samples, 3 epochs) — adapters at `/mscd-lora/final` on Modal and `models/adapters/v2_lora_qwen/` locally. Phase 5 fine-grained constraints (space_name, target_name_keyword, neighbor_type) added. Unused code archived to `legacy/`.
+**Status:** V1 + V2 pipelines operational. synth_v0.3 (84 cases): V2 prompt baseline Top-1=3.57%, SSR=92.65%. synth_v0.4 (361 cases, 3 IFC models): LoRA_2 adapter trained (Qwen2.5-VL r=16, 933 samples, 3 epochs) — adapters at `/mscd-lora/final` on Modal and `models/adapters/v2_lora_qwen/` locally. **LoRA_2 vs Prompt eval (50 holdout, 6-condition modality ablation): LoRA 35.3% vs Prompt 25.7% Top-1.** Phase 5 fine-grained constraints (space_name, target_name_keyword, neighbor_type) added. Unused code archived to `legacy/`. Plot generation: `eval.sh --step update-plots` → `docs/plots/<MMDD>_modality_6cond_*/`.

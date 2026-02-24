@@ -10,6 +10,8 @@
 #   ./training/eval.sh --step modal                 # Step 1-2: Modal extraction + download
 #   ./training/eval.sh --step local                 # Step 3: Local pipeline (needs precomputed)
 #   ./training/eval.sh --step plots                 # Step 4: Comparison charts only
+#   ./training/eval.sh --step update-plots          # Regenerate docs/plots from latest traces
+#   ./training/eval.sh --step update-plots --experiment modality_6cond_lora
 #   ./training/eval.sh --adapter final              # Single adapter only
 #   ./training/eval.sh --skip-v2-prompt             # Skip V2 prompt baseline (already done)
 #   ./training/eval.sh --limit 5                    # Quick test with 5 cases
@@ -61,12 +63,13 @@ section() { echo -e "\n${BOLD}════════════════�
 
 # ── Parse arguments ──────────────────────────────────────────────────────────
 
-STEP="full"              # full | modal | local | plots | paired-ablation | overall
+STEP="full"              # full | modal | local | plots | paired-ablation | overall | modality-6cond | update-plots
 ADAPTERS=("final" "checkpoint-180")
 SKIP_V2_PROMPT=false
 LIMIT_ARG=""
 CONDA_ENV="mscd_demo"
 CONDITION_OVERRIDE=""    # For paired ablation: MA, MB, MC
+PLOT_EXPERIMENT="modality_6cond"   # For --step update-plots
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -76,8 +79,9 @@ while [[ $# -gt 0 ]]; do
         --limit)         LIMIT_ARG="--limit $2"; shift 2 ;;
         --conda)         CONDA_ENV="$2"; shift 2 ;;
         --condition-override) CONDITION_OVERRIDE="$2"; shift 2 ;;
+        --experiment)        PLOT_EXPERIMENT="$2"; shift 2 ;;
         -h|--help)
-            echo "Usage: ./training/eval.sh [--step modal|local|plots|paired-ablation] [--adapter NAME] [--limit N]"
+            echo "Usage: ./training/eval.sh [--step STEP] [--adapter NAME] [--limit N]"
             echo ""
             echo "Steps:"
             echo "  full              Run all steps (modal + local + plots)"
@@ -86,10 +90,14 @@ while [[ $# -gt 0 ]]; do
             echo "  plots             Comparison charts only"
             echo "  paired-ablation   LoRA+Prompt MA/MB/MC ablation + overall comparison"
             echo "  overall           Overall comparison only (LoRA final vs Prompt v2, per-case)"
+            echo "  modality-6cond    Full 6-condition ablation (MA/MB/MC/MA-/MB-/MC- × LoRA+Prompt)"
+            echo "  update-plots      Regenerate docs/plots from latest traces (never overwrites)"
             echo ""
             echo "Options:"
             echo "  --adapter NAME              Adapter name (default: final + checkpoint-180)"
             echo "  --condition-override COND   Override condition for all cases (MA/MB/MC)"
+            echo "  --experiment NAME           Experiment to plot with update-plots (default: modality_6cond)"
+            echo "                              Options: modality_6cond | modality_6cond_lora | modality_6cond_prompt"
             echo "  --limit N                   Limit to first N cases"
             exit 0 ;;
         *)
@@ -213,7 +221,7 @@ run_local_pipeline() {
         fi
 
         info "Running local pipeline with adapter: $adapter (condition: ${cond_override:-per-case})"
-        conda run -n "$CONDA_ENV" python script/run.py \
+        conda run -n "$CONDA_ENV" python -u script/run.py \
             --profile v2_lora \
             --cases "$CASES" \
             --precomputed "$precomputed_file" \
@@ -226,7 +234,7 @@ run_local_pipeline() {
     # Run V2 prompt baseline if not done and not skipped
     if [[ "$SKIP_V2_PROMPT" == false && ! -f "$V2_PROMPT_TRACES" && -z "$cond_override" ]]; then
         info "Running V2 prompt baseline..."
-        conda run -n "$CONDA_ENV" python script/run.py \
+        conda run -n "$CONDA_ENV" python -u script/run.py \
             --profile v2_prompt \
             --cases "$CASES" \
             --output_dir "$EVAL_DIR" \
@@ -288,7 +296,7 @@ run_comparison_charts() {
     fi
 
     info "Generating comparison charts..."
-    conda run -n "$CONDA_ENV" python script/compare_results.py \
+    conda run -n "$CONDA_ENV" python -u script/compare_results.py \
         "${plot_args[@]}" \
         --cases "$CASES" \
         --plots \
@@ -354,7 +362,7 @@ run_overall_comparison() {
             ok "LoRA per-case traces exist: $(basename "$existing_lora_overall") (skipping)"
         else
             info "Running v2_lora (per-case conditions)..."
-            conda run -n "$CONDA_ENV" python script/run.py \
+            conda run -n "$CONDA_ENV" python -u script/run.py \
                 --profile v2_lora \
                 --cases "$CASES" \
                 --precomputed "$overall_precomputed" \
@@ -377,7 +385,7 @@ run_overall_comparison() {
             ok "Prompt per-case traces exist: $(basename "$existing_prompt_overall") (skipping)"
         else
             info "Running v2_prompt (per-case conditions)..."
-            conda run -n "$CONDA_ENV" python script/run.py \
+            conda run -n "$CONDA_ENV" python -u script/run.py \
                 --profile v2_prompt \
                 --cases "$CASES" \
                 --output_dir "$EVAL_DIR" \
@@ -394,7 +402,7 @@ run_overall_comparison() {
     if [[ ${#overall_plot_args[@]} -ge 4 ]]; then
         info "Generating overall metrics chart..."
         mkdir -p "${PLOTS_DIR}/overall"
-        conda run -n "$CONDA_ENV" python script/compare_results.py \
+        conda run -n "$CONDA_ENV" python -u script/compare_results.py \
             "${overall_plot_args[@]}" \
             --cases "$CASES" \
             --plots \
@@ -432,7 +440,7 @@ run_paired_ablation() {
             else
                 info "Running v2_prompt (condition=$cond)..."
                 cd "$PROJECT_DIR"
-                conda run -n "$CONDA_ENV" python script/run.py \
+                conda run -n "$CONDA_ENV" python -u script/run.py \
                     --profile v2_prompt \
                     --cases "$CASES" \
                     --output_dir "$EVAL_DIR" \
@@ -471,7 +479,7 @@ run_paired_ablation() {
 
     if [[ ${#plot_args[@]} -ge 4 ]]; then
         info "Generating paired ablation charts..."
-        conda run -n "$CONDA_ENV" python script/compare_results.py \
+        conda run -n "$CONDA_ENV" python -u script/compare_results.py \
             "${plot_args[@]}" \
             --cases "$CASES" \
             --plots --paired-ablation \
@@ -481,6 +489,215 @@ run_paired_ablation() {
     else
         warn "Not enough trace files for paired comparison"
     fi
+}
+
+# ═════════════════════════════════════════════════════════════════════════════
+# STEP: Full 6-Condition Modality Ablation (primary experiment)
+# MA/MB/MC (4D ON) + MA-/MB-/MC- (4D OFF) × LoRA + Prompt = 12 runs
+# Reads precomputed_map from experiments.yaml → no need to pass --precomputed manually.
+#
+# Workflow:
+#   1. Modal LoRA extraction × 6 conditions → downloads to precomputed/ subdir
+#   2. Local replay: experiment.py run modality_6cond_lora  (uses precomputed_map)
+#   3. Local run:    experiment.py run modality_6cond_prompt (Gemini, no GPU)
+# ═════════════════════════════════════════════════════════════════════════════
+
+run_modality_6cond() {
+    section "6-Condition Modality Ablation (LoRA+Prompt × MA/MB/MC/MA-/MB-/MC-)"
+
+    local CONDS=("MA" "MB" "MC" "MA-" "MB-" "MC-")
+    local PRECOMP_DIR="$EVAL_DIR/precomputed"
+    mkdir -p "$PRECOMP_DIR"
+
+    # ── 1. Modal LoRA extraction × 6 conditions ───────────────────────────────
+    info "Step 1/3: Modal LoRA extraction × 6 conditions → $PRECOMP_DIR"
+
+    for cond in "${CONDS[@]}"; do
+        local tag="final_${cond}"
+        local dest="$PRECOMP_DIR/eval_constraints_${tag}.jsonl"
+
+        if [[ -f "$dest" ]]; then
+            local count
+            count=$(wc -l < "$dest")
+            ok "  Already exists: $(basename "$dest") ($count cases) — skipping Modal"
+            continue
+        fi
+
+        info "  Running Modal: --condition-override $cond"
+        cd "$PROJECT_DIR"
+        modal run training/eval.py \
+            --adapter-dir /mscd-lora/final \
+            --condition-override "$cond" \
+            $LIMIT_ARG
+
+        info "  Downloading eval_constraints_${tag}.jsonl..."
+        modal volume get mscd-checkpoints \
+            "/mscd-lora/eval_constraints_${tag}.jsonl" \
+            "$PRECOMP_DIR/"
+
+        if [[ -f "$dest" ]]; then
+            local count
+            count=$(wc -l < "$dest")
+            ok "  Downloaded: $(basename "$dest") ($count cases)"
+        else
+            fail "  Download failed — expected: $dest"
+        fi
+    done
+
+    # ── 2. Local replay — LoRA (uses precomputed_map from experiments.yaml) ───
+    info "Step 2/3: Local pipeline — modality_6cond_lora (precomputed_map)"
+    cd "$PROJECT_DIR"
+    conda run -n "$CONDA_ENV" python -u script/experiment.py run modality_6cond_lora
+    ok "modality_6cond_lora complete"
+
+    # ── 3. Local run — Prompt (Gemini, no GPU needed) ─────────────────────────
+    info "Step 3/3: Local pipeline — modality_6cond_prompt (Gemini, no GPU)"
+    conda run -n "$CONDA_ENV" python -u script/experiment.py run modality_6cond_prompt
+    ok "modality_6cond_prompt complete"
+
+    # ── 4. Generate docs/plots for this run ───────────────────────────────────
+    run_update_plots "modality_6cond"
+}
+
+# ═════════════════════════════════════════════════════════════════════════════
+# STEP: Update Plots — regenerate docs/plots from latest traces
+#
+# Never overwrites existing directories.  Naming convention:
+#   docs/plots/MMDD_<experiment>           (first run on that date)
+#   docs/plots/MMDD_<experiment>_v2        (second run, etc.)
+#
+# Usage:
+#   ./training/eval.sh --step update-plots                          # modality_6cond (default)
+#   ./training/eval.sh --step update-plots --experiment modality_6cond_lora
+# ═════════════════════════════════════════════════════════════════════════════
+
+run_update_plots() {
+    local experiment="${1:-$PLOT_EXPERIMENT}"
+    section "Update Plots — ${experiment}"
+
+    cd "$PROJECT_DIR"
+
+    # ── Collect latest file per (profile × condition) ─────────────────────────
+    # For modality_6cond experiments, always pick the NEWEST file per combination
+    # to avoid including stale runs from previous experiments.
+    local trace_files=()
+    local missing=()
+
+    case "$experiment" in
+        modality_6cond | modality_6cond_lora | modality_6cond_prompt)
+            local profiles=()
+            case "$experiment" in
+                modality_6cond)        profiles=("lora" "prompt") ;;
+                modality_6cond_lora)   profiles=("lora") ;;
+                modality_6cond_prompt) profiles=("prompt") ;;
+            esac
+            local conditions=("MA" "MB" "MC" "MA-" "MB-" "MC-")
+
+            for profile in "${profiles[@]}"; do
+                for cond in "${conditions[@]}"; do
+                    local latest
+                    latest=$(ls -t "$EVAL_DIR/traces_"*"_v2_${profile}_${cond}.jsonl" 2>/dev/null | head -1)
+                    if [[ -n "$latest" ]]; then
+                        trace_files+=("$latest")
+                    else
+                        missing+=("${profile}/${cond}")
+                    fi
+                done
+            done
+            ;;
+        *)
+            # Fallback: most recent trace file (Charts 1-8 only, no modality)
+            local latest
+            latest=$(ls -t "$EVAL_DIR/traces_"*.jsonl 2>/dev/null | head -1)
+            [[ -n "$latest" ]] && trace_files+=("$latest")
+            warn "Generic fallback for unknown experiment '${experiment}'"
+            ;;
+    esac
+
+    if [[ ${#trace_files[@]} -eq 0 ]]; then
+        warn "No trace files found for experiment '${experiment}'"
+        warn "Run the experiment first:  ./training/eval.sh --step modality-6cond"
+        return 1
+    fi
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        warn "Missing traces for: ${missing[*]}"
+    fi
+    ok "Found ${#trace_files[@]} trace file(s)"
+
+    # ── Determine output directory (never overwrite) ──────────────────────────
+    local date_prefix out_dir
+    date_prefix=$(date +%m%d)
+    out_dir="$PROJECT_DIR/docs/plots/${date_prefix}_${experiment}"
+
+    if [[ -d "$out_dir" ]]; then
+        local n=2
+        while [[ -d "${out_dir}_v${n}" ]]; do
+            (( n++ ))
+        done
+        out_dir="${out_dir}_v${n}"
+        info "Existing directory found — using new path: $out_dir"
+    fi
+
+    local rel_out_dir="${out_dir#$PROJECT_DIR/}"   # relative path for Python scripts
+    info "Output directory: $rel_out_dir"
+    for f in "${trace_files[@]}"; do info "  $(basename "$f")"; done
+
+    # ── Charts 1–8: N-way comparison (LoRA vs Prompt) ────────────────────────
+    # Merge traces by profile into temp files, then run compare_results.py which
+    # renders LoRA and Prompt as two distinct series in each chart.
+    info "Generating comparison charts (1–8): LoRA vs Prompt..."
+
+    local tmp_lora="$EVAL_DIR/.tmp_merged_lora_$$.jsonl"
+    local tmp_prompt="$EVAL_DIR/.tmp_merged_prompt_$$.jsonl"
+    local has_lora=false has_prompt=false
+
+    for f in "${trace_files[@]}"; do
+        local bn
+        bn="$(basename "$f")"
+        if [[ "$bn" == *_v2_lora_* ]]; then
+            cat "$f" >> "$tmp_lora"
+            has_lora=true
+        elif [[ "$bn" == *_v2_prompt_* ]]; then
+            cat "$f" >> "$tmp_prompt"
+            has_prompt=true
+        fi
+    done
+
+    # Build informative labels showing which conditions are in each group
+    local lora_label="V2 LoRA" prompt_label="V2 Prompt"
+    if [[ "$experiment" == modality_6cond* ]]; then
+        lora_label="V2 LoRA (MA/MB/MC × 4D±)"
+        prompt_label="V2 Prompt (MA/MB/MC × 4D±)"
+    fi
+
+    local cmp_args=()
+    $has_lora   && cmp_args+=(--traces "$tmp_lora"   --label "$lora_label")
+    $has_prompt && cmp_args+=(--traces "$tmp_prompt" --label "$prompt_label")
+
+    if [[ ${#cmp_args[@]} -ge 4 ]]; then
+        conda run -n "$CONDA_ENV" python -u script/compare_results.py \
+            "${cmp_args[@]}" \
+            --cases "$CASES" \
+            --plots \
+            --output "$rel_out_dir" \
+            --title "${experiment} — LoRA vs Prompt (synth_v0.4, 50 cases)"
+    else
+        warn "Not enough profiles for N-way comparison — skipping Charts 1–8"
+    fi
+
+    rm -f "$tmp_lora" "$tmp_prompt"
+
+    # ── Charts 9–13: Modality importance plots ────────────────────────────────
+    # Skipped for generic/unknown experiments (no MA/MB/MC structure)
+    if [[ "$experiment" == modality_6cond* ]]; then
+        info "Generating modality charts (9–13)..."
+        conda run -n "$CONDA_ENV" python -u script/generate_plots.py \
+            --modality \
+            --traces "${trace_files[@]}" \
+            --output "$rel_out_dir"
+    fi
+
+    ok "All plots saved to: $rel_out_dir/"
 }
 
 case "$STEP" in
@@ -504,8 +721,14 @@ case "$STEP" in
     overall)
         run_overall_comparison
         ;;
+    modality-6cond)
+        run_modality_6cond
+        ;;
+    update-plots)
+        run_update_plots "$PLOT_EXPERIMENT"
+        ;;
     *)
-        fail "Unknown step: $STEP (use: full, modal, local, plots, paired-ablation, overall)"
+        fail "Unknown step: $STEP (use: full, modal, local, plots, paired-ablation, overall, modality-6cond, update-plots)"
         ;;
 esac
 

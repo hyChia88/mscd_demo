@@ -37,7 +37,7 @@ class PromptConstraintsExtractor:
         """Load prompts from YAML file."""
         prompts_data = load_yaml_prompts(prompts_path)
 
-        self.system_prompt = prompts_data.get("prompt_only_system", "")
+        self.system_prompt = prompts_data.get("system", prompts_data.get("prompt_only_system", ""))
 
         # Load optional mappings for better extraction
         self.element_mappings = prompts_data.get("element_type_mappings", [])
