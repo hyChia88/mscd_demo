@@ -6,28 +6,29 @@ Tab 3 — Result Visualisation
 import urllib.parse
 import streamlit as st
 from pathlib import Path
-from demo.loader import get_ifc_path
+from demo.loader import get_ifc_path, get_ifc_url
 
 
 def render(trace: dict, static_base_url: str) -> None:
     predicted_guid = _get_predicted_guid(trace)
     gt_guid        = _get_gt_guid(trace)
     guid_match     = trace.get("guid_match", False)
+    case_id        = trace.get("scenario_id") or (trace.get("scenario") or {}).get("id", "")
 
     left, right = st.columns([1, 1], gap="medium")
 
     # ── LEFT: IFC STEP text ───────────────────────────────────────────────
     with left:
-        _render_ifc_text(predicted_guid, gt_guid, guid_match)
+        _render_ifc_text(predicted_guid, gt_guid, guid_match, case_id)
 
     # ── RIGHT: 3D viewer ─────────────────────────────────────────────────
     with right:
-        _render_3d_viewer(predicted_guid, gt_guid, guid_match, static_base_url)
+        _render_3d_viewer(predicted_guid, gt_guid, guid_match, static_base_url, case_id)
 
 
-def _render_ifc_text(predicted_guid: str, gt_guid: str, guid_match: bool) -> None:
+def _render_ifc_text(predicted_guid: str, gt_guid: str, guid_match: bool, case_id: str = "") -> None:
     st.markdown("**IFC STEP Text**")
-    ifc_path = get_ifc_path()
+    ifc_path = get_ifc_path(case_id)
 
     if predicted_guid:
         label = "Predicted element" + (" ✓" if guid_match else " ✗")
@@ -49,10 +50,11 @@ def _render_3d_viewer(
     gt_guid: str,
     guid_match: bool,
     static_base_url: str,
+    case_id: str = "",
 ) -> None:
     st.markdown("**3D BIM Viewer**")
 
-    ifc_url      = static_base_url + "/data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+    ifc_url      = get_ifc_url(case_id, static_base_url)
     static_base  = static_base_url + "/demo/static"
     gt_param     = gt_guid if (gt_guid and gt_guid != target_guid) else ""
 
@@ -95,11 +97,17 @@ def _render_3d_viewer(
     )
 
 
+@st.cache_resource(show_spinner=False)
+def _open_ifc(ifc_path_str: str):
+    """Cache the open ifcopenshell model — shared across all GUID lookups."""
+    import ifcopenshell
+    return ifcopenshell.open(ifc_path_str)
+
+
 @st.cache_data(show_spinner=False)
 def _get_step(ifc_path: Path, guid: str) -> str:
-    """Cached STEP text lookup — ifcopenshell is slow to open."""
-    import ifcopenshell
-    model = ifcopenshell.open(str(ifc_path))
+    """Cached STEP text lookup — reuses the cached open model."""
+    model = _open_ifc(str(ifc_path))
     try:
         element = model.by_guid(guid)
     except RuntimeError:

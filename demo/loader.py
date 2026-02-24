@@ -2,12 +2,27 @@
 Trace loader — lists runs/cases and loads EvalTrace from disk.
 """
 import json
+import re
 from pathlib import Path
 from typing import Optional
 
 # Resolve paths relative to the repo root (mscd_demo/)
 REPO_ROOT = Path(__file__).parent.parent          # mscd_demo/
 IFC_PATH  = REPO_ROOT / "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+
+# Building code → IFC path relative to REPO_ROOT (all served by the static server)
+_BUILDING_IFC: dict[str, str] = {
+    "AP":  "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc",
+    "BH":  "data/ifc/BasicHouse.ifc",
+    "DXA": "data/ifc/Duplex_A_20110505.ifc",   # symlinked from data_curation/
+}
+
+
+def _building_code(case_id: str) -> str:
+    """Extract building code from case_id, e.g. 'SYNTH_V3_005_BH_SK_005' → 'BH'."""
+    m = re.search(r'_([A-Z]+)_SK_', case_id)
+    return m.group(1) if m else ""
+
 
 # All directories that may contain per-run trace subdirs
 TRACE_ROOTS = [
@@ -84,5 +99,19 @@ def load_trace(run_id: str, case_id: str) -> Optional[dict]:
     return trace
 
 
-def get_ifc_path() -> Path:
+def get_ifc_path(case_id: str = "") -> Path:
+    """Return the IFC file path for the given case_id, falling back to AdvancedProject."""
+    code = _building_code(case_id)
+    rel = _BUILDING_IFC.get(code)
+    if rel:
+        p = REPO_ROOT / rel
+        if p.exists():
+            return p
     return IFC_PATH
+
+
+def get_ifc_url(case_id: str, static_base_url: str) -> str:
+    """Build the HTTP URL for the IFC file served by the static server."""
+    code = _building_code(case_id)
+    rel = _BUILDING_IFC.get(code, _BUILDING_IFC["AP"])
+    return static_base_url + "/" + rel
