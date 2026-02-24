@@ -335,7 +335,7 @@ Primary model: `AdvancedProject.ifc` — a 10-storey residential building with:
 |---|---|---|---|
 | **gt_1** | 6 | Active | Hand-written ground truth, high quality |
 | **synth_v0.3** | 84 | Primary | Thesis main evaluation, 3 difficulty tiers |
-| **synth_v0.4_merged** | 933 | Extended | 3 building models, large-scale ablation |
+| **synth_v0.4_merged** | 361 unique / 933 train samples | Extended | 3 building models (AP+BH+DXA), LoRA_2 training + eval |
 
 ### 5.3 Difficulty Tiers
 
@@ -353,39 +353,67 @@ T1 cases deliberately use deictic text ("Right here.") with no element keywords,
 
 ### 6.1 Training Data Construction
 
+LoRA_2 trains on **synth_v0.4** — three IFC building models providing richer element vocabulary and storey naming diversity than the single-building synth_v0.3.
+
 ```
-synth_v0.3 (84 cases, stratified split)
-├── 64 train cases
-│     └── augment_text.py → 3× styles per case = 192 samples
-│           ├── Original: preserve exact chat text
-│           ├── Style B (Vague): "Look at this.", "What is wrong here?"
-│           └── Style C (Urgent): "Need verification ASAP.", "QA flagged this."
-└── 20 test cases (holdout, never augmented)
+synth_v0.4_{ap,bh,dxa}/cases_v3_filtered.jsonl  (361 unique cases across 3 buildings)
+    |
+    v  6_augment_text.py  (stratified holdout + 3× text augmentation)
+    |
+    ├── synth_v0.4_ap/train/augmented.jsonl    (690 AP train samples)
+    ├── synth_v0.4_bh/train/augmented.jsonl    ( 33 BH train samples)
+    ├── synth_v0.4_dxa/train/augmented.jsonl   (210 DXA train samples)
+    └── test_holdout.jsonl                      ( 50 cases: AP=20, BH=20, DXA=10)
+    |
+    v  7_prepare_lora_data.py  (format into Qwen2.5-VL ChatML, merge all three)
+    |
+    ├── synth_v0.4_merged/train/lora_train.jsonl  (933 samples total)
+    │     ├── 444 MC samples — plan + Gemini site photo (2 images)
+    │     └── 489 MA samples — plan only (1 image)
+    └── synth_v0.4_merged/train/lora_test.jsonl   (50 test samples)
 ```
+
+**Text augmentation styles** (same images + ground truth, different chat text):
+- **Style A (Original)**: Preserved as-is from the generated case
+- **Style B (Vague/Deictic)**: "Look at this.", "What is wrong here?" — forces image reliance
+- **Style C (Urgent/Site Jargon)**: "QA flagged this.", "Need verification ASAP." — simulates real site language
+
+**Building models:**
+
+| Tag | Building | Unique cases | Holdout | Train samples (3×) |
+|-----|----------|-------------|---------|---------------------|
+| AP  | AdvancedProject (10-storey office) | 250 | 20 | 690 |
+| BH  | BasicHouse (2-storey residential)  |  31 | 20 |  33 |
+| DXA | Duplex_A (split-level duplex)      |  80 | 10 | 210 |
+| | **Total** | **361** | **50** | **933** |
 
 ### 6.2 Model & Training Config
 
 | Parameter | Value |
 |---|---|
-| Base model | `Qwen/Qwen2.5-VL-7B-Instruct` |
+| Base model | `unsloth/Qwen2.5-VL-7B-Instruct-bnb-4bit` |
 | Fine-tuning method | LoRA (via Unsloth) |
 | LoRA rank `r` | 16 |
 | LoRA alpha | 32 |
 | Dropout | 0.0 |
-| Epochs | 1–3 (early stopping on test loss) |
+| Epochs | 3 (best checkpoint by eval loss) |
 | Effective batch size | 16 (2 × 8 gradient accumulation) |
+| Training samples | 933 (AP=690, BH=33, DXA=210) |
+| Test samples | 50 |
+| Hardware | Modal A100 (40 GB) |
 | Training platform | Modal (cloud GPU) |
-| Input format | ChatML with base64-encoded images |
-| Output | Constraints JSON (storey, ifc_class, space_name, etc.) |
+| Input format | ChatML with `file://` image paths (Qwen VL utils resolves from disk) |
+| Output | Constraints JSON (storey, ifc_class, space_name, target_name_keyword, neighbor_type, near_keywords) |
 
 ### 6.3 Inference Contract
 
 ```python
-# Input
+# Input (T1/MC case — site photo + floorplan patch)
 messages = [
     {"role": "system", "content": CONSTRAINTS_SYSTEM_PROMPT},
     {"role": "user", "content": [
-        {"type": "image", "image": "data:image/png;base64,..."},
+        {"type": "image", "image": "file:///data/images/ap/imgs/img_001.png"},   # Gemini site photo
+        {"type": "image", "image": "file:///data/images/ap/plans/plan_001.png"}, # floorplan patch
         {"type": "text", "text": chat_text + "\n" + context_text}
     ]}
 ]
@@ -615,6 +643,191 @@ mscd_demo/
 **LoRA vs prompt-only extraction**: Prompt-only extraction has zero training cost and runs at LLM-inference speed, making it the right default for conditions with rich text (A1, A3). LoRA becomes necessary for vague/deictic conditions (B1–B3, C2) where element type cannot be inferred from text alone, and must be learned from visual patterns.
 
 **Search Space Reduction as primary metric**: Top-1 accuracy is sensitive to exact ranking; SSR measures whether the system is useful as a **filter** even when it cannot pinpoint the exact element. A system that reduces 263 candidates to 3 enables a supervisor to hand-select in seconds rather than minutes — a practical win even when Top-1 = 0.
+
+---
+
+## 16. Demo UI
+
+The demo is a **Streamlit web application** that visualises evaluation traces from any completed pipeline run. It serves as both a qualitative inspection tool (step through individual cases) and a communication artifact for the thesis.
+
+**Launch:**
+```bash
+cd mscd_demo
+streamlit run demo/app.py
+# opens at http://localhost:8501
+```
+
+A background HTTP server starts automatically on port 8502 to serve the IFC model file and the compiled JS/WASM assets required by the 3D viewer.
+
+---
+
+### 16.1 Layout
+
+```
+┌──────────────────┬────────────────────────────────────────────────────┐
+│   SIDEBAR        │   MAIN PANEL                                       │
+│                  │                                                     │
+│  Run selector    │  ┌─────────────────────────────────────────────┐  │
+│  Case selector   │  │  Header: ✅/❌  case_id  ·  pipeline  ·  run │  │
+│                  │  └─────────────────────────────────────────────┘  │
+│  ─────────────   │                                                     │
+│  GUID   ✓/✗     │  ┌──────────────┬──────────────┬─────────────┐    │
+│  Name   ✓/✗     │  │ 📋 Context   │ 🔍 Pipeline  │ 🏗️ Result   │    │
+│  Storey ✓/✗     │  │              │   Trace       │             │    │
+│                  │  └──────────────┴──────────────┴─────────────┘    │
+│  Ground Truth    │                                                     │
+│  GUID / Name     │                                                     │
+│  ⏱ latency       │                                                     │
+└──────────────────┴────────────────────────────────────────────────────┘
+```
+
+---
+
+### 16.2 Sidebar
+
+| Element | Description |
+|---------|-------------|
+| **Run selector** | Dropdown over all trace files in `outputs/traces/`, sorted by timestamp. Each entry = one `./run.sh` or `script/run.py` invocation. |
+| **Case selector** | Dropdown over all case IDs within the selected run. |
+| **Evaluation metrics** | Three `st.metric` tiles: GUID match ✓/✗, Name match ✓/✗, Storey match ✓/✗ — read from the `evaluation` block of the trace. |
+| **Ground truth** | GUID code block, element name, storey. |
+| **Latency** | Total end-to-end wall-clock time for the case. |
+
+---
+
+### 16.3 Tab 1 — Query Context
+
+Shows the raw input for the selected case:
+
+- **Chat history** — plain-text role: message display (e.g. `Site Supervisor: Check this wall`)
+- **Input images** — up to 3 columns; renders both site photos and floorplan patch if present in the trace's `image_paths` list
+- **4D Context** — three columns: sender role, project phase, 4D task status (e.g. `Window Installation - Level 6 - IN_PROGRESS`)
+
+---
+
+### 16.4 Tab 2 — Pipeline Trace
+
+Varies by pipeline type.
+
+**V2 pipeline (three bordered sections):**
+
+*Constraints Extraction*
+```
+Spatial                    Semantic
+─────────────────────      ─────────────────────────────────
+Storey: 6 - Sixth Floor    IFC class: IfcWindow
+Space:  —                  Name keyword: —
+                           Neighbor type: IfcColumn
+
+Confidence [██████████░░] 0.82  ·  source: lora
+```
+All five Phase 5 constraint fields are shown (`storey_name`, `space_name`, `ifc_class`, `target_name_keyword`, `neighbor_type`).
+
+*Query Plans* — one expander per plan, ordered by priority. The first non-null rule is auto-expanded:
+```
+▼ P1: `storey_name + ifc_class`  →  ~12 candidates
+    { "storey_name": "6 - Sixth Floor", "ifc_class": "IfcWindow" }
+```
+
+*Retrieval Results* — ranked candidate table (top-10):
+
+| Rank | GT | Name | Type | Storey | CLIP | GUID |
+|------|----|----|------|--------|------|------|
+| 1 | ✓ | Basic Wall:Generic ... | IfcWindow | 6 - Sixth Floor | 0.812 | 3Gzo... |
+
+Backend label, pool size, and whether CLIP reranking was applied are shown above the table.
+
+*Stage timing:* three `st.metric` tiles — Constraints extraction ms, Query planning ms, Retrieval ms.
+
+**V1 pipeline:**
+Collapsible expanders for each agent tool call, showing tool name, arguments, and the first 500 characters of the tool result.
+
+---
+
+### 16.5 Tab 3 — Result
+
+Split 50/50 left-right:
+
+**Left — IFC STEP Text**
+
+Raw STEP entity string for the predicted element (from `ifcopenshell.by_guid()`), then the ground truth element if different. Labelled `Predicted (✓ / ✗)` and `Ground truth`. Result is `@st.cache_data`-cached so reopening the same GUID is instant.
+
+```
+Predicted element ✗
+#1234 = IFCWINDOW('3GzoWuxx...', ..., 'Basic Wall:Generic ...');
+
+Ground truth element
+#5678 = IFCWALL('AbcDef12...', ..., 'Basic Wall:MockUp...');
+```
+
+**Right — 3D BIM Viewer**
+
+An `<iframe>` component (520 px height) running Three.js + `@thatopen/components` in the browser:
+
+1. IFC file streams from the background static server with a progress bar (5 % → 82 % download → 100 % geometry parsed)
+2. Predicted element highlighted:
+   - **Green** (`#22c55e`) — GUID match (correct)
+   - **Red** (`#ef4444`) — wrong prediction
+3. Ground truth element highlighted in **blue** (`#3b82f6`) when it differs from the prediction
+4. Full orbit camera controls (zoom, pan, rotate)
+5. Color legend rendered in the iframe HTML
+
+---
+
+### 16.6 Data Flow
+
+```
+outputs/traces/<run_id>/<case_id>.json   ← written by script/run.py
+        │
+        ▼
+   loader.load_trace()                   ← parses trace JSON
+        │
+        ▼
+   app.py                                ← Streamlit router
+        ├── sidebar.render_metrics()
+        ├── tab_context.render()
+        ├── tab_pipeline.render()
+        └── tab_result.render()
+                    │
+                    ├── ifc_index.py     ← GUID → Express ID (cached)
+                    └── static server    ← serves IFC + viewer.bundle.js
+```
+
+---
+
+### 16.7 File Structure
+
+```
+demo/
+├── app.py                   # Streamlit entry point (page config, tab routing)
+├── loader.py                # list_runs(), list_cases(), load_trace()
+├── server.py                # Background HTTP server on :8502 (static assets)
+├── ifc_index.py             # GUID → Express ID index (ifcopenshell, cached)
+│
+├── ui/
+│   ├── sidebar.py           # Run/case selector + evaluation metrics
+│   ├── tab_context.py       # Chat history, input images, 4D context
+│   ├── tab_pipeline.py      # Constraints, query plans, retrieval table, timing
+│   └── tab_result.py        # IFC STEP text + 3D viewer iframe
+│
+├── src/
+│   └── main.js              # Three.js + @thatopen/components viewer (91 lines)
+│
+├── static/
+│   ├── viewer.bundle.js     # esbuild-compiled bundle (~4.9 MB)
+│   └── web-ifc.wasm         # IFC geometry parser WASM (~1.3 MB)
+│
+├── templates/
+│   └── viewer.html          # Iframe template (config injection, progress bar, legend)
+│
+└── package.json             # esbuild + @thatopen/components + three + web-ifc
+```
+
+**Rebuild the JS bundle** (needed only after editing `src/main.js`):
+```bash
+cd demo
+npm run build    # esbuild src/main.js → static/viewer.bundle.js
+```
 
 ---
 

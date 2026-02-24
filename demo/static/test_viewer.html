@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en" style="margin:0;padding:0;overflow:hidden;background:#0f172a;">
+<head>
+  <meta charset="UTF-8">
+  <title>MSCD — 3D BIM Viewer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f172a; overflow: hidden; }
+    #viewer { width: 100vw; height: 100vh; }
+    #progress-wrap {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 300px; text-align: center;
+      font-family: monospace; color: #94a3b8;
+    }
+    #progress-track {
+      width: 100%; height: 4px; background: #1e293b;
+      border-radius: 2px; overflow: hidden; margin-top: 8px;
+    }
+    #progress-bar {
+      height: 100%; width: 0%; background: #3b82f6;
+      border-radius: 2px; transition: width 0.2s ease;
+    }
+    #progress-label { font-size: 12px; margin-bottom: 4px; }
+    #legend {
+      position: absolute; bottom: 12px; left: 12px;
+      font-family: monospace; font-size: 11px; color: #cbd5e1;
+      background: rgba(15,23,42,0.85); padding: 6px 10px;
+      border-radius: 6px; line-height: 1.8; display: none;
+    }
+    .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+    #toolbar {
+      position: absolute; top: 10px; right: 10px;
+      display: none; flex-direction: row; gap: 6px;
+    }
+    #toolbar button {
+      background: rgba(15,23,42,0.85); color: #cbd5e1;
+      border: 1px solid #334155; border-radius: 5px;
+      padding: 5px 10px; font-family: monospace;
+      font-size: 11px; cursor: pointer;
+    }
+    #toolbar button:hover { background: #1e293b; color: #f1f5f9; }
+    #btn-focus { display: none; }
+    /* Error strip — hidden until an error occurs */
+    #err-strip {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      display: none; background: rgba(239,68,68,0.15);
+      border-top: 1px solid #ef4444;
+      font-family: monospace; font-size: 11px;
+      color: #fca5a5; padding: 6px 12px;
+    }
+  </style>
+</head>
+<body>
+  <div id="viewer"></div>
+
+  <div id="progress-wrap">
+    <div id="progress-label">Initialising…</div>
+    <div id="progress-track">
+      <div id="progress-bar"></div>
+    </div>
+  </div>
+
+  <div id="legend"></div>
+
+  <div id="toolbar">
+    <button id="btn-fit-all">&#8862; Fit Building</button>
+    <button id="btn-focus">&#8857; Focus Target</button>
+  </div>
+
+  <div id="err-strip"></div>
+
+  <script>
+    // ── Read config from URL query parameters ────────────────────────────
+    const p = new URLSearchParams(window.location.search);
+    const staticBase = p.get("base") || "http://localhost:8502/demo/static";
+
+    window.VIEWER_CONFIG = {
+      ifc_url:     decodeURIComponent(p.get("ifc")    || ""),
+      target_guid: p.get("target") || "",
+      gt_guid:     p.get("gt")     || "",
+      guid_match:  p.get("match")  === "1",
+      static_base: staticBase,
+    };
+
+    // ── Build legend from params ─────────────────────────────────────────
+    const legend = document.getElementById("legend");
+    const match  = window.VIEWER_CONFIG.guid_match;
+    const hasGT  = !!window.VIEWER_CONFIG.gt_guid;
+    if (window.VIEWER_CONFIG.target_guid) {
+      const color = match ? "#22c55e" : "#ef4444";
+      const label = match ? "Predicted (correct)" : "Predicted (wrong)";
+      legend.innerHTML = `<span class="dot" style="background:${color}"></span>${label}`;
+      if (hasGT) {
+        legend.innerHTML += `<br><span class="dot" style="background:#3b82f6"></span>Ground truth`;
+      }
+    }
+
+    // ── Show errors in the bottom strip ─────────────────────────────────
+    function showError(msg) {
+      const strip = document.getElementById("err-strip");
+      strip.textContent = "Viewer error: " + msg;
+      strip.style.display = "block";
+      const bar = document.getElementById("progress-bar");
+      if (bar) bar.style.background = "#ef4444";
+    }
+    window.addEventListener("unhandledrejection", e => {
+      showError(e.reason?.message || String(e.reason));
+    });
+    window.addEventListener("error", e => {
+      showError(e.message);
+    });
+
+    // ── Show legend when viewer finishes loading ─────────────────────────
+    const check = setInterval(() => {
+      if (document.getElementById("progress-wrap").style.display === "none") {
+        if (window.VIEWER_CONFIG.target_guid) legend.style.display = "block";
+        clearInterval(check);
+      }
+    }, 500);
+  </script>
+
+  <script>
+    // Dynamically load bundle from the same static base
+    const s = document.createElement("script");
+    s.type = "module";
+    s.src  = staticBase + "/viewer.bundle.js";
+    document.body.appendChild(s);
+  </script>
+</body>
+</html>

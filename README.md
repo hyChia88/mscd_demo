@@ -41,10 +41,32 @@ cp .env.example .env
 ./run.sh mcp
 ```
 
-**V2 — Constraints-driven evaluation:**
+**V2 — Constraints-driven (Gemini prompt):**
 ```bash
 python script/run.py --profile v2_prompt \
-  --cases data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl
+  --cases ../data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl
+```
+
+**V2 — Constraints-driven (LoRA_2, synth_v0.4 adapter):**
+```bash
+# Download the trained adapter first (needs Modal):
+./training/train.sh --download-only
+
+# Run with the LoRA adapter:
+python script/run.py --profile v2_lora \
+  --cases logs/evaluations/synth_v04/eval_constraints_final.jsonl \
+  --adapter_path models/adapters/v2_lora_qwen
+```
+
+**Train a new LoRA adapter:**
+```bash
+./training/train.sh              # launch on Modal A100
+./training/train.sh --download-only   # download after training
+```
+
+**End-to-end LoRA evaluation (synth_v0.4 holdout):**
+```bash
+./training/eval.sh --step paired-ablation --adapter final
 ```
 
 **Interactive chat (for testing):**
@@ -116,7 +138,8 @@ Profiles are defined in `profiles.yaml`. Each profile specifies the full experim
 
 | Profile | Pipeline | Constraints | Retrieval | CLIP | Description |
 |---------|----------|-------------|-----------|------|-------------|
-| `v2_prompt` | v2 | prompt | neo4j | no | V2 with prompt-based extraction |
+| `v2_prompt` | v2 | prompt | neo4j | no | V2 with Gemini prompt-based extraction |
+| `v2_lora` | v2 | lora | neo4j | no | **V2 with LoRA_2 adapter (synth_v0.4)** |
 | `v2_memory` | v2 | prompt | memory | no | V2 with in-memory retrieval (fastest) |
 | `best_v2` | v2 | lora | neo4j | yes | V2 with all features enabled |
 | `v1_baseline` | v1 | — | memory | no | Original V1 agent pipeline |
@@ -351,32 +374,47 @@ This ensures **full reproducibility** — you can regenerate any result months l
 
 See [experiments.yaml](experiments.yaml) for full configuration.
 
-### LoRA Training:
+### LoRA Training (LoRA_2 — synth_v0.4)
 
-# Train (default config)
+```bash
+# Train on Modal A100 (default: 3 epochs, r=16, lr=2e-4)
 ./training/train.sh
 
 # Train with custom hyperparams
-./training/train.sh --epochs 5 --lr 1e-4
+./training/train.sh --epochs 5 --lr 1e-4 --lora-r 32
 
-# Download adapter after training
+# Download the trained adapter locally after training completes
 ./training/train.sh --download-only
+```
+
+Adapter is saved to `models/adapters/v2_lora_qwen/` locally and persisted on the
+Modal volume at `/mscd-lora/final` (and `/mscd-lora/checkpoint-180`).
+
+Monitor training progress:
+```bash
+modal app logs mscd-vlm-lora-train
+# or via Wandb: project=mscd-vlm-lora, run=qwen25vl-7b-r16-synth_v04
+```
+
 ---
 ### Full Evaluation Pipeline Flow
-```
-# End-to-end (after Modal adapters are ready):
-./training/eval.sh                    # Full: Modal → Local → Charts
+```bash
+# End-to-end LoRA_2 evaluation (synth_v0.4 holdout, all conditions MA/MB/MC):
+./training/eval.sh --step paired-ablation --adapter final
 
 # Or step-by-step:
-./training/eval.sh --step modal       # Extract constraints on GPU
-./training/eval.sh --step local       # Run retrieval+scoring locally
-./training/eval.sh --step plots       # Generate comparison charts
+./training/eval.sh --step modal --adapter final  # Run constraint extraction on Modal GPU
+./training/eval.sh --step local --adapter final  # Run retrieval+scoring locally
+./training/eval.sh --step plots                  # Generate comparison charts
 
-# Or standalone comparison:
+# Overall comparison (LoRA vs Prompt, per-case natural conditions):
+./training/eval.sh --step overall
+
+# Standalone comparison chart (any trace files):
 python script/compare_results.py \
-  --traces logs/evaluations/traces_A.jsonl --label "V2 Prompt" \
-  --traces logs/evaluations/traces_B.jsonl --label "V2 LoRA" \
-  --plots --output logs/comparisons/v03_full
+  --traces logs/evaluations/synth_v04/traces_*_v2_lora_MA.jsonl --label "LoRA_MA" \
+  --traces logs/evaluations/synth_v04/traces_*_v2_prompt_MA.jsonl --label "Prompt_MA" \
+  --plots --output logs/comparisons/lora2_vs_prompt
 ```
 ## Architecture
 
@@ -607,13 +645,14 @@ conditions:
 
 ## Datasets
 
-There are three datasets. Both pipelines (V1 and V2) read from the same JSONL format.
+All pipelines (V1 and V2) read from the same JSONL case format.
 
 | Dataset | Cases | File | Used by |
 |---------|-------|------|---------|
 | **gt_1** (hand-written) | 6 | `data/ground_truth/gt_1/gt_1.json` | V1 default |
 | **synth_v0.2** (synthetic) | 43 | `../data_curation/datasets/synth_v0.2/cases_v2.jsonl` | Legacy |
-| **synth_v0.3** (synthetic, main) | 84 | `../data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl` | V1 + V2 main evaluation |
+| **synth_v0.3** (synthetic) | 84 | `../data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl` | V1 + V2 prompt baseline |
+| **synth_v0.4** (multi-model) | 361 | `../data_curation/datasets/synth_v0.4_*/cases_v3_filtered.jsonl` | **LoRA_2 training + eval** |
 
 ### synth_v0.3 (Primary Evaluation Dataset)
 
@@ -684,57 +723,128 @@ Each case includes: photoreal site photos (Gemini-generated from IFC wireframes)
 
 The low Top-1 reflects the challenge: many cases use vague/deictic text (e.g., "Look at this.") by design, forcing the model to rely on visual grounding rather than keyword matching. This is the baseline the LoRA adapter aims to improve.
 
-### LoRA Training Data
+### synth_v0.4 (LoRA_2 Training Dataset)
 
-The training data pipeline converts the 84 evaluation cases into LoRA fine-tuning format:
+synth_v0.4 expands the dataset to three IFC building models, giving the LoRA adapter
+exposure to different buildings, element vocabularies, and storey naming conventions.
+
+**Three IFC models:**
+
+| Tag | Building | Cases | Holdout | Train cases |
+|-----|----------|-------|---------|-------------|
+| **AP** | AdvancedProject (10-storey office) | 250 | 20 | 230 |
+| **BH** | BasicHouse (2-storey residential) | 31 | 20 | 11 |
+| **DXA** | Duplex_A (split-level duplex) | 80 | 10 | 70 |
+| | **Total** | **361** | **50** | **311** |
+
+After 3x text augmentation: **933 train samples + 50 test samples.**
+
+Images and floorplan patches are in:
+- `../data_curation/datasets/synth_v0.4_ap/cases/imgs/` and `plans/`
+- `../data_curation/datasets/synth_v0.4_bh/cases/imgs/` and `plans/`
+- `../data_curation/datasets/synth_v0.4_dxa/cases/imgs/` and `plans/`
+
+The 50-case eval holdout lives in:
+- `../data_curation/datasets/synth_v0.4_merged/train/test_holdout.jsonl`
+
+### Phase 5: Fine-Grained Constraint Rules
+
+Phase 5 adds three optional constraint fields to help identify elements that can't be
+pinpointed by storey + IFC class alone:
+
+| Field | What it captures | Example |
+|-------|-----------------|---------|
+| `space_name` | Room or space the element is in | `"Kitchen"`, `"Room 601"` |
+| `target_name_keyword` | Unique equipment ID or code name | `"AHU-03"`, `"FD-101"` |
+| `neighbor_type` | IFC class of an adjacent reference element | `"IfcColumn"`, `"IfcWall"` |
+
+These are set in `labels.constraints` of each case and included in the LoRA training target.
+The LoRA model learns to extract them from chat text (e.g., "next to the column" → `neighbor_type: "IfcColumn"`).
+Use `null` when the field doesn't apply — the system is conservative by default.
+
+The `Constraints` schema is defined in [`src/v2/types.py`](src/v2/types.py) and the system prompt
+in [`training/train.py`](training/train.py) (also mirrored in `prompts/constraints_extraction.yaml`).
+
+**Updated case schema (`test_holdout.jsonl`):**
+
+```json
+{
+  "case_id": "SYNTH_V3_084_AP_SK_084",
+  "labels": {
+    "constraints": {
+      "storey_name": "Level 1",
+      "ifc_class": "IfcDoor",
+      "near_keywords": [],
+      "relations": [],
+      "space_name": null,
+      "target_name_keyword": null,
+      "neighbor_type": "IfcWall"
+    }
+  }
+}
+```
+
+### LoRA_2 Training Data Pipeline
 
 ```
-cases_v3_filtered.jsonl (84 cases)
+synth_v0.4_{ap,bh,dxa}/cases_v3_filtered.jsonl  (361 unique cases across 3 buildings)
     |
-    v  6_augment_text.py (stratified split + 3x text augmentation)
+    v  data_curation/scripts/synth/6_augment_text.py
+    |   (stratified split: hold out 50, augment rest 3x with original/vague/urgent text)
     |
-    ├── train/augmented.jsonl      (192 samples: 64 original + 64 vague + 64 urgent)
-    ├── train/test_holdout.jsonl   (20 cases, never augmented)
+    ├── synth_v0.4_ap/train/augmented.jsonl    (690 AP train samples)
+    ├── synth_v0.4_bh/train/augmented.jsonl    (33 BH train samples)
+    ├── synth_v0.4_dxa/train/augmented.jsonl   (210 DXA train samples)
+    ├── synth_v0.4_*/train/test_holdout.jsonl  (50 holdout: AP=20, BH=20, DXA=10)
     |
-    v  7_prepare_lora_data.py (ChatML formatting for Qwen2.5-VL)
+    v  data_curation/scripts/synth/7_prepare_lora_data.py
+    |   (format each dataset into Qwen2.5-VL ChatML, merge all three)
     |
-    ├── train/lora_train.jsonl     (192 ChatML training samples)
-    └── train/lora_test.jsonl      (20 ChatML test samples)
+    ├── synth_v0.4_merged/train/lora_train.jsonl   (933 ChatML samples: AP+BH+DXA)
+    └── synth_v0.4_merged/train/lora_test.jsonl    (50 ChatML test samples)
 ```
 
 **Text augmentation styles** (same images + ground truth, different text):
-- **Original**: Preserved as-is from the case
+- **Style A (Original)**: Preserved as-is from the case
 - **Style B (Vague/Deictic)**: "Look at this.", "What is wrong here?" — forces image reliance
-- **Style C (Urgent/Site Jargon)**: "Need verification ASAP.", "QA flagged this." — simulates real foreman language
+- **Style C (Urgent/Site Jargon)**: "QA flagged this.", "Need verification ASAP." — simulates real site language
 
-**Prepare training data:**
+**Regenerate training data (if cases change):**
 ```bash
 cd /root/cmu/master_thesis/data_curation
 
-# Step 1: Augment text (84 → 192 train + 20 test)
-python scripts/synth/6_augment_text.py \
-  --cases datasets/synth_v0.3/cases_v3_filtered.jsonl \
-  --output datasets/synth_v0.3/train/augmented.jsonl \
-  --hold-out 20 --seed 42
+# Augment each building (run once per dataset)
+for tag in ap bh dxa; do
+  python scripts/synth/6_augment_text.py \
+    --cases datasets/synth_v0.4_${tag}/cases_v3_filtered.jsonl \
+    --output datasets/synth_v0.4_${tag}/train/augmented.jsonl \
+    --hold-out 20 --seed 42
+done
 
-# Step 2: Format for Qwen2.5-VL ChatML
+# Format and merge into ChatML for Qwen2.5-VL
 python scripts/synth/7_prepare_lora_data.py \
-  --train datasets/synth_v0.3/train/augmented.jsonl \
-  --test  datasets/synth_v0.3/train/test_holdout.jsonl \
-  --output datasets/synth_v0.3/train/lora_train.jsonl \
+  --train datasets/synth_v0.4_ap/train/augmented.jsonl \
+          datasets/synth_v0.4_bh/train/augmented.jsonl \
+          datasets/synth_v0.4_dxa/train/augmented.jsonl \
+  --test  datasets/synth_v0.4_merged/train/test_holdout.jsonl \
+  --output datasets/synth_v0.4_merged/train/ \
   --image-root /root/cmu/master_thesis/data_curation
 ```
 
-**LoRA training plan:**
+**LoRA_2 hyperparameters:**
 
 | Parameter | Value |
 |-----------|-------|
-| Base model | Qwen/Qwen2.5-VL-7B-Instruct |
-| Adapter | LoRA (r=8, alpha=16) |
-| Training samples | 192 |
-| Test samples | 20 |
-| Epochs | 1-2 (early stopping on test loss) |
-| Task | Multimodal constraint extraction (images + text → JSON) |
+| Base model | `unsloth/Qwen2.5-VL-7B-Instruct-bnb-4bit` |
+| Adapter | LoRA (r=16, alpha=32) |
+| Training samples | 933 (AP=690, BH=33, DXA=210) |
+| Test samples | 50 |
+| Epochs | 3 |
+| Learning rate | 2e-4 |
+| Effective batch size | 16 (batch=2, grad_accum=8) |
+| Max seq length | 2048 |
+| Hardware | Modal A100 (40GB) |
+| Task | Multimodal constraint extraction (site photo + floorplan + chat → JSON) |
 
 ---
 
@@ -823,4 +933,4 @@ python legacy/script/ifc_to_neo4j.py
 ---
 
 **Last Updated:** February 2026
-**Status:** V1 + V2 pipelines operational on synth_v0.3 (84 cases). V2 prompt baseline: Top-1=3.57%, SSR=92.65%. LoRA adapter trained (Qwen2.5-VL, checkpoint-180 + final). Unused code archived to `legacy/`.
+**Status:** V1 + V2 pipelines operational. synth_v0.3 (84 cases): V2 prompt baseline Top-1=3.57%, SSR=92.65%. synth_v0.4 (361 cases, 3 IFC models): LoRA_2 adapter trained (Qwen2.5-VL r=16, 933 samples, 3 epochs) — adapters at `/mscd-lora/final` on Modal and `models/adapters/v2_lora_qwen/` locally. Phase 5 fine-grained constraints (space_name, target_name_keyword, neighbor_type) added. Unused code archived to `legacy/`.

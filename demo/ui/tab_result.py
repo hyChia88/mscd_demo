@@ -1,16 +1,12 @@
 """
 Tab 3 — Result Visualisation
   Left  → IFC STEP text (predicted + GT)
-  Right → 3D IFC viewer (iframe with @thatopen/components)
+  Right → 3D IFC viewer link (opens standalone page in new tab)
 """
-import json
+import urllib.parse
 import streamlit as st
-import streamlit.components.v1 as components
 from pathlib import Path
 from demo.loader import get_ifc_path
-
-
-VIEWER_HTML = Path(__file__).parent.parent / "templates" / "viewer.html"
 
 
 def render(trace: dict, static_base_url: str) -> None:
@@ -56,47 +52,58 @@ def _render_3d_viewer(
 ) -> None:
     st.markdown("**3D BIM Viewer**")
 
-    ifc_url = static_base_url + "/data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
-    bundle_url = static_base_url + "/demo/static/viewer.bundle.js"
+    ifc_url      = static_base_url + "/data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+    static_base  = static_base_url + "/demo/static"
+    gt_param     = gt_guid if (gt_guid and gt_guid != target_guid) else ""
 
-    config = {
-        "ifc_url":     ifc_url,
-        "target_guid": target_guid or "",
-        "gt_guid":     gt_guid if (gt_guid and gt_guid != target_guid) else "",
-        "guid_match":  guid_match,
-        "static_base": static_base_url + "/demo/static",
-    }
+    params = urllib.parse.urlencode({
+        "ifc":    ifc_url,
+        "target": target_guid or "",
+        "gt":     gt_param,
+        "match":  "1" if guid_match else "0",
+        "base":   static_base,
+    })
+    viewer_url = f"{static_base}/test_viewer.html?{params}"
 
-    # build legend HTML
-    if guid_match:
-        legend_html = (
-            '<span class="dot" style="background:#22c55e;"></span> Predicted (correct)<br>'
+    # GUID summary chips
+    if target_guid:
+        color = "#22c55e" if guid_match else "#ef4444"
+        icon  = "✓" if guid_match else "✗"
+        st.markdown(
+            f'<span style="font-family:monospace;font-size:0.82em;">'
+            f'<span style="color:{color}">{icon}</span> '
+            f'Predicted &nbsp;<code>{target_guid}</code></span>',
+            unsafe_allow_html=True,
         )
-    else:
-        legend_html = (
-            '<span class="dot" style="background:#ef4444;"></span> Predicted (wrong)<br>'
-            '<span class="dot" style="background:#3b82f6;"></span> Ground truth'
+    if gt_param:
+        st.markdown(
+            f'<span style="font-family:monospace;font-size:0.82em;">'
+            f'<span style="color:#3b82f6">●</span> '
+            f'Ground truth &nbsp;<code>{gt_param}</code></span>',
+            unsafe_allow_html=True,
         )
 
-    template = VIEWER_HTML.read_text(encoding="utf-8")
-    html = (
-        template
-        .replace("__CONFIG_JSON__", json.dumps(config))
-        .replace("__BUNDLE_URL__", bundle_url)
-        .replace("__LEGEND__", legend_html)
+    # Open-in-new-tab button
+    st.markdown(
+        f'<a href="{viewer_url}" target="_blank" style="text-decoration:none;">'
+        f'<button style="'
+        f'margin-top:12px;padding:8px 18px;background:#1e293b;color:#e2e8f0;'
+        f'border:1px solid #334155;border-radius:6px;font-family:monospace;'
+        f'font-size:13px;cursor:pointer;">'
+        f'&#9881; Open 3D Viewer &#8599;</button></a>',
+        unsafe_allow_html=True,
     )
-
-    components.html(html, height=520, scrolling=False)
 
 
 @st.cache_data(show_spinner=False)
 def _get_step(ifc_path: Path, guid: str) -> str:
     """Cached STEP text lookup — ifcopenshell is slow to open."""
     import ifcopenshell
-    model   = ifcopenshell.open(str(ifc_path))
-    element = model.by_guid(guid)
-    if element is None:
-        return f"# GUID {guid!r} not found"
+    model = ifcopenshell.open(str(ifc_path))
+    try:
+        element = model.by_guid(guid)
+    except RuntimeError:
+        return f"# GUID {guid!r} not found in this IFC"
     return str(element)
 
 

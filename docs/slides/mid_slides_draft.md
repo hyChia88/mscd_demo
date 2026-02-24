@@ -28,3 +28,12 @@ Goal: (1) progress review (2) emphasize the contribution of my research (3) meth
 (7) Progress: result & reflect
 
 (8) Next step
+
+1. Problem / context（site queries → IFC/BCF）
+2. System overview（大图）
+3. Data & synthetic strategy
+4. Methods：baseline vs agent vs graph vs LoRA
+5. Evaluation metrics
+6. Preliminary results（表/图的占位符）
+7. Failure cases & insights
+8. Next steps

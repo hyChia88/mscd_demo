@@ -31,10 +31,11 @@ def start(root: str, port: int = 8502) -> str:
             def log_message(self, *_):
                 pass
 
+        class _QuietServer(http.server.HTTPServer):
             def handle_error(self, request, client_address):
                 pass  # suppress BrokenPipeError from browser mid-download cancels
 
-        _server = http.server.HTTPServer(("localhost", port), _QuietHandler)
+        _server = _QuietServer(("localhost", port), _QuietHandler)
         t = threading.Thread(target=_server.serve_forever, daemon=True)
         t.start()
 
