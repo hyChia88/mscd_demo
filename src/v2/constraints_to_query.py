@@ -6,7 +6,7 @@ No LLM generation - uses fixed templates for reproducibility.
 """
 
 from typing import List, Dict, Any
-from .types import Constraints, QueryPlan
+from .types import Constraints, QueryPlan, SpatialTriplet
 
 
 class QueryPlanner:
@@ -19,9 +19,25 @@ class QueryPlanner:
 
     # Priority rules: ordered from most specific to most general
     PRIORITY_RULES = [
-        # ── Phase 4 NEW rules (priorities 0-2, finer granularity) ────────────
+        # ── Phase 5 NEW rule (Priority 0 — Neuro-Symbolic spatial triplet) ───
         {
             "priority": 0,
+            "strategy": "spatial_triplet",
+            "requires": ["spatial_relations", "ifc_class"],
+            "description": "Topological triplet from Neuro layer — breaks attribute entropy bottleneck (~1-3 candidates)",
+            "template_memory": None,  # no memory fallback — topology requires Neo4j graph
+            "template_cypher": """
+                MATCH (target:IFCElement)-[:{predicate}]->(ref:IFCElement)
+                WHERE target.ifc_type = $subject_type
+                  AND ref.ifc_type = $object_type
+                  AND toLower(ref.storey) CONTAINS toLower($storey)
+                RETURN target.guid as guid, target.name as name, target.ifc_type as type,
+                       ref.ifc_type as ref_type, ref.storey as ref_storey
+            """
+        },
+        # ── Phase 4 NEW rules (priorities 1-3, finer granularity) ────────────
+        {
+            "priority": 1,
             "strategy": "space+type",
             "requires": ["space_name", "ifc_class"],
             "description": "Most specific: element type within a named room/space (~5 candidates)",
@@ -35,7 +51,7 @@ class QueryPlanner:
             """
         },
         {
-            "priority": 1,
+            "priority": 2,
             "strategy": "name_keyword",
             "requires": ["target_name_keyword"],
             "description": "Equipment brand/ID fuzzy name match (~1-3 candidates)",
@@ -48,7 +64,7 @@ class QueryPlanner:
             """
         },
         {
-            "priority": 2,
+            "priority": 3,
             "strategy": "neighbor+type",
             "requires": ["neighbor_type", "ifc_class"],
             "description": "Topological: element adjacent to known neighbor type — Neo4j only (~3-8 candidates)",
@@ -60,9 +76,9 @@ class QueryPlanner:
                 RETURN DISTINCT e.guid as guid, e.name as name, e.ifc_type as type
             """
         },
-        # ── Original rules (renumbered 1-5 → 3-7) ───────────────────────────
+        # ── Original rules (renumbered 1-5 → 4-8) ───────────────────────────
         {
-            "priority": 3,
+            "priority": 4,
             "strategy": "storey+type",
             "requires": ["storey_name", "ifc_class"],
             "description": "Both storey and IFC type known (~50 candidates)",
@@ -76,7 +92,7 @@ class QueryPlanner:
             """
         },
         {
-            "priority": 4,
+            "priority": 5,
             "strategy": "storey_only",
             "requires": ["storey_name"],
             "description": "Narrow to storey/floor only (~200 candidates)",
@@ -89,7 +105,7 @@ class QueryPlanner:
             """
         },
         {
-            "priority": 5,
+            "priority": 6,
             "strategy": "type_only",
             "requires": ["ifc_class"],
             "description": "Filter by IFC type across all storeys (~150 candidates)",
@@ -101,7 +117,7 @@ class QueryPlanner:
             """
         },
         {
-            "priority": 6,
+            "priority": 7,
             "strategy": "keyword",
             "requires": ["near_keywords"],
             "description": "Text search using spatial keywords (~100 candidates)",
@@ -114,7 +130,7 @@ class QueryPlanner:
             """
         },
         {
-            "priority": 7,
+            "priority": 8,
             "strategy": "fallback",
             "requires": [],
             "description": "Return first 100 elements (escalation candidate)",
@@ -155,7 +171,7 @@ class QueryPlanner:
         # Always include fallback as last resort if not already present
         if not plans or plans[-1].strategy != "fallback":
             plans.append(QueryPlan(
-                priority=7,
+                priority=8,
                 strategy="fallback",
                 params={},
                 expected_pool_size=100
@@ -236,6 +252,19 @@ class QueryPlanner:
             params["neighbor_type"] = constraints.neighbor_type
             params["type"] = constraints.ifc_class  # neighbor query also needs ifc_class
 
+        # Phase 5: spatial_triplet — extract predicate data from the first triplet
+        if "spatial_relations" in required_fields and constraints.spatial_relations:
+            triplet: SpatialTriplet = constraints.spatial_relations[0]
+            params["subject_type"] = triplet.subject_type
+            params["predicate"] = triplet.predicate
+            params["object_type"] = triplet.object_type
+            params["spatial_relations"] = [t.model_dump() for t in constraints.spatial_relations]
+            if triplet.object_material:
+                params["object_material"] = triplet.object_material
+            # storey is used in the Cypher WHERE clause; fall back to "" if absent
+            if "storey" not in params:
+                params["storey"] = constraints.storey_name or ""
+
         return params
 
     def _estimate_pool_size(self, strategy: str, params: Dict[str, Any]) -> int:
@@ -253,14 +282,15 @@ class QueryPlanner:
         """
         # Rough estimates (order of magnitude)
         estimates = {
-            "space+type":    5,    # Most specific: room + type
-            "name_keyword":  3,    # Equipment brand/ID match
-            "neighbor+type": 8,    # Topological adjacency (Neo4j only)
-            "storey+type":  50,    # Floor + element type
-            "storey_only":  200,   # All elements on one floor
-            "type_only":    150,   # All elements of one type
-            "keyword":      100,   # Keyword search - variable
-            "fallback":     100    # Capped at 100
+            "spatial_triplet": 3,   # Most specific: topological edge → ~1-3 matches
+            "space+type":    5,     # Room + element type
+            "name_keyword":  3,     # Equipment brand/ID match
+            "neighbor+type": 8,     # Topological adjacency (Neo4j only, FILLS/HAS_OPENING)
+            "storey+type":  50,     # Floor + element type
+            "storey_only":  200,    # All elements on one floor
+            "type_only":    150,    # All elements of one type
+            "keyword":      100,    # Keyword search — variable
+            "fallback":     100     # Capped at 100
         }
 
         return estimates.get(strategy, 100)

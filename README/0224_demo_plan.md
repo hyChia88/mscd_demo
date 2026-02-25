@@ -695,3 +695,49 @@ B4: Ours — LoRA_3 + spatial_triplet + Neo4j  ← Full neuro-symbolic
 1. 建筑拓扑谓词词典（domain-specific, AEC-native）
 2. Relation-Region Crop（将反捷径从实体扩展到关系）
 3. Cypher 编译器（Pydantic 契约 + 纯 Python，零 LLM）
+
+---
+
+# 6. Implementation Log
+
+## 6.1 P0 完成记录 — Neo4j Fix (2026-02-25)
+
+### 环境
+- Neo4j Community 5.26.0，安装于 `/tmp/neo4j-community-5.26.0`，用 Java 21 启动
+- Python 环境：conda env `mscd_demo`（ifcopenshell 0.8.4, py2neo OK）
+- 启动命令：`/tmp/neo4j-community-5.26.0/bin/neo4j start`
+
+### 修复的 Bug（`src/ifc_engine.py`）
+
+| Bug | 根因 | 修复方式 |
+|-----|------|----------|
+| **FILLS = 0** | `_create_element_relationships()` 尝试向 `IfcOpeningElement` 节点创建边，但这类节点不存在于 Neo4j 中（被 `_create_element_nodes()` 跳过） | 预构建 `opening_to_host` 映射，将 Door/Window → FILLS → Wall 直接连接，跳过中间的 IfcOpeningElement 节点 |
+| **storey = None on 17/19 railings** | 只检查了 `IfcRelContainedInSpatialStructure`；栏杆是通过 `IfcRelAggregates` 聚合在楼梯组件中，不在直接的空间结构关系里 | 改用 `ifcopenshell.util.element.get_container()`，可遍历完整层级 |
+| **`storey` 属性缺失** | `node_props` 中从未添加该字段 | 添加 `"storey": storey_map.get(element.GlobalId)` |
+| **IfcRailing/IfcStair 不在图中** | `element_types` 列表缺少这两种类型 | 已添加——ADJACENT_TO 原型场景必须用到 |
+
+### 验证结果
+
+```
+FILLS edges:    389  (expected: 389) ✅
+CONTAINS edges: 1,238                ✅
+46 IfcWindows + 2 IfcRailings on "3 - Third Floor"  ← H2 prototype scenario in graph ✅
+neo4j.enabled: true in config.yaml  ✅
+```
+
+### H2 原型场景验证
+
+```
+场景：3rd Floor 有 46 扇完全相同的 IfcWindow
+      2 扇 IfcRailing 在同楼层
+      属性基线 Top-1 = 1/46 = 2.2%（数学死锁）
+
+ADJACENT_TO 边（待 P1 centroid 提取后添加）将打破此死锁
+```
+
+### 下一步 (P1)
+- [ ] `src/v2/types.py` → 添加 `SpatialTriplet` + `spatial_relations: List[SpatialTriplet]`
+- [ ] `src/v2/constraints_to_query.py` → 在 PRIORITY_RULES 最前面插入 Priority 0 `spatial_triplet`
+- [ ] `data_curation/scripts/synth/1_build_index.py` → 添加质心坐标提取
+- [ ] `data_curation/scripts/synth/2_hunt_skeletons.py` → 添加 `hunt_CONTINUOUS()` / `hunt_FILLS()` / `hunt_ADJACENT_TO()`
+- [ ] Neo4j → 添加 `ADJACENT_TO` + `CONTINUOUS` 边（需 P1 坐标后）

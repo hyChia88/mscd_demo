@@ -5,7 +5,32 @@ Core Pydantic models for constraints extraction, query planning, and retrieval.
 """
 
 from pydantic import BaseModel, ConfigDict, Field
-from typing import List, Optional, Dict, Any
+from typing import List, Literal, Optional, Dict, Any
+
+
+class SpatialTriplet(BaseModel):
+    """
+    A single architectural spatial predicate extracted by the Neuro layer.
+
+    Encodes the interface relationship between two IFC element types, e.g.:
+        (IfcWindow) -[ADJACENT_TO]-> (IfcRailing)
+
+    Used as input to the Priority 0 Cypher compiler in constraints_to_query.py.
+    All predicates correspond to pre-computed Neo4j edges (offline geometry).
+    """
+
+    subject_type: str  # e.g. "IfcWindow"
+    predicate: Literal[
+        "FILLS",           # door/window occupies opening in wall (IfcRelFillsElement)
+        "CONTINUOUS",      # element spans multiple storeys (Top constraint ≠ storey)
+        "ADJACENT_TO",     # same-storey centroid distance < 1.5 m
+        "ON_TOP_OF",       # Z_min(subject) > Z_max(object) + XY AABB overlap
+        "PERPENDICULAR_TO",  # wall orientation vectors dot-product ≈ 0
+        "PARALLEL_TO",       # wall orientation vectors dot-product ≈ 1
+    ]
+    object_type: str  # e.g. "IfcRailing"
+    object_material: Optional[str] = None  # optional material filter on the ref element
+    confidence: float = 0.0  # VLM extraction confidence [0, 1]
 
 
 class Constraints(BaseModel):
@@ -38,8 +63,17 @@ class Constraints(BaseModel):
     # IFC class of a nearby reference element for topological location.
     # e.g. "IfcColumn", "IfcStair", "IfcDoor"
     # Source: "next to the column", "beside the door", "near the staircase"
-    # Enables: neighbor+type query (Priority 2, Neo4j only, HAS_OPENING/FILLS)
+    # Enables: neighbor+type query (Priority 3, Neo4j only, HAS_OPENING/FILLS)
     # ───────────────────────────────────────────────────────────────────────
+
+    # ── V2.5 NEW FIELD (Phase 5 — Neuro-Symbolic) ───────────────────────────
+    spatial_relations: List[SpatialTriplet] = Field(default_factory=list)
+    # Structured spatial predicates extracted by the Neuro layer (LoRA_3).
+    # Each triplet encodes (subject_type, predicate, object_type) observed
+    # in the site photo/relation-crop images.
+    # Enables: spatial_triplet query (Priority 0) → ~1-3 candidates
+    # Backward-compatible: empty list → Priority 0 skipped, existing 1-8 cascade used.
+    # ────────────────────────────────────────────────────────────────────────
 
     # Diagnostics
     confidence: float = 0.0  # Confidence score (0.0-1.0)

@@ -630,9 +630,26 @@ class IFCEngine:
             "IfcWall", "IfcWallStandardCase",
             "IfcDoor", "IfcWindow",
             "IfcSlab", "IfcColumn", "IfcBeam",
+            "IfcRailing", "IfcStair",  # required for ADJACENT_TO predicates
             "IfcFurnishingElement",  # IFC2X3 compatible
             "IfcFurniture",  # IFC4 only
         ]
+
+        # Build element_guid -> storey_name mapping for the storey property.
+        # Uses ifcopenshell.util.element.get_container() which traverses
+        # IfcRelAggregates as well as IfcRelContainedInSpatialStructure,
+        # so aggregated elements (e.g. railings inside stair assemblies) are
+        # resolved correctly.
+        import ifcopenshell.util.element as _ifc_util
+        storey_map: Dict[str, str] = {}
+        for ifc_type_pre in element_types:
+            try:
+                for element in self.file.by_type(ifc_type_pre):
+                    container = _ifc_util.get_container(element)
+                    if container and container.is_a("IfcBuildingStorey"):
+                        storey_map[element.GlobalId] = container.Name or "Unknown"
+            except RuntimeError:
+                continue
 
         for ifc_type in element_types:
             try:
@@ -650,6 +667,7 @@ class IFCEngine:
                     "name": element.Name,
                     "ifc_type": element.is_a(),
                     "object_type": getattr(element, "ObjectType", None),
+                    "storey": storey_map.get(element.GlobalId),
                 }
 
                 # Flatten key properties for graph queries
@@ -689,27 +707,32 @@ class IFCEngine:
         """Create relationships between elements (voids, fills, connections)"""
         count = 0
 
-        # IfcRelVoidsElement: Opening relationships
+        # Build opening_guid -> host_wall_guid mapping first.
+        # IfcOpeningElement nodes are NOT created in Neo4j (they are intermediate
+        # geometry objects, not building elements), so we skip them and create
+        # direct Door/Window -[:FILLS]-> Wall edges instead.
+        opening_to_host: Dict[str, str] = {}
         for rel in self.file.by_type("IfcRelVoidsElement"):
-            self._create_relationship(
-                "IFCElement",
-                rel.RelatingBuildingElement.GlobalId,
-                "HAS_OPENING",
-                "IFCElement",
-                rel.RelatedOpeningElement.GlobalId
-            )
-            count += 1
+            host = rel.RelatingBuildingElement
+            opening = rel.RelatedOpeningElement
+            if host and opening:
+                opening_to_host[opening.GlobalId] = host.GlobalId
 
-        # IfcRelFillsElement: Door/Window fills opening
+        # IfcRelFillsElement: Door/Window -[:FILLS]-> Wall
+        # Chain: Door/Window -[FillsElement]-> IfcOpeningElement -[VoidsElement]-> Wall
+        # We compress this to a direct edge, skipping the opening element node.
         for rel in self.file.by_type("IfcRelFillsElement"):
-            self._create_relationship(
-                "IFCElement",
-                rel.RelatedBuildingElement.GlobalId,
-                "FILLS",
-                "IFCElement",
-                rel.RelatingOpeningElement.GlobalId
-            )
-            count += 1
+            filler = rel.RelatedBuildingElement    # IfcDoor or IfcWindow
+            opening = rel.RelatingOpeningElement   # IfcOpeningElement (intermediate)
+            if filler and opening:
+                host_guid = opening_to_host.get(opening.GlobalId)
+                if host_guid:
+                    self._create_relationship(
+                        "IFCElement", filler.GlobalId,
+                        "FILLS",
+                        "IFCElement", host_guid
+                    )
+                    count += 1
 
         return count
 
