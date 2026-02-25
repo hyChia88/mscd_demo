@@ -1,75 +1,162 @@
 @startuml MSCD_Demo_Sequence_V2
 !theme plain
-title **V2 Pipeline -- Constraints-Driven**
+title **V2 Pipeline — Constraints-Driven (Neuro-Symbolic)**
 
-participant "run.py"             as RUN
-participant "ConditionMask"      as MASK
-participant "ImageParser\n(VLM)" as IMG
-participant "Gemini LLM"         as LLM
-participant "Constraints\nExtractor" as CEXT
-participant "QueryPlanner"       as QPLAN
-participant "Retrieval\nBackend" as RET
-participant "IFCEngine"          as ENG
-participant "Neo4j"              as NEO
-participant "CLIP\n(reranker)"   as CLIP
-participant "RQ2 Pipeline"       as RQ2
+participant "run.py"                    as RUN
+participant "ConditionMask"             as MASK
+participant "ImageParser\n(Gemini VLM)" as IMG
+participant "Gemini LLM"                as LLM
+participant "LoRA_3\n(Qwen2.5-VL-7B)"  as LORA
+participant "ConstraintsExtractor"      as CEXT
+participant "QueryPlanner\n(P0→P8)"     as QPLAN
+participant "RetrievalBackend"          as RET
+participant "IFCEngine\n(memory index)" as ENG
+participant "Neo4j\n(graph DB)"         as NEO
+participant "CLIP\n(reranker)"          as CLIP
+participant "RQ2 Pipeline"              as RQ2
 
 activate RUN
 
-loop for each case
-    ' Step 1: Condition Mask
-    RUN -> MASK : apply(case, overrides)
-    MASK --> RUN : masked case
+loop **for each case**
 
-    ' Step 2: VLM Image Parsing
-    opt images enabled
-        RUN -> IMG : parse images
-        IMG -> LLM : VLM call (image)
-        LLM --> IMG : description, ifc_class
-        IMG --> RUN : ImageParseResult
+    ' ── Step 1: Condition Mask (ablation control A1-C3) ───────────────
+    RUN -> MASK : apply(case, condition_overrides)
+    note right of MASK
+      Masks modalities per condition:
+      A: metadata only (no images)
+      B: images, no floorplan
+      C: images + floorplan
+      chat_blur: replaces element/floor names
+      with generic terms ("window"→"opening")
+    end note
+    MASK --> RUN : masked_case
+
+    ' ── Step 2: VLM Image Parsing (Prompt-Only path only) ─────────────
+    opt **images enabled** AND **constraints_model == "prompt"**
+        RUN -> IMG : parse_case_images(masked_case)
+        IMG -> LLM : VLM call (site photos + floorplan)
+        LLM --> IMG : element_type, ifc_class_hint,\nlocation_cues, spatial_zone, storey_hint
+        IMG --> RUN : ImageParseResult\n(site_photos[], floorplan)
     end
 
-    ' Step 3: Constraints Extraction
-    RUN -> CEXT : extract(case, image_context)
+    ' ── Step 3: Constraints Extraction ────────────────────────────────
+    RUN -> CEXT : extract(masked_case, image_context)
     activate CEXT
-    alt prompt mode
-        CEXT -> LLM : structured extraction
-        LLM --> CEXT : constraints JSON
-    else lora mode
-        CEXT -> CEXT : LoRA inference
+
+    alt **constraints_model == "prompt"**  [Gemini path]
+        CEXT -> LLM : structured extraction\n(system_prompt + chat_history + image_descriptions)
+        LLM --> CEXT : JSON {\n  storey_name, ifc_class,\n  space_name, near_keywords,\n  target_name_keyword, neighbor_type\n}
+        note right of CEXT
+          JSON parse with 3-layer fallback:
+          1. json.loads()
+          2. extract ```json block
+          3. regex anchor on known field
+          On failure → use ImageParseResult hints
+          confidence = 0.70-0.90
+          source = "prompt"
+        end note
+
+    else **constraints_model == "lora"**  [LoRA path — sees raw images]
+        CEXT -> LORA : inference(\n  [img1, img2, ...] + text prompt\n  max_new_tokens=256, do_sample=False\n)
+        note right of LORA
+          Qwen2.5-VL-7B-Instruct
+          + LoRA adapter (r=16, alpha=32, 4-bit NF4)
+          Target: q/k/v/o_proj, gate/up/down_proj
+          Directly sees raw site photos (no VLM pre-parse)
+          Outputs SpatialTriplet[] for P0 neuro-symbolic path
+        end note
+        LORA --> CEXT : JSON (same schema)\n+ spatial_relations: [SpatialTriplet]
+        note right of CEXT
+          SpatialTriplet: {
+            subject_type: "IfcWindow"
+            predicate: FILLS | ADJACENT_TO |
+                       CONTINUOUS | ON_TOP_OF |
+                       PERPENDICULAR_TO | PARALLEL_TO
+            object_type: "IfcWall"
+            confidence: 0.85
+          }
+          confidence = 0.85 (LoRA success)
+          source = "lora"
+        end note
     end
-    CEXT --> RUN : Constraints
+
+    CEXT --> RUN : Constraints {\n  storey_name, ifc_class, space_name,\n  near_keywords, target_name_keyword,\n  neighbor_type, spatial_relations[],\n  confidence, source\n}
     deactivate CEXT
 
-    ' Step 4: Query Planning
+    ' ── Step 4: Query Planning (deterministic, no LLM) ─────────────────
     RUN -> QPLAN : plan(constraints)
-    QPLAN --> RUN : QueryPlan[] (priority-ordered)
+    note right of QPLAN
+      Checks each rule in order P0→P8.
+      A plan is included if ALL required
+      fields are non-null and non-empty.
+      P8 fallback is always appended.
+    end note
 
-    ' Step 5: Retrieval
-    RUN -> RET : execute(plan, images)
-    activate RET
-    alt memory mode
-        RET -> ENG : spatial index lookup
-        ENG --> RET : candidates
-    else neo4j mode
-        RET -> NEO : Cypher query
-        NEO --> RET : candidates
-    end
-    opt CLIP reranking
-        RET -> CLIP : rerank by similarity
-        CLIP --> RET : reranked candidates
-    end
-    RET --> RUN : RetrievalResult
-    deactivate RET
+    QPLAN --> RUN : QueryPlan[] ordered by priority
+    note left of RUN
+      P0  spatial_triplet  (spatial_relations + ifc_class) → ~3
+      P1  space+type       (space_name + ifc_class)        → ~5
+      P2  name_keyword     (target_name_keyword)           → ~3
+      P3  neighbor+type    (neighbor_type + ifc_class)     → ~8
+      P4  storey+type      (storey_name + ifc_class)       → ~50
+      P5  storey_only      (storey_name)                   → ~200
+      P6  type_only        (ifc_class)                     → ~150
+      P7  keyword          (near_keywords)                 → ~100
+      P8  fallback         (no requirement)                → 100
+    end note
 
-    ' Step 6: Evaluate
-    RUN -> RUN : compute gt matches
+    ' ── Step 5: Retrieval — cascade until pool > 0 ─────────────────────
+    loop **for each plan in QueryPlan[]** until pool > 0
+        RUN -> RET : execute_plan(plan, image_paths)
+        activate RET
 
-    ' Step 7: RQ2
-    opt RQ2 case
-        RUN -> RQ2 : schema validation
-        RQ2 --> RUN : RQ2Result
+        alt **memory mode**
+            RET -> ENG : spatial_index lookup\n(storey/space/type/keyword scan)
+            ENG --> RET : candidates[]
+            note right of ENG
+              P3 (neighbor+type) has no
+              memory equivalent — degrades
+              to type_only (P6) automatically
+            end note
+
+        else **neo4j mode**
+            RET -> NEO : Cypher query\n(template from PRIORITY_RULES)
+            note right of NEO
+              P0: MATCH (t)-[:FILLS|ADJACENT_TO|...]->(r)
+                  WHERE t.ifc_type=$subject_type
+                    AND r.ifc_type=$object_type
+                    AND r.storey CONTAINS $storey
+              P1: MATCH (sp:IFCSpace)-[:CONTAINS]->(e)
+              P3: MATCH (e)-[:HAS_OPENING|FILLS]-(nb)
+              P4: MATCH (s:IFCStorey)-[:CONTAINS]->(e)
+                  WHERE s.name CONTAINS $storey
+                    AND e.ifc_type=$type
+            end note
+            NEO --> RET : candidates[]
+        end
+
+        opt **CLIP reranking enabled** AND pool > 0
+            RET -> CLIP : rerank(candidates, image_paths[0])
+            CLIP --> RET : reranked candidates\n(sorted by visual similarity score)
+        end
+
+        RET --> RUN : RetrievalResult {\n  candidates[], pool_size,\n  query_plan_used, backend,\n  rerank_applied\n}
+        deactivate RET
+
+        alt **pool_size > 0**
+            RUN -> RUN : break cascade\n(use this result)
+        end
     end
+
+    ' ── Step 6: Evaluate ────────────────────────────────────────────────
+    RUN -> RUN : compute gt matches\n(Top-1, Top-5, guid_match,\n name_match, storey_match)
+
+    ' ── Step 7: RQ2 (schema validation, optional) ───────────────────────
+    opt **RQ2 case**
+        RUN -> RQ2 : schema_validation(candidates, gt)
+        RQ2 --> RUN : RQ2Result (BCF, compliance flags)
+    end
+
 end
 
 deactivate RUN

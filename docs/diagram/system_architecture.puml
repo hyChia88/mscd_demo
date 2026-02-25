@@ -1,6 +1,6 @@
 @startuml MSCD_Demo_System_Architecture
 !theme plain
-title **MSCD Demo -- System Architecture**\n//Multi-modal Site-to-BIM Compliance & Disambiguation System//
+title **MSCD Demo -- System Architecture**\n//Neuro-Symbolic IFC Element Retrieval System//
 
 skinparam backgroundColor #FEFEFE
 skinparam componentStyle rectangle
@@ -13,11 +13,11 @@ skinparam shadowing false
 skinparam package<<input>> {
     BackgroundColor #E8F5E9
 }
-skinparam package<<orchestrator>> {
-    BackgroundColor #E3F2FD
-}
-skinparam package<<mcp>> {
+skinparam package<<v1>> {
     BackgroundColor #FFF3E0
+}
+skinparam package<<v2>> {
+    BackgroundColor #E3F2FD
 }
 skinparam package<<retrieval>> {
     BackgroundColor #F3E5F5
@@ -25,118 +25,114 @@ skinparam package<<retrieval>> {
 skinparam package<<postprocess>> {
     BackgroundColor #FFEBEE
 }
-skinparam package<<output>> {
-    BackgroundColor #E0F7FA
-}
 skinparam package<<external>> {
     BackgroundColor #F5F5F5
 }
 
-' ── INPUT ──
-package "Input Layer" <<input>> {
+' ── INPUT ──────────────────────────────────────────────────────────
+package "Input" <<input>> {
     component "Ground Truth\nDataset" as GT
-    component "Site Evidence\nImages" as IMAGES
-    component "Configuration\n(config / profiles)" as CONFIG
+    component "Site Images\n+ Floorplans" as IMAGES
+    component "config.yaml\nprofiles.yaml" as CONFIG
 }
 
-' ── ORCHESTRATION ──
-package "Orchestration Layer" <<orchestrator>> {
-    component "**Unified Runner**\nrun.py" as RUNNER
-    component "**Pipeline Selector**\npipeline_base.py" as PIPELINE_BASE
-
-    package "V1 Pipeline (Agent-Driven)" {
-        component "**LangGraph ReAct Agent**\nmain_mcp.py" as V1_AGENT
-    }
-
-    package "V2 Pipeline (Constraints-Driven)" {
-        component "**ConditionMask**\nAblation control" as COND_MASK
-        component "**ImageParser**\nGemini VLM" as IMG_PARSER
-        component "**ConstraintsExtractor**\nPrompt / LoRA" as CONSTRAINTS
-        component "**QueryPlanner**\nDeterministic templates" as QUERY_PLAN
-    }
+' ── V1 ─────────────────────────────────────────────────────────────
+package "V1 Pipeline (Agent-Driven)" <<v1>> {
+    component "**LangGraph\nReAct Agent**" as V1_AGENT
+    component "IFC Query\nMCP Server" as IFC_MCP
+    component "Visual\nMCP Server" as VIS_MCP
 }
 
-' ── MCP SERVERS ──
-package "MCP Server Layer (FastMCP / stdio)" <<mcp>> {
-    component "**IFC Query Server**\nSpatial queries, element details" as IFC_MCP
-    component "**Visual Server**\nCLIP-based matching" as VIS_MCP
+' ── V2 ─────────────────────────────────────────────────────────────
+package "V2 Pipeline (Neuro-Symbolic, Constraints-Driven)" <<v2>> {
+    component "**ConditionMask**\nAblation A1-C3" as COND_MASK
+    component "**ImageParser**\nGemini VLM\n(prompt path only)" as IMG_PARSER
+    component "**LoRA_3**\nQwen2.5-VL-7B\n(lora path only)" as LORA
+    component "**ConstraintsExtractor**\nConstraints + SpatialTriplet[]" as CONSTRAINTS
+    component "**QueryPlanner**\nP0 spatial_triplet\nP1 space+type / P2 name_keyword\nP3 neighbor+type / P4 storey+type\nP5-P8 coarse fallback" as QUERY_PLAN
 }
 
-' ── RETRIEVAL ──
-package "Retrieval & Engine Layer" <<retrieval>> {
-    component "**IFCEngine**\nSpatial index + properties" as IFC_ENGINE
-    component "**RetrievalBackend**\nmemory / neo4j / +clip" as RET_BACK
-    component "**VisualAligner**\nCLIP embeddings + reranking" as CLIP
+' ── RETRIEVAL ───────────────────────────────────────────────────────
+package "Retrieval & Engine" <<retrieval>> {
+    component "**RetrievalBackend**\nCascade P0 -> P8\nuntil pool > 0" as RET_BACK
+    component "**IFCEngine**\nSpatial index\nmemory mode" as IFC_ENGINE
+    component "**VisualAligner**\nCLIP reranking" as CLIP
 }
 
-' ── POST-PROCESSING ──
-package "Post-processing Layer" <<postprocess>> {
-    component "**RQ2 Pipeline**\nSchema mapping + validation" as RQ2
-    component "**Evaluation**\nTop-k, P@1, Recall, F1" as EVAL_MOD
+' ── POST-PROCESSING ─────────────────────────────────────────────────
+package "Post-processing & Output" <<postprocess>> {
+    component "**Evaluation**\nTop-1/5, P@1, Recall, F1" as EVAL_MOD
+    component "**RQ2 + BCF**\nSchema validation" as RQ2
+    artifact "outputs/ + logs/" as OUT
 }
 
-' ── OUTPUT ──
-package "Handoff & Output" <<output>> {
-    component "**Trace / Issue / BCFzip**\nhandoff/" as HANDOFF
-    artifact "outputs/" as OUT_FILES
-    artifact "logs/evaluations/" as OUT_EVAL
-}
-
-' ── EXTERNAL ──
+' ── EXTERNAL ────────────────────────────────────────────────────────
 package "External Services" <<external>> {
-    database "**Neo4j**\n(optional)" as NEO4J
-    cloud "**Google Gemini**\nLLM / VLM" as LLM
-    component "**IFC Model**\nifcopenshell" as IFC_FILE
+    cloud "**Google Gemini**\nLLM + VLM" as LLM
+    database "**Neo4j**\nFILLS, CONTAINS\nADJACENT_TO" as NEO4J
+    component "**IFC Model**\nAdvancedProject.ifc" as IFC_FILE
     component "**CLIP Model**\nHuggingFace" as HF_CLIP
 }
 
-' ── RELATIONSHIPS ──
+' ── RUNNER ──────────────────────────────────────────────────────────
+component "**run.py**\nUnified Runner" as RUNNER
 
-GT --> RUNNER
+' ── RELATIONSHIPS ───────────────────────────────────────────────────
+
+' Input
+GT     --> RUNNER
 IMAGES --> RUNNER
 CONFIG --> RUNNER
-RUNNER --> PIPELINE_BASE : selects v1 or v2
 
-PIPELINE_BASE --> V1_AGENT : V1Pipeline
-PIPELINE_BASE --> COND_MASK : V2Pipeline
+' Runner -> pipelines
+RUNNER --> V1_AGENT  : pipeline == "v1"
+RUNNER --> COND_MASK : pipeline == "v2"
 
-V1_AGENT --> IFC_MCP : MCP tool calls
-V1_AGENT --> VIS_MCP : MCP tool calls
-LLM <-- V1_AGENT : ReAct loop
+' V1 flow
+V1_AGENT --> IFC_MCP
+V1_AGENT --> VIS_MCP
+V1_AGENT --> LLM : ReAct loop
+IFC_MCP  --> IFC_ENGINE
+VIS_MCP  --> CLIP
 
-COND_MASK --> IMG_PARSER
-IMG_PARSER --> CONSTRAINTS : ImageParseResult
+' V2 Step 1 -- mask -> two paths
+COND_MASK --> IMG_PARSER  : masked_case\n[prompt path]
+COND_MASK --> CONSTRAINTS : raw images + text\n[lora path]
+
+' V2 Step 2 -- prompt path: IMG_PARSER -> LLM -> CONSTRAINTS
+IMG_PARSER --> LLM         : VLM image parse
+LLM        --> CONSTRAINTS : ImageParseResult\n+ JSON extraction\n[prompt path]
+
+' V2 Step 2 -- lora path: CONSTRAINTS -> LORA -> CONSTRAINTS
+CONSTRAINTS --> LORA : inference(images, prompt)\n[lora path]
+LORA --> CONSTRAINTS : SpatialTriplet[]\n+ Constraints JSON\n[lora path]
+
+' V2 Step 3 -- plan -> retrieve
 CONSTRAINTS --> QUERY_PLAN : Constraints
-QUERY_PLAN --> RET_BACK : QueryPlan[]
-LLM <-- CONSTRAINTS : extraction
-LLM <-- IMG_PARSER : VLM
+QUERY_PLAN  --> RET_BACK   : QueryPlan[] P0->P8
 
-RET_BACK --> IFC_ENGINE : memory
-RET_BACK --> NEO4J : neo4j
-RET_BACK --> CLIP : reranking
+' Retrieval backends
+RET_BACK --> IFC_ENGINE : memory mode
+RET_BACK --> NEO4J      : neo4j mode\n(P0 FILLS/ADJACENT_TO)
+RET_BACK --> CLIP       : reranking
 
+' Engine
 IFC_ENGINE --> IFC_FILE
-CLIP --> HF_CLIP
+CLIP       --> HF_CLIP
 
-IFC_MCP --> IFC_ENGINE
-VIS_MCP --> CLIP
-
-V1_AGENT --> RQ2 : RQ2 cases
-RET_BACK --> EVAL_MOD : candidates
+' Post-processing
+RET_BACK   --> EVAL_MOD
+V1_AGENT   --> RQ2
 QUERY_PLAN ..> RQ2
-
-EVAL_MOD --> HANDOFF
-EVAL_MOD --> OUT_EVAL
-HANDOFF --> OUT_FILES
+EVAL_MOD   --> OUT
 
 legend bottom left
   |= Color |= Layer |
-  |<#E8F5E9> | Input (datasets, config) |
-  |<#E3F2FD> | Orchestration (V1 / V2) |
-  |<#FFF3E0> | MCP Servers |
+  |<#E8F5E9> | Input |
+  |<#FFF3E0> | V1 -- ReAct Agent + MCP |
+  |<#E3F2FD> | V2 -- Neuro-Symbolic (LoRA / Gemini) |
   |<#F3E5F5> | Retrieval & Engine |
-  |<#FFEBEE> | Post-processing |
-  |<#E0F7FA> | Handoff & Output |
+  |<#FFEBEE> | Post-processing & Output |
   |<#F5F5F5> | External Services |
 end legend
 

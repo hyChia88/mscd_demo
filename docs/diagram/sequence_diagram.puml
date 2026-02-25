@@ -1,44 +1,57 @@
 @startuml MSCD_Demo_Sequence_Init
 !theme plain
-title **Initialisation & Dispatch**
+title **Sequence Diagram**
 
 actor       User   as U
 participant "run.py" as RUN
 participant "Config"  as CFG
 participant "IFCEngine" as ENG
-participant "Gemini LLM" as LLM
-participant "CLIP" as CLIP
+participant "Gemini LLM\n(ChatGoogleAI)" as LLM
+participant "LoRA Model\n(Qwen2.5-VL-7B)" as LORA
+participant "CLIP\n(VisualAligner)" as CLIP
+participant "Neo4j" as NEO
 
 U -> RUN : run.py --profile --cases
 activate RUN
 
-RUN -> CFG : load config + profile
-CFG --> RUN : config, profile
+RUN -> CFG : load config.yaml + profiles.yaml
+CFG --> RUN : config (retrieval, pipeline, use_clip, constraints_model)
 
-RUN -> RUN : load and filter test cases
+RUN -> RUN : load & filter test cases
 
 RUN -> ENG : IFCEngine(ifc_path)
 activate ENG
-ENG -> ENG : parse IFC + build spatial index
+ENG -> ENG : parse IFC via ifcopenshell
+ENG -> ENG : build spatial index (storey/space → elements)
+ENG -> ENG : build storey_registry + space_registry
+alt **config.neo4j.enabled**
+    ENG -> NEO : export nodes + relationships\n(IFCStorey, IFCElement, CONTAINS, FILLS, HAS_OPENING)
+    NEO --> ENG : graph ready
+end
 ENG --> RUN : engine ready
 deactivate ENG
 
-RUN -> LLM : init_llm()
-LLM --> RUN : llm
+alt **constraints_model == "lora"**
+    RUN -> LORA : load Qwen2.5-VL-7B-Instruct\n+ PeftModel (LoRA adapter, 4-bit NF4)
+    LORA --> RUN : lora_extractor ready
+else **constraints_model == "prompt"**
+    RUN -> LLM : init ChatGoogleGenerativeAI()
+    LLM --> RUN : llm ready
+end
 
-alt use_clip enabled
-    RUN -> CLIP : VisualAligner()
+alt **use_clip == True**
+    RUN -> CLIP : VisualAligner(clip_model_path)
     CLIP --> RUN : aligner ready
 end
 
-alt pipeline == "v1"
-    ref over RUN : V1 Pipeline (ReAct + MCP)
-else pipeline == "v2"
-    ref over RUN : V2 Pipeline (Constraints-Driven)
+alt **pipeline == "v1"**
+    ref over RUN : V1 Pipeline — ReAct Agent (LangGraph + MCP)
+else **pipeline == "v2"**
+    ref over RUN : V2 Pipeline — Constraints-Driven (P0 spatial_triplet → P8 fallback)
 end
 
-RUN -> RUN : compute summary metrics
-RUN --> U : Accuracy, traces, CSV
+RUN -> RUN : compute summary metrics\n(Top-1, Top-5, P@1, Recall, F1)
+RUN --> U : accuracy.csv, traces/, evaluation logs
 deactivate RUN
 
 @enduml

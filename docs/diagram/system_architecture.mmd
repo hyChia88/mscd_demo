@@ -1,0 +1,82 @@
+flowchart TD
+    %% ── INPUT ──────────────────────────────────────────────────────────
+    USER["User / CLI<br/>run.py --profile --cases"]
+    SCENARIO["Scenario Input<br/>chat · images · floorplan · 4D metadata"]
+    MASK["Condition Mask A1-C3<br/>modality ablation"]
+
+    USER --> SCENARIO --> MASK
+
+    %% ── V1 ─────────────────────────────────────────────────────────────
+    subgraph V1["V1 — Agent-Driven  (main_mcp.py)"]
+        direction TB
+        V1_AGENT["LangGraph ReAct Agent<br/>Gemini 2.5 Flash + system prompt"]
+        MCP_D["MCP Dispatcher<br/>mcp_langchain_adapter"]
+        IFC_MCP["IFC MCP Server<br/>list_spaces · search_by_type<br/>get_by_storey · get_details"]
+        VIS_MCP["Visual MCP Server<br/>analyze_image · match_elements"]
+        RPARSER["Response Parser<br/>extract GUID + candidates"]
+        V1_AGENT -->|tool calls| MCP_D
+        MCP_D --> IFC_MCP
+        MCP_D -->|if visual| VIS_MCP
+        MCP_D --> RPARSER
+    end
+
+    %% ── V2 ─────────────────────────────────────────────────────────────
+    subgraph V2["V2 — Constraints-Driven  (Neuro-Symbolic)"]
+        direction TB
+        IMG_P["Image Parser<br/>Gemini 2.5 Flash VLM<br/>prompt path only"]
+        LORA_M["LoRA_3  Qwen2.5-VL-7B<br/>4-bit NF4 · r=16<br/>lora path only"]
+        CEXT["Constraints Extractor<br/>Constraints + SpatialTriplet list"]
+        QPLAN["Query Planner<br/>P0 spatial_triplet<br/>P1 space+type · P2 name_keyword<br/>P3 neighbor+type · P4 storey+type<br/>P5-P8 coarse fallback"]
+        RET_B["Retrieval Backend<br/>cascade P0-P8 until pool &gt; 0<br/>+ optional CLIP rerank"]
+        IMG_P -->|ImageParseResult| CEXT
+        LORA_M -->|SpatialTriplets| CEXT
+        CEXT --> QPLAN --> RET_B
+    end
+
+    %% ── ROUTING ─────────────────────────────────────────────────────────
+    MASK -->|pipeline == v1| V1_AGENT
+    MASK -->|v2 prompt path| IMG_P
+    MASK -->|v2 lora path| LORA_M
+
+    %% ── SHARED BACKEND ──────────────────────────────────────────────────
+    subgraph BACKEND["Shared Backend"]
+        direction LR
+        ENG["IFC Engine<br/>ifcopenshell + spatial index<br/>storey / space registry"]
+        CLIP_A["CLIP Visual Aligner<br/>clip-vit-base-patch32"]
+        NEO[("Neo4j IFC Graph<br/>FILLS · CONTAINS<br/>ADJACENT_TO<br/>optional")]
+        ENG -.->|cypher| NEO
+    end
+
+    IFC_MCP --> ENG
+    VIS_MCP --> CLIP_A
+    RET_B -->|memory| ENG
+    RET_B -->|neo4j P0 FILLS/ADJACENT_TO| NEO
+    RET_B -->|rerank| CLIP_A
+
+    %% ── EVALUATION & OUTPUT ─────────────────────────────────────────────
+    subgraph OUTPUT["Evaluation & Output"]
+        direction TB
+        EVAL["Evaluation Framework<br/>Top-1 · Top-5 · P@1 · Recall · F1"]
+        RQ2["RQ2 Schema Mapping<br/>CoreNetX-min JSON validation"]
+        BCF["BCF Handoff<br/>trace · issue.json · .bcfzip"]
+        ART[["Output Artifacts<br/>traces.jsonl · summary.csv<br/>bcf/ · logs/evaluations/"]]
+        EVAL --> RQ2 --> BCF --> ART
+    end
+
+    RPARSER --> EVAL
+    RET_B   --> EVAL
+
+    %% ── STYLES ──────────────────────────────────────────────────────────
+    classDef input   fill:#E8F5E9,stroke:#388E3C,color:#1B5E20
+    classDef v1node  fill:#FFF3E0,stroke:#F57C00,color:#4E342E
+    classDef v2node  fill:#E3F2FD,stroke:#1565C0,color:#0D47A1
+    classDef backend fill:#F3E5F5,stroke:#7B1FA2,color:#4A148C
+    classDef output  fill:#FFEBEE,stroke:#C62828,color:#B71C1C
+    classDef db      fill:#ECEFF1,stroke:#546E7A,color:#263238
+
+    class USER,SCENARIO,MASK input
+    class V1_AGENT,MCP_D,IFC_MCP,VIS_MCP,RPARSER v1node
+    class IMG_P,LORA_M,CEXT,QPLAN,RET_B v2node
+    class ENG,CLIP_A backend
+    class NEO db
+    class EVAL,RQ2,BCF,ART output
