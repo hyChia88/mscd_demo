@@ -17,7 +17,7 @@ def render(trace: dict) -> None:
             role = msg.get("role", "user")
             text = msg.get("text", "").strip()
             lines.append(f"{role}: {text}")
-        st.text("\n\n".join(lines))
+        st.text("\n".join(lines))
 
     if images:
         st.divider()
@@ -26,7 +26,7 @@ def render(trace: dict) -> None:
         for i, path in enumerate(images):
             p = Path(path)
             if p.exists():
-                cols[i % 3].image(str(p), caption=p.name, width="stretch")
+                cols[i % 3].image(str(p), caption=p.name, width=260)
             else:
                 cols[i % 3].warning(f"Image not found:\n{p.name}")
 

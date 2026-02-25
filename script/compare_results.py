@@ -319,6 +319,11 @@ def generate_comparison_charts(
     # ── Chart 6: Per-case detail (all 84 cases: hit + SSR) ──
     _plot_per_case_detail(experiments, f"{output_dir}/6_accuracy_heatmap_details.png", title)
 
+    # ── Chart 6b: Full condition heatmap (case × profile × condition grid) ──
+    _plot_full_condition_heatmap(
+        experiments, f"{output_dir}/6b_full_condition_heatmap.png", title
+    )
+
     # ── Chart 7: Modality gain (A vs B vs C per difficulty level) ──
     _plot_modality_gain(experiments, f"{output_dir}/7_modality_gain.png", title, paired_ablation)
 
@@ -734,6 +739,280 @@ def _plot_per_case_detail(
     )
 
     plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    print(f"  Saved: {output_path}")
+    plt.close()
+
+
+def _plot_full_condition_heatmap(
+    experiments: dict, output_path: str, title: str = ""
+) -> None:
+    """Chart 6b: Full condition × profile heatmap.
+
+    Rows  = individual cases (sorted by building then case ID).
+    Cols  = (profile × condition) in fixed order:
+              LoRA-MA  LoRA-MB  LoRA-MC  |  LoRA-MA-  LoRA-MB-  LoRA-MC-
+              Prompt-MA Prompt-MB Prompt-MC | Prompt-MA- Prompt-MB- Prompt-MC-
+    Cell  = HIT (green) / MISS (red) / N/A (light gray).
+
+    Also shows a per-row summary column (% conditions hit) and per-column
+    accuracy bar below the grid.
+
+    Works with the merged-experiment format produced by run_update_plots():
+      experiments = {"V2 LoRA (MA/MB/MC × 4D±)": [300 traces],
+                     "V2 Prompt (MA/MB/MC × 4D±)": [300 traces]}
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as mpatches
+    import numpy as np
+
+    # ── Detect profiles from experiment labels ────────────────────────────────
+    # Map experiment label → profile key ("LoRA" or "Prompt")
+    _PROFILE_ALIASES = {
+        "lora": "LoRA",
+        "LoRA": "LoRA",
+        "prompt": "Prompt",
+        "Prompt": "Prompt",
+    }
+
+    def _label_to_profile(label: str) -> str:
+        low = label.lower()
+        if "lora" in low:
+            return "LoRA"
+        if "prompt" in low:
+            return "Prompt"
+        return label
+
+    # ── Collect all traces, tagged with (profile, condition) ─────────────────
+    # Build:  lookup[(case_id, profile, cond)] = hit (bool)
+    lookup: dict = {}
+    case_meta: dict = {}   # case_id → {"building": str, "tier": str}
+
+    CONDS_ON  = ["MA",  "MB",  "MC" ]
+    CONDS_OFF = ["MA-", "MB-", "MC-"]
+    ALL_CONDS = CONDS_ON + CONDS_OFF
+
+    PROFILES_ORDER = ["LoRA", "Prompt"]
+
+    for label, traces in experiments.items():
+        profile = _label_to_profile(label)
+        for t in traces:
+            cid  = t.get("scenario_id", "")
+            cond = (t.get("bench") or {}).get("condition", "")
+            if not cid or cond not in ALL_CONDS:
+                continue
+            lookup[(cid, profile, cond)] = t.get("guid_match", False)
+
+            # Case metadata
+            if cid not in case_meta:
+                import re as _re
+                m = _re.search(r"_([A-Z]+)_SK_", cid)
+                bld = m.group(1) if m else "?"
+                tier = (t.get("difficulty_tags") or {}).get("tier", "")
+                case_meta[cid] = {"building": bld, "tier": tier}
+
+    if not lookup:
+        print("  Skipped: 6b_full_condition_heatmap.png (no MA/MB/MC traces found)")
+        return
+
+    # ── Sort cases: building → case_id ────────────────────────────────────────
+    BLD_ORDER = {"AP": 0, "BH": 1, "DXA": 2}
+    all_case_ids = sorted(
+        {cid for (cid, _, _) in lookup},
+        key=lambda c: (BLD_ORDER.get(case_meta[c]["building"], 9), c),
+    )
+    n_cases = len(all_case_ids)
+
+    # ── Build 12-column matrix ─────────────────────────────────────────────────
+    # Col order: LoRA-MA, LoRA-MB, LoRA-MC, LoRA-MA-, LoRA-MB-, LoRA-MC-,
+    #            Prompt-MA, Prompt-MB, Prompt-MC, Prompt-MA-, Prompt-MB-, Prompt-MC-
+    col_defs = []
+    for prof in PROFILES_ORDER:
+        for cond in ALL_CONDS:
+            col_defs.append((prof, cond))
+
+    n_cols = len(col_defs)
+    matrix = np.full((n_cases, n_cols), np.nan)  # nan = N/A
+
+    for row_i, cid in enumerate(all_case_ids):
+        for col_j, (prof, cond) in enumerate(col_defs):
+            val = lookup.get((cid, prof, cond))
+            if val is not None:
+                matrix[row_i, col_j] = 1.0 if val else 0.0
+
+    # ── Summary stats ──────────────────────────────────────────────────────────
+    # Per-row: hit rate across available columns
+    row_hit_rate = np.nanmean(matrix, axis=1)   # 0–1
+    # Per-column accuracy
+    col_acc = np.nanmean(matrix, axis=0)         # 0–1
+
+    # ── Figure ────────────────────────────────────────────────────────────────
+    # Main grid + right summary bar + bottom accuracy row
+    row_h = max(0.22, 10 / n_cases)
+    fig_h  = n_cases * row_h + 2.5
+    fig_w  = n_cols * 0.82 + 3.5
+
+    fig = plt.figure(figsize=(fig_w, fig_h))
+
+    # GridSpec: main heatmap | summary bar; plus a bottom accuracy strip
+    from matplotlib.gridspec import GridSpec
+    gs = GridSpec(
+        2, 2,
+        figure=fig,
+        height_ratios=[n_cases, 2],
+        width_ratios=[n_cols, 1.6],
+        hspace=0.04,
+        wspace=0.04,
+    )
+    ax_main = fig.add_subplot(gs[0, 0])
+    ax_sum  = fig.add_subplot(gs[0, 1])
+    ax_acc  = fig.add_subplot(gs[1, 0])
+    ax_acc_sum = fig.add_subplot(gs[1, 1])
+    ax_acc_sum.axis("off")
+
+    # ── Colours ───────────────────────────────────────────────────────────────
+    import matplotlib.colors as mcolors
+    HIT_COLOR  = "#b6d7a8"   # soft green
+    MISS_COLOR = "#f4cccc"   # soft red
+    NA_COLOR   = "#e8e8e8"   # light grey
+    cmap_hit  = mcolors.ListedColormap([MISS_COLOR, HIT_COLOR])
+    cmap_hit.set_bad(color=NA_COLOR)
+
+    # ── Draw main heatmap ─────────────────────────────────────────────────────
+    masked = np.ma.masked_invalid(matrix)
+    ax_main.imshow(masked, cmap=cmap_hit, aspect="auto", vmin=0, vmax=1,
+                   interpolation="nearest")
+
+    # Cell text: "✓" / "·" (no huge HIT/- text — too small at 50×12)
+    for row_i in range(n_cases):
+        for col_j in range(n_cols):
+            v = matrix[row_i, col_j]
+            if np.isnan(v):
+                continue
+            if v == 1:
+                ax_main.text(col_j, row_i, "✓", ha="center", va="center",
+                             fontsize=6.5, color="#274e13", fontweight="bold")
+            else:
+                ax_main.text(col_j, row_i, "·", ha="center", va="center",
+                             fontsize=9, color="#990000")
+
+    # ── Vertical dividers: LoRA | Prompt  and  4D-ON | 4D-OFF ─────────────────
+    # Between LoRA and Prompt halves
+    ax_main.axvline(5.5,  color="black", linewidth=1.8, alpha=0.7)
+    # Within LoRA: 4D-ON vs 4D-OFF
+    ax_main.axvline(2.5,  color="#666666", linewidth=0.9, alpha=0.5, linestyle="--")
+    # Within Prompt: 4D-ON vs 4D-OFF
+    ax_main.axvline(8.5,  color="#666666", linewidth=0.9, alpha=0.5, linestyle="--")
+
+    # ── Horizontal dividers between buildings ─────────────────────────────────
+    prev_bld = None
+    for row_i, cid in enumerate(all_case_ids):
+        bld = case_meta[cid]["building"]
+        if prev_bld is not None and bld != prev_bld:
+            ax_main.axhline(row_i - 0.5, color="black", linewidth=1.2, alpha=0.7)
+        prev_bld = bld
+
+    # ── X-axis labels ─────────────────────────────────────────────────────────
+    SHORT_COND = {"MA": "MA", "MB": "MB", "MC": "MC",
+                  "MA-": "MA⁻", "MB-": "MB⁻", "MC-": "MC⁻"}
+    PROF_COLORS = {"LoRA": "#c06000", "Prompt": "#1a56b0"}
+
+    col_labels = [SHORT_COND[c] for _, c in col_defs]
+    ax_main.set_xticks(range(n_cols))
+    ax_main.set_xticklabels(col_labels, fontsize=7.5, fontweight="bold", rotation=0)
+    for tick, (prof, _) in zip(ax_main.get_xticklabels(), col_defs):
+        tick.set_color(PROF_COLORS[prof])
+
+    # Profile group labels: placed in the bottom accuracy bar
+    lora_mid   = (0 + 5) / 2     # centre of LoRA columns 0-5
+    prompt_mid = (6 + 11) / 2    # centre of Prompt columns 6-11
+    top_y = ax_acc.get_ylim()[1] if ax_acc.get_ylim()[1] else 60
+    ax_acc.text(lora_mid,   top_y * 0.92, "LoRA",   ha="center", va="top",
+                fontsize=8, fontweight="bold", color=PROF_COLORS["LoRA"])
+    ax_acc.text(prompt_mid, top_y * 0.92, "Prompt", ha="center", va="top",
+                fontsize=8, fontweight="bold", color=PROF_COLORS["Prompt"])
+
+    # ── Y-axis labels ─────────────────────────────────────────────────────────
+    # Short label: building + number, e.g. "AP 084"
+    y_labels = []
+    for cid in all_case_ids:
+        parts = cid.split("_")
+        num  = parts[2] if len(parts) >= 3 else cid[-3:]
+        bld  = case_meta[cid]["building"]
+        tier = case_meta[cid]["tier"]
+        y_labels.append(f"{bld} {num}" + (f" {tier}" if tier else ""))
+
+    ax_main.set_yticks(range(n_cases))
+    ax_main.set_yticklabels(y_labels, fontsize=5.5, family="monospace")
+
+    # ── Right panel: per-row hit-rate bar ─────────────────────────────────────
+    bar_colors = [
+        "#b6d7a8" if r >= 0.5 else "#f4cccc" for r in row_hit_rate
+    ]
+    ax_sum.barh(range(n_cases), row_hit_rate * 100,
+                color=bar_colors, height=0.75, edgecolor="none")
+    ax_sum.set_xlim(0, 105)
+    ax_sum.set_yticks([])
+    ax_sum.set_xlabel("Hit %\n(all cond.)", fontsize=7)
+    ax_sum.axvline(50, color="gray", linewidth=0.7, linestyle="--", alpha=0.6)
+    ax_sum.tick_params(axis="x", labelsize=6)
+
+    # Add building group markers
+    prev_bld = None
+    for row_i, cid in enumerate(all_case_ids):
+        bld = case_meta[cid]["building"]
+        if prev_bld is not None and bld != prev_bld:
+            ax_sum.axhline(row_i - 0.5, color="black", linewidth=1.2, alpha=0.7)
+        prev_bld = bld
+
+    # ── Bottom panel: per-column accuracy bar ─────────────────────────────────
+    bar_col_colors = [PROF_COLORS[p] for p, _ in col_defs]
+    # 4D-OFF bars lighter
+    bar_col_alpha = [0.9 if c in CONDS_ON else 0.45 for _, c in col_defs]
+    col_acc_pct = col_acc * 100
+    bars = ax_acc.bar(range(n_cols), col_acc_pct, color=bar_col_colors,
+                      alpha=1.0, edgecolor="none")
+    for bar, alpha in zip(bars, bar_col_alpha):
+        bar.set_alpha(alpha)
+
+    for col_j, (acc, (prof, cond)) in enumerate(zip(col_acc_pct, col_defs)):
+        if not np.isnan(acc):
+            ax_acc.text(col_j, acc + 0.5, f"{acc:.0f}%",
+                        ha="center", va="bottom", fontsize=6,
+                        color=PROF_COLORS[prof], fontweight="bold")
+
+    ax_acc.set_xlim(-0.5, n_cols - 0.5)
+    ax_acc.set_ylim(0, max(col_acc_pct[~np.isnan(col_acc_pct)]) * 1.28 if n_cols else 100)
+    ax_acc.set_xticks([])
+    ax_acc.set_ylabel("Acc %", fontsize=7)
+    ax_acc.tick_params(axis="y", labelsize=6)
+    ax_acc.axvline(5.5,  color="black", linewidth=1.8, alpha=0.7)
+    ax_acc.axvline(2.5,  color="#666666", linewidth=0.9, alpha=0.5, linestyle="--")
+    ax_acc.axvline(8.5,  color="#666666", linewidth=0.9, alpha=0.5, linestyle="--")
+    ax_acc.grid(axis="y", alpha=0.25, linewidth=0.5, linestyle="--")
+
+    # ── Legend ────────────────────────────────────────────────────────────────
+    legend_handles = [
+        mpatches.Patch(color=HIT_COLOR,  label="Hit  (✓)"),
+        mpatches.Patch(color=MISS_COLOR, label="Miss (·)"),
+        mpatches.Patch(color=NA_COLOR,   label="N/A"),
+        mpatches.Patch(color=PROF_COLORS["LoRA"],   label="LoRA"),
+        mpatches.Patch(color=PROF_COLORS["Prompt"], label="Prompt"),
+    ]
+    fig.legend(handles=legend_handles, fontsize=7.5, loc="upper right",
+               ncol=5, bbox_to_anchor=(0.98, 1.0), framealpha=0.9)
+
+    # ── Title ─────────────────────────────────────────────────────────────────
+    subtitle = (
+        "Solid = 4D ON (MA/MB/MC)  ·  Faded = 4D OFF (MA⁻/MB⁻/MC⁻)  ·  "
+        "Sorted by building (AP → BH → DXA)"
+    )
+    fig.suptitle(
+        (f"{title}\n" if title else "") +
+        f"Per-Case × All Conditions  ({n_cases} cases × 12 conditions)\n{subtitle}",
+        fontsize=10, fontweight="bold", y=1.01,
+    )
+
+    plt.savefig(output_path, dpi=180, bbox_inches="tight")
     print(f"  Saved: {output_path}")
     plt.close()
 
