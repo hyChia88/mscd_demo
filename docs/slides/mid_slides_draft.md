@@ -20,52 +20,83 @@
 
 ## SLIDE 2 — Motivation: The "Which Window?" Problem
 
-**The core problem in one sentence:**
+**The core problem:**
 > A site inspector sends a photo and a chat message. Which BIM element does it refer to?
 
-**Concrete numbers (AdvancedProject IFC, 10-storey office):**
+**Concrete numbers (AdvancedProject IFC — 10-storey office):**
 
 | Query | Candidates | Precision |
 |-------|-----------|-----------|
-| "Which window?" (text only) | **263** | 0.38% |
+| `"Which window?"` (text only) | **263** | 0.38% |
 | + floor, task status, images (4D context) | **3** | 33.33% |
 
-→ **98.9% search space reduction** from a single additional context layer
+→ **98.9% search space reduction** from a single context layer
 
-**The gap:** Site language is informal, deictic, and visual. BIM is structured, typed, and geometric.
-No existing system bridges the two without expert intervention.
+**Why is this hard?**
 
-> *Speaker note: Open with this as a live demo anecdote — "An inspector said 'look at this window'. There are 263 windows in the model."*
+| Site reality | BIM model |
+|---|---|
+| Informal, egocentric ("that window over there") | Typed, allocentric (`IfcWindow` with GlobalId) |
+| Visual, deictic ("look at this crack") | Geometric, attribute-based |
+| 4D temporal ("the one being worked on now") | Relational schema |
+
+**The deeper bottleneck:** When a floor has **46 geometrically identical IfcWindows**,
+even perfect storey + class filtering leaves Top-1 = **1/46 = 2.2%** — a mathematical ceiling
+that no attribute-based or vector-similarity retrieval can break.
+
+> *Speaker note: This is the unresolved problem that drives the whole thesis. Every subsequent slide answers "how do we break 2.2%?"*
 
 ---
 
 ## SLIDE 3 — Research Landscape & Gap
 
-**What exists:**
-- BIM authoring tools (Revit, ArchiCAD) — structured, expert-only
-- LLM-based NLP for construction (GPT-4, Gemini) — text reasoning, no IFC grounding
-- VLM for visual inspection — image understanding, no schema mapping
-- BIM-to-NLP (e.g., rule-based IFC querying) — rigid, not multimodal
+**What exists in AEC + AI:**
+- BIM authoring (Revit, ArchiCAD) — structured, expert-only, no site input
+- LLM-based NLP for construction — text reasoning, no IFC grounding
+- VLM visual inspection — image understanding, no schema mapping
+- Rule-based IFC querying — rigid, not multimodal
 
-**The gap:**
-- No system takes **informal multimodal site input** (chat + site photos + floorplan + 4D schedule)
-- and outputs a **grounded, validated BIM element** (IFC GUID + structured JSON)
-- with **explainable, reproducible retrieval**
+**The gap:** No system takes **informal multimodal site input** and outputs a
+**grounded, validated, reproducible BIM element identifier**.
 
-**Research position:** Interpreter layer between messy site reality and formal BIM model.
+**Research position:** An *interpreter layer* between messy site reality and the formal BIM model.
+
+**Theory anchors motivating the approach:**
+
+| Reference | Contribution | Relevance |
+|-----------|-------------|-----------|
+| Wang et al. 2024 (Industrial SGG) | AEC requires a predefined predicate vocabulary; open-domain VLMs hallucinate spatial relations | Motivates domain-specific predicate set |
+| Wang et al. 2025 (VLM-VG) | Object-Centric Crops physically isolate background context, blocking language-prior shortcuts | Motivates anti-shortcut crop training strategy |
+| Zhu et al. 2023/2025 (IFC-Graph) | IFC semantic relationships can be stored and queried as a graph | Motivates Neo4j Symbolic Layer |
+| Iranmanesh et al. 2025 (Graph-RAG) | Graph traversal outperforms vector retrieval in AEC disambiguation | Motivates deterministic Cypher compilation |
+
+**This work's claim:** Combining (1) Relation-Region Crops for VLM training and
+(2) deterministic Cypher compilation breaks the attribute entropy bottleneck that
+vector retrieval and attribute filtering cannot.
+
+`[PLANNED — V2.5 not yet implemented; V2 baseline shown in results]`
 
 ---
 
 ## SLIDE 4 — Research Questions
 
-| RQ | Focus | Key Challenge |
-|----|-------|---------------|
-| **RQ1** | Multimodal grounding: can visual + spatial context identify the correct IFC element? | Attribute entropy: 263 windows look the same to a text model |
-| **RQ2** | Schema mapping: can the system output a standards-compliant structured report? | CORENET-X submission schema validation (AEC regulatory context) |
-| **RQ3** | Abductive reasoning: can the system detect when the element cannot be identified? | Escalation vs false positive — when to say "I don't know" |
+| Layer | RQ | Focus | Key Challenge |
+|-------|----|----|---|
+| **Neuro** | **RQ1** | How can multimodal site evidence be grounded to architectural spatial predicates, overcoming VLM shortcut learning? | VLMs learn language-frequency shortcuts ("windows are on walls") rather than visual topology |
+| **Symbolic** | **RQ2** | How can deterministic graph traversal eliminate retrieval hallucination while maintaining ontological compliance? | LLM-generated queries introduce fabricated GUIDs and non-existent properties |
+| **Governance** | **RQ3** | Can the system reliably detect when an element cannot be identified and escalate? | Distinguishing "no match exists" from "retrieval failed" without ground truth |
 
-**Unified claim:** A constraints-driven, multimodal interpreter layer can close the precision gap
-between informal site inspection reports and formal BIM data models.
+**Thesis statement:**
+> *"By grounding probabilistic Vision-Language Models in deterministic architectural topology graphs,
+> this research proposes a Neuro-Symbolic interpreter layer that bridges the semantic gap between
+> unstructured, egocentric site evidence and structured, allocentric IFC schemas.
+> We demonstrate that **Relation-Region Crops** — targeting the interface boundary between two
+> co-located elements — enable VLMs to extract long-tail architectural spatial predicates
+> (`ADJACENT_TO`, `CONTINUOUS`) without shortcut learning, and that compiling these triplets
+> into deterministic Cypher queries achieves zero-hallucination element retrieval in environments
+> of extreme attribute entropy (46 geometrically identical elements per floor)."*
+
+`[RQ1/RQ2 partially answered by V2 (attribute constraints + LoRA); spatial triplet extension is V2.5 PLANNED]`
 
 ---
 
@@ -73,39 +104,47 @@ between informal site inspection reports and formal BIM data models.
 
 **Methodology:** Constructive Design Research (Koskinen et al.)
 - Build a functional prototype as the primary research vehicle
-- Evaluate it quantitatively against controlled synthetic benchmarks
+- Evaluate quantitatively against controlled synthetic benchmarks
 - Reflect on system behavior to generate design knowledge
 
-**Prototype:** MSCD Demo
-- Two pipelines (V1 agent-driven, V2 constraints-driven)
-- Shared IFC retrieval backend, evaluation framework, output contracts
-- Controlled synthetic dataset (synth_v0.3, synth_v0.4) for reproducible experiments
+**Prototype:** MSCD Demo — two pipelines, shared backend, unified evaluation contracts
 
 **Why synthetic data?**
 Real site inspection reports are confidential and unstructured. Synthetic cases give:
-- Ground truth IFC GUID labels
-- Controlled modality ablation (text/image/floorplan/4D)
-- Reproducible difficulty tiers (T1/T2/T3)
+- Deterministic ground-truth IFC GUID labels (no manual annotation)
+- Controlled modality ablation (text / images / floorplan / 4D)
+- Reproducible difficulty tiers (T1/T2/T3 and H1/H2/H3)
+
+**Skeleton-Skin Separation Architecture** (synth pipeline design principle):
+```
+IFC geometry (deterministic) → Skeleton: topological ground-truth labels
+Gemini + Blender rendering   → Skin:     noisy multimodal evidence wrapping the skeleton
+```
+This allows generating large-scale datasets without any manual annotation cost.
 
 ---
 
 ## SLIDE 6 — System Architecture Overview
 
-**[IMAGE: `docs/diagram/system_architecture_2_simplify.png`]**
+![System Architecture](../diagram/system_architecture_2_simplify.png)
 
 **Three layers:**
 1. **Input Layer** — chat history, site photos, floorplan patch, 4D project metadata
-2. **Pipeline Layer** — V1 (ReAct Agent) or V2 (Constraints-Driven) — both produce `EvalTrace`
+2. **Pipeline Layer** — V1 (ReAct Agent, baseline) or V2 (Constraints-Driven, contribution)
+   — both produce the same `EvalTrace` output contract
 3. **Shared Backend** — IFCEngine (IfcOpenShell + spatial index), Neo4j graph, CLIP visual aligner
 
-**Key design principle:** Pipelines are swappable; backend and evaluation contracts are shared.
-This enables controlled A/B comparison between V1 and V2.
+**Planned V2.5 extension** `[NOT YET IMPLEMENTED]`:
+- Neuro Layer (LoRA_3) outputs `spatial_relations: List[SpatialTriplet]`
+  in addition to existing `storey_name` / `ifc_class` constraints
+- Symbolic Layer compiles triplets → Cypher → Neo4j topological edges
+  (backward-compatible: existing Priority 1–7 cascade is the fallback)
 
 ---
 
 ## SLIDE 7 — V1 Pipeline: Agent-Driven Baseline
 
-**[IMAGE: `docs/diagram/sequence_v1_pipeline.png`]**
+![V1 Pipeline Sequence](../diagram/sequence_v1_pipeline.png)
 
 **Architecture:** LangGraph ReAct Agent + MCP (Model Context Protocol)
 
@@ -116,63 +155,125 @@ Input Case → Gemini 2.5 Flash (ReAct agent)
            → EvalTrace
 ```
 
-**Strengths:** Flexible, requires no training, handles edge cases via free-form reasoning
+**Strengths:** Flexible, no training required, handles edge cases via free-form reasoning
 
 **Weaknesses:**
 - Non-deterministic — same input can give different retrieval paths
-- Hard to ablate individual factors (cannot isolate modality contribution)
+- Cannot isolate modality contribution (no controlled ablation)
 - High latency (~8 min / 84 cases vs ~4 min for V2)
 - Prompt-sensitive: agent reasoning varies with phrasings
 
-**Role:** Baseline for comparison. V2 is designed to fix these weaknesses.
+**Role:** Baseline. V2 fixes interpretability and reproducibility; V2.5 fixes the precision ceiling.
 
 ---
 
-## SLIDE 8 — V2 Pipeline: Constraints-Driven (Key Contribution)
+## SLIDE 8 — V2 Pipeline: Constraints-Driven (Current Contribution)
 
-**[IMAGE: `docs/diagram/sequence_v2_pipeline.png`]**
+![V2 Pipeline Sequence](../diagram/sequence_v2_pipeline.png)
 
 **Pipeline:**
 ```
 Input Case
   → ConditionMask         (apply modality ablation: MA/MB/MC × 4D±)
-  → ImageParser (VLM)     (Gemini 2.5 Flash: structured image descriptions, cached)
-  → ConstraintsExtractor  (LLM prompt OR LoRA adapter → JSON constraints)
-  → QueryPlanner          (5-priority deterministic template: storey+type → storey → type → keyword → fallback)
-  → RetrievalBackend      (memory spatial index OR Neo4j Cypher + optional CLIP rerank)
+  → ImageParser (VLM)     (Gemini 2.5 Flash: cached structured descriptions)
+  → ConstraintsExtractor  (Gemini prompt OR LoRA_2 adapter → Constraints JSON)
+  → QueryPlanner          (5-priority deterministic cascade)
+  → RetrievalBackend      (memory OR Neo4j Cypher + optional CLIP rerank)
   → EvalTrace + V2Trace
 ```
 
-**Extracted constraints schema (`src/v2/types.py`):**
+**Current Constraints schema** (`src/v2/types.py` — implemented):
 ```json
 {
   "storey_name": "6 - Sixth Floor",
-  "ifc_class": "IfcWindow",
+  "ifc_class":   "IfcWindow",
   "near_keywords": ["north", "external"],
-  "relations": [],
   "space_name": null,
   "target_name_keyword": null,
   "neighbor_type": "IfcColumn"
 }
 ```
 
-**Phase 5 additions:** `space_name`, `target_name_keyword`, `neighbor_type` — for elements that
-can't be pinpointed by storey + class alone.
+**V2.5 schema extension** `[PLANNED — not yet implemented]`:
+```json
+{
+  "storey_name": "3 - Third Floor",
+  "ifc_class":   "IfcWindow",
+  "spatial_relations": [
+    { "subject_type": "IfcWindow", "predicate": "ADJACENT_TO",
+      "object_type": "IfcRailing", "confidence": 1.0 }
+  ]
+}
+```
+`spatial_relations` is a new optional field — existing Priority 1–7 cascade
+activates when it is empty (zero regression risk).
 
-**Two extraction backends:**
+**Two current extraction backends:**
 - **Prompt-only** (Gemini 2.5 Flash) — zero-shot baseline
-- **LoRA adapter** (Qwen2.5-VL-7B, r=16) — fine-tuned on 933 multimodal samples
+- **LoRA_2** (Qwen2.5-VL-7B, r=16) — fine-tuned on 933 multimodal samples
 
 ---
 
-## SLIDE 9 — Evaluation Design: Synthetic Dataset & Ablation
+## SLIDE 8b — Demo: System in Action
+
+**Demo overview — LoRA_2 (V2 pipeline, MC condition):**
+
+![Demo Overview](../screenshots/0_demo_lora.png)
+
+*Left panel: case selector + evaluation result (✓/✗ per metric). Center: chat history + input modalities. Right: 3D BIM viewer with predicted element highlighted (green = correct, red = wrong / blue = GT).*
+
+---
+
+### Query Input — What the system receives
+
+![Query Input: Case 049, LoRA MC](../screenshots/query_input.png)
+
+*Case SYNTH_V3_049_DXA_SK_049 — Duplex_A building, Condition MC (Chat + Site Photos + 4D Context active).
+Chat: "Inspecting fire doors here. Need to verify fire rating." Site photo shows interior door.*
+
+---
+
+### Pipeline Trace — Interpretable retrieval steps
+
+![Pipeline Trace: Constraints + Query Plan + Results](../screenshots/query_plan.png)
+
+*Constraints extracted by LoRA_2: Storey = Level 1, IFC class = IfcDoor, confidence 0.85.
+Query Planner cascades P3 (storey+type, ~50 candidates) → final pool: 6 candidates.
+Rank 1 = ground truth (✓). Backend: Neo4j.*
+
+---
+
+### LoRA vs Prompt — Same case, different outcome
+
+**Case 084 (AP building — IfcDoor):**
+
+| LoRA_2 (MA — text only) — **CORRECT** ✓ | Prompt (MC — text + photos + floorplan) — **WRONG** ✗ |
+|---|---|
+| ![LoRA correct](../screenshots/1_084_lora_T.png) | ![Prompt wrong](../screenshots/1_084_prompt_F.png) |
+
+*LoRA correctly identifies the door with text + 4D context only (MA).
+Prompt fails even with full multimodal input (MC). Predicted element shown in 3D viewer.*
+
+---
+
+**Case 049 (DXA building — IfcDoor, fire door inspection):**
+
+| LoRA_2 (MC — full multimodal) — **CORRECT** ✓ | Prompt (MC — same inputs) — **WRONG** ✗ |
+|---|---|
+| ![LoRA correct](../screenshots/2_049_lora_T.png) | ![Prompt wrong](../screenshots/2_049_prompt_F.png) |
+
+*Same input modalities, same building, same case — LoRA retrieves the correct GUID, Prompt does not.*
+
+---
+
+## SLIDE 9 — Evaluation Design: Synthetic Dataset & Modality Ablation
 
 **Dataset overview:**
 
 | Dataset | IFC Models | Cases | Use |
 |---------|-----------|-------|-----|
-| **synth_v0.3** | AdvancedProject (AP) | 84 | V1 + V2 prompt baseline |
-| **synth_v0.4** | AP + BasicHouse (BH) + Duplex_A (DXA) | 361 (933 augmented train + 50 holdout) | LoRA_2 training + eval |
+| **synth_v0.3** | AdvancedProject (AP, 10-floor office) | 84 | V1 + V2 prompt baseline |
+| **synth_v0.4** | AP + BasicHouse (BH) + Duplex_A (DXA) | 361 raw → 933 train + 50 holdout | LoRA_2 training + eval |
 
 **6-Condition Modality Ablation (synth_v0.4, LoRA_2 evaluation):**
 
@@ -185,203 +286,317 @@ can't be pinpointed by storey + class alone.
 | **MB-** | Text + Site photos | OFF | MB without 4D |
 | **MC-** | Text + Photos + Floorplan | OFF | MC without 4D |
 
-**Comparing MA vs MA-, MB vs MB-, MC vs MC- isolates the pure 4D contribution.**
+MA vs MA- / MB vs MB- / MC vs MC- isolates pure 4D contribution at each modality level.
 
 **Evaluation metrics:**
 - **Top-1 Accuracy** — exact GUID match in top-1 result
-- **Search Space Reduction (SSR)** — `(N_initial − N_retrieved) / N_initial` (target: high with GT retained)
-- **Field EM F1** — constraint field-level extraction accuracy vs ground truth labels
-- **Over-Reduction rate** — SSR where ground truth is *not* in the final candidate set (error case)
+- **Search Space Reduction (SSR)** = `(N_initial − N_retrieved) / N_initial`
+- **Valid SSR** — SSR where GT is retained (good); **Over-Reduction** — SSR where GT is lost (bad)
+- **Field EM F1** — constraint field extraction accuracy vs ground-truth labels
 
 ---
 
 ## SLIDE 10 — Results: Overall Performance (LoRA_2 vs Prompt)
 
-**[IMAGE: `docs/plots/0224_modality_6cond_v3/1_overall_metrics.png`]**
+![Overall Metrics: LoRA vs Prompt](../plots/0224_modality_6cond/1_overall_metrics.png)
 
-**synth_v0.4, 50-case holdout, 6-condition ablation (300 traces per profile):**
+**synth_v0.4 · 50-case holdout · 6-condition ablation · 300 traces per profile:**
 
-| Metric | V2 LoRA | V2 Prompt | Delta |
-|--------|---------|-----------|-------|
+| Metric | V2 LoRA_2 | V2 Prompt | Delta |
+|--------|-----------|-----------|-------|
 | **Top-1 Accuracy** | **35.3%** | 25.7% | **+9.6 pp** |
 | Name Match | 67.7% | 60.0% | +7.7 pp |
 | Valid SSR (GT retained) | 66.2% | 52.8% | +13.4 pp |
 | Over-Reduction (GT lost) | 64.7% | 74.3% | −9.6 pp ✓ |
 
-**Key finding:** LoRA not only improves top-1 accuracy but also *reduces over-aggressive filtering*
-— it retrieves with more precision, losing fewer ground-truth elements.
+**Key finding:** LoRA_2 not only improves top-1 accuracy — it also *reduces over-aggressive
+filtering*, retaining ground-truth elements more reliably.
 
-**Context:** Storey Match ≈ 0% for both (known issue: storey name extraction fails on
-large multi-floor buildings where storey is ambiguous from chat alone).
+**Known ceiling:** Storey Match ≈ 0% for both profiles (storey extraction fails when informal
+chat does not name the floor explicitly — targeted by V2.5 predicate relaxation fallback).
 
 ---
 
 ## SLIDE 11 — Results: Visual Modality Contribution
 
-**[IMAGE: `docs/plots/0224_modality_6cond_v3/9_modality_stack_MA_MB_MC.png`]**
+![Modality Stack MA/MB/MC](../plots/0224_modality_6cond/9_modality_stack_MA_MB_MC.png)
 
 **Key question:** Does adding site photos (MB) or floorplans (MC) actually help?
 
-**Findings (LoRA — 4D ON conditions):**
+**LoRA_2 — 4D ON conditions (n=50 each):**
 
-| Condition | Top-1 | Delta from MA |
-|-----------|-------|---------------|
-| MA (Text + 4D) | 36% | baseline |
-| MB (+Site photos) | 34% | −2% |
-| MC (+Floorplan) | **44%** | **+10%** (key gain!) |
+| Condition | Top-1 | Δ from MA |
+|-----------|-------|-----------|
+| MA — Text + 4D | 36% | baseline |
+| MB — + Site photos | 34% | −2% |
+| MC — + Floorplan | **44%** | **+10%** |
 
-**For Prompt baseline:** gains are smaller and less consistent (−2% / +12% / −2%)
+**Prompt baseline:** MA 20% → MB 32% (+12%) → MC 30% (−2%)
 
 **Interpretation:**
-- Site photos alone (MB) do not reliably help — noisy, requires spatial grounding
-- **Floorplan (MC) gives the clearest boost** — spatial layout is a strong constraint
-- LoRA learns to exploit floorplan spatial geometry; Prompt model does not consistently
+- Site photos (MB) do not reliably help alone — noisy without spatial anchoring
+- **Floorplan (MC) gives the largest consistent boost** for LoRA_2 — spatial layout
+  is a strong geometric constraint the adapter learns to exploit
+- Prompt model's gains are inconsistent (no fine-tuning signal for spatial reasoning)
 
 ---
 
 ## SLIDE 12 — Results: 4D Project Context Impact
 
-**[IMAGE: `docs/plots/0224_modality_6cond_v3/12_4d_paired_ablation.png`]**
+![4D Paired Ablation](../plots/0224_modality_6cond/12_4d_paired_ablation.png)
 
-**Key question:** How much does 4D schedule/task metadata contribute?
-*(Comparing MA vs MA-, MB vs MB-, MC vs MC- — only 4D differs)*
+**Paired ablation — only 4D context differs (combined LoRA + Prompt, n=100 per pair):**
 
-| Condition Pair | 4D ON | 4D OFF | 4D Gain |
-|----------------|-------|--------|---------|
+| Pair | 4D ON | 4D OFF | 4D Gain |
+|------|-------|--------|---------|
 | MA vs MA- | 28% | 25% | **+3%** |
 | MB vs MB- | 33% | 30% | **+3%** |
 | MC vs MC- | **37%** | 30% | **+7%** |
 
-**Finding:** 4D context provides a **consistent, additive +3–7pp gain** across all modality levels.
-Gain is largest when combined with full multimodal input (MC), suggesting 4D context and
-visual inputs are complementary, not redundant.
+4D context provides a **consistent +3–7pp additive gain** across all modality levels.
+The gain amplifies with richer visual context (MC), suggesting 4D and visual inputs are
+**complementary, not redundant**.
 
-**Implication for RQ1:** Both temporal project context AND spatial visual context are independently
-useful for disambiguation — fusing them achieves the best results.
+**Implication for RQ1:** Temporal project context (floor schedule, task status) and
+spatial visual context are independently useful disambiguation signals — fusing both
+achieves the best results.
 
 ---
 
 ## SLIDE 13 — Results: Building Generalization (LoRA_2)
 
-**[IMAGE: `docs/plots/0224_modality_6cond_v3/11_modality_x_building.png`]**
+![Accuracy by Building × Modality](../plots/0224_modality_6cond/11_modality_x_building.png)
 
-**Key question:** Does the LoRA adapter generalize across different building types?
-*(LoRA_2 was trained on 3 IFC models: AP + BH + DXA)*
+*LoRA_2 trained on AP + BH + DXA — does it generalize?*
 
 | Building | MA (Text+4D) | MB (+Photos) | MC (+Floorplan) |
-|----------|------------|------------|----------------|
-| **AP** AdvancedProject (10-storey office) | 8% | 5% | 10% |
+|----------|-------------|-------------|----------------|
+| **AP** AdvancedProject (10-storey, 263 windows) | 8% | 5% | 10% |
 | **BH** BasicHouse (2-storey residential) | 45% | **62%** | 60% |
-| **DXA** Duplex_A (split-level) | 35% | 30% | **45%** |
+| **DXA** Duplex_A (split-level duplex) | 35% | 30% | **45%** |
 
-**Key findings:**
-- **AP is hardest**: large building, many identical elements, storey ambiguity — Top-1 stays low
-- **BH benefits most from site photos (+18%)**: small building, fewer elements, photos disambiguate well
-- **DXA benefits from floorplan (+15%)**: split-level geometry is easier to localize spatially
-- **Building type determines which modality matters most** — one-size-fits-all retrieval is suboptimal
+**Findings:**
+- **AP is hardest**: extreme element density (46 identical windows/floor), storey ambiguity
+  → precisely the H2 attribute-entropy regime that V2.5 targets
+- **BH benefits most from photos (+18pp)**: small building, few elements, photos directly disambiguate
+- **DXA benefits from floorplan (+15pp)**: split-level geometry is strongly spatial
+- **Building type determines which modality matters** — one-size-fits-all retrieval is suboptimal
 
 ---
 
 ## SLIDE 14 — Key Insights & Failure Analysis
 
-**What works:**
-- V2 constraints-driven pipeline achieves **consistent SSR > 80%** — dramatically narrows candidate set
-- LoRA_2 outperforms zero-shot Gemini prompt by +9.6pp, confirming value of domain fine-tuning
-- 4D context + floorplan = most effective input combination (MC with 4D ON)
+![Search Space Reduction Box Plots](../plots/0224_modality_6cond/3_search_space_reduction.png)
 
-**What doesn't work yet:**
-1. **Attribute entropy bottleneck** (the core unsolved problem):
-   - In large buildings (AP), 10-40 elements of the same type exist per floor
-   - Once storey + class filters are applied, remaining elements are indistinguishable by attribute text alone
-   - SSR is high, but Top-1 within the reduced set is near-random → need *topological* differentiation
+*(Box plots: LoRA valid SSR median ~85%, but over-reduction in 194/300 cases)*
 
-2. **Storey extraction failure on large buildings**:
-   - Informal chat rarely says "sixth floor" explicitly — agent must infer from context
-   - When storey is wrong, the whole query plan fails → over-reduction
+**What works well (V2 + LoRA_2):**
+- Constraints-driven pipeline achieves SSR > 80% consistently — dramatically narrows candidates
+- LoRA_2 outperforms zero-shot Gemini by +9.6pp Top-1 and −9.6pp over-reduction
+- 4D context + floorplan = most effective input combination
 
-3. **Site photo noise**:
-   - Photos add signal for simple buildings (BH +18%) but can hurt for complex ones (AP −2%)
-   - VLM descriptions are not spatially anchored to IFC coordinates
+**Unresolved bottlenecks:**
 
-**[IMAGE: `docs/plots/0224_modality_6cond_v3/3_search_space_reduction.png`]**
-*(Box plots show: LoRA valid SSR median ~85%, but over-reduction in 194/300 cases)*
+| Bottleneck | Manifestation | V2.5 solution |
+|-----------|--------------|---------------|
+| **Attribute entropy** | AP: 46 identical windows/floor → Top-1 ≈ 8% (near 1/46 = 2.2%) | Topological triplet → Cypher → unique candidate |
+| **Storey extraction failure** | Chat rarely names floor explicitly; wrong storey = catastrophic filter | Predicate relaxation fallback (`ADJACENT_TO` → `ON_STOREY`) |
+| **Site photo noise** | Photos help simple buildings (BH +18%), hurt complex ones (AP −2%) | Relation Crop focuses on interface boundary, not global scene |
 
 ---
 
-## SLIDE 15 — Progress Summary: What's Done
+## SLIDE 15 — Progress Summary
 
 **Implementation status:**
 
 | Component | Status |
 |-----------|--------|
-| V1 pipeline (ReAct + MCP) | ✅ Complete, evaluated |
-| V2 pipeline (Constraints-Driven) | ✅ Complete, evaluated |
-| synth_v0.3 dataset (84 cases, AP) | ✅ Complete |
-| synth_v0.4 dataset (361 cases, 3 IFC models) | ✅ Complete |
-| LoRA_2 training (Qwen2.5-VL r=16, 933 samples) | ✅ Trained (Modal A100) |
+| V1 pipeline (ReAct + MCP) | ✅ Complete & evaluated |
+| V2 pipeline (Constraints-Driven, prompt + LoRA) | ✅ Complete & evaluated |
+| synth_v0.3 (84 cases, AP) | ✅ Complete |
+| synth_v0.4 (361 cases, AP + BH + DXA, 3× augmented) | ✅ Complete |
+| LoRA_2 training (Qwen2.5-VL r=16, 933 samples, 3 epochs) | ✅ Trained on Modal A100 |
 | 6-condition modality ablation (300 traces × 2 profiles) | ✅ Complete |
 | Phase 5: fine-grained constraints (space_name, neighbor_type) | ✅ Schema added |
 | BCF 2.1 handoff output | ✅ Complete |
 | RQ2 CORENET-X schema validation | ✅ Complete |
-| Plot generation pipeline | ✅ Complete |
+| **V2.5 Neuro-Symbolic pipeline (LoRA_3 + spatial triplets + Neo4j)** | 🔲 PLANNED |
+| **synth_v0.5 (H2 hard-negative dataset, Relation Crops)** | 🔲 PLANNED |
 
-**Key result:** LoRA_2 reaches **35.3% Top-1** on 50-case holdout (3 building types).
-Prompt baseline: 25.7%. Gap: **+9.6pp**.
+**Key result so far:** LoRA_2 reaches **35.3% Top-1** on 50-case holdout (3 building types).
+Prompt baseline: 25.7% (+9.6pp). AP building (hardest, densest) remains near the 2.2% floor.
 
 ---
 
 ## SLIDE 16 — Next Steps: V2.5 Neuro-Symbolic Pipeline
 
-**The bottleneck:** Attribute entropy — elements identical in type/material/size, only differentiable by *topology*
+**The bottleneck** (from AP results): 46 identical `IfcWindow` elements per floor.
+Attribute retrieval Top-1 = **2.2%** (1/46). Cannot be broken by CLIP or text attribute matching.
 
-**Solution:** Replace flat attribute matching with **spatial relation graph traversal**
-
-```
-Neuro Layer (Perception):
-  Input: site photo crop + chat → VLM (LoRA_3)
-  Output: LocalSceneGraph (spatial triplets)
-    e.g. {"subject": "IfcPipeSegment", "predicate": "INTERSECTS", "object": {"IfcClass": "IfcWall"}}
-
-Symbolic Layer (Execution):
-  Input: LocalSceneGraph → Cypher compiler → Neo4j query
-    MATCH (p:IfcPipeSegment)-[:INTERSECTS]->(w:IfcWall)
-    RETURN p.GlobalId, p.Name
-  Zero LLM hallucination in retrieval step
-```
-
-**New predicates (long-tail spatial relations):**
-- `INTERSECTS` — physical penetration (pipe through wall)
-- `ADJACENT_TO` — surface gap < 5cm
-- `CANTILEVERED_OVER` — Z-projection overlap, subject above object
-
-**Data plan (synth_v0.5):**
-1. Geometric skeleton mining via OCCT (AABB broad phase + exact narrow phase)
-2. Object-centric crop rendering (Blender headless — intersection close-up patches)
-3. Text augmentation with vague/urgent site jargon
-4. Hard negatives: 50 identical elements, only 1 has `INTERSECTS` target topology
-
-**New evaluation metric:** `mR@100` on rare predicates — proves the model learned geometry, not language priors
+**Solution — Topological Orthogonality:**
+Even if elements are intrinsically identical, their *extrinsic spatial relationships* in 3D
+are unique and deterministic. V2.5 introduces this as an independent information dimension.
 
 ---
 
-## SLIDE 17 — Next Steps: Timeline
+### Architecture (V2.5) `[PLANNED]`
+
+```
+┌─────────────────────────────────────────────────┐
+│  Multimodal Input (same as V2)                  │
+└────────────┬────────────────┬────────────────────┘
+             │                │
+  ┌──────────▼────────────────▼──────────┐
+  │   NEURO LAYER — LoRA_3  [PLANNED]   │
+  │   Qwen2.5-VL-7B + LoRA r=16        │
+  │                                     │
+  │   Crop Strategy:                    │
+  │   · Object Crop  → IFC class ID     │  ← Wang et al. 2025
+  │   · Relation Crop → predicate ID    │  ← THIS WORK
+  │                                     │
+  │   Output: Constraints (extended)    │
+  │   { storey_name, ifc_class,         │
+  │     spatial_relations: [            │
+  │       {subject, predicate, object}  │
+  │     ]}  ← Pydantic validated        │
+  └──────────────┬──────────────────────┘
+                 │ predicate ∈ {FILLS, CONTINUOUS,
+                 │              ADJACENT_TO, ON_TOP_OF}
+  ┌──────────────▼──────────────────────┐
+  │   QUERY COMPILER — Python [PLANNED] │
+  │   Zero LLM / fully deterministic   │
+  │   Priority 0: spatial_triplet Cypher│  ← NEW
+  │   Priority 1–7: existing cascade    │  ← unchanged fallback
+  │   Fallback: ADJACENT_TO → ON_STOREY │
+  └──────────────┬──────────────────────┘
+                 │ Cypher query
+  ┌──────────────▼──────────────────────┐
+  │   SYMBOLIC LAYER — Neo4j  [PLANNED] │
+  │   -[:FILLS]->       (IFC schema)    │
+  │   -[:CONTINUOUS]->  (IFC constraint)│
+  │   -[:ADJACENT_TO]-> (centroid<1.5m) │
+  │   -[:ON_TOP_OF]->   (Z-axis+AABB)   │
+  └─────────────────────────────────────┘
+```
+
+---
+
+### Architectural Predicate Vocabulary `[PLANNED]`
+
+*Note: earlier plan used MEP predicates (`INTERSECTS`, `CANTILEVERED_OVER`) — deprecated because
+AdvancedProject.ifc has **zero MEP elements**. Replaced with architectural predicates:*
+
+| Predicate | Definition | Mining method | Est. instances |
+|-----------|-----------|---------------|----------------|
+| `FILLS` | Door/window occupies a wall opening | `IfcRelFillsElement` — already in IFC schema | ~389 |
+| `CONTINUOUS` | Wall spans multiple storeys | `Top constraint ≠ storey_name` — **no geometry** | **771** |
+| `ADJACENT_TO` | Centroid distance < 1.5m (same storey, different type) | `ifcopenshell.util.placement` | ~200–400 |
+| `ON_TOP_OF` | `Z_min(subject) > Z_max(object)` + XY AABB overlap | Z-axis comparison | ~19–40 |
+
+`FILLS` and `CONTINUOUS` are **free** (IFC schema / field, no geometry needed).
+`ADJACENT_TO` and `ON_TOP_OF` require centroid extraction (P1 task, ~2–3 days).
+
+---
+
+### Relation-Region Crop — Core Training Innovation `[PLANNED]`
+
+*Extends Wang et al. 2025 from entity identification to **relation identification**:*
+
+```
+Object Crop  (Wang et al. 2025):
+  Crop:   tight AABB around single target element (256×256)
+  Learns: "this pixel texture = IfcRailing"
+  Blocks: background scene language prior
+
+Relation Crop  (THIS WORK):
+  Crop:   union AABB of subject + object + 20% padding
+  Learns: "window + railing in this spatial config = ADJACENT_TO"
+  Blocks: global scene language prior
+          ("railings are usually near stairs" → model must use local pixel topology)
+```
+
+---
+
+### H2 Hard-Negative Benchmark `[PLANNED]`
+
+```
+3rd floor: 46 identical IfcWindow elements (same size, material, IFC class)
+Site photo: a window next to a staircase railing (IfcRailing)
+
+Ground truth:  (IfcWindow) -[:ADJACENT_TO]-> (IfcRailing, storey="3 - Third Floor")
+
+Attribute baseline (V2 / CLIP):    Top-1 = 1/46 = 2.2%   ← mathematical lock
+V2.5 Neuro-Symbolic target:        Top-1 = 60–80%         ← 27–36× improvement
+```
+
+---
+
+### synth_v0.5 & Codebase Plan `[PLANNED]`
+
+**Target: 800–1,000 high-quality triplet-annotated samples**
+
+```
+Phase 1 — Skeleton Mining (Day 1–3)
+  hunt_FILLS()       → IfcRelFillsElement (free, ~389 instances)
+  hunt_CONTINUOUS()  → wall Top ≠ storey field (free, ~771)
+  hunt_ADJACENT_TO() → centroid distance < 1.5m (~200–400 pairs)
+
+Phase 2 — H2 Hard-Negative Construction (Day 3–4)
+  50 eval-only test cases (not used for training)
+
+Phase 3 — Skin Generation (Day 4–6)
+  image_global.png        ← existing Blender/Bonsai pipeline
+  image_relation_crop.png ← NEW: union AABB of subject+object
+  text_chat               ← Gemini (relation-aware, no GUID/IfcClass)
+
+Phase 4 — LLM-as-Judge Filter (Day 6–7)
+  Filter rate ~20–30% → 800–1,000 final samples
+```
+
+**Codebase fix priority queue:**
+
+| Priority | Task | Unlocks |
+|----------|------|---------|
+| **P0** | Fix Neo4j connection | Graph vs. vector experiments valid |
+| **P0** | Verify `FILLS` edges in Neo4j | Free topological predicate |
+| **P1** | `1_build_index.py` — centroid XYZ extraction | `ADJACENT_TO`, `ON_TOP_OF` |
+| **P1** | `types.py` — add `spatial_relations` field | LoRA_3 output schema |
+| **P1** | `constraints_to_query.py` — Priority 0 Cypher rule | Full neuro-symbolic path |
+
+**Critical path: P0 → P1 → synth_v0.5 → LoRA_3 → Evaluate**
+
+---
+
+## SLIDE 17 — Next Steps: Innovation Position & Timeline
+
+**How V2.5 advances beyond prior work:**
+
+| Dimension | Wang et al. 2024 | Wang et al. 2025 | **This work** |
+|-----------|-----------------|-----------------|---------------|
+| Domain | Manufacturing | General vision | **AEC / IFC** |
+| Triplet output | Text scene graph | 2D bounding box | **IFC GlobalId (Cypher)** |
+| Anti-shortcut strategy | 5-expert consensus | Single-element crop | **Relation-Region Crop** |
+| Annotation source | Manual | PaLI-3 generated | **Geometric pre-computation (zero cost)** |
+| Core metric | mR@20/100 | RefCOCO REC/RES | **mR@100 + H2-Top-1** |
+
+**Timeline:**
 
 | Phase | Task | Target |
 |-------|------|--------|
-| **Now** | `synth_v0.5` skeleton mining (OCCT AABB + narrow phase) | Week 1-2 |
-| | Object-centric crop generation (Blender) | Week 2-3 |
-| | LoRA_3 training on spatial triplet extraction | Week 3-4 |
-| **Near** | V2.5 Symbolic Layer: Cypher compiler + Neo4j integration | Week 4-6 |
-| | Full evaluation: V2 vs V2.5 on attribute-entropy hard cases | Week 6-7 |
-| **Thesis** | Final evaluation chapter, limitation analysis | Month 3 |
-| | Thesis writing | Month 3-4 |
+| **Week 1–2** | P0/P1 codebase fixes (Neo4j + centroid extraction) | — |
+| | `synth_v0.5` skeleton mining (FILLS, CONTINUOUS, ADJACENT_TO) | — |
+| **Week 2–4** | Relation Crop generation, text skin (Gemini), LLM-as-Judge filter | 800–1,000 samples |
+| **Week 4–5** | LoRA_3 training on Modal A100 (3 images, `spatial_relations` output) | — |
+| **Week 5–7** | V2.5 evaluation: H2-Top-1 vs B1/B2/B3/B4, mR@100 per predicate | — |
+| **Month 3** | Final evaluation chapter, limitations, RQ3 escalation analysis | — |
+| **Month 3–4** | Thesis writing | — |
 
 **Core thesis argument by end:**
-1. Multimodal context narrows BIM search space (RQ1 — shown)
-2. LoRA fine-tuning outperforms zero-shot LLM for constraint extraction (RQ1 — shown)
-3. Topological spatial relations break the attribute entropy ceiling (RQ1 — upcoming)
-4. Structured output validates against AEC schemas (RQ2 — shown)
-5. Empty retrieval as escalation signal is reliable (RQ3 — partial)
+1. Multimodal context narrows BIM search space (RQ1 — ✅ shown in V2)
+2. LoRA fine-tuning outperforms zero-shot LLM for constraint extraction (RQ1 — ✅ shown)
+3. Topological spatial relations break the attribute entropy ceiling (RQ1 — 🔲 V2.5 target)
+4. Structured output validates against AEC regulatory schemas (RQ2 — ✅ shown)
+5. Empty retrieval after predicate relaxation is a reliable escalation signal (RQ3 — partial)
 
 ---
 
@@ -389,52 +604,93 @@ Symbolic Layer (Execution):
 
 ```
 IFC Model (IfcOpenShell)
-  ↓ 1_render_wireframes.py        → Blender wireframe renders per element
-  ↓ 2_generate_photos.py          → Gemini: photoreal site photos from wireframes
-  ↓ 3_generate_floorplans.py      → matplotlib: floorplan patches from IFC geometry
-  ↓ 4_generate_cases.py           → LLM: chat history + 4D metadata from GT element
-  ↓ 5_filter_cases.py             → quality filter: parse rate, duplicate removal
-  ↓ 6_augment_text.py             → 3× augmentation: Original / Vague / Urgent
-  ↓ 7_prepare_lora_data.py        → Qwen2.5-VL ChatML format, merge 3 buildings
-  →  lora_train.jsonl (933)  +  test_holdout.jsonl (50)
+  ↓ 1_build_index.py      → element index (+ centroid XYZ in V2.5)
+  ↓ 2_hunt_skeletons.py   → GT labels (FILLS/CONTINUOUS/ADJACENT_TO in V2.5)
+  ↓ 3_render_wireframes   → Blender renders + relation crops (new in V2.5)
+  ↓ 4_generate_photos     → Gemini: photoreal site photos
+  ↓ 5_generate_cases      → LLM: chat history + 4D metadata
+  ↓ 6_augment_text        → 3× augmentation: Original / Vague / Urgent
+  ↓ 7_prepare_lora_data   → Qwen2.5-VL ChatML format, merge buildings
+  →  lora_train.jsonl (933 V2 / ~1,733 V2.5) + test_holdout.jsonl (50)
 ```
-
-**Three IFC buildings in synth_v0.4:**
 
 | Tag | Building | Train | Holdout |
 |-----|----------|-------|---------|
-| AP | AdvancedProject (10-storey office, 263 windows) | 690 | 20 |
+| AP | AdvancedProject (10-storey, 263 windows, 762 walls) | 690 | 20 |
 | BH | BasicHouse (2-storey residential) | 33 | 20 |
 | DXA | Duplex_A (split-level duplex) | 210 | 10 |
 
 ---
 
-## APPENDIX B — LoRA_2 Training Details
+## APPENDIX B — LoRA_2 Training Details (Current)
 
 | Parameter | Value |
 |-----------|-------|
 | Base model | `unsloth/Qwen2.5-VL-7B-Instruct-bnb-4bit` |
-| Adapter | LoRA (r=16, alpha=32) |
+| Adapter | LoRA r=16, alpha=32 |
 | Training samples | 933 (AP=690, BH=33, DXA=210) |
-| Epochs | 3 |
-| Learning rate | 2e-4 |
-| Effective batch size | 16 (batch=2, grad_accum=8) |
+| Epochs | 3 · LR: 2e-4 · Effective batch: 16 · Max seq: 2048 |
 | Hardware | Modal A100 (40GB) |
-| Task | Multimodal constraint extraction: [site photo + floorplan + chat] → constraints JSON |
+| Task | [site photo + floorplan + chat] → constraints JSON |
 
-**Adapter location:** `models/adapters/v2_lora_qwen/` (local), `/mscd-lora/final` (Modal volume)
+**LoRA_3 planned changes** `[NOT YET IMPLEMENTED]`:
+- New input: `image_relation_crop.png` (3rd image)
+- New output: `spatial_relations: List[SpatialTriplet]`
+- Max seq: 4096 · Training samples: ~1,733
 
 ---
 
-## APPENDIX C — Profiles Used in Evaluation
+## APPENDIX C — V2.5 Evaluation Baselines & Metrics
 
-| Profile | Pipeline | Constraints | Retrieval | CLIP |
-|---------|----------|-------------|-----------|------|
-| `v2_lora` | V2 | LoRA_2 (Qwen2.5-VL) | Neo4j | No |
-| `v2_prompt` | V2 | Gemini 2.5 Flash prompt | Neo4j | No |
-| `v1_baseline` | V1 | ReAct agent | Memory | No |
+| Baseline | What it proves when outperformed |
+|----------|----------------------------------|
+| **B1** Dense Vector (CLIP) | Attribute entropy defeats vector retrieval |
+| **B2** V2 Prompt-only | Text-only extraction bottleneck |
+| **B3** V2 LoRA_2 | Attribute constraints insufficient for identical-element disambiguation |
+| **B4** V2.5 LoRA_3 + triplets + Neo4j | Full neuro-symbolic pipeline |
 
-All plots in `docs/plots/0224_modality_6cond_v3/` generated by:
-```bash
-./training/eval.sh --step update-plots --experiment modality_6cond_lora
-```
+| Metric | Test set | Baseline | Target | Proves |
+|--------|----------|----------|--------|--------|
+| **Top-1 on H2** | 50 ADJACENT_TO hard-negatives (~46 distractors) | 2.2% | 60–80% | Topology breaks entropy ceiling |
+| **mR@100 per-predicate** | Full set, grouped by predicate | FILLS highest | ADJACENT_TO ≥ FILLS | VLM learned visual topology, not language frequency |
+| **SSR** | Full set | 92.65% | ≥ 92% | Efficiency maintained |
+
+---
+
+## APPENDIX D — Plot Index
+
+All plots: `mscd_demo/docs/plots/0224_modality_6cond/`
+
+| File | Used in | Shows |
+|------|---------|-------|
+| `1_overall_metrics.png` | Slide 10 | LoRA 35.3% vs Prompt 25.7% — 5 metrics |
+| `2_condition_comparison.png` | — | Per-condition bar (MA/MA-/MB/MB-/MC/MC-) |
+| `3_search_space_reduction.png` | Slide 14 | SSR box plots: valid (GT retained) vs over-reduced |
+| `4_efficiency_comparison.png` | — | Latency comparison |
+| `5_accuracy_heatmap.png` | — | Accuracy heatmap overall |
+| `6_accuracy_heatmap_details.png` | — | Detailed per-case heatmap |
+| `6b_full_condition_heatmap.png` | — | Full 6-condition heatmap |
+| `7_modality_gain.png` | — | T1/T2/T3 difficulty × modality |
+| `8_difficulty_degradation.png` | — | T1→T2→T3 accuracy drop |
+| `9_density_vs_accuracy.png` | — | Candidate density vs accuracy scatter |
+| `9_modality_stack_MA_MB_MC.png` | Slide 11 | Visual modality contribution (MA/MB/MC × LoRA/Prompt) |
+| `11_modality_x_building.png` | Slide 13 | Accuracy heatmap: building × modality |
+| `12_4d_paired_ablation.png` | Slide 12 | 4D ON vs OFF paired comparison |
+| `13_modality_dual_profile.png` | — | All 12 conditions, line + bar dual view |
+
+---
+
+## APPENDIX E — Screenshot Index
+
+All screenshots: `mscd_demo/docs/screenshots/`
+
+| File | Used in | Shows |
+|------|---------|-------|
+| `0_demo_lora.png` | Slide 8b | Full demo overview: chat, image input, 3D BIM viewer |
+| `query_input.png` | Slide 8b | Query Content tab: chat + site photo + 4D context (Case 049, DXA) |
+| `query_plan.png` | Slide 8b | Pipeline Trace: constraints extraction + query plan cascade + ranked results |
+| `1_084_lora_T.png` | Slide 8b | Case 084 (AP, IfcDoor) — LoRA MA → **CORRECT** ✓ |
+| `1_084_prompt_F.png` | Slide 8b | Case 084 (AP, IfcDoor) — Prompt MC → **WRONG** ✗ |
+| `2_049_lora_T.png` | Slide 8b | Case 049 (DXA, fire door) — LoRA MC → **CORRECT** ✓ |
+| `2_049_prompt_F.png` | Slide 8b | Case 049 (DXA, fire door) — Prompt MC → **WRONG** ✗ |
+| `demo_049.gif` | — | Animated walkthrough of Case 049 |

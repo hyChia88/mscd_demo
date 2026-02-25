@@ -1,36 +1,119 @@
-"""Tab 1 — Query Context: chat history + input images."""
+"""Tab 1 — Query Context: modality badges, chat history, input images + floorplan."""
 import streamlit as st
 from pathlib import Path
 
 
-def render(trace: dict) -> None:
-    scenario = trace.get("scenario") or {}
-    chat     = scenario.get("chat_history") or []
-    images   = scenario.get("image_paths") or []
+# ── Modality badge colours ────────────────────────────────────────────────────
+_ACTIVE = {
+    "chat":    ("#22c55e", "white"),   # green
+    "photos":  ("#3b82f6", "white"),   # blue
+    "plan":    ("#f59e0b", "white"),   # amber
+    "ctx_4d":  ("#8b5cf6", "white"),   # purple
+}
+_INACTIVE_BG  = "#e2e8f0"
+_INACTIVE_FG  = "#94a3b8"
 
+
+def _badge(label: str, active: bool, key: str) -> str:
+    """Return an HTML badge string."""
+    if active:
+        bg, fg = _ACTIVE[key]
+    else:
+        bg, fg = _INACTIVE_BG, _INACTIVE_FG
+    strike = "text-decoration:line-through;" if not active else ""
+    return (
+        f"<span style='background:{bg};color:{fg};padding:3px 11px;"
+        f"border-radius:12px;font-size:0.82em;font-weight:600;"
+        f"margin-right:6px;{strike}'>{label}</span>"
+    )
+
+
+def _modality_signals(trace: dict) -> dict:
+    """
+    Derive modality presence directly from trace data — no condition look-up.
+
+    Returns a dict with keys:
+      has_chat    bool
+      has_photos  bool   + photo_paths list[str]
+      has_plan    bool   + plan_path str | None
+      has_4d      bool
+    """
+    scenario = trace.get("scenario") or {}
+    ctx      = scenario.get("context_meta") or {}
+    ipr      = (trace.get("internals") or {}).get("image_parse_result") or {}
+
+    # 4D context: task_status present and not masked
+    task_status = ctx.get("task_status", "") or ""
+    has_4d = task_status not in ("", "N/A")
+
+    # Chat
+    chat = scenario.get("chat_history") or []
+    has_chat = bool(chat) or bool(scenario.get("query_text", "").strip())
+
+    # Site photos — prefer image_parse_result paths (authoritative), fall back to scenario
+    site_photos = ipr.get("site_photos") or []
+    photo_paths = [p["image_path"] for p in site_photos if p.get("image_path")]
+    if not photo_paths:
+        photo_paths = scenario.get("image_paths") or []
+    has_photos = bool(photo_paths)
+
+    # Floorplan — from image_parse_result only; no guessing from file system
+    fp_entry  = ipr.get("floorplan") or {}
+    plan_path = fp_entry.get("image_path") if fp_entry else None
+    has_plan  = bool(plan_path)
+
+    return dict(
+        has_chat=has_chat,   chat=chat,
+        has_photos=has_photos, photo_paths=photo_paths,
+        has_plan=has_plan,   plan_path=plan_path,
+        has_4d=has_4d,       task_status=task_status,
+    )
+
+
+def render(trace: dict) -> None:
+    m = _modality_signals(trace)
+
+    # ── Modality badge bar ────────────────────────────────────────────────────
+    badges = (
+        _badge("💬 Chat",        m["has_chat"],   "chat")
+      + _badge("📸 Site Photos", m["has_photos"], "photos")
+      + _badge("🗺️ Floorplan",   m["has_plan"],   "plan")
+      + _badge("📊 4D Context",  m["has_4d"],     "ctx_4d")
+    )
+    st.markdown(
+        f"<div style='margin-bottom:8px;'><strong>Input Modalities</strong>&nbsp;&nbsp;{badges}</div>",
+        unsafe_allow_html=True,
+    )
+
+    # ── Chat history ──────────────────────────────────────────────────────────
     st.subheader("Chat History")
-    if not chat:
+    if not m["chat"]:
         st.info("No chat history in this trace.")
     else:
-        lines = []
-        for msg in chat:
-            role = msg.get("role", "user")
-            text = msg.get("text", "").strip()
-            lines.append(f"{role}: {text}")
+        lines = [f"{msg.get('role','user')}: {msg.get('text','').strip()}"
+                 for msg in m["chat"]]
         st.text("\n".join(lines))
 
-    if images:
+    # ── Images & Floorplan ───────────────────────────────────────────────────
+    if m["has_photos"] or m["has_plan"]:
         st.divider()
-        st.subheader("Input Images")
-        cols = st.columns(min(len(images), 3))
-        for i, path in enumerate(images):
-            p = Path(path)
-            if p.exists():
-                cols[i % 3].image(str(p), caption=p.name, width=260)
-            else:
-                cols[i % 3].warning(f"Image not found:\n{p.name}")
+        st.subheader("Input Images & Floorplan")
 
-    # 4D context metadata
+        items: list[tuple[Path, str]] = []
+        for path in m["photo_paths"]:
+            items.append((Path(path), "Site Photo"))
+        if m["has_plan"]:
+            items.append((Path(m["plan_path"]), "Floorplan"))
+
+        cols = st.columns(len(items))
+        for col, (p, label) in zip(cols, items):
+            if p.exists():
+                col.image(str(p), caption=f"{label}\n{p.name}", width=260)
+            else:
+                col.warning(f"{label} not found:\n{p.name}")
+
+    # ── 4D context metadata ───────────────────────────────────────────────────
+    scenario = trace.get("scenario") or {}
     ctx = scenario.get("context_meta") or {}
     if ctx:
         st.divider()
@@ -38,4 +121,7 @@ def render(trace: dict) -> None:
         col1, col2, col3 = st.columns(3)
         col1.markdown(f"**Role**  \n{ctx.get('sender_role','—')}")
         col2.markdown(f"**Phase**  \n{ctx.get('project_phase','—')}")
-        col3.markdown(f"**Task**  \n{ctx.get('task_status','—')}")
+        col3.markdown(
+            f"**Task**  \n"
+            + (m["task_status"] if m["has_4d"] else f"~~{ctx.get('task_status','N/A')}~~ *(masked)*")
+        )
