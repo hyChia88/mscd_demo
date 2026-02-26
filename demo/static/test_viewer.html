@@ -65,7 +65,7 @@
 
   <div id="toolbar">
     <button id="btn-fit-all">&#8862; Fit Building</button>
-    <button id="btn-focus">&#8857; Focus Target</button>
+    <button id="btn-focus">&#8857; Focus</button>
   </div>
 
   <div id="err-strip"></div>
@@ -75,26 +75,39 @@
     const p = new URLSearchParams(window.location.search);
     const staticBase = p.get("base") || "http://localhost:8502/demo/static";
 
+    // pool = comma-separated candidate GUIDs from ?pool=GUID1,GUID2,...
+    const poolParam = p.get("pool") || "";
+    const poolGuids = poolParam ? poolParam.split(",").filter(Boolean) : [];
+
     window.VIEWER_CONFIG = {
       ifc_url:     decodeURIComponent(p.get("ifc")    || ""),
       target_guid: p.get("target") || "",
       gt_guid:     p.get("gt")     || "",
       guid_match:  p.get("match")  === "1",
       static_base: staticBase,
+      pool_guids:  poolGuids,
     };
 
     // ── Build legend from params ─────────────────────────────────────────
-    const legend = document.getElementById("legend");
-    const match  = window.VIEWER_CONFIG.guid_match;
-    const hasGT  = !!window.VIEWER_CONFIG.gt_guid;
-    if (window.VIEWER_CONFIG.target_guid) {
-      const color = match ? "#22c55e" : "#ef4444";
-      const label = match ? "Predicted (correct)" : "Predicted (wrong)";
-      legend.innerHTML = `<span class="dot" style="background:${color}"></span>${label}`;
-      if (hasGT) {
-        legend.innerHTML += `<br><span class="dot" style="background:#3b82f6"></span>Ground truth`;
-      }
+    const legend  = document.getElementById("legend");
+    const match   = window.VIEWER_CONFIG.guid_match;
+    const hasGT   = !!window.VIEWER_CONFIG.gt_guid;
+    const hasPool = poolGuids.length > 0;
+    const hasTgt  = !!window.VIEWER_CONFIG.target_guid;
+
+    let legendHTML = "";
+    if (hasPool) {
+      legendHTML += `<span class="dot" style="background:#f59e0b"></span>Candidate pool (${poolGuids.length})<br>`;
     }
+    if (hasTgt) {
+      const color = match ? "#22c55e" : "#ef4444";
+      const label = match ? "Predicted ✓" : "Predicted ✗";
+      legendHTML += `<span class="dot" style="background:${color}"></span>${label}<br>`;
+    }
+    if (hasGT) {
+      legendHTML += `<span class="dot" style="background:#3b82f6"></span>Ground truth`;
+    }
+    legend.innerHTML = legendHTML;
 
     // ── Show errors in the bottom strip ─────────────────────────────────
     function showError(msg) {
@@ -114,7 +127,7 @@
     // ── Show legend when viewer finishes loading ─────────────────────────
     const check = setInterval(() => {
       if (document.getElementById("progress-wrap").style.display === "none") {
-        if (window.VIEWER_CONFIG.target_guid) legend.style.display = "block";
+        if (hasTgt || hasPool) legend.style.display = "block";
         clearInterval(check);
       }
     }, 500);

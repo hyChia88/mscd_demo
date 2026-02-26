@@ -18,37 +18,9 @@
 
 ---
 
-## SLIDE 2 — Motivation: The "Which Window?" Problem
-
-**The core problem:**
-> A site inspector sends a photo and a chat message. Which BIM element does it refer to?
-
-**Concrete numbers (AdvancedProject IFC — 10-storey office):**
-
-| Query | Candidates | Precision |
-|-------|-----------|-----------|
-| `"Which window?"` (text only) | **263** | 0.38% |
-| + floor, task status, images (4D context) | **3** | 33.33% |
-
-→ **98.9% search space reduction** from a single context layer
-
-**Why is this hard?**
-
-| Site reality | BIM model |
-|---|---|
-| Informal, egocentric ("that window over there") | Typed, allocentric (`IfcWindow` with GlobalId) |
-| Visual, deictic ("look at this crack") | Geometric, attribute-based |
-| 4D temporal ("the one being worked on now") | Relational schema |
-
-**The deeper bottleneck:** When a floor has **46 geometrically identical IfcWindows**,
-even perfect storey + class filtering leaves Top-1 = **1/46 = 2.2%** — a mathematical ceiling
-that no attribute-based or vector-similarity retrieval can break.
-
+## (2) Motivation, Research Landscape & Gap
+> Start the motivation of research from a higher level, such as cross modality mapping etc.
 > *Speaker note: This is the unresolved problem that drives the whole thesis. Every subsequent slide answers "how do we break 2.2%?"*
-
----
-
-## SLIDE 3 — Research Landscape & Gap
 
 **What exists in AEC + AI:**
 - BIM authoring (Revit, ArchiCAD) — structured, expert-only, no site input
@@ -73,12 +45,35 @@ that no attribute-based or vector-similarity retrieval can break.
 **This work's claim:** Combining (1) Relation-Region Crops for VLM training and
 (2) deterministic Cypher compilation breaks the attribute entropy bottleneck that
 vector retrieval and attribute filtering cannot.
-
+> Citation: “Learning Visual Grounding from Generative Vision and Language Mode” (Wang et al., p. 8046)
 `[PLANNED — V2.5 not yet implemented; V2 baseline shown in results]`
-
 ---
 
-## SLIDE 4 — Research Questions
+## (3) RQ -> Map to a REAL action in Demo
+- Research Method: Constructive Design Research
+**The core problem:**
+> A site inspector sends a photo and a chat message. Which BIM element does it refer to?
+
+**Concrete numbers (AdvancedProject IFC — 10-storey office):**
+
+| Query | Candidates | Precision |
+|-------|-----------|-----------|
+| `"Which window?"` (text only) | **263** | 0.38% |
+| + floor, task status, images (4D context) | **3** | 33.33% |
+
+→ **98.9% search space reduction** from a single context layer
+
+**Why is this hard?**
+
+| Site reality | BIM model |
+|---|---|
+| Informal, egocentric ("that window over there") | Typed, allocentric (`IfcWindow` with GlobalId) |
+| Visual, deictic ("look at this crack") | Geometric, attribute-based |
+| 4D temporal ("the one being worked on now") | Relational schema |
+
+**The deeper bottleneck:** When a floor has **46 geometrically identical IfcWindows**,
+even perfect storey + class filtering leaves Top-1 = **1/46 = 2.2%** — a mathematical ceiling
+that no attribute-based or vector-similarity retrieval can break.
 
 | Layer | RQ | Focus | Key Challenge |
 |-------|----|----|---|
@@ -98,34 +93,12 @@ vector retrieval and attribute filtering cannot.
 
 `[RQ1/RQ2 partially answered by V2 (attribute constraints + LoRA); spatial triplet extension is V2.5 PLANNED]`
 
----
-
-## SLIDE 5 — Research Method: Constructive Design Research
-
-**Methodology:** Constructive Design Research (Koskinen et al.)
-- Build a functional prototype as the primary research vehicle
-- Evaluate quantitatively against controlled synthetic benchmarks
-- Reflect on system behavior to generate design knowledge
-
-**Prototype:** MSCD Demo — two pipelines, shared backend, unified evaluation contracts
-
-**Why synthetic data?**
-Real site inspection reports are confidential and unstructured. Synthetic cases give:
-- Deterministic ground-truth IFC GUID labels (no manual annotation)
-- Controlled modality ablation (text / images / floorplan / 4D)
-- Reproducible difficulty tiers (T1/T2/T3 and H1/H2/H3)
-
-**Skeleton-Skin Separation Architecture** (synth pipeline design principle):
-```
-IFC geometry (deterministic) → Skeleton: topological ground-truth labels
-Gemini + Blender rendering   → Skin:     noisy multimodal evidence wrapping the skeleton
-```
-This allows generating large-scale datasets without any manual annotation cost.
+#TODO: IMG: show scene graph sample
 
 ---
 
 ## SLIDE 6 — System Architecture Overview
-
+#TODO: IMG: show interpretering raw results, incl IFC engine
 ![System Architecture](../diagram/system_architecture_2_simplify.png)
 
 **Three layers:**
@@ -168,7 +141,7 @@ Input Case → Gemini 2.5 Flash (ReAct agent)
 ---
 
 ## SLIDE 8 — V2 Pipeline: Constraints-Driven (Current Contribution)
-
+#TODO: IMG: show filtered retrieval pipeline
 ![V2 Pipeline Sequence](../diagram/sequence_v2_pipeline.png)
 
 **Pipeline:**

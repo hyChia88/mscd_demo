@@ -69,7 +69,7 @@ with t1:
     tab_context.render(trace)
 
 with t2:
-    tab_pipeline.render(trace)
+    tab_pipeline.render(trace, static_base_url=static_base, case_id=case_id)
 
 with t3:
     tab_result.render(trace, static_base_url=static_base)

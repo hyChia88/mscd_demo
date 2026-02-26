@@ -287,7 +287,7 @@ def generate_comparison_charts(
     )
 
     print(f"\n{'=' * 60}")
-    n_charts = 12 if paired_ablation else 9
+    n_charts = 13 if paired_ablation else 10
     print(f"Generating Comparison Charts ({len(experiments)} experiments, {n_charts} charts)")
     print(f"{'=' * 60}\n")
 
@@ -339,6 +339,9 @@ def generate_comparison_charts(
         _plot_paired_modality_accuracy(experiments, f"{output_dir}/10_paired_modality.png", title)
         _plot_modality_delta(experiments, f"{output_dir}/11_modality_delta.png", title)
         _plot_modality_x_difficulty(experiments, f"{output_dir}/12_modality_x_difficulty.png", title)
+
+    # ── Chart 13: Query plan strategy distribution ──
+    _plot_query_plan_distribution(experiments, f"{output_dir}/13_query_plan_distribution.png", title)
 
     print(f"\n{'=' * 60}")
     print(f"Charts saved to: {output_dir}/")
@@ -1813,6 +1816,197 @@ def _plot_modality_x_difficulty(
         fontsize=14, fontweight="bold",
     )
 
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    print(f"  Saved: {output_path}")
+    plt.close()
+
+
+def _plot_query_plan_distribution(
+    experiments: dict, output_path: str, title: str = ""
+) -> None:
+    """Chart 13: Query plan strategy distribution by modality condition and model.
+
+    For each (profile × condition) bucket, shows:
+      - Stacked bars: which strategy (P0–P8) produced the first non-empty pool
+      - White dashed line: Top-1 accuracy overlay
+      - Annotation above each bar: avg cascade depth (how many plans were tried)
+
+    Condition columns: MA / MB / MC / MA⁻ / MB⁻ / MC⁻  (one panel per profile).
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    STRATEGY_ORDER = [
+        "spatial_triplet",
+        "space_and_type",
+        "name_keyword",
+        "neighbor_type",
+        "storey_and_type",
+        "storey_only",
+        "type_only",
+        "keyword",
+        "fallback",
+    ]
+    STRATEGY_LABELS = {
+        "spatial_triplet": "P0: Spatial",
+        "space_and_type":  "P1: Space+Type",
+        "name_keyword":    "P2: Name KW",
+        "neighbor_type":   "P3: Neighbor",
+        "storey_and_type": "P4: Storey+Type",
+        "storey_only":     "P5: Storey",
+        "type_only":       "P6: Type",
+        "keyword":         "P7: Keyword",
+        "fallback":        "P8: Fallback",
+    }
+    STRATEGY_COLORS = {
+        "spatial_triplet": "#7c3aed",
+        "space_and_type":  "#2563eb",
+        "name_keyword":    "#0891b2",
+        "neighbor_type":   "#059669",
+        "storey_and_type": "#d97706",
+        "storey_only":     "#ea580c",
+        "type_only":       "#dc2626",
+        "keyword":         "#db2777",
+        "fallback":        "#64748b",
+    }
+
+    def _label_to_profile(label: str) -> str:
+        low = label.lower()
+        if "lora" in low:
+            return "LoRA"
+        if "prompt" in low:
+            return "Prompt"
+        return label
+
+    ALL_CONDS   = ["MA", "MB", "MC", "MA-", "MB-", "MC-"]
+    COND_LABELS = ["MA", "MB", "MC", "MA⁻", "MB⁻", "MC⁻"]
+
+    # Collect per (profile, condition): strategy counts, cascade depths, accuracy
+    counts: dict = {}   # (profile, cond) → {strategy: int}
+    depths: dict = {}   # (profile, cond) → [int, ...]
+    accs:   dict = {}   # (profile, cond) → [hits, total]
+
+    for label, traces in experiments.items():
+        profile = _label_to_profile(label)
+        for trace in traces:
+            cond = _extract_condition(trace)
+            if not cond:
+                continue
+            key = (profile, cond)
+            if key not in counts:
+                counts[key] = {}
+                depths[key] = []
+                accs[key]   = [0, 0]
+
+            # Successful strategy = first retrieval_result with pool_size > 0
+            rrs = (trace.get("internals") or {}).get("retrieval_results") or []
+            successful_strategy = None
+            depth = 0
+            for rr in rrs:
+                pool_size = rr.get("pool_size", 0) or 0
+                depth += 1
+                if pool_size > 0:
+                    qpu = rr.get("query_plan_used") or {}
+                    successful_strategy = qpu.get("strategy", "fallback")
+                    break
+            if successful_strategy is None:
+                successful_strategy = "fallback"
+
+            counts[key][successful_strategy] = counts[key].get(successful_strategy, 0) + 1
+            depths[key].append(depth)
+            accs[key][1] += 1
+            if trace.get("guid_match", False):
+                accs[key][0] += 1
+
+    if not counts:
+        print("  Skipped: 13_query_plan_distribution.png (no internals.retrieval_results data)")
+        return
+
+    profiles = sorted({k[0] for k in counts}, key=lambda p: (p != "LoRA", p))
+    n_profiles = len(profiles)
+
+    fig, axes = plt.subplots(n_profiles, 1, figsize=(16, 5 * n_profiles), squeeze=False)
+
+    for pi, profile in enumerate(profiles):
+        ax = axes[pi][0]
+        x      = np.arange(len(ALL_CONDS))
+        width  = 0.55
+        bottom = np.zeros(len(ALL_CONDS))
+
+        # ── Stacked bars ────────────────────────────────────────────────────
+        for strat in STRATEGY_ORDER:
+            vals = []
+            for cond in ALL_CONDS:
+                key = (profile, cond)
+                total = accs.get(key, [0, 0])[1]
+                cnt   = counts.get(key, {}).get(strat, 0)
+                vals.append(cnt / total * 100 if total > 0 else 0)
+            if any(v > 0 for v in vals):
+                ax.bar(
+                    x, vals, width, bottom=bottom,
+                    color=STRATEGY_COLORS[strat],
+                    label=STRATEGY_LABELS[strat],
+                )
+                bottom += np.array(vals)
+
+        # ── Avg cascade depth annotation ─────────────────────────────────
+        for ci, cond in enumerate(ALL_CONDS):
+            key  = (profile, cond)
+            dep  = depths.get(key, [])
+            total_c = accs.get(key, [0, 0])[1]
+            if dep and total_c:
+                avg_d = sum(dep) / len(dep)
+                ax.text(
+                    ci, bottom[ci] + 1.0, f"↓{avg_d:.1f}",
+                    ha="center", va="bottom", fontsize=8, color="#94a3b8",
+                )
+
+        # ── Top-1 accuracy overlay ───────────────────────────────────────
+        ax2 = ax.twinx()
+        acc_vals = []
+        for cond in ALL_CONDS:
+            hits, total = accs.get((profile, cond), [0, 0])
+            acc_vals.append(hits / total * 100 if total > 0 else float("nan"))
+
+        ax2.plot(
+            x, acc_vals, "o--", color="#111827", linewidth=2,
+            markersize=7, markeredgecolor="#6b7280", label="Top-1 Acc %",
+        )
+        for xi, av in enumerate(acc_vals):
+            if not (av != av):  # skip NaN
+                ax2.text(xi, av + 2, f"{av:.0f}%", ha="center",
+                         va="bottom", fontsize=8, color="#111827")
+        ax2.set_ylim(0, 120)
+        ax2.set_ylabel("Top-1 Accuracy (%)", fontsize=9, color="#94a3b8")
+        ax2.tick_params(axis="y", labelcolor="#94a3b8")
+        ax2.set_yticks([0, 20, 40, 60, 80, 100])
+
+        # ── Axes decoration ──────────────────────────────────────────────
+        ax.set_xlim(-0.5, len(ALL_CONDS) - 0.5)
+        ax.set_ylim(0, 115)
+        ax.set_xticks(x)
+        ax.set_xticklabels(COND_LABELS, fontsize=11, fontweight="bold")
+        ax.set_ylabel("Cases (%)", fontsize=10)
+        ax.set_title(
+            f"{profile} — Query Plan Strategy (first successful, P0–P8)",
+            fontsize=12, fontweight="bold",
+        )
+        ax.grid(axis="y", alpha=0.2, linestyle="--")
+
+        # Divider between 4D-ON and 4D-OFF columns
+        ax.axvline(2.5, color="#475569", linewidth=1.5, linestyle="--", alpha=0.7)
+        ax.text(1.0, 108, "4D ON",  ha="center", fontsize=9, color="#64748b")
+        ax.text(4.0, 108, "4D OFF", ha="center", fontsize=9, color="#64748b")
+
+        ax.legend(loc="upper right", fontsize=8, ncol=3,
+                  framealpha=0.9, title="Strategy (priority ↓)")
+
+    suptitle = (
+        f"{title} — Query Plan Strategy Distribution" if title
+        else "Query Plan Strategy Distribution"
+    )
+    fig.suptitle(suptitle, fontsize=14, fontweight="bold", y=1.01)
     plt.tight_layout()
     plt.savefig(output_path, dpi=300, bbox_inches="tight")
     print(f"  Saved: {output_path}")

@@ -1,0 +1,52 @@
+@startuml MSCD_Demo_Sequence_V2_Simplified
+!theme plain
+title **V2 Pipeline — Simplified**
+
+participant "run.py"            as RUN
+participant "ConditionMask"     as MASK
+participant "Gemini VLM"        as LLM
+participant "LoRA_3"            as LORA
+participant "QueryPlanner"      as QPLAN
+participant "RetrievalBackend"  as RET
+participant "IFCEngine / Neo4j" as DB
+participant "CLIP"              as CLIP
+
+activate RUN
+loop **for each case**
+
+    ' ── Step 1 ──────────────────────────────────────────────────────────
+    RUN -> MASK : apply condition mask (A1-C3)
+    MASK --> RUN : masked_case
+
+    ' ── Step 2: Constraints Extraction (two paths) ──────────────────────
+    alt **constraints_model == "prompt"**
+        RUN -> LLM : parse images + extract constraints
+        LLM --> RUN : Constraints JSON\n(storey, ifc_class, space_name ...)
+    else **constraints_model == "lora"**
+        RUN -> LORA : inference(raw images + prompt)
+        LORA --> RUN : Constraints + SpatialTriplet[]
+    end
+
+    ' ── Step 3: Query Planning ───────────────────────────────────────────
+    RUN -> QPLAN : plan(constraints)
+    QPLAN --> RUN : QueryPlan[]\nP0 spatial_triplet → P8 fallback
+
+    ' ── Step 4: Cascade Retrieval ────────────────────────────────────────
+    loop **each plan until pool > 0**
+        RUN -> RET : execute_plan(plan)
+        RET -> DB  : memory / neo4j query
+        DB  --> RET : candidates[]
+        opt **CLIP reranking**
+            RET -> CLIP : rerank(candidates, image)
+            CLIP --> RET : reranked candidates
+        end
+        RET --> RUN : pool_size, candidates[]
+    end
+
+    ' ── Step 5: Evaluate ─────────────────────────────────────────────────
+    RUN -> RUN : Top-1 / Top-5 / guid_match
+
+end
+deactivate RUN
+
+@enduml
