@@ -1,13 +1,13 @@
 # MSCD V2.5 — Neuro-Symbolic Prototype Plan
 
-> **Last revised: 2026-03-08**
+> **Last revised: 2026-03-09**
 > §1–3: Theory, architecture, demo plan (stable).
 > §4: Removed — superseded by §7.
 > §5.0–5.3: Design principles, codebase fixes, dataset reality, RQs (stable).
 > §5.4: Removed — superseded by §7.2–7.6.
 > §5.5: Innovation summary (stable).
 > §6: Implementation log (append-only).
-> **§7: Authoritative plan** — data curation & LoRA_3 training (2026-03-08).
+> **§7: Authoritative plan** — data curation & LoRA_3 training (2026-03-09, training complete).
 ---
 
 ## 1. Current Progress & Bottleneck Analysis
@@ -1050,7 +1050,7 @@ Add scene plausibility check for site images:
 
 ---
 
-## 7.6 LoRA_3 Training Plan
+## 7.6 LoRA_3 Training — Plan & Results
 
 ### Model Configuration
 
@@ -1058,8 +1058,9 @@ Add scene plausibility check for site images:
 Base model    : unsloth/Qwen2.5-VL-7B-Instruct-bnb-4bit (same as LoRA_2)
 LoRA config   : r=16, alpha=32 (same as LoRA_2)
 Platform      : Modal A100
-Epochs        : 3
+Epochs        : 5
 max_seq_length: 4096 (up from 2048 — multiple images per sample)
+save_strategy : epoch (5 checkpoints, load_best_model_at_end=True)
 ```
 
 ### What LoRA_3 Must Learn (vs LoRA_2)
@@ -1093,6 +1094,49 @@ Following Wang et al. 2025 (Object-Centric Crops):
 | **Field F1 (spatial_relations)** | 0% | ≥ 60% | Triplet extraction accuracy |
 | **False positive rate (relations on Tier 2)** | N/A | < 10% | Anti-hallucination working |
 
+### Training Results (2026-03-09) ✅
+
+**WandB run**: [qwen25vl-7b-r16-lora3-synth_v05](https://wandb.ai/hychia2024-carnegie-mellon-university/mscd-vlm-lora/runs/r5mpka8h)
+
+```
+Training data : 1,111 train / 19 test (synth_v0.5)
+  v0.4 enriched : 933 records (AP+BH+DXA, 135 with spatial_relations)
+  v0.5 topology : 178 train / 19 test (AP+BH+DXA KEEP skins)
+  Anti-halluc.  : 72% attribute-only (relations=[]) / 28% topology
+
+Images per record:
+  v0.4: site photo + floorplan (2 images)
+  v0.5: site photo + floorplan (2 images)
+  Global renders are pipeline artifacts (Gemini generation + LLM-as-Judge) — NOT in training
+
+Training curve:
+  Epoch 1 : train_loss ≈ 1.2 → 0.15 (steep drop)
+  Epoch 2 : train_loss ≈ 0.08, eval_loss ≈ 0.065
+  Epoch 3 : train_loss ≈ 0.05, eval_loss ≈ 0.078
+  Epoch 4 : eval_loss ≈ 0.090
+  Epoch 5 : train_loss = 0.036, eval_loss = 0.106  (best model loaded from epoch 2)
+  → Clear overfitting after epoch 2–3 on this dataset size
+
+Final metrics (350 steps, 5 epochs):
+  Train loss         : 0.2334 (averaged over all steps)
+  Best eval loss     : 0.065 (epoch 2)
+  grad_norm          : 0.233 (stable, no explosion)
+```
+
+**Inference check on 19 test samples (all topology):**
+
+| Metric | Result | Target |
+|---|---|---|
+| JSON parse rate | **19/19 (100%)** | — |
+| Class accuracy | **19/19 (100%)** | — |
+| Storey accuracy | **19/19 (100%)** | — |
+| Spatial predicate accuracy | **19/19 (100%)** | ≥ 60% |
+| False positive rate | **0/0 (0%)** | < 10% |
+
+Predicate breakdown: FILLS=11, ADJACENT_TO=7, CONTINUOUS=1 — all correct.
+
+**Adapter location**: `modal volume get mscd-checkpoints /mscd-lora-v3/final ./models/adapters/v3_lora_qwen`
+
 ### Confidence Threshold Tuning
 
 After LoRA_3 training, sweep `CONFIDENCE_THRESHOLD` on validation set:
@@ -1105,21 +1149,25 @@ threshold=0.9 → high precision, more fallbacks to Priority 1–8
 
 Optimal threshold maximizes Top-1 on H2 eval set.
 
+### Known Issues
+
+1. **Eval loss NaN in post-training evaluate()**: Unsloth's `load_best_model_at_end=True` reloads the best checkpoint, but the post-training `trainer.evaluate()` call returns NaN. The epoch-level eval losses from training (logged to WandB) are valid. Not a training issue.
+2. **Overfitting signal**: eval_loss rises from 0.065 (epoch 2) to 0.106 (epoch 5). Best model is epoch 2. For future runs, 3 epochs may suffice, or increase training data volume.
+3. **Test set is topology-only (19 samples)**: False positive rate on attribute-only cases is untested in inference check. Need H2 eval harness for full picture.
+
 ---
 
 ## 7.7 Implementation Priority & Timeline
 
 ```
-Step 1: Raise skeleton mining quotas           — 1 day    (highest ROI)
-Step 2: Enrich v0.4 SPATIAL_PROXIMITY          — 1 day    (low effort, +33 cases)
-Step 3: Fix renders + re-skin topology         — 2 days   (fix black-image bug)
-Step 4: Cross-IFC pipeline (BH + DXA)          — 2 days   (volume gain)
-Step 5: Assemble + fix 3c schema               — 1 day    (new LoRA_3 output format)
-Step 6: LLM-as-Judge image quality             — 1 day    (parallel with 3–4)
-Step 7: LoRA_3 training on Modal A100          — 1 day    (3–5 hours compute)
-Step 8: Evaluate on H2 + tune confidence       — 1 day
-                                               ──────────
-                                               ~7–8 days total
+Step 1: Raise skeleton mining quotas           — ✅ Done (251 skeletons, AP)
+Step 2: Enrich v0.4 SPATIAL_PROXIMITY          — ✅ Done (933 records in v04_enriched.jsonl)
+Step 3: Fix renders + re-skin topology         — ✅ Done (312 skins, 197 KEEP, 63% pass rate)
+Step 4: Cross-IFC pipeline (BH + DXA)          — ✅ Done (BH=25 KEEP, DXA=39 KEEP)
+Step 5: Assemble + fix schema                  — ✅ Done (1,111 train / 19 test)
+Step 6: LLM-as-Judge image quality             — ✅ Done (integrated in 3b_generate_skin.py)
+Step 7: LoRA_3 training on Modal A100          — ✅ Done (2026-03-09, 5 epochs, 100% test acc)
+Step 8: Evaluate on H2 + tune confidence       — Not started
 ```
 
-**Critical path**: Steps 1→3→5→7→8 (skeleton volume → skins → assemble → train → eval)
+**Next**: Step 8 — Download adapter, run H2 hard-negative eval, tune confidence threshold

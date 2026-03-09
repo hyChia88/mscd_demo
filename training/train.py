@@ -649,9 +649,12 @@ def main(
     print(f"  v0.5:   {n_v05_imgs} site photos, {n_v05_fp} floorplans")
     print(f"  v0.4:   {n_v04_imgs} site photos, {n_v04_plans} floorplans (AP+BH+DXA)")
 
-    # .spawn() submits the job and returns immediately — no blocking, no gRPC timeout.
-    # .remote() blocks until the result is ready (~25 min) and hits Deadline exceeded.
-    handle = train.spawn(
+    # .remote() blocks until training completes — keeps the app alive.
+    # .spawn() won't work with `modal run` because the app exits immediately.
+    print(f"\nMonitor on WandB: project=mscd-vlm-lora  run={wandb_run or 'qwen25vl-7b-r16-lora3-synth_v05'}")
+    print("Training in progress (blocking until complete)...\n")
+
+    result = train.remote(
         epochs=epochs,
         lr=lr,
         lora_r=lora_r,
@@ -662,13 +665,10 @@ def main(
     )
 
     print("\n" + "=" * 60)
-    print("TRAINING JOB SUBMITTED")
+    print("TRAINING COMPLETE")
     print("=" * 60)
-    print(f"  Job ID: {handle.object_id}")
-    print(f"\nMonitor:")
-    print(f"  modal app logs mscd-vlm-lora3-train")
-    print(f"  wandb: project=mscd-vlm-lora  run={wandb_run or 'qwen25vl-7b-r16-lora3-synth_v05'}")
-    print(f"\nWhen complete, download adapter:")
-    print(f"  ./training/train.sh --download-only")
-    print(f"\nThen evaluate:")
-    print(f"  ./training/eval.sh --step paired-ablation --adapter final --skip-v2-prompt")
+    print(f"  Train loss: {result['train_loss']:.4f}")
+    print(f"  Eval loss:  {result['eval_loss']:.4f}")
+    print(f"  Steps:      {result['steps']}")
+    print(f"\nDownload adapter:")
+    print(f"  modal volume get mscd-checkpoints /mscd-lora-v3/final ./models/adapters/v3_lora_qwen")
