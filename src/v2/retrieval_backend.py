@@ -52,6 +52,10 @@ class RetrievalBackend:
         Returns:
             RetrievalResult with candidates
         """
+        # Reset per-call fallback tracking state
+        self._fallback_triggered = False
+        self._strategy_actually_used = plan.strategy
+
         # Step 1: Execute base query
         if self.retrieval_mode == "neo4j":
             candidates = self._execute_neo4j(plan)
@@ -80,7 +84,9 @@ class RetrievalBackend:
             pool_size=len(candidates),
             query_plan_used=plan,
             backend=backend_name,
-            rerank_applied=rerank_applied
+            rerank_applied=rerank_applied,
+            fallback_triggered=self._fallback_triggered,
+            strategy_actually_used=self._strategy_actually_used
         )
 
     def _execute_memory(self, plan: QueryPlan) -> List[Dict[str, Any]]:
@@ -97,6 +103,42 @@ class RetrievalBackend:
         """
         strategy = plan.strategy
         params = plan.params
+
+        # ── Priority 0 strategies: no topology in memory mode — degrade ─────
+        if strategy == "spatial_triplet":
+            # No edge traversal available in memory mode.
+            # Degrade to storey+type (subject_type + storey), or type_only.
+            subject_type = params.get("subject_type", "")
+            storey = params.get("storey", "")
+            if subject_type and storey:
+                fallback_strat = "storey+type"
+                fallback = QueryPlan(
+                    priority=4, strategy=fallback_strat,
+                    params={"storey": storey, "type": subject_type},
+                    expected_pool_size=50
+                )
+            else:
+                fallback_strat = "type_only"
+                fallback = QueryPlan(
+                    priority=6, strategy=fallback_strat,
+                    params={"type": subject_type},
+                    expected_pool_size=150
+                )
+            self._fallback_triggered = True
+            self._strategy_actually_used = fallback_strat
+            return self._execute_memory(fallback)
+
+        elif strategy == "continuous_span":
+            # No property graph in memory mode — degrade to type_only.
+            subject_type = params.get("subject_type", "")
+            self._fallback_triggered = True
+            self._strategy_actually_used = "type_only"
+            fallback = QueryPlan(
+                priority=6, strategy="type_only",
+                params={"type": subject_type},
+                expected_pool_size=150
+            )
+            return self._execute_memory(fallback)
 
         # ── Phase 5A: new high-priority strategies ──────────────────────────
         if strategy == "space+type":
@@ -197,8 +239,118 @@ class RetrievalBackend:
         strategy = plan.strategy
         params = plan.params
 
+        # ── Priority 0 strategies: direct Cypher on topology edges/properties ─
+        if strategy == "spatial_triplet":
+            # Edge-traversal for FILLS / ADJACENT_TO / ON_TOP_OF / etc.
+            # predicate is a validated Literal — safe for f-string injection.
+            if not self.engine.neo4j_conn:
+                return self._execute_memory(plan)
+            subject_type = params.get("subject_type", "")
+            predicate    = params.get("predicate", "")
+            object_type  = params.get("object_type", "")
+            storey       = params.get("storey", "")
+            if not predicate:
+                return []
+            # Resolve natural-language storey → IFC canonical ("Floor 1" → "1 - first floor")
+            # so the CONTAINS filter matches the actual storey property on Neo4j nodes.
+            storey_resolved = self._resolve_storey(storey)
+            # IFC subtype-aware match: IfcWall matches IfcWallStandardCase etc.
+            # IFC naming convention guarantees all subtypes start with the supertype name.
+            cypher = f"""
+                MATCH (target:IFCElement)-[:{predicate}]->(ref:IFCElement)
+                WHERE (target.ifc_type = $subject_type
+                       OR target.ifc_type STARTS WITH $subject_type)
+                  AND (ref.ifc_type = $object_type
+                       OR ref.ifc_type STARTS WITH $object_type)
+                  AND (toLower(target.storey) CONTAINS toLower($storey)
+                       OR $storey = '')
+                RETURN DISTINCT target.guid as guid, target.name as name,
+                       target.ifc_type as type,
+                       ref.ifc_type as ref_type, ref.storey as ref_storey
+            """
+            result = self.engine.neo4j_conn.run(
+                cypher,
+                subject_type=subject_type,
+                object_type=object_type,
+                storey=storey_resolved
+            )
+            candidates = [dict(r) for r in result]
+            # Predicate relaxation step 1: if storey filter gives 0, retry without storey
+            # (stays Priority-0, avoids collapsing to storey+type prematurely)
+            if not candidates and storey_resolved:
+                cypher_no_storey = f"""
+                    MATCH (target:IFCElement)-[:{predicate}]->(ref:IFCElement)
+                    WHERE (target.ifc_type = $subject_type
+                           OR target.ifc_type STARTS WITH $subject_type)
+                      AND (ref.ifc_type = $object_type
+                           OR ref.ifc_type STARTS WITH $object_type)
+                    RETURN DISTINCT target.guid as guid, target.name as name,
+                           target.ifc_type as type,
+                           ref.ifc_type as ref_type, ref.storey as ref_storey
+                """
+                result2 = self.engine.neo4j_conn.run(
+                    cypher_no_storey,
+                    subject_type=subject_type,
+                    object_type=object_type,
+                )
+                candidates = [dict(r) for r in result2]
+            # Predicate relaxation step 2: no topology edges at all → storey+type
+            if not candidates:
+                fallback_strategy = "storey+type" if storey else "type_only"
+                self._fallback_triggered = True
+                self._strategy_actually_used = fallback_strategy
+                fallback_params = {"storey": storey, "type": subject_type} if storey \
+                    else {"type": subject_type}
+                fallback_priority = 4 if storey else 6
+                fallback_pool = 50 if storey else 150
+                return self._execute_neo4j(QueryPlan(
+                    priority=fallback_priority,
+                    strategy=fallback_strategy,
+                    params=fallback_params,
+                    expected_pool_size=fallback_pool
+                ))
+            return candidates
+
+        elif strategy == "continuous_span":
+            # Property-filter for CONTINUOUS (is_continuous + top_constraint).
+            if not self.engine.neo4j_conn:
+                return self._execute_memory(plan)
+            subject_type = params.get("subject_type", "")
+            top_storey   = params.get("top_storey", "")
+            # top_constraint in Neo4j is the raw IFC storey name ("3 - Third Floor").
+            # _resolve_storey converts natural language → canonical for correct CONTAINS.
+            top_storey_resolved = self._resolve_storey(top_storey)
+            cypher = """
+                MATCH (target:IFCElement)
+                WHERE target.ifc_type = $subject_type
+                  AND target.is_continuous = true
+                  AND (toLower(target.top_constraint) CONTAINS toLower($top_storey)
+                       OR $top_storey = '')
+                RETURN target.guid as guid, target.name as name,
+                       target.ifc_type as type,
+                       target.base_constraint as ref_storey,
+                       target.top_constraint  as ref_type
+            """
+            result = self.engine.neo4j_conn.run(
+                cypher,
+                subject_type=subject_type,
+                top_storey=top_storey_resolved
+            )
+            candidates = [dict(r) for r in result]
+            # Predicate relaxation: 0 results → fall back to type_only
+            if not candidates:
+                self._fallback_triggered = True
+                self._strategy_actually_used = "type_only"
+                return self._execute_neo4j(QueryPlan(
+                    priority=6,
+                    strategy="type_only",
+                    params={"type": subject_type},
+                    expected_pool_size=150
+                ))
+            return candidates
+
         # ── Phase 5B: new high-priority strategies (Neo4j graph queries) ──────
-        if strategy == "space+type":
+        elif strategy == "space+type":
             # IFCSpace-level query via Phase 1a method
             space_name = params.get("space_name", "")
             target_type = params.get("type", "")
@@ -247,6 +399,30 @@ class RetrievalBackend:
             return self._execute_memory(plan)
 
         return []
+
+    def _resolve_storey(self, storey_query: str) -> str:
+        """
+        Convert a natural-language storey reference to the IFC canonical form
+        stored in Neo4j node properties (e.g. "Floor 1" → "1 - first floor").
+
+        Delegates to IFCEngine._resolve_storey_query() which uses the LLM-parsed
+        (or regex-fallback) storey_registry built at engine init time.
+
+        Returns the resolved canonical string, or the original query if resolution
+        fails — so the Cypher CONTAINS still works for exact/partial matches.
+        """
+        if not storey_query:
+            return ""
+        resolver = getattr(self.engine, "_resolve_storey_query", None)
+        if resolver is None:
+            return storey_query.lower()
+        resolved = resolver(storey_query.lower())
+        # _resolve_storey_query returns: str (canonical key), list (difflib), or None
+        if isinstance(resolved, str):
+            return resolved
+        if isinstance(resolved, list) and resolved:
+            return resolved[0]
+        return storey_query.lower()
 
     def _apply_property_filter(
         self,

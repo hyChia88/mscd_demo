@@ -1,0 +1,34 @@
+%%{init: {"theme": "base", "themeVariables": {
+  "actorBkg":              "#BBDEFB",
+  "actorBorder":           "#1565C0",
+  "actorTextColor":        "#0D47A1",
+  "activationBkgColor":    "#E3F2FD",
+  "activationBorderColor": "#1565C0",
+  "loopTextColor":         "#1565C0",
+  "labelBoxBkgColor":      "#BBDEFB",
+  "labelBoxBorderColor":   "#1565C0",
+  "noteBkgColor":          "#E3F2FD",
+  "noteTextColor":         "#0D47A1"
+}}}%%
+sequenceDiagram
+    participant RUN   as run.py
+    participant AGENT as ReAct Agent
+    participant LLM   as Gemini 2.5 Flash
+    participant IFC   as IFC Backend
+
+    Note over RUN: loads IFC + creates agent
+
+    loop for each case
+        RUN->>AGENT: input (chat + photos + metadata)
+        activate AGENT
+
+        loop ReAct
+            AGENT->>LLM: reason
+            LLM-->>AGENT: tool call
+            AGENT->>IFC: search / filter / match_image
+            IFC-->>AGENT: candidates
+        end
+
+        AGENT-->>RUN: EvalTrace (GUIDs + reasoning)
+        deactivate AGENT
+    end

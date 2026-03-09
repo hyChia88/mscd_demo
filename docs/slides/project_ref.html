@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AEC Interpreter: Multimodal BIM Element Retrieval</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Container & Layout */
+        .notes-container {
+            max-width: 85%;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 12px;
+            padding: 3em 4em;
+        }
+
+        /* Typography Hierarchy */
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5em;
+            line-height: 1.2;
+            color: #1a1a1a;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: #555;
+            font-style: italic;
+            margin-bottom: 1.5em;
+            line-height: 1.6;
+            border-left: 4px solid #0066cc;
+            padding-left: 1em;
+        }
+
+        h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-top: 2em;
+            margin-bottom: 0.8em;
+            color: #1a1a1a;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 0.3em;
+        }
+
+        h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-top: 1.8em;
+            margin-bottom: 0.6em;
+            color: #333;
+        }
+
+        /* Content Spacing */
+        p {
+            margin-bottom: 1em;
+            line-height: 1.7;
+            color: #333;
+        }
+
+        ul, ol {
+            margin-bottom: 1.2em;
+            line-height: 1.8;
+            padding-left: 1.5em;
+        }
+
+        li {
+            margin-bottom: 0.6em;
+        }
+
+        strong {
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        /* Visual Elements */
+        .section-divider {
+            border-top: 2px solid #e0e0e0;
+            margin: 3em 0;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+            margin: 1.5em 0;
+            border-radius: 8px;
+        }
+
+        .demo-image {
+            max-width: 95%;
+            margin: 2em auto;
+            display: block;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        }
+
+        /* Image Pair Layout */
+        .image-pair {
+            display: flex;
+            gap: 2em;
+            margin: 2em 0;
+        }
+
+        .image-card {
+            flex: 1;
+            background: #fafafa;
+            padding: 1em;
+            border-radius: 8px;
+        }
+
+        .image-card p:first-child {
+            margin-top: 0;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .image-card img {
+            margin: 1em 0;
+            border-radius: 6px;
+        }
+
+        .image-card em {
+            font-size: 0.9rem;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        /* Image Trio Layout */
+        .image-trio {
+            display: flex;
+            gap: 1.5em;
+            margin: 2em 0;
+            justify-content: center;
+        }
+
+        .image-card-trio {
+            flex: 1;
+            background: #ffffff;
+            padding: 0.3em;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .image-card-trio img {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            object-fit: cover;
+            margin: 0 0 0.3em 0;
+            border-radius: 6px;
+        }
+
+        .image-card-trio p {
+            margin: 0.3em 0;
+        }
+
+        .image-card-trio p:first-of-type {
+            font-weight: 600;
+            color: #1a1a1a;
+            font-size: 1rem;
+        }
+
+        .image-card-trio em {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        /* Image Grid 2x2 Layout - Simple Style */
+        .image-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5em;
+            margin: 2em 0;
+        }
+
+        .image-grid-item {
+            text-align: center;
+        }
+
+        .image-grid-item img {
+            width: 100%;
+            height: auto;
+            margin: 0 0 0.5em 0;
+            border-radius: 6px;
+            box-shadow: none;
+        }
+
+        .image-grid-item p {
+            margin: 0.5em 0 0 0;
+            font-size: 0.9rem;
+            color: #555;
+        }
+
+        /* Tables */
+        table {
+            width: 80%;
+            border-collapse: collapse;
+            margin: 1.5em 0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th, td {
+            border: 1px solid #e0e0e0;
+            padding: 0.8em 1em;
+            text-align: left;
+        }
+
+        th {
+            background: #f5f5f5;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        td {
+            background: #fff;
+        }
+
+        tr:hover td {
+            background: #fafafa;
+        }
+
+        /* Code Blocks */
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            background: #f5f5f5;
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-size: 0.9em;
+            color: #d63384;
+        }
+
+        pre {
+            background: #f5f5f5;
+            padding: 1.2em;
+            border-radius: 8px;
+            overflow-x: auto;
+            border: 1px solid #e0e0e0;
+            line-height: 1.5;
+        }
+
+        pre code {
+            background: transparent;
+            padding: 0;
+            color: #333;
+        }
+
+        blockquote {
+            border-left: 4px solid #0066cc;
+            padding-left: 1.2em;
+            color: #555;
+            margin: 1.5em 0;
+            font-style: italic;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .notes-container {
+                max-width: 90%;
+                padding: 2.5em 3em;
+            }
+
+            h1 { font-size: 2.2rem; }
+            h2 { font-size: 1.8rem; }
+            h3 { font-size: 1.3rem; }
+        }
+
+        @media (max-width: 768px) {
+            .notes-container {
+                max-width: 95%;
+                padding: 2em;
+            }
+
+            .image-pair {
+                flex-direction: column;
+                gap: 1.5em;
+            }
+
+            .image-trio {
+                flex-direction: column;
+                gap: 1.2em;
+            }
+
+            .image-grid {
+                grid-template-columns: 1fr;
+                gap: 1.2em;
+            }
+
+            h1 { font-size: 2rem; }
+            h2 { font-size: 1.6rem; }
+            h3 { font-size: 1.2rem; }
+
+            .subtitle { font-size: 1rem; }
+        }
+
+        @media (max-width: 480px) {
+            .notes-container {
+                padding: 1.5em;
+            }
+
+            h1 { font-size: 1.75rem; }
+            h2 { font-size: 1.4rem; }
+            h3 { font-size: 1.1rem; }
+
+            table {
+                font-size: 0.9rem;
+            }
+
+            th, td {
+                padding: 0.6em 0.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-container">
+        <a href="index.html" class="back-link">← Back to Main</a>
+    </nav>
+
+    <div class="notes-container">
+        <h1>🔄️ AEC Interpreter: Cross-Modal Alignment, Schema Mapping, and Compliance [In progress]</h1>
+        <p class="subtitle"><strong>Master's Thesis · Carnegie Mellon University · 2026</strong><br>Multimodal AI system that maps informal construction site data into structured BIM data.</p>
+
+        <p><strong>Stack:</strong> Python · Gemini 2.5 Flash · Qwen2.5-VL-7B · LoRA (Unsloth) · LangGraph · FastMCP · Neo4j · IfcOpenShell · CLIP · Pydantic · Modal (A100)</p>
+
+        <img src="assets/img/ai_aec/screenshots/demo_049.gif" alt="Demo Overview" class="demo-image">
+        <p><em>Live demo: left panel shows case selector + evaluation result. Center shows chat + input modalities. Right shows the 3D BIM viewer — green element = correct prediction, red = wrong.</em></p>
+
+        <h2>1. Problem</h2>
+        <p>Construction site inspectors send messages like <em>"look at this door — hinge issue"</em> with a photo. A building model might have <strong>263 windows and 126 doors</strong> — all structurally identical. Which one is it?</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Input</th>
+                    <th>Candidates</th>
+                    <th>Precision</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Text only: <code>"Which window?"</code></td>
+                    <td><strong>263</strong></td>
+                    <td>0.38%</td>
+                </tr>
+                <tr>
+                    <td>+ floor, task status, site photos (4D context)</td>
+                    <td><strong>3</strong></td>
+                    <td>33.33%</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p>→ <strong>98.9% search space reduction</strong> by fusing multimodal context with structured retrieval.</p>
+        <p>At a higher level, the challenge is <strong>Multimodal Grounding</strong> and <strong>Schema Alignment</strong>: mapping informal, unstructured data (natural language, images, plans) to structured schema (IFC) with <strong>zero hallucination</strong>.</p>
+
+        <p><strong>Core research questions:</strong> How can AI act as an interpreter layer to reliably align unstructured site evidence with project data in AEC workflows, with minimal information loss?</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Question</th>
+                    <th>Key challenge</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>RQ1</strong></td>
+                    <td>Can multimodal context (photos, floorplan, 4D schedule) identify the correct BIM element?</td>
+                    <td>Attribute entropy: identical elements, only topology differs</td>
+                </tr>
+                <tr>
+                    <td><strong>RQ2</strong></td>
+                    <td>Can the system output a standards-compliant inspection report?</td>
+                    <td>Report schema validation — zero hallucination required</td>
+                </tr>
+                <tr>
+                    <td><strong>RQ3</strong></td>
+                    <td>Can the system know when it <em>can't</em> identify an element and escalate?</td>
+                    <td>Distinguishing retrieval failure from genuine absence</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>2. Approach</h2>
+        <p>To address these research questions, I built a complete demo system and evaluated multimodal grounding capabilities across several frameworks: <strong>v1: an Agent-Driven</strong> framework baseline, <strong>v2: Constraints-Driven</strong> with different model: Gemini and fine-tuned LoRA with domain specific training.</p>
+
+        <div class="image-grid">
+            <div class="image-grid-item">
+                <img src="assets/img/ai_aec/screenshots/query_input.png" alt="Query Input" style="width: 80%; max-width: 300px;">
+                <p><strong>Query input</strong> — what the system receives</p>
+            </div>
+            <div class="image-grid-item">
+                <img src="assets/img/ai_aec/screenshots/query_plan.png" alt="Pipeline Trace" style="width: 80%; max-width: 300px;">
+                <p><strong>Pipeline trace</strong> — step-by-step retrieval</p>
+            </div>
+            <div class="image-grid-item">
+                <img src="assets/img/ai_aec/screenshots/query_filtered_viz.png" alt="Query Filtered Visualization" style="width: 80%; max-width: 400px;">
+                <p><strong>Query filtered visualization</strong></p>
+            </div>
+            <div class="image-grid-item">
+                <img src="assets/img/ai_aec/screenshots/query_result.png" alt="Pipeline Result" style="width: 80%; max-width: 400px;">
+                <p><strong>Pipeline result</strong></p>
+            </div>
+        </div>
+
+        <p><strong>LoRA vs Prompt — same case, same inputs:</strong></p>
+        <table>
+            <thead>
+                <tr>
+                    <th>LoRA_2 → <strong>CORRECT</strong> ✓</th>
+                    <th>Prompt → <strong>WRONG</strong> ✗</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><img src="assets/img/ai_aec/screenshots/2_049_lora_T.png" alt="LoRA correct"></td>
+                    <td><img src="assets/img/ai_aec/screenshots/2_049_prompt_F.png" alt="Prompt wrong"></td>
+                </tr>
+            </tbody>
+        </table>
+        <p><em>Case 049 — DXA building (Duplex_A), fire door inspection, MC condition (text + photos + floorplan + 4D). LoRA retrieves the correct GUID; Prompt with identical inputs predicts wrong element (red = GT in right panel).</em></p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>LoRA_2 (text only) → <strong>CORRECT</strong> ✓</th>
+                    <th>Prompt (text + photos + floorplan) → <strong>WRONG</strong> ✗</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><img src="assets/img/ai_aec/screenshots/1_084_lora_T.png" alt="LoRA correct"></td>
+                    <td><img src="assets/img/ai_aec/screenshots/1_084_prompt_F.png" alt="Prompt wrong"></td>
+                </tr>
+            </tbody>
+        </table>
+        <p><em>Case 084 — AP building (10-storey office), IfcDoor. LoRA with text-only input (MA) still outperforms Prompt with full multimodal input (MC).</em></p>
+
+        <div class="section-divider"></div>
+
+        <h2>3. System Architecture</h2>
+        <img src="assets/img/ai_aec/diagram/system_architecture.png" alt="System Architecture" class="demo-image" style="width: 80%; max-width: 800px;">
+        <h3>(a) V1 — Agent-Driven (Baseline)</h3>
+        <p>A <strong>LangGraph ReAct agent</strong> using <strong>MCP (Model Context Protocol)</strong> to call IFC query tools freely.</p>
+
+        <pre><code>Chat + Images + 4D metadata
+  → Gemini 2.5 Flash (ReAct loop)
+  → MCP tool calls: search_by_type, get_by_storey, match_image_to_elements
+  → IFCEngine (IfcOpenShell) + optional CLIP reranker
+  → Result (EvalTrace)</code></pre>
+
+        <p>Works out of the box with no training — but non-deterministic, slow (~8 min / 84 cases), and hard to ablate.</p>
+
+        <h3>(b) V2 — Constraints-Driven (Main Contribution)</h3>
+        <p>Replaces free-form reasoning with an <strong>explicit constraint extraction → deterministic query planning</strong> pipeline.</p>
+
+        <img src="assets/img/ai_aec/diagram/sequence_v2_pipeline_simplified.png" alt="V2 Pipeline" class="demo-image" style="width: 80%; max-width: 800px;">
+
+        <pre><code>Chat + Images + 4D metadata
+  → ConditionMask    (modality ablation: text / +photos / +floorplan / ±4D)
+  → ImageParser      (Gemini VLM — cached structured descriptions)
+  → ConstraintsExtractor  (Gemini prompt  OR  LoRA_2 adapter, 0.3ms)
+  → QueryPlanner     (deterministic 7-priority cascade)
+  → RetrievalBackend (memory index  OR  Neo4j Cypher  +  optional CLIP rerank)
+  → EvalTrace + V2Trace</code></pre>
+
+        <p><strong>Extracted schema</strong> (Pydantic-validated, <code>src/v2/types.py</code>):</p>
+        <pre><code class="language-json">{
+  "storey_name": "6 - Sixth Floor",
+  "ifc_class":   "IfcWindow",
+  "near_keywords": ["north", "external"],
+  "space_name": null,
+  "target_name_keyword": null,
+  "neighbor_type": "IfcColumn"
+}</code></pre>
+
+        <p><strong>Two extraction backends — swappable at runtime:</strong></p>
+        <ul>
+            <li><strong>Prompt-only</strong> (Gemini 2.5 Flash) — zero-shot, 15.4s/case, $0.045/case</li>
+            <li><strong>LoRA_2</strong> (Qwen2.5-VL-7B, fine-tuned) — <strong>0.3ms/case</strong>, $0.023/case, <strong>+9.6pp Top-1</strong></li>
+        </ul>
+
+        <div class="section-divider"></div>
+
+        <h2>4. Data Pipeline: Synthetic Training Data</h2>
+        <p>Real site inspection reports are confidential. I built a fully automated synthetic data pipeline — no manual labeling required.</p>
+
+        <img src="assets/img/ai_aec/screenshots/data_curation_overview.png" alt="Dataset Overview" class="demo-image">
+
+        <p><strong>Skeleton-Skin Architecture:</strong></p>
+        <pre><code>IFC geometry  →  deterministic skeleton (ground-truth labels, topology)
+Gemini + Blender  →  noisy multimodal skin (photos, chat, floorplans)</code></pre>
+
+        <p><strong>Pipeline steps:</strong></p>
+        <pre><code>IFC model (IfcOpenShell)
+  1. Build element index (attributes, storey, IFC class)
+  2. Hunt skeletons → ground-truth labels per element
+  3. Blender/Bonsai headless → wireframe renders per element
+  4. Gemini 2.5 Flash → photoreal site photos from wireframes
+  5. matplotlib → floorplan patches from IFC geometry
+  6. Gemini → chat history + 4D metadata per case
+  7. 3× text augmentation → Original / Vague ("look at this") / Urgent ("QA flagged")
+  8. Format to Qwen2.5-VL ChatML → lora_train.jsonl + test_holdout.jsonl</code></pre>
+
+        <p><strong>Dataset: synth_v0.4 — three IFC buildings:</strong></p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Building</th>
+                    <th>Type</th>
+                    <th>Raw cases</th>
+                    <th>Train (3× aug)</th>
+                    <th>Holdout</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>AdvancedProject (AP)</strong></td>
+                    <td>10-storey office</td>
+                    <td>250</td>
+                    <td>690</td>
+                    <td>20</td>
+                </tr>
+                <tr>
+                    <td><strong>BasicHouse (BH)</strong></td>
+                    <td>2-storey residential</td>
+                    <td>31</td>
+                    <td>33</td>
+                    <td>20</td>
+                </tr>
+                <tr>
+                    <td><strong>Duplex_A (DXA)</strong></td>
+                    <td>Split-level duplex</td>
+                    <td>80</td>
+                    <td>210</td>
+                    <td>10</td>
+                </tr>
+                <tr>
+                    <td><strong>Total</strong></td>
+                    <td></td>
+                    <td>361</td>
+                    <td><strong>933</strong></td>
+                    <td><strong>50</strong></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="image-trio">
+            <div class="image-card-trio">
+                <img src="assets/img/ai_aec/screenshots/ifc_model_ap.png" alt="AdvancedProject Building" style="width: 80%; max-width: 300px; box-shadow: none;">
+                <p><strong>AdvancedProject (AP)</strong></p>
+                <p><em>10-storey office tower</em></p>
+            </div>
+            <div class="image-card-trio">
+                <img src="assets/img/ai_aec/screenshots/ifc_model_bh.png" alt="BasicHouse Building" style="width: 80%; max-width: 300px; box-shadow: none;">
+                <p><strong>BasicHouse (BH)</strong></p>
+                <p><em>2-storey residential</em></p>
+            </div>
+            <div class="image-card-trio">
+                <img src="assets/img/ai_aec/screenshots/ifc_model_dxa.png" alt="Duplex_A Building" style="width: 80%; max-width: 300px; box-shadow: none;">
+                <p><strong>Duplex_A (DXA)</strong></p>
+                <p><em>Split-level duplex</em></p>
+            </div>
+        </div>
+        <p style="text-align: center;"><em>The three IFC buildings used for dataset generation, providing diverse architectural complexity for training and evaluation.</em></p>
+
+        <p><strong>LoRA_2 training — Qwen2.5-VL-7B:</strong></p>
+        <pre><code>Base model:         unsloth/Qwen2.5-VL-7B-Instruct-bnb-4bit
+Adapter:            LoRA r=16, alpha=32
+Training samples:   933 multimodal cases
+Epochs:             3 · LR: 2e-4 · Effective batch: 16
+Max seq length:     2048
+Hardware:           Modal A100 (40GB)
+Task:               [site photo + floorplan + chat] → constraints JSON
+Inference latency:  0.3ms (pre-computed) vs 15.4s (Gemini API)</code></pre>
+
+        <div class="section-divider"></div>
+
+        <h2>5. Evaluation & Results</h2>
+        <p><strong>6-condition modality ablation</strong> — 50 holdout cases × 6 conditions × 2 profiles = 600 traces:</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Condition</th>
+                    <th>Visual inputs</th>
+                    <th>4D context</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>MA / MA-</td>
+                    <td>Text only</td>
+                    <td>ON / OFF</td>
+                </tr>
+                <tr>
+                    <td>MB / MB-</td>
+                    <td>+ Site photos</td>
+                    <td>ON / OFF</td>
+                </tr>
+                <tr>
+                    <td>MC / MC-</td>
+                    <td>+ Floorplan</td>
+                    <td>ON / OFF</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p>Paired comparison (MA vs MA-, MB vs MB-, MC vs MC-) isolates the pure 4D contribution.</p>
+
+        <h3>Overall: LoRA_2 vs Prompt</h3>
+        <img src="assets/img/ai_aec/plots/1_overall_metrics.png" alt="Overall Metrics" class="demo-image">
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Metric</th>
+                    <th>LoRA_2</th>
+                    <th>Prompt</th>
+                    <th>Delta</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Top-1 Accuracy</strong></td>
+                    <td><strong>35.3%</strong></td>
+                    <td>25.7%</td>
+                    <td><strong>+9.6 pp</strong></td>
+                </tr>
+                <tr>
+                    <td>Name Match</td>
+                    <td>67.7%</td>
+                    <td>60.0%</td>
+                    <td>+7.7 pp</td>
+                </tr>
+                <tr>
+                    <td>Valid SSR (GT retained)</td>
+                    <td>66.2%</td>
+                    <td>52.8%</td>
+                    <td>+13.4 pp</td>
+                </tr>
+                <tr>
+                    <td>Over-Reduction (GT lost)</td>
+                    <td>64.7%</td>
+                    <td>74.3%</td>
+                    <td>−9.6 pp ✓</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p>LoRA not only improves accuracy — it also reduces over-filtering, keeping the ground-truth element in the candidate pool more reliably.</p>
+
+        <h3>Latency & Cost</h3>
+        <img src="assets/img/ai_aec/plots/4_efficiency_comparison.png" alt="Efficiency Comparison" class="demo-image">
+        <table>
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>LoRA_2</th>
+                    <th>Prompt</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Avg latency/case</td>
+                    <td><strong>0.0s</strong> (precomputed)</td>
+                    <td>15.4s</td>
+                </tr>
+                <tr>
+                    <td>API calls/case</td>
+                    <td>1.0</td>
+                    <td>2.0</td>
+                </tr>
+                <tr>
+                    <td>Est. cost/case</td>
+                    <td><strong>$0.023</strong></td>
+                    <td>$0.045</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Visual Modality Contribution</h3>
+        <img src="assets/img/ai_aec/plots/9_modality_stack_MA_MB_MC.png" alt="Modality Contribution" class="demo-image">
+        <ul>
+            <li><strong>Floorplan adds the most (+10pp for LoRA)</strong> — spatial layout is a strong geometric anchor</li>
+            <li>Site photos alone (MB) add noise without spatial grounding (−2pp), potentialy due to dirty data -&gt; need to improve the quality gate for synthetic data</li>
+            <li>Prompt model's gains are inconsistent — fine-tuning is needed to exploit spatial signals reliably</li>
+        </ul>
+
+        <h3>Generalization Across Buildings</h3>
+        <img src="assets/img/ai_aec/plots/11_modality_x_building.png" alt="Building × Modality" class="demo-image">
+        <table>
+            <thead>
+                <tr>
+                    <th>Building</th>
+                    <th>MA (Text+4D)</th>
+                    <th>MB (+Photos)</th>
+                    <th>MC (+Floorplan)</th>
+                    <th>Key insight</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>AP</strong> (10-storey office)</td>
+                    <td>8%</td>
+                    <td>5%</td>
+                    <td>10%</td>
+                    <td>Densest building — near attribute entropy floor</td>
+                </tr>
+                <tr>
+                    <td><strong>BH</strong> (2-storey house)</td>
+                    <td>45%</td>
+                    <td><strong>62%</strong></td>
+                    <td>60%</td>
+                    <td>Photos give +18pp — few elements, easy disambiguation</td>
+                </tr>
+                <tr>
+                    <td><strong>DXA</strong> (split-level)</td>
+                    <td>35%</td>
+                    <td>30%</td>
+                    <td><strong>45%</strong></td>
+                    <td>Floorplan gives +15pp — complex spatial layout</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p>LoRA_2 generalizes across all three buildings without per-building fine-tuning.</p>
+
+        <h3>Key Insights & Trade-offs</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>What works</th>
+                    <th>What doesn't (yet)</th>
+                    <th>Engineering lesson</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>V2 constraints pipeline: SSR &gt; 80% consistently</td>
+                    <td>AP building Top-1 ≈ 8% (near 1/46 floor)</td>
+                    <td>Attribute filtering can't break homogeneity</td>
+                </tr>
+                <tr>
+                    <td>LoRA adapter: 0.3ms inference, −9.6pp over-reduction</td>
+                    <td>Storey extraction fails on vague chat</td>
+                    <td>Wrong storey = catastrophic filter failure</td>
+                </tr>
+                <tr>
+                    <td>Floorplan grounding: +10pp for LoRA</td>
+                    <td>Site photos can hurt on complex buildings</td>
+                    <td>VLM needs spatial anchoring, not global scene</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="section-divider"></div>
+
+        <h2>6. What's Next: V2.5 Neuro-Symbolic <em>(in progress)</em></h2>
+        <p>The core challenge: When a floor contains <strong>46 identical elements, accuracy peaks at 2.2%</strong> (random guess). Attribute matching and CLIP similarity both fail — the elements are mathematically identical in isolation.</p>
+
+        <p><strong>Solution:</strong> Use spatial topology as a distinguishing signal. While two elements may be visually identical, they have unique <em>spatial relationships</em> to neighboring elements.</p>
+
+        <img src="assets/img/ai_aec/screenshots/scene_graph_sample.png" alt="scene_graph_sample" class="demo-image" style="width: 80%; max-width: 800px;">
+        <p style="text-align: center; margin-top: 0.5em;"><em>Example spatial relationships extracted from the BIM model:
+        <code>[IfcWindow, CONTAINED_IN, IfcWall]</code>
+        <code>[IfcColumn, ADJACENT_TO, IfcWall]</code>
+        <code>[IfcWindow, ADJACENT_TO, IfcColumn]</code>
+        </em></p>
+
+        <p><strong>Example Cypher query</strong> using spatial relationships:</p>
+        <pre><code>// Match the spatial pattern: window → wall, column → wall, window → column
+MATCH (window:IfcWindow)-[:CONTAINED_IN]->(wall:IfcWall),
+      (column:IfcColumn)-[:ADJACENT_TO]-(wall),
+      (window)-[:ADJACENT_TO]-(column)
+
+// Return unique IDs to sync with the BIM viewer
+RETURN window.GlobalId AS TargetWindowID,
+       column.GlobalId AS AnchorColumnID,
+       wall.GlobalId AS HostWallID</code></pre>
+        <p><em>The scene graph creates a topological fingerprint. By requiring the window to be adjacent to a specific column, the query filters out visually identical windows that don't share this spatial configuration.</em></p>
+        <br>
+        <pre><code>[PLANNED] V2.5 Architecture
+
+NEURO LAYER (LoRA_3 — Qwen2.5-VL-7B)
+  New input: Relation Crop (union AABB of subject + reference element)
+  New output: spatial_relations: [{subject, predicate, object}]
+  Predicates: FILLS | CONTINUOUS | ADJACENT_TO | ON_TOP_OF
+
+QUERY COMPILER (Python — zero LLM)
+  spatial_triplet → Cypher template → Neo4j graph query
+  Fallback: ADJACENT_TO → ON_STOREY → type-only (no regression)
+
+SYMBOLIC LAYER (Neo4j)
+  Pre-computed topological edges from IFC geometry
+  Zero hallucination — no LLM in the retrieval step</code></pre>
+
+        <p><strong>Relation Crop</strong> — the key training innovation. Instead of cropping a single element (Wang et al. 2025), we crop the <em>interface boundary</em> between two elements. This forces the model to reason from local geometric topology rather than global visual shortcuts (e.g., "railings are typically near stairs").</p>
+
+        <p><strong>Target benchmark</strong> (46 identical elements per floor):</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>System</th>
+                    <th>Top-1 on 46 identical elements</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>V2 LoRA_2 / CLIP baseline</td>
+                    <td>~2.2% (1/46)</td>
+                </tr>
+                <tr>
+                    <td>V2.5 Neuro-Symbolic <em>(target)</em></td>
+                    <td><strong>60–80%</strong></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p><strong>Spatial relationship vocabulary</strong> (architectural elements only):</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Predicate</th>
+                    <th>Mining method</th>
+                    <th>Est. instances</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>FILLS</code></td>
+                    <td><code>IfcRelFillsElement</code> (IFC schema)</td>
+                    <td>~389</td>
+                </tr>
+                <tr>
+                    <td><code>CONTINUOUS</code></td>
+                    <td>Wall <code>Top ≠ storey_name</code> field</td>
+                    <td>~771</td>
+                </tr>
+                <tr>
+                    <td><code>ADJACENT_TO</code></td>
+                    <td>Centroid distance &lt; 1.5m</td>
+                    <td>~200–400</td>
+                </tr>
+                <tr>
+                    <td><code>ON_TOP_OF</code></td>
+                    <td>Z-axis comparison + AABB overlap</td>
+                    <td>~19–40</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p><em>Note: <code>FILLS</code> and <code>CONTINUOUS</code> are extracted directly from IFC schema metadata — no geometric computation required.</em></p>
+    </div>
+</body>
+</html>

@@ -97,6 +97,13 @@ class RetrievalResult(BaseModel):
     query_plan_used: QueryPlan
     backend: str  # "memory", "neo4j", "memory+clip", "neo4j+clip"
     rerank_applied: bool = False
+    # ── Fallback transparency (added v2.6) ───────────────────────────────────
+    # strategy_actually_used: the strategy that produced the candidates.
+    # Differs from query_plan_used.strategy when predicate relaxation fired.
+    # e.g. query_plan_used.strategy="spatial_triplet" but candidates came from
+    # "storey+type" → strategy_actually_used="storey+type", fallback_triggered=True
+    strategy_actually_used: str = ""   # empty = same as query_plan_used.strategy
+    fallback_triggered: bool = False   # True if predicate relaxation demoted to lower strategy
 
 
 class ParsedImage(BaseModel):

@@ -19,13 +19,15 @@ class QueryPlanner:
 
     # Priority rules: ordered from most specific to most general
     PRIORITY_RULES = [
-        # ── Phase 5 NEW rule (Priority 0 — Neuro-Symbolic spatial triplet) ───
+        # ── Priority 0a — edge-traversal predicates (FILLS, ADJACENT_TO, ON_TOP_OF, …) ──
         {
             "priority": 0,
             "strategy": "spatial_triplet",
             "requires": ["spatial_relations", "ifc_class"],
+            # Fires for all predicates EXCEPT "CONTINUOUS" (stored as property, not edge)
+            "predicate_exclude": ["CONTINUOUS"],
             "description": "Topological triplet from Neuro layer — breaks attribute entropy bottleneck (~1-3 candidates)",
-            "template_memory": None,  # no memory fallback — topology requires Neo4j graph
+            "template_memory": None,
             "template_cypher": """
                 MATCH (target:IFCElement)-[:{predicate}]->(ref:IFCElement)
                 WHERE target.ifc_type = $subject_type
@@ -33,6 +35,25 @@ class QueryPlanner:
                   AND toLower(ref.storey) CONTAINS toLower($storey)
                 RETURN target.guid as guid, target.name as name, target.ifc_type as type,
                        ref.ifc_type as ref_type, ref.storey as ref_storey
+            """
+        },
+        # ── Priority 0b — CONTINUOUS: property-based (no edge, uses is_continuous flag) ──
+        {
+            "priority": 0,
+            "strategy": "continuous_span",
+            "requires": ["spatial_relations", "ifc_class"],
+            # Fires ONLY when predicate == "CONTINUOUS"
+            "predicate_filter": "CONTINUOUS",
+            "description": "CONTINUOUS predicate — element spans multiple storeys (property filter, ~1-5 candidates)",
+            "template_memory": None,
+            "template_cypher": """
+                MATCH (target:IFCElement)
+                WHERE target.ifc_type = $subject_type
+                  AND target.is_continuous = true
+                  AND toLower(target.top_constraint) CONTAINS toLower($top_storey)
+                RETURN target.guid as guid, target.name as name, target.ifc_type as type,
+                       target.base_constraint as ref_storey,
+                       target.top_constraint  as ref_type
             """
         },
         # ── Phase 4 NEW rules (priorities 1-3, finer granularity) ────────────
@@ -196,6 +217,19 @@ class QueryPlanner:
         """
         required_fields = rule.get("requires", [])
 
+        # Route CONTINUOUS vs edge-traversal predicates to the correct rule
+        predicate_filter = rule.get("predicate_filter")   # rule only fires for this predicate
+        predicate_exclude = rule.get("predicate_exclude", [])  # rule skips these predicates
+        if predicate_filter or predicate_exclude:
+            triplet_predicate = (
+                constraints.spatial_relations[0].predicate
+                if constraints.spatial_relations else None
+            )
+            if predicate_filter and triplet_predicate != predicate_filter:
+                return False
+            if predicate_exclude and triplet_predicate in predicate_exclude:
+                return False
+
         for field in required_fields:
             value = getattr(constraints, field, None)
 
@@ -261,9 +295,12 @@ class QueryPlanner:
             params["spatial_relations"] = [t.model_dump() for t in constraints.spatial_relations]
             if triplet.object_material:
                 params["object_material"] = triplet.object_material
-            # storey is used in the Cypher WHERE clause; fall back to "" if absent
+            # storey used in WHERE clause for edge-traversal predicates
             if "storey" not in params:
                 params["storey"] = constraints.storey_name or ""
+            # top_storey used in WHERE clause for CONTINUOUS (property filter)
+            # storey_name in a CONTINUOUS query = the top storey the element reaches
+            params["top_storey"] = constraints.storey_name or ""
 
         return params
 
@@ -282,7 +319,8 @@ class QueryPlanner:
         """
         # Rough estimates (order of magnitude)
         estimates = {
-            "spatial_triplet": 3,   # Most specific: topological edge → ~1-3 matches
+            "spatial_triplet":  3,  # Most specific: topological edge → ~1-3 matches
+            "continuous_span":  5,  # Property filter on is_continuous + top_constraint
             "space+type":    5,     # Room + element type
             "name_keyword":  3,     # Equipment brand/ID match
             "neighbor+type": 8,     # Topological adjacency (Neo4j only, FILLS/HAS_OPENING)

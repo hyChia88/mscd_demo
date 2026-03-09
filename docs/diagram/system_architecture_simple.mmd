@@ -1,0 +1,77 @@
+---
+config:
+  layout: elk
+---
+flowchart TB
+ subgraph V1["<b>V1 — Agent-Driven  (main_mcp.py)</b>"]
+    direction TB
+        subgraph AGENT_BOX["LangGraph ReAct Agent  +  IFC MCP Server"]
+            direction LR
+            V1_AGENT["<b>LangGraph ReAct Agent</b><br>(Gemini 2.5 Flash)"]
+            IFC_SRV["<b>IFC MCP Server</b>  (ifc_server.py)<br>search_by_type · get_by_storey · get_by_room<br>get_element_details · query_adjacent"]
+        end
+        CLIP_A["<b>Visual Server</b><br>analyze_site_image · match_image_to_elements"]
+        RPARSER["<b>Response Parser</b><br>extract GUID + candidates"]
+  end
+ subgraph V2["<b>V2 — Constraints-Driven  (Neuro-Symbolic)</b>"]
+    direction TB
+        IMG_P["<b>Gemini 2.5 Flash VLM</b>"]
+        LORA_M["<b>LoRA Qwen2.5-VL-7B</b>"]
+        CEXT["<b>Constraints Extractor</b><br>Constraints + SpatialTriplet list"]
+        QPLAN["<b>Query Planner</b><br>P0 spatial_triplet · P1 space+type<br>P2 name_keyword · P3 neighbor+type<br>P4 storey+type · P5–P8 fallback"]
+        RET_B["<b>Retrieval Backend</b><br>cascade P0–P8 until pool &gt; 0"]
+  end
+ subgraph BACKEND["Shared Backend"]
+    direction LR
+        ENG["<b>IFC Engine</b><br>ifcopenshell + space registry"]
+        NEO[("<b>Neo4j IFC Graph</b>")]
+  end
+ subgraph OUTPUT["Evaluation & Output"]
+    direction TB
+        EVAL["<b>Evaluation &amp; Schema Mapping &amp; BCF Handoff</b>"]
+        ART[["Output Artifacts<br>bcf/"]]
+  end
+
+    MASK["Input:<br>chat · images · floorplan · 4D metadata"]:::ash -- v1: ReAct Agent (baseline) --> V1_AGENT
+    MASK -- "v2.1 prompt path" --> IMG_P
+    MASK -- "v2.2 lora path" --> LORA_M
+    V1_AGENT -- tool calls --> IFC_SRV
+    IFC_SRV -- visual match --> CLIP_A
+    IFC_SRV --> RPARSER
+    IMG_P -- ImageParseResult --> CEXT
+    LORA_M -- SpatialTriplets --> CEXT
+    CEXT --> QPLAN
+    QPLAN --> RET_B
+    ENG -. cypher .-> NEO
+    RET_B -- memory --> ENG
+    RET_B -- neo4j P0 FILLS/ADJ --> NEO
+    RPARSER --> EVAL
+    RET_B --> EVAL
+    EVAL --> ART
+
+     V1_AGENT:::v1node
+     IFC_SRV:::v1node
+     CLIP_A:::v1node
+     RPARSER:::v1node
+     IMG_P:::v2node
+     LORA_M:::v2node
+     CEXT:::v2node
+     QPLAN:::v2node
+     RET_B:::v2node
+     ENG:::backend
+     NEO:::db
+     EVAL:::output
+     ART:::output
+
+    classDef backend fill:#F3E5F5,stroke:#7B1FA2,color:#4A148C
+    classDef db      fill:#ECEFF1,stroke:#546E7A,color:#263238
+    classDef output  fill:#FFFFFF,stroke:#C62828,color:#B71C1C
+    classDef v2node  fill:#FFFFFF,stroke:#F57C00,color:#E65100
+    classDef ash     stroke-width:1px,stroke-dasharray:none,stroke:#999999,fill:#EEEEEE,color:#000000
+    classDef v1node  fill:#FFFFFF,stroke:#1565C0,color:#0D47A1
+
+    style AGENT_BOX fill:#DBEAFE,stroke:#1565C0
+    style OUTPUT    fill:#FFCDD2,stroke:#C62828
+    style V1        fill:#BBDEFB,stroke:#1565C0
+    style V2        fill:#FFE0B2,stroke:#F57C00
+    style BACKEND   fill:transparent

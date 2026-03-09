@@ -1,0 +1,58 @@
+---
+config:
+  layout: elk
+---
+flowchart TD
+    classDef ash      stroke-width:1px,stroke-dasharray:none,stroke:#999999,fill:#EEEEEE,color:#000000
+    classDef v2node   fill:#FFFFFF,stroke:#F57C00,color:#E65100
+    classDef planned  fill:#FFF8F0,stroke:#F57C00,stroke-dasharray:6 3,color:#E65100
+    classDef backend  fill:#F3E5F5,stroke:#7B1FA2,color:#4A148C
+    classDef db       fill:#ECEFF1,stroke:#546E7A,color:#263238
+    classDef outbox   fill:#FFCDD2,stroke:#C62828,color:#B71C1C
+    classDef new      fill:#FEF3C7,stroke:#D97706,color:#78350F
+
+    INPUT["Multimodal Input<br/>chat · site photos · floorplan · 4D metadata"]:::ash
+
+    subgraph V2_PIPE["V2 — Constraints-Driven  (Neuro-Symbolic)"]
+        direction TB
+        subgraph NEURO["NEURO LAYER — ⚠ V2.3 in progress"]
+            direction LR
+            PROMPT["<b>V2.1  Prompt Path</b><br/>Gemini 2.5 Flash VLM<br/><i>(current baseline)</i>"]:::v2node
+            LORA["<b>V2.2  LoRA Finetune</b><br/>Qwen2.5-VL-7B + LoRA r=16<br/>multimodal finetune<br/>photos + floorplans only<br/><i>(Wang et al. 2024)</i>"]:::planned
+            LORA3["<b>V2.3  Crop Routing</b><br/>· Object Crop → IFC class ID<br/>· Relation-Region Crop → predicate ID<br/><i>(THIS WORK)</i>"]:::planned
+            CEXT["Constraints  ← Pydantic validated<br/>{ storey_name, ifc_class,<br/>  spatial_relations:<br/>    [{ subject, predicate, object }] }"]:::v2node
+        end
+        subgraph COMPILER["QUERY COMPILER — Python   (zero LLM)"]
+            direction TB
+            P0["P0  spatial_triplet Cypher<br/>MATCH subject -[pred]→ anchor<br/>filter by storey + IFC subtype<br/><b>← NEW in V2.5</b>"]:::new
+            P17["P1  space + type<br/>P2  name keyword<br/>P3  neighbor + type<br/>P4  storey + type<br/>P5–7  coarse fallback"]:::v2node
+        end
+    end
+
+    subgraph SYMBOLIC["SYMBOLIC LAYER — Shared Backend"]
+        direction LR
+        ENG["<b>IFC Engine</b><br/>ifcopenshell + space registry<br/><i>memory mode</i>"]:::backend
+        NEO[("<b>Neo4j IFC Graph</b><br/>-[:FILLS]→          IFC schema<br/>-[:CONTINUOUS]→    Revit constraint<br/>-[:ADJACENT_TO]→   centroid &lt; 1.5 m<br/>-[:ON_TOP_OF]→     Z-axis + AABB")]:::db
+    end
+
+    RESULT["EvalTrace<br/>Top-1 · GT-in-pool · SSR · fallback_triggered"]:::outbox
+
+    INPUT --> PROMPT & LORA & LORA3
+    PROMPT --> CEXT
+    LORA   --> CEXT
+    LORA3  --> CEXT
+
+    CEXT -->|"spatial_relations present"| P0
+    CEXT -->|"storey / type / keywords"| P17
+
+    P0  --> NEO
+    P17 --> ENG
+    ENG -. cypher .-> NEO
+
+    ENG  --> RESULT
+    NEO  --> RESULT
+
+    style V2_PIPE  fill:#FFE0B2,stroke:#F57C00
+    style NEURO    fill:#FFF3E0,stroke:#F57C00
+    style COMPILER fill:#FFF3E0,stroke:#F57C00
+    style SYMBOLIC fill:transparent,stroke:#7B1FA2

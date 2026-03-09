@@ -1,0 +1,75 @@
+---
+config:
+  layout: elk
+---
+flowchart TB
+    classDef v1node   fill:#FFFFFF,stroke:#1565C0,color:#0D47A1
+    classDef v1dark   fill:#BBDEFB,stroke:#1565C0,color:#0D47A1
+    classDef backend  fill:#F3E5F5,stroke:#7B1FA2,color:#4A148C
+    classDef db       fill:#ECEFF1,stroke:#546E7A,color:#263238
+    classDef outbox   fill:#FFCDD2,stroke:#C62828,color:#B71C1C
+    classDef ash      stroke-width:1px,stroke-dasharray:none,stroke:#999999,fill:#EEEEEE,color:#000000
+    classDef optional stroke-width:1px,stroke-dasharray:5 3,stroke:#7B1FA2,fill:#FAFAFA,color:#4A148C
+    classDef dead     stroke-width:1px,stroke-dasharray:4 2,stroke:#BDBDBD,fill:#F5F5F5,color:#9E9E9E
+
+    INPUT["Input<br>chat · site photos · floorplan · 4D metadata"]:::ash
+
+    subgraph AGENT["LangGraph ReAct Agent  (Gemini 2.5 Flash)"]
+        direction TB
+        REASON["Reason<br><i>select next tool or return answer</i>"]
+        TOOLCALL["Tool Call<br><i>invoke MCP tool with args</i>"]
+        OBSERVE["Observe<br><i>parse tool result + update state</i>"]
+        REASON --> TOOLCALL --> OBSERVE --> REASON
+    end
+
+    subgraph IFC_SRV["IFC MCP Server  (ifc_server.py)"]
+        direction TB
+        IFC_TOOLS["IFC Query Tools<br>search_elements_by_type · get_elements_by_storey<br>get_elements_by_room · get_element_details<br>query_adjacent_elements · list_available_spaces"]
+        VIS_TOOLS["Visual Tools  (VISUAL_ENABLED=true)<br>analyze_site_image · match_image_to_elements<br>match_text_to_elements · compare_defect_images"]
+    end
+
+    VIS_SRV["visual_server.py  — not connected to pipeline<br><i>MVP prototype  (standalone)</i><br>identify_element_visually · compute_semantic_similarity"]:::dead
+
+    subgraph BACKEND["Shared Backend"]
+        direction LR
+        ENG["IFC Engine<br>ifcopenshell + space registry<br><i>memory mode: in-memory spatial index</i>"]
+        NEO[("Neo4j IFC Graph<br>FILLS · CONTAINS · ADJACENT_TO<br><i>neo4j mode</i>")]
+        CLIP["CLIP Visual Aligner<br><i>optional reranker</i>"]
+    end
+
+    subgraph OUT["Evaluation & Output"]
+        direction LR
+        RPARSER["Response Parser<br>extract GUID + candidates<br>from agent free-text"]
+        EVAL["Evaluation<br>Top-1 · Top-5 · GT-match"]
+        BCF["Schema Mapping<br>&amp; BCF Handoff"]
+        ART[["Output Artifacts<br>bcf/"]]
+    end
+
+    INPUT      --> AGENT
+    AGENT      -- tool calls --> IFC_SRV
+    IFC_TOOLS  -- IFC queries --> ENG
+    VIS_TOOLS  -- visual match --> CLIP
+    ENG        -. cypher .-    NEO
+    IFC_SRV    --> RPARSER
+    RPARSER    --> EVAL
+    RPARSER    --> BCF
+    BCF        --> ART
+
+    AGENT:::v1dark
+    REASON:::v1node
+    TOOLCALL:::v1node
+    OBSERVE:::v1node
+    IFC_TOOLS:::v1node
+    VIS_TOOLS:::optional
+    ENG:::backend
+    NEO:::db
+    CLIP:::optional
+    RPARSER:::v1node
+    EVAL:::outbox
+    BCF:::outbox
+    ART:::outbox
+
+    style AGENT    fill:#BBDEFB,stroke:#1565C0
+    style IFC_SRV  fill:#DBEAFE,stroke:#1565C0
+    style BACKEND  fill:#F3E5F5,stroke:#7B1FA2
+    style OUT      fill:#FFCDD2,stroke:#C62828

@@ -1,9 +1,13 @@
 # MSCD V2.5 — Neuro-Symbolic Prototype Plan
 
-> **Last revised: 2026-02-24**
-> Sections 1–4 are the original planning notes, reformatted and annotated.
-> Deprecated items are struck through with ❌ and replaced in **§5 (the authoritative plan)**.
-
+> **Last revised: 2026-03-08**
+> §1–3: Theory, architecture, demo plan (stable).
+> §4: Removed — superseded by §7.
+> §5.0–5.3: Design principles, codebase fixes, dataset reality, RQs (stable).
+> §5.4: Removed — superseded by §7.2–7.6.
+> §5.5: Innovation summary (stable).
+> §6: Implementation log (append-only).
+> **§7: Authoritative plan** — data curation & LoRA_3 training (2026-03-08).
 ---
 
 ## 1. Current Progress & Bottleneck Analysis
@@ -237,126 +241,9 @@ See §2.5. Implemented in existing eval harness — no new infrastructure requir
 
 ---
 
-## 4. Data Synthetic Plan — synth_v0.5
-
-### 4.1 Phase 1: Skeleton Mining via Geometric Pre-computation
-
-The pipeline abandons text-matching rules in favour of mathematical computation directly on IFC 3D geometry. Framework: Skeleton-Skin Separation Architecture.
-
-> ~~OCCT two-level pipeline: Broad Phase (AABB B-Rep extraction) + Narrow Phase (`BRepAlgoAPI_Common` for `INTERSECTS`, `BRepExtrema_DistShapeShape` for `ADJACENT_TO`, Z-projection IoU for `CANTILEVERED_OVER`)~~
->
-> ❌ **OCCT narrow-phase not implementing in current prototype.** The IFC model is purely architectural (762 walls, 263 windows, 43 slabs — zero MEP). OCCT boolean operations are designed for MEP clash detection; applying them to an architectural-only model yields near-zero `INTERSECTS` instances, making the core metric (`mR@100` on INTERSECTS) undefined.
->
-> ✅ **Implementing instead (lightweight, no OCCT dependency):**
-
-| Predicate | Mining method | Effort |
-|---|---|---|
-| `FILLS` | `IfcRelFillsElement` from IFC schema — already in `ifc_to_neo4j.py` | **Free** |
-| `CONTINUOUS` | `Constraints.Top ≠ storey_name` field — no geometry needed | **Free** |
-| `ADJACENT_TO` | Centroid distance < 1.5m (same storey), after extracting XYZ via `ifcopenshell.util.placement` | 2–3 days |
-| `ON_TOP_OF` | `Z_min(subject) > Z_max(object)` + XY AABB overlap | 1 day (after coords) |
-
-### 4.2 Phase 2: Cross-Modal Skin Generation
-
-After mining deterministic topological skeletons `(subject, predicate, object)`, wrap each with realistic multimodal “skin”.
-
-**Step 1 — Text augmentation:**
-
-Gemini 2.5 Flash generates vague, colloquial chat text from ground-truth triplets.
-
-```
-System prompt template:
-“你是现场勘查的施工员。
- Ground Truth: 目标窗户紧邻（ADJACENT_TO）一段楼梯栏杆。
- 请用口语化的聊天记录描述这扇窗的问题。
- 禁止提及 GUID 或 IfcClass 名称。
- 必须用空间参考（如’栏杆旁边的那扇窗’）。”
-```
-
-**Step 2 — Visual skin + anti-shortcut training:**
-
-> ~~全局渲染 + “仅包含管线穿透墙面洞口” 的 256×256 裁剪~~
->
-> ❌ **Deprecated crop target:** No pipe penetrations. The crop strategy is preserved — applied to architectural interface regions instead.
-
-✅ **Implementing:**
-- **Global render:** existing Blender/Bonsai headless pipeline (unchanged)
-- **Relation Crop (new):** compute union AABB of subject + object elements, extract sub-image from Blender camera view
-- **Object Crop:** tight AABB around target element only (for element-type training signal)
-
-### 4.3 Dataset Stratification & Hard Negatives
-
-Reusing and upgrading the existing H1/H2/H3 stratification:
-
-| Tier | Definition | Discriminating signal |
-|---|---|---|
-| **H1** | 20–50 intrinsically identical elements on one storey | None — pure attribute entropy baseline |
-| **H2** | N identical elements; only 1 has a topological relation to an anchor | `ADJACENT_TO` / `FILLS` / `CONTINUOUS` |
-| **H3** | Conflict injection (chat says Floor 3, GT is Floor 5) | Requires conflict resolution reasoning |
-
-**H2 expected outcome:**
-
-| System | Top-1 on H2 |
-|---|---|
-| Attribute baseline (CLIP / V2 prompt) | ~2.2% (1/46) |
-| LoRA_3 + Neo4j spatial triplet | **60–80%** (limited by VLM extraction accuracy) |
-
-> ~~”其 Top-1 准确率理论上应收敛至 100%”~~
->
-> ❌ **Overly optimistic.** Achieving 100% requires: (1) VLM extracts the correct triplet from the Relation Crop, (2) the triplet exists as a Neo4j edge, and (3) the Cypher returns exactly one result. Each step has non-zero failure probability. Realistic target: **60–80% on H2**, which is still a 27–36× improvement over the 2.2% attribute baseline.
-
-### 4.4 Deliverables & Milestones
-
-**Target: 800–1,200 high-quality triplet-annotated samples** (quality over quantity)
-
-> ~~”目标产出：生成约 2000–3000 条多模态数据样本”~~
-> ~~”建议规模：将其扩展到 3000–5000 个高质量的增强样本”~~
->
-> ❌ **Scale revised downward.** LoRA fine-tuning does not require tens of thousands of samples. Current LoRA_2 trained on 933 samples and produced meaningful results. For the topology-focused LoRA_3, 800–1,200 samples with explicit spatial relation labels provides sufficient signal given the narrow predicate vocabulary (6 types).
-
-| Days | Task | Output |
-|---|---|---|
-| 1–2 | Fix Neo4j + verify `FILLS` edges load correctly | Neo4j running with ~389 `FILLS` edges |
-| 2–3 | Add centroid XYZ to `1_build_index.py` | element_index.jsonl with positions |
-| 3–4 | Add `hunt_CONTINUOUS()` + `hunt_ADJACENT_TO()` to `2_hunt_skeletons.py` | ~300–500 skeleton triplets |
-| 4–5 | Generate H2 hard-negative test cases (50 cases, ~46 distractors each) | synth_v0.5 eval set |
-| 5–6 | Generate Relation Crop images from Blender | image_relation_crop.png per skeleton |
-| 6–7 | Generate chat text via Gemini (relation-aware prompts) | text_chat per skeleton |
-| 7 | LLM-as-Judge filtering pass (remove ~20–30% ambiguous samples) | 800–1,000 clean samples |
-| 8–9 | Merge with synth_v0.4; prepare LoRA_3 training format | merged JSONL for Modal |
-| 10 | Launch LoRA_3 training on Modal A100 | LoRA_3 adapter |
-
-**Sample format (each training record):**
-
-```
-inputs:
-  image_global.png         ← existing Blender render
-  image_object_crop.png    ← tight crop around target element
-  image_relation_crop.png  ← union AABB of subject + object (NEW)
-  text_chat                ← Gemini-generated vague site language
-  4d_metadata              ← storey_name (unchanged from V2)
-
-label:
-  {
-    “storey_name”: “3 - Third Floor”,
-    “ifc_class”: “IfcWindow”,
-    “spatial_relations”: [
-      {
-        “subject_type”: “IfcWindow”,
-        “predicate”: “ADJACENT_TO”,
-        “object_type”: “IfcRailing”,
-        “confidence”: 1.0
-      }
-    ]
-  }
-```
-
-> **Technical contribution (unchanged):**
-> Building a synthetic dataset with explicit spatial topology labels — without manual annotation, using machine-generated deterministic rules (IFC schema + centroid geometry) — is a recognised gap in AEC × multimodal AI. The Skeleton-Skin Separation Architecture is itself a research contribution.
-
-> ⚠️ **[2026-02-24 修订]** 上述 `<INTERSECTS>` 示例基于 MEP 模型假设，已被下方 §5 全面修订。
-> 经过 IFC 模型实地审计（AdvancedProject.ifc），当前数据集为纯建筑模型，零 MEP 构件，
-> 谓词词典已切换为建筑拓扑谓词（见 §5.2）。原理论框架完全保留，具体实现路径已更新。
+> **§4 removed** — original synth_v0.5 plan, superseded by §7 (Revised Plan).
+> Original content covered skeleton mining, skin generation, dataset stratification, and milestones.
+> All of these are now covered with updated details in §7.0–7.7.
 
 ---
 
@@ -480,202 +367,8 @@ Neuro-Symbolic 系统：
 
 ---
 
-## 5.4 V2.5 Implementation Plan
-
-### Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Multimodal Input                             │
-│  [Site Photo]  [Floorplan]  [Chat Text]  [4D Metadata]         │
-└──────────┬──────────────────┬──────────────────────────────────┘
-           │                  │
-  ┌────────▼──────────────────▼────────┐
-  │         NEURO LAYER (LoRA_3)       │
-  │  Qwen2.5-VL-7B + Unsloth LoRA r=16 │
-  │                                    │
-  │  Crop Strategy (per modality):     │
-  │  · Object Crop    → IFC class ID   │  (Wang et al. 2025)
-  │  · Relation Crop  → predicate ID   │  ← THIS WORK
-  │  · Floorplan Crop → spatial zone   │
-  │                                    │
-  │  Output: Constraints (extended)    │
-  │  {storey_name, ifc_class,          │
-  │   spatial_relations: [             │
-  │     {subject, predicate, object}   │
-  │   ]}  ← Pydantic validated         │
-  └────────────────┬───────────────────┘
-                   │ AEC predicate ∈ {FILLS, CONTINUOUS,
-                   │                  ADJACENT_TO, ON_TOP_OF}
-  ┌────────────────▼───────────────────┐
-  │      QUERY COMPILER (Python)       │
-  │      Zero LLM / deterministic      │
-  │                                    │
-  │  Priority 0: spatial_triplet       │ ← NEW
-  │  Priority 1–7: existing cascade    │ ← UNCHANGED (fallback)
-  │                                    │
-  │  Predicate Relaxation:             │
-  │  ADJACENT_TO → ON_STOREY → type   │
-  └────────────────┬───────────────────┘
-                   │ Cypher query
-  ┌────────────────▼───────────────────┐
-  │         SYMBOLIC LAYER (Neo4j)     │
-  │  Pre-computed topological edges:   │
-  │  -[:FILLS]->                       │ ← from IFC schema (free)
-  │  -[:CONTINUOUS]->                  │ ← from IFC constraints (free)
-  │  -[:ADJACENT_TO]->                 │ ← centroid distance < 1.5m
-  │  -[:ON_TOP_OF]->                   │ ← Z-axis comparison
-  └────────────────┬───────────────────┘
-                   │
-              Retrieved GUID
-```
-
-### Schema Change（最小侵入，向后兼容）
-
-**`src/v2/types.py`** — 在 `Constraints` 末尾添加：
-```python
-class SpatialTriplet(BaseModel):
-    subject_type: str                          # "IfcWindow"
-    predicate: Literal[
-        "FILLS", "CONTINUOUS",
-        "ADJACENT_TO", "ON_TOP_OF",
-        "PERPENDICULAR_TO", "PARALLEL_TO"
-    ]
-    object_type: str                           # "IfcRailing"
-    object_material: Optional[str] = None
-    confidence: float = 0.0
-
-# In Constraints class, add ONE new field:
-spatial_relations: List[SpatialTriplet] = Field(default_factory=list)
-```
-
-**`src/v2/constraints_to_query.py`** — 在 PRIORITY_RULES 最前面插入 Priority 0：
-```python
-{
-    "priority": 0,
-    "strategy": "spatial_triplet",
-    "requires": ["spatial_relations", "ifc_class"],
-    "description": "Topological triplet — breaks attribute entropy bottleneck (~1-3 candidates)",
-    "template_cypher": """
-        MATCH (target:{subject_type})-[:{predicate}]->(ref:{object_type})
-        WHERE toLower(ref.storey) CONTAINS toLower($storey)
-        RETURN target.guid, target.name, target.ifc_type
-    """
-}
-```
-
-### Two-Type Object-Centric Crop（核心训练创新）
-
-参照 Wang et al. 2025，但将裁剪策略从"单元素"扩展到"关系界面"：
-
-```
-Type 1 — Object Crop（继承自 Wang et al. 2025）
-  输入：全局场景渲染图
-  裁剪：目标元素的紧密包围盒（256×256）
-  训练目标：学习"这种像素纹理 = IfcRailing"（屏蔽背景语境）
-
-Type 2 — Relation Crop（本研究创新）
-  输入：全局场景渲染图
-  裁剪：主体 AABB ∪ 客体 AABB + 20% padding
-  训练目标：学习"这两种像素在此空间构型下 = ADJACENT_TO"
-  关键：模型无法利用全局场景语言先验（"栏杆通常在楼梯旁"），
-        只能依赖局部像素的相对位置特征进行判断
-```
-
-每条训练样本格式：
-```
-input:
-  image_global.png       ← Blender 全局渲染
-  image_object_crop.png  ← 目标元素紧密裁剪
-  image_relation_crop.png← 双元素联合区域裁剪（新增）
-  text_chat              ← Gemini 生成的模糊口语描述
-  4d_metadata            ← storey_name（保留）
-
-output (label):
-  {
-    "storey_name": "3 - Third Floor",
-    "ifc_class": "IfcWindow",
-    "spatial_relations": [
-      {"subject_type": "IfcWindow",
-       "predicate": "ADJACENT_TO",
-       "object_type": "IfcRailing",
-       "confidence": 1.0}
-    ]
-  }
-```
-
-### Data Generation Plan for synth_v0.5
-
-**目标：800–1200 条高质量三元组标注样本**（质量优先于数量）
-
-```
-Phase 1 — 骨架挖掘（Day 1-3）
-  任务：
-    1_build_index.py   → 新增 centroid (X,Y,Z) 提取
-                         使用 ifcopenshell.util.placement.get_local_placement()
-    2_hunt_skeletons.py → 新增 3 个 hunter 函数：
-      hunt_CONTINUOUS()   基于 Constraints.Top ≠ storey 字段，零几何
-      hunt_FILLS()        harvest 已有 IFC IfcRelFillsElement 关系
-      hunt_ADJACENT_TO()  同楼层 centroid 距离 < 1.5m，仅保留异类型对
-  产出：~300–500 条原始骨架三元组
-
-Phase 2 — H2 硬负样本构造（Day 3-4）
-  策略：对每个 ADJACENT_TO 骨架，找其同楼层同类型的 N-1 个"诱饵"元素
-  标注：target=1个有关系的，distractors=45个没有关系的（属性完全相同）
-  产出：~50 个 H2 难度测试用例（仅用于评估，不用于训练）
-
-Phase 3 — 多模态证据生成（Day 4-6）
-  对每条骨架三元组：
-    image_global      ← 已有 Blender/Bonsai headless 渲染流程（不变）
-    image_relation_crop ← 新增：计算 union AABB，从 Blender camera 截取
-    text_chat         ← Gemini with 关系感知 system prompt：
-                        "严禁提及 GUID 和 IFC 类名。
-                         Ground Truth: 目标窗紧邻（ADJACENT_TO）一段栏杆。
-                         用工地口语描述这扇窗的问题。"
-    label             ← 确定性标注（来自骨架，非 LLM 生成）
-
-Phase 4 — LLM-as-Judge 过滤（Day 6-7）
-  每条样本送入 Gemini，问："relation_crop 图像是否视觉上展示了该谓词？"
-  过滤掉判定为"不明确"的样本（预计过滤率 ~20-30%）
-  产出：800–1000 条最终高质量样本
-
-合并策略：
-  synth_v0.5 = synth_v0.4（933 条，已有属性约束） + 新增三元组样本（~800条）
-  训练时标注两种 label（attribute constraints + spatial_relations 均有值）
-```
-
-### Training Plan（LoRA_3）
-
-```
-Base model:  unsloth/Qwen2.5-VL-7B-Instruct-bnb-4bit（与 LoRA_2 相同）
-LoRA config: r=16, alpha=32（与 LoRA_2 相同）
-新增输入：   image_relation_crop 作为第 3 张图像输入
-新增输出：   spatial_relations 字段（在原有 JSON 结构末尾追加）
-训练平台：   Modal A100（与 LoRA_2 相同）
-预计时长：   3-5 小时（样本量约为 LoRA_2 的 2倍）
-
-关键超参变化：
-  max_seq_length: 4096（从 2048 增加，因多一张图像）
-  epochs: 3（保持不变）
-```
-
-### Evaluation Framework
-
-**三个指标，每个证明不同的论点：**
-
-| 指标 | 测试集 | 基线预期 | 目标 | 证明 |
-|------|--------|---------|------|------|
-| **Top-1 on H2** | 50个 ADJACENT_TO 硬负样本（每个 ~46 诱饵） | 2.2%（1/46）| 60–80% | 拓扑约束打破属性熵瓶颈 |
-| **mR@100（分谓词）** | 全量测试集，按谓词分组 | FILLS 最高（常见）| ADJACENT_TO ≥ FILLS | VLM 学习了视觉拓扑，非语言频率 |
-| **SSR** | 全量测试集 | 92.65%（已有） | ≥ 92%（不退步） | 系统效率维持 |
-
-**对照基线（Baselines）：**
-```
-B1: Dense Vector (CLIP)             ← 证明属性熵使向量检索失效
-B2: V2 Prompt-only（现有系统）       ← 证明无视觉提取时文本检索瓶颈
-B3: V2 LoRA_2（现有微调模型）        ← 证明属性约束不足以区分同质元素
-B4: Ours — LoRA_3 + spatial_triplet + Neo4j  ← Full neuro-symbolic
-```
+> **§5.4 removed** — superseded by §7 (Revised Plan). Original content covered old schema change, crop strategy,
+> data generation plan, training plan, and evaluation framework. See §7.2–7.6 for the authoritative versions.
 
 ---
 
@@ -735,9 +428,698 @@ neo4j.enabled: true in config.yaml  ✅
 ADJACENT_TO 边（待 P1 centroid 提取后添加）将打破此死锁
 ```
 
-### 下一步 (P1)
-- [ ] `src/v2/types.py` → 添加 `SpatialTriplet` + `spatial_relations: List[SpatialTriplet]`
-- [ ] `src/v2/constraints_to_query.py` → 在 PRIORITY_RULES 最前面插入 Priority 0 `spatial_triplet`
-- [ ] `data_curation/scripts/synth/1_build_index.py` → 添加质心坐标提取
-- [ ] `data_curation/scripts/synth/2_hunt_skeletons.py` → 添加 `hunt_CONTINUOUS()` / `hunt_FILLS()` / `hunt_ADJACENT_TO()`
-- [ ] Neo4j → 添加 `ADJACENT_TO` + `CONTINUOUS` 边（需 P1 坐标后）
+### P1 完成状态
+
+- [x] `src/v2/types.py` → 添加 `SpatialTriplet` + `spatial_relations: List[SpatialTriplet]`
+- [x] `src/v2/constraints_to_query.py` → 在 PRIORITY_RULES 最前面插入 Priority 0 `spatial_triplet`
+- [x] `data_curation/scripts/synth/1_build_index.py` → 添加质心坐标提取（1233 元素，100% centroid 覆盖）
+- [x] `data_curation/scripts/synth/2_hunt_skeletons.py` → 添加 `hunt_continuous_span()` / `hunt_fills_relation()` / `hunt_adjacent_to()`
+- [ ] Neo4j → 添加 `ADJACENT_TO` + `CONTINUOUS` 边（需离线边生成脚本，P2 尚未开始）
+
+---
+
+## 6.2 P1 完成记录 — Schema + Skeleton Pipeline (2026-02-25)
+
+### 修改的文件
+
+| 文件 | 修改内容 |
+|------|----------|
+| `src/v2/types.py` | 添加 `SpatialTriplet`（6谓词 Literal）；`Constraints` 新增 `spatial_relations: List[SpatialTriplet] = []` |
+| `src/v2/constraints_to_query.py` | 插入 Priority 0 `spatial_triplet` 规则；原 Priority 0–7 → 1–8；`_build_params` 处理 `spatial_relations` 字段；`_estimate_pool_size` 对 spatial_triplet 返回 3 |
+| `data_curation/scripts/synth/1_build_index.py` | 新增 `centroid` 字段（`ifcopenshell.util.placement`）；添加 `target_name_keyword` / `neighbor_type`；17 个无楼层 railing 输出诊断告警 |
+| `data_curation/scripts/synth/2_hunt_skeletons.py` | 新增 3 个 PatternType + 4 个 Skeleton 字段；3 个 hunter 函数 + CLI 参数 |
+
+### 骨架挖掘结果（skeletons_v2_5.jsonl）
+
+```
+FILLS_RELATION    : 28  (IFC IfcRelFillsElement，门/窗填充墙洞)
+ADJACENT_TO_RELATION: 34  (质心距 100mm–1500mm，跨类型对)
+CONTINUOUS_SPAN   : 22  (Top Constraint ≠ storey_name)
+其他属性型骨架    : 42
+总计              : 126
+```
+
+---
+
+## 6.3 Phase 2 完成记录 — H2 Hard-Negative Evaluation Set (2026-02-26)
+
+### 阶段目标
+
+构建 H2 硬负样本评估集：N 个属性完全相同的元素只有 1 个具有拓扑关系 → 属性基线 Top-1 = 1/N ≈ 2.2%。
+证明 Priority-0 符号检索层（无 LoRA_3）能 100% 找到 GT 元素。
+
+### 新增文件
+
+| 文件 | 作用 |
+|------|------|
+| `data_curation/scripts/synth/2b_build_h2_hardneg.py` | 从拓扑骨架 + element_index 构建 H2 评估集 |
+| `data_curation/datasets/synth_v0.5/eval/h2_hard_negatives.jsonl` | 83 条评估用例 |
+| `mscd_demo/test/test_h2_eval.py` | H2 评估主脚本（Priority-0 retrieval） |
+
+### H2 数据集统计
+
+| 模式 | 用例数 | 前池（属性） | 后池（检索） | SSR | 属性 Top-1 |
+|------|--------|------------|------------|-----|-----------|
+| `ADJACENT_TO_RELATION` | 34 | 3–361（avg 122）| avg 32 | 30% | avg 5.2% |
+| `CONTINUOUS_SPAN` | 21 | 167–361（avg 274）| avg 74 | 65% | avg 0.4% |
+| `FILLS_RELATION` | 28 | 30–46（avg 43）| avg 43 | 0%¹ | avg 2.4% |
+| **全部** | **83** | **3–361（avg 134）**| **avg 46** | **29%** | **avg 3.1%** |
+
+¹ FILLS SSR=0%：每扇窗/门都"填充"某面墙；无具体锚墙 GUID 时整楼层返回，但 GT 元素始终在池中。
+
+### 修复的 Bug（`src/v2/retrieval_backend.py`）
+
+| Bug | 根因 | 修复 |
+|-----|------|------|
+| **FILLS 返回 263 条**（预期 ~46）| spatial_triplet Cypher 过滤 `ref.storey`（墙的基层楼）而非 `target.storey`（窗的所在楼）；多楼层墙锚定在基层，Floor-2 窗填充这些墙时过滤失败 | `toLower(ref.storey)` → `toLower(target.storey)` |
+| **ADJACENT_TO 重复行**（H2_079: pre=42, post=84）| 一扇门 ADJACENT_TO 两堵墙 → 一扇门出现两次 | `RETURN` 子句改为 `RETURN DISTINCT` |
+| **CONTINUOUS GT=False**（H2_030）| `test_h2_eval.py` 硬编码 `"6 - Sixth Floor"` 作为所有 CONTINUOUS 用例的楼层；SK_065 的 `top_constraint` 实为 `"1 - First Floor"` | H2 记录添加 `top_constraint` 字段；`build_constraints()` 使用 `h2.get("top_constraint")` |
+
+### 评估结果（Priority-0 符号层，无 LoRA_3）
+
+```
+GT-in-pool rate  : 83/83  (100%)   ← 图谱每次都能找到目标元素 ✅
+Fallback rate    : 0/83   (0%)     ← Priority-0 边遍历从不降级 ✅
+Mean SSR         : 29%             ← 候选池平均缩减 29%
+Attr baseline    : 3.1%            ← 属性随机猜测 Top-1
+```
+
+100% GT-in-pool 确认符号层逻辑正确。最终 Top-1 指标需要 LoRA_3 在返回的候选池中将 GT 排在首位（Phase 3）。
+
+### 下一步 (Phase 3)
+- [ ] Blender 关系区域截图（`image_relation_crop.png`）—— 见 §6.4 质量问题解决方案
+- [ ] Gemini 文本生成（关系感知 system prompt + 防幻觉层）—— 见 §6.4
+- [ ] LLM-as-Judge 过滤（约过滤 20–30% 模糊样本）
+
+---
+
+## 6.4 Data Quality — 防幻觉 & Blender 遮挡解决方案 (2026-02-26)
+
+Phase 3（皮肤生成）在实施过程中预期面临两类质量问题，以下记录解决策略。
+
+---
+
+### Issue 1 — Gemini 文本生成幻觉
+
+**问题描述：** Gemini 在生成口语化工地描述时，容易捏造 IFC 类名、GUID、或与 ground truth 拓扑不符的空间关系（例如描述了一个不存在的 `ADJACENT_TO` 关系）。
+
+#### 解决方案：双层防幻觉 + LLM-as-Judge
+
+**Layer 1 — 严格 System Prompt（防止生成时幻觉）**
+
+```python
+SYSTEM_PROMPT = """你是现场勘查的施工员，正在用手机发送工地消息。
+
+严格规则（违反则重写）：
+1. 禁止提及任何 IFC 类名（如 IfcWindow、IfcWall）
+2. 禁止提及 GlobalId、GUID、编号等技术标识符
+3. 必须使用空间参考描述目标元素（如"栏杆旁边的那扇窗"）
+4. 只能描述肉眼可见的空间关系，不能编造不在 Ground Truth 中的关系
+5. 语言风格：口语化、简短、带有现场感（可以有错别字/语气词）
+
+Ground Truth 三元组: {subject_type} {predicate} {object_type}
+楼层: {storey_name}
+"""
+
+generation_config = {
+    "temperature": 0.3,   # 低温度抑制随机幻觉
+    "max_output_tokens": 200,
+}
+
+BANNED_KEYWORDS = ["Ifc", "GlobalId", "guid", "编号", "GUID",
+                   "IfcWindow", "IfcWall", "IfcDoor", "IfcRailing"]
+```
+
+生成后立即检查 `BANNED_KEYWORDS`；命中则丢弃并重试（最多 3 次）。
+
+**Layer 2 — LLM-as-Judge 一致性验证（事后过滤）**
+
+将线框渲染图 + 生成文本送入第二个 Gemini 实例，要求输出结构化判断：
+
+```python
+JUDGE_PROMPT = """你是建筑 AI 质量审查员。
+
+给定：
+- 线框渲染图（wireframe render）
+- 生成的口语描述: "{generated_text}"
+- Ground Truth 三元组: {subject_type} {predicate} {object_type}
+
+判断（JSON 输出，不得有额外文字）：
+{
+  "triplet_visible": true/false,     // 图像中能否看到该空间关系
+  "text_consistent": true/false,     // 文本是否与 GT 三元组一致
+  "hallucination_detected": true/false, // 文本是否捏造了 GT 以外的关系
+  "verdict": "KEEP" / "DISCARD",
+  "reason": "一句话说明"
+}
+"""
+```
+
+过滤规则：`verdict == "DISCARD"` 或 `hallucination_detected == true` → 丢弃该样本。
+预期过滤率：20–30%；最终保留 800–1000 条高质量样本。
+
+---
+
+### Issue 2 — Blender 遮挡问题
+
+**问题描述：** 在全局场景渲染中，目标元素（如墙内侧的窗户）可能被其他几何体完全遮挡，导致 `image_relation_crop.png` 中看不到任何有效像素，VLM 无法从中学习空间关系。
+
+#### 三个候选策略
+
+**Strategy A — 透明度隔离（推荐用于 relation_crop）**
+
+将遮挡元素设为半透明（alpha=0.08），目标元素和锚元素保持不透明：
+
+```python
+def render_relation_crop(subject_guid, object_guid, all_elements):
+    for elem in all_elements:
+        mat = elem.active_material
+        if elem.name not in [subject_guid, object_guid]:
+            # 遮挡元素：极低不透明度，保留几何轮廓
+            mat.blend_method = "BLEND"
+            mat.node_tree.nodes["Principled BSDF"].inputs["Alpha"].default_value = 0.08
+        else:
+            # 目标元素：完全不透明
+            mat.node_tree.nodes["Principled BSDF"].inputs["Alpha"].default_value = 1.0
+```
+
+优点：实现简单，保留场景上下文（灰色轮廓）；缺点：室内元素仍可能被楼板遮挡。
+
+**Strategy B — 多角度相机采样（适合全局渲染）**
+
+在以目标元素为中心的球面上均匀采样相机位置，按目标像素可见性评分，选最优视角：
+
+```python
+def best_camera_angle(subject_center, search_radius=5.0, n_samples=32):
+    """在球面上均匀采样 n_samples 个相机位置，返回 target 像素最多的视角。"""
+    best_score, best_camera = 0, None
+    for theta, phi in fibonacci_sphere(n_samples):
+        cam_pos = subject_center + search_radius * spherical_to_xyz(theta, phi)
+        score = count_visible_pixels(cam_pos, subject_guid)
+        if score > best_score:
+            best_score, best_camera = score, cam_pos
+    return best_camera
+```
+
+优点：能找到遮挡最少的自然视角；缺点：n_samples=32 渲染耗时高，适合离线批处理。
+
+**Strategy C — Section Plane 切割（适合室内元素）**
+
+对 FILLS（窗/门在墙内）场景，添加 Blender Section Plane，切除遮挡楼板/外墙：
+
+```python
+def add_section_plane(cut_z_offset=0.5):
+    """在目标元素 Z 中心高度添加水平截面，切除上方几何体。"""
+    bpy.ops.object.empty_add(type="SINGLE_ARROW", location=(0, 0, target_z + cut_z_offset))
+    section = bpy.context.active_object
+    section.name = "SectionPlane"
+    # 配合 Bonsai (BlenderBIM) Section Override shader 生效
+    bpy.context.scene.BIMProperties.active_section_plane = section
+```
+
+优点：专为 FILLS 关系设计，效果最干净；缺点：需要 Bonsai Section API，配置相对复杂。
+
+#### 推荐组合流程
+
+```
+relation_crop 生成流程：
+  1. 优先 Strategy A（透明度隔离）
+     → 若 target 可见像素 < 阈值（如 500px），转 Strategy B 找最优视角
+     → 若仍不足（室内 FILLS 场景），追加 Strategy C（section plane）
+
+  2. 可见性验收标准：
+     target + anchor 元素在裁剪图中合计可见像素 ≥ 1000px
+
+  3. 记录每个样本使用的策略（"A" / "B" / "C"），便于后续分析
+```
+
+---
+
+---
+
+# 7. synth_v0.5 Revised Plan — Data Curation & LoRA_3 Training
+**Updated: 2026-03-08 | Based on: data audit, schema review, training signal analysis**
+
+---
+
+## 7.0 Data Reality Audit (as of 2026-03-08)
+
+### Current Dataset Inventory
+
+| Source | Train | Test | IFC Model | Notes |
+|---|---|---|---|---|
+| synth_v0.4_ap (AdvancedProject) | 690 | 20 | AdvancedProject (44MB) | Attribute-only, 250 skeletons |
+| synth_v0.4_bh (BasicHouse) | 33 | 20 | BasicHouse (53MB) | Small model, 2 storeys |
+| synth_v0.4_dxa (Duplex) | 210 | 10 | Duplex_A (2.3MB) | Has railings, 4 storeys |
+| synth_v0.4_merged | 933 | 50 | All 3 | Current LoRA_2 training set |
+| synth_v0.5 topology (new) | 21 | 83 (H2) | AdvancedProject only | **Bug: `relations=None` in train records** |
+
+### v0.4 Skeleton Pattern Distribution (AdvancedProject, 250 skeletons)
+
+```
+DIMENSIONAL_OUTLIER    : 80   ← attribute-only, relations=[] correct
+VISUAL_MISMATCH        : 49   ← attribute-only, relations=[] correct
+SPATIAL_PROXIMITY      : 33   ← HAS NearElement data, can enrich with relations
+STOREY_INFERRED        : 33   ← attribute-only
+PRISTINE_NEGATIVE      : 14   ← negative examples (no defect)
+HIGH_DENSITY_DISAMBIG  : 13   ← attribute-only
+UNIQUE_ATTRIBUTE       :  8
+MATERIAL_SUBGROUP      :  7
+RARE_TYPE_ON_STOREY    :  5
+CROSS_PROPERTY_FILTER  :  5
+SPATIAL_SCARCITY       :  3
+```
+
+### v0.5 Skeleton Mining Results (126 total, quota-capped)
+
+```
+ADJACENT_TO_RELATION   : 34   (centroid dist 100mm–1500mm, cross-type pairs)
+FILLS_RELATION         : 28   (IFC IfcRelFillsElement, door/window → wall)
+CONTINUOUS_SPAN        : 22   (Top Constraint ≠ storey_name)
+Other attribute-type   : 42
+Total                  : 126
+```
+
+**Key gaps:**
+- `ON_TOP_OF`: 0 mined (hunter never implemented)
+- `PERPENDICULAR_TO`: 0 mined (wall normals never extracted)
+- `PARALLEL_TO`: 0 mined (wall normals never extracted)
+- Mining quotas artificially low: 389 FILLS edges exist but only 28 skeletons mined
+
+### v0.5 Skin Generation Results (partial run)
+
+| Predicate | Skeletons | Skins generated | KEEP | DISCARD | Pass rate |
+|---|---|---|---|---|---|
+| FILLS | 28 | 9 | 2 | 7 | 22% |
+| ADJACENT_TO | 34 | 32 | 14 | 18 | 44% |
+| CONTINUOUS | 22 | 15 | 5 | 10 | 33% |
+| **Total** | **84** | **56** | **21** | **35** | **37.5%** |
+
+Main DISCARD reasons: black/empty wireframe renders, incomplete text generation.
+
+### IFC Material Audit
+
+```
+IfcWallStandardCase materials (discriminating signal available):
+  "Leather, weathered"         : 380  ← too common, low signal
+  "Paint"                      : 260
+  "Interior Wall A"            :  66  ← discriminating
+  "Brick, Engineering"         :  16  ← discriminating (visually identifiable)
+  "Plaster"                    :  16  ← discriminating
+  "Concrete, Cast In Situ"     :  16  ← discriminating (visually identifiable)
+  "Render, Beige, Textured"    :   8  ← discriminating
+
+IfcWindow: "White RAL 9010" × 263     ← zero variance, useless for disambiguation
+IfcDoor: "Door - Frame" × 115         ← low variance
+IfcRailing: "None" × 17               ← no material data
+
+Wall type names (from element Name field, also discriminating):
+  Generic - 200mm, MockUp Exterior, MockUp Interior, MockUp Kitchen,
+  MockUp Storage Wall, MockUp Elevator, etc. (10 distinct types)
+```
+
+### Cross-IFC Model Audit
+
+| IFC Model | Walls | Windows | Doors | Railings | FILLS edges | Storeys |
+|---|---|---|---|---|---|---|
+| AdvancedProject | 762 | 263 | 126 | 19 | 389 | 8 |
+| BasicHouse | 26 | 19 | 8 | 0 | 27 | 2 |
+| Duplex_A | 97 | 24 | 14 | 4 | 38 | 4 |
+
+---
+
+## 7.1 Predicate Scope Decision
+
+**Keep 3 predicates for thesis scope. Drop 3 as future work.**
+
+| Predicate | Status | Rationale |
+|---|---|---|
+| `FILLS` | **KEEP** | Free from IFC schema, 389 edges, visually clear |
+| `CONTINUOUS` | **KEEP** | Free from IFC constraints, 771 instances, strong signal |
+| `ADJACENT_TO` | **KEEP** | Centroid-based, the core H2 scenario predicate |
+| `ON_TOP_OF` | **DROP** | Hunter not implemented, limited instances (~19 railings) |
+| `PERPENDICULAR_TO` | **DROP** | Wall normals not extracted, too common to disambiguate |
+| `PARALLEL_TO` | **DROP** | Wall normals not extracted, too common to disambiguate |
+
+Update `SpatialTriplet.predicate` Literal to reflect actual scope:
+```python
+predicate: Literal["FILLS", "CONTINUOUS", "ADJACENT_TO"]
+```
+`ON_TOP_OF`, `PERPENDICULAR_TO`, `PARALLEL_TO` remain in schema for forward compatibility
+but will have zero training instances in v0.5.
+
+---
+
+## 7.2 LoRA_3 Output Schema (Revised)
+
+### Design Principles
+
+1. **No redundancy**: each field maps to exactly one priority rule in `constraints_to_query.py`
+2. **Modality-aware**: the model learns which input modality provides which field
+3. **Backward-compatible**: attribute-only cases output `spatial_relations: []`, triggering Priority 1–8 fallback as before
+
+### Schema
+
+```json
+{
+  "storey_name": "3 - Third Floor",
+  "ifc_class": "IfcWindow",
+  "space_name": "Master Bedroom",
+  "target_name_keyword": null,
+  "spatial_relations": [
+    {
+      "predicate": "ADJACENT_TO",
+      "object_type": "IfcRailing",
+      "object_material": null,
+      "confidence": 0.85
+    }
+  ]
+}
+```
+
+### Field Specification
+
+| Field | Source modality | Priority rule | When empty |
+|---|---|---|---|
+| `storey_name` | 4D metadata (strongest), text, floorplan | P4 storey+type | Falls to P6 type_only |
+| `ifc_class` | Text + image + floorplan | P6 type_only | Falls to P8 fallback |
+| `space_name` | Image ("bedroom"), floorplan zone | P1 space+type | Skipped |
+| `target_name_keyword` | Text ("Daikin", "AHU-03") | P2 name_keyword | Skipped |
+| `spatial_relations` | Floorplan + image + text | **P0 spatial_triplet** | Skipped → P1–P8 cascade |
+
+### Spatial Triplet Fields
+
+| Field | Type | Purpose |
+|---|---|---|
+| `predicate` | `Literal["FILLS","CONTINUOUS","ADJACENT_TO"]` | Determines Neo4j edge type in Cypher |
+| `object_type` | `str` (IFC class) | Reference element type, e.g. "IfcRailing", "IfcWall" |
+| `object_material` | `Optional[str]` | Material filter on reference element — narrows pool (e.g. "Brick" → 16 walls instead of 381). VLM can identify visually distinctive materials (brick, concrete, plaster). |
+| `confidence` | `float [0,1]` | Quality gate before symbolic execution. If `confidence < threshold` → skip Priority 0, fall to attribute cascade. Prevents bad extractions from polluting deterministic Cypher results. |
+
+### Dropped Fields (vs LoRA_2 output)
+
+| Field | Reason |
+|---|---|
+| `near_keywords` | Vague, overlaps with `spatial_relations` |
+| `relations` (old string list) | Superseded by structured `spatial_relations` |
+| `neighbor_type` | Superseded by `object_type` inside `spatial_relations` |
+| `subject_type` inside triplet | Always equals `ifc_class` (redundant) |
+
+### Confidence as Quality Gate
+
+```python
+# In retrieval_backend.py, before executing Priority 0 Cypher:
+CONFIDENCE_THRESHOLD = 0.7  # tunable
+
+if triplet.confidence < CONFIDENCE_THRESHOLD:
+    # VLM not confident → skip Priority 0, use Priority 1–8 cascade
+    # Prevents wrong predicate/object_type from returning wrong candidates
+    logger.info(f"Triplet confidence {triplet.confidence:.2f} < {CONFIDENCE_THRESHOLD}, skipping P0")
+    pass
+else:
+    # Trust the extraction → compile to Cypher
+    execute_spatial_cypher(triplet)
+```
+
+---
+
+## 7.3 Training Data Strategy — Modality-Specific Signal Routing
+
+### Core Learning Goal
+
+The VLM must learn **which modality provides which constraint field**, and when to output `spatial_relations: []` (no spatial signal) vs. a populated triplet.
+
+```
+Input modalities → Field routing:
+
+text: "hairline crack on this wall"     → ifc_class: "IfcWall"
+floorplan: red TARGET next to window    → spatial_relations: [{ADJACENT_TO, IfcWindow}]
+image: bedroom interior scene           → space_name: "Bedroom"
+4D metadata: Floor 3, Task #291         → storey_name: "3 - Third Floor"
+                                        ──────────────────────────────
+                                        Combined JSON output (all fields)
+```
+
+### Three-Tier Labeling Strategy
+
+Training data must teach the model both WHEN to extract spatial relations and WHEN NOT TO.
+
+**Tier 1 — "Spatial signal present" → `spatial_relations` populated**
+Cases where at least one input modality provides a recoverable spatial signal:
+- v0.4 SPATIAL_PROXIMITY cases (33) — text references a near element
+- v0.5 topology skeletons (84) — floorplan shows target + anchor, text may reference relation
+- Any case where floorplan crop shows target AND distinctive anchor element
+
+**Tier 2 — "No spatial signal" → `spatial_relations: []` (correctly empty)**
+Cases where the discriminating signal is purely intrinsic attributes:
+- DIMENSIONAL_OUTLIER, VISUAL_MISMATCH, STOREY_INFERRED, UNIQUE_ATTRIBUTE, etc.
+- The model learns: "no spatial signal in any input → don't hallucinate relations"
+- Critical for preventing false-positive triplet extraction at inference time
+
+**Tier 3 — "New topology cases" → generated fresh for v0.5**
+Purpose-built training records with explicit spatial signal:
+- Floorplan crops clearly showing both subject + anchor elements
+- Text variants: some with spatial reference ("near the railing"), some without (force floorplan reading)
+- Wireframe relation crops as additional visual signal
+
+### Why Tier 2 (negative examples) matters
+
+Without Tier 2, the model learns "always output some spatial relation" → hallucination.
+The training mix should be approximately:
+- **~60–70% attribute-only** (relations=[]) — teaches restraint
+- **~30–40% topology** (relations=[...]) — teaches spatial extraction
+
+This matches the natural data distribution: ~900 v0.4 attribute + ~150–200 v0.5 topology.
+
+---
+
+## 7.4 Data Generation Plan
+execution order:
+Step	Task	Status
+1	Raise skeleton mining quotas	Not started
+2	Enrich v0.4 SPATIAL_PROXIMITY (33 cases)	Not started
+3	Fix renders + re-skin all topology skeletons	Not started
+4	Cross-IFC pipeline (BasicHouse + Duplex)	Not started
+5	Assemble training records (new LoRA_3 schema)	Not started
+6	LLM-as-Judge image quality	Not started
+7-8	LoRA_3 training + eval	Not started
+
+
+### Step 1: Raise Skeleton Mining Quotas (1 day)
+
+Current quotas artificially cap at ~30 skeletons per predicate. Available IFC instances are much larger.
+
+| Predicate | Current skeletons | Available IFC instances | Target |
+|---|---|---|---|
+| FILLS | 28 | 389 edges | 100+ |
+| ADJACENT_TO | 34 | ~200–400 pairs | 100+ |
+| CONTINUOUS | 22 | 771 instances | 50+ |
+
+Action: re-run `2_hunt_skeletons.py` with `--max-fills 120 --max-adjacent 120 --max-continuous 60`.
+
+### Step 2: Enrich v0.4 SPATIAL_PROXIMITY Cases (1 day)
+
+33 v0.4 cases have `NearElement` + `NearElementName` in their skeleton.
+Convert to proper `spatial_relations` labels:
+
+```python
+# For each SPATIAL_PROXIMITY skeleton:
+spatial_relations = [{
+    "predicate": "ADJACENT_TO",  # NearElement → ADJACENT_TO
+    "object_type": skeleton["target_props"]["NearElement_ifc_class"],
+    "object_material": None,
+    "confidence": 1.0
+}]
+```
+
+Do NOT force spatial labels onto other v0.4 patterns (DIMENSIONAL_OUTLIER, etc.) —
+those correctly have `spatial_relations: []`.
+
+### Step 3: Fix Renders + Re-skin All Topology Skeletons (2 days)
+
+Current 37.5% pass rate is mainly due to black/empty wireframe renders.
+- Fix `3a_render_relation_crops.py` rendering failures (likely camera placement or geometry extraction bugs)
+- Re-run skins on all topology skeletons (not just 56/84)
+- Generate 2–3 text variants per skeleton to increase volume
+- Target: 50–60% pass rate → ~150–180 KEEP skins from ~300 skeletons
+
+### Step 4: Cross-IFC Pipeline (2 days)
+
+Run the full pipeline on BasicHouse and Duplex_A:
+1. `1_build_index.py` → element_index.jsonl per IFC
+2. `2_hunt_skeletons.py` → topology skeletons per IFC
+3. `3a_render_relation_crops.py` → wireframe renders
+4. `3b_generate_skin.py` → text + images + judge
+
+Expected yield:
+- BasicHouse: ~20–30 topology skeletons (small model, 27 FILLS edges)
+- Duplex_A: ~40–60 topology skeletons (4 railings → ADJACENT_TO diversity, 38 FILLS edges)
+
+### Step 5: Assemble Training Records (1 day)
+
+Fix `3c_assemble_training_records.py`:
+- Topology cases: populate `spatial_relations` from skeleton
+- Attribute cases: keep `spatial_relations: []`
+- Output format: new LoRA_3 schema (5 fields, no `near_keywords`/`relations`/`neighbor_type`)
+
+### Step 6: LLM-as-Judge for Image Quality (parallel with Steps 3–4)
+
+Add scene plausibility check for site images:
+- Binary verdict: "does this look like a plausible building scene?" (not exact 3D match)
+- Discard images that are completely unrelated to the IFC model type
+- Note: floorplan patches are already geometrically faithful (rendered from IFC), no filtering needed
+
+### Expected Final Dataset: synth_v0.5
+
+| Category | Records | spatial_relations |
+|---|---|---|
+| v0.4 attribute-only (Tier 2) | ~900 | `[]` (correctly empty) |
+| v0.4 SPATIAL_PROXIMITY enriched (Tier 1) | ~33 | populated (ADJACENT_TO) |
+| v0.5 AP topology (Tier 3) | ~80–100 | populated |
+| v0.5 BH + DXA topology (Tier 3) | ~40–60 | populated |
+| **Total** | **~1,050–1,100** | **~150–190 with relations** |
+
+---
+
+## 7.5 Training Record Format
+
+### Input (user message)
+
+```
+[4D Task Status] TASK_291: Third Floor QC Check - IN_PROGRESS
+[Project Phase] Fit-out
+[Chat Log]
+  Site Supervisor: 看一下这边
+  Site Supervisor: 栏杆旁边那扇窗有裂缝
+
+[Query] Extract search constraints from the above context and attached images.
+
+<image: floorplan_patch.png>    ← IFC-rendered, target marked in red, legend shows element types
+<image: site_photo.png>         ← Gemini-generated or wireframe render
+```
+
+### Output (assistant message / training label)
+
+```json
+{
+  "storey_name": "3 - Third Floor",
+  "ifc_class": "IfcWindow",
+  "space_name": null,
+  "target_name_keyword": null,
+  "spatial_relations": [
+    {
+      "predicate": "ADJACENT_TO",
+      "object_type": "IfcRailing",
+      "object_material": null,
+      "confidence": 1.0
+    }
+  ]
+}
+```
+
+### Attribute-only case (Tier 2 example)
+
+```json
+{
+  "storey_name": "-1 - Garage",
+  "ifc_class": "IfcWallStandardCase",
+  "space_name": null,
+  "target_name_keyword": null,
+  "spatial_relations": []
+}
+```
+
+### Material-enriched triplet example
+
+```json
+{
+  "storey_name": "1 - First Floor",
+  "ifc_class": "IfcDoor",
+  "space_name": null,
+  "target_name_keyword": null,
+  "spatial_relations": [
+    {
+      "predicate": "FILLS",
+      "object_type": "IfcWall",
+      "object_material": "Brick",
+      "confidence": 0.9
+    }
+  ]
+}
+```
+
+---
+
+## 7.6 LoRA_3 Training Plan
+
+### Model Configuration
+
+```
+Base model    : unsloth/Qwen2.5-VL-7B-Instruct-bnb-4bit (same as LoRA_2)
+LoRA config   : r=16, alpha=32 (same as LoRA_2)
+Platform      : Modal A100
+Epochs        : 3
+max_seq_length: 4096 (up from 2048 — multiple images per sample)
+```
+
+### What LoRA_3 Must Learn (vs LoRA_2)
+
+| Capability | LoRA_2 | LoRA_3 |
+|---|---|---|
+| Extract storey from 4D metadata | Yes | Yes (preserved) |
+| Extract ifc_class from text + image | Yes | Yes (preserved) |
+| Extract space_name from image/floorplan | Partial | Yes |
+| Extract spatial_relations from floorplan + text | **No** | **Yes — core new capability** |
+| Decide WHEN to output spatial_relations vs [] | N/A | **Yes — anti-hallucination** |
+| Assign confidence score to triplet | N/A | **Yes — quality gate for symbolic layer** |
+| Identify object_material from visual features | N/A | **Yes — brick, concrete, plaster** |
+
+### Anti-Shortcut Training Design
+
+Following Wang et al. 2025 (Object-Centric Crops):
+
+1. **Relation Crop** (wireframe, union AABB of subject + object): forces model to learn predicate from local pixel topology, not global scene context
+2. **Floorplan with marked target**: model must read spatial layout to identify adjacent/filling elements
+3. **Text variants**: some samples have explicit spatial text ("next to railing"), others have generic text ("crack on wall") — model cannot rely solely on text keywords
+4. **Negative examples (Tier 2)**: attribute-only cases with relations=[] prevent "always output a triplet" shortcut
+
+### Evaluation Targets
+
+| Metric | Baseline (LoRA_2) | Target (LoRA_3) | What it proves |
+|---|---|---|---|
+| **Top-1 on H2 eval** | ~2.2% (attribute ceiling) | **60–80%** | Spatial triplets break entropy bottleneck |
+| **mR@100 per predicate** | N/A (no spatial extraction) | ADJACENT_TO ≥ FILLS | VLM learned visual topology, not language frequency |
+| **SSR** | 74.1% | ≥ 74% (no regression) | System efficiency maintained |
+| **Field F1 (spatial_relations)** | 0% | ≥ 60% | Triplet extraction accuracy |
+| **False positive rate (relations on Tier 2)** | N/A | < 10% | Anti-hallucination working |
+
+### Confidence Threshold Tuning
+
+After LoRA_3 training, sweep `CONFIDENCE_THRESHOLD` on validation set:
+
+```
+threshold=0.5 → high recall, more false positives reaching Cypher
+threshold=0.7 → balanced (recommended starting point)
+threshold=0.9 → high precision, more fallbacks to Priority 1–8
+```
+
+Optimal threshold maximizes Top-1 on H2 eval set.
+
+---
+
+## 7.7 Implementation Priority & Timeline
+
+```
+Step 1: Raise skeleton mining quotas           — 1 day    (highest ROI)
+Step 2: Enrich v0.4 SPATIAL_PROXIMITY          — 1 day    (low effort, +33 cases)
+Step 3: Fix renders + re-skin topology         — 2 days   (fix black-image bug)
+Step 4: Cross-IFC pipeline (BH + DXA)          — 2 days   (volume gain)
+Step 5: Assemble + fix 3c schema               — 1 day    (new LoRA_3 output format)
+Step 6: LLM-as-Judge image quality             — 1 day    (parallel with 3–4)
+Step 7: LoRA_3 training on Modal A100          — 1 day    (3–5 hours compute)
+Step 8: Evaluate on H2 + tune confidence       — 1 day
+                                               ──────────
+                                               ~7–8 days total
+```
+
+**Critical path**: Steps 1→3→5→7→8 (skeleton volume → skins → assemble → train → eval)

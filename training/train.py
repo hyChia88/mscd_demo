@@ -2,7 +2,10 @@
 MSCD VLM LoRA Training — Modal GPU Training Script
 
 Fine-tunes Qwen2.5-VL-7B-Instruct with LoRA for multimodal constraints
-extraction (site photos + chat → JSON constraints).
+extraction (site photos + floorplans + chat → JSON constraints with spatial_relations).
+
+LoRA_3 version: trains on synth_v0.5 dataset (1,111 train / 19 test) with
+spatial triplet extraction (FILLS, ADJACENT_TO, CONTINUOUS predicates).
 
 Based on Unsloth's official Qwen2.5-VL vision fine-tuning notebook:
   Qwen2_5_VL_(7B)_Vision.ipynb
@@ -12,7 +15,7 @@ Usage:
     modal run training/train.py --epochs 5 --lr 1e-4 --lora-r 32
 
     # Download trained adapter after training:
-    modal volume get mscd-checkpoints /mscd-lora/final ./models/adapters/v2_lora_qwen
+    modal volume get mscd-checkpoints /mscd-lora-v3/final ./models/adapters/v3_lora_qwen
 
 Requires:
     pip install modal
@@ -32,12 +35,16 @@ import modal
 DATA_ROOT    = Path(__file__).parent.parent.parent / "data_curation"
 DATASETS_DIR = DATA_ROOT / "datasets"
 
-# synth_v0.4 — merged JSONL (AP 690 + BH 33 + DXA 210 = 933 train / 50 test)
-MERGED_DIR  = DATASETS_DIR / "synth_v0.4_merged" / "train"
-TRAIN_JSONL = MERGED_DIR / "lora_train.jsonl"
-TEST_JSONL  = MERGED_DIR / "lora_test.jsonl"
+# synth_v0.5 — LoRA_3 training data (1,111 train / 19 test)
+V05_DIR     = DATASETS_DIR / "synth_v0.5" / "train"
+TRAIN_JSONL = V05_DIR / "lora3_train.jsonl"
+TEST_JSONL  = V05_DIR / "lora3_test.jsonl"
 
-# Per-dataset image directories (baked into container under /data/images/<tag>/)
+# v0.5 image directories (site photos + floorplans only — global renders are pipeline artifacts)
+V05_SITE_IMGS_DIR  = DATASETS_DIR / "synth_v0.5" / "imgs"
+V05_FLOORPLANS_DIR = DATASETS_DIR / "synth_v0.5" / "floorplans"
+
+# v0.4 image directories (site photos + floorplans for enriched records)
 AP_IMGS_DIR   = DATASETS_DIR / "synth_v0.4_ap"  / "cases" / "imgs"
 AP_PLANS_DIR  = DATASETS_DIR / "synth_v0.4_ap"  / "cases" / "plans"
 BH_IMGS_DIR   = DATASETS_DIR / "synth_v0.4_bh"  / "cases" / "imgs"
@@ -47,7 +54,7 @@ DXA_PLANS_DIR = DATASETS_DIR / "synth_v0.4_dxa" / "cases" / "plans"
 
 # ── Modal infrastructure ─────────────────────────────────────────────────────
 
-app = modal.App("mscd-vlm-lora-train")
+app = modal.App("mscd-vlm-lora3-train")
 
 # Container image — matches Unsloth's official Qwen2.5-VL notebook install order:
 #   1. Install unsloth ecosystem
@@ -70,10 +77,13 @@ train_image = (
     .pip_install("transformers==4.56.2")
     .run_commands("pip install --no-deps trl==0.22.2")
     .env({"HF_HOME": "/model_cache"})
-    # Bake merged JSONL files into the image
-    .add_local_file(str(TRAIN_JSONL), remote_path="/data/train/lora_train.jsonl")
-    .add_local_file(str(TEST_JSONL),  remote_path="/data/train/lora_test.jsonl")
-    # Bake per-dataset image directories (imgs + plans for each of AP, BH, DXA)
+    # Bake v0.5 training JSONL files
+    .add_local_file(str(TRAIN_JSONL), remote_path="/data/train/lora3_train.jsonl")
+    .add_local_file(str(TEST_JSONL),  remote_path="/data/train/lora3_test.jsonl")
+    # Bake v0.5 image directories (site photos + floorplans only)
+    .add_local_dir(str(V05_SITE_IMGS_DIR),  remote_path="/data/images/v05/imgs")
+    .add_local_dir(str(V05_FLOORPLANS_DIR), remote_path="/data/images/v05/floorplans")
+    # Bake v0.4 image directories (for enriched records that still reference v0.4 paths)
     .add_local_dir(str(AP_IMGS_DIR),   remote_path="/data/images/ap/imgs")
     .add_local_dir(str(AP_PLANS_DIR),  remote_path="/data/images/ap/plans")
     .add_local_dir(str(BH_IMGS_DIR),   remote_path="/data/images/bh/imgs")
@@ -100,27 +110,26 @@ class TrainConfig:
     lora_dropout: float = 0.0
 
     # Training
-    epochs: int = 3
+    epochs: int = 5
     batch_size: int = 2
     grad_accum: int = 8        # effective batch = 16
     lr: float = 2e-4
     warmup_steps: int = 10
-    max_seq_length: int = 2048
+    max_seq_length: int = 4096  # up from 2048 — multiple images per sample
     weight_decay: float = 0.01
 
-    # Evaluation
+    # Evaluation & checkpoints
     eval_steps: int = 10
-    save_steps: int = 20
-    save_total_limit: int = 3
+    save_total_limit: int = 5   # keep best + last few
 
     # Wandb
     wandb_project: str = "mscd-vlm-lora"
-    wandb_run: str = "qwen25vl-7b-r16-synth_v04"
+    wandb_run: str = "qwen25vl-7b-r16-lora3-synth_v05"
 
     # Paths (inside Modal container)
-    train_file: str = "/data/train/lora_train.jsonl"
-    test_file: str = "/data/train/lora_test.jsonl"
-    output_dir: str = "/checkpoints/mscd-lora"
+    train_file: str = "/data/train/lora3_train.jsonl"
+    test_file: str = "/data/train/lora3_test.jsonl"
+    output_dir: str = "/checkpoints/mscd-lora-v3"
 
     seed: int = 42
 
@@ -131,9 +140,13 @@ class TrainConfig:
 _LOCAL_ROOT  = "file:///root/cmu/master_thesis/data_curation/datasets/"
 _REMOTE_ROOT = "file:///data/images/"
 _DATASET_MAP = {
-    "synth_v0.4_ap/cases/":  "ap/",
-    "synth_v0.4_bh/cases/":  "bh/",
-    "synth_v0.4_dxa/cases/": "dxa/",
+    # v0.5 image paths (site photos + floorplans)
+    "synth_v0.5/imgs/":           "v05/imgs/",
+    "synth_v0.5/floorplans/":     "v05/floorplans/",
+    # v0.4 image paths (for enriched records)
+    "synth_v0.4_ap/cases/":       "ap/",
+    "synth_v0.4_bh/cases/":       "bh/",
+    "synth_v0.4_dxa/cases/":      "dxa/",
 }
 
 def remap_image_paths(sample: dict, config: TrainConfig) -> dict:
@@ -241,11 +254,16 @@ def train(
     assert os.path.exists(config.train_file), f"Missing: {config.train_file}"
     assert os.path.exists(config.test_file), f"Missing: {config.test_file}"
 
-    _img_dirs  = ["/data/images/ap/imgs",  "/data/images/bh/imgs",  "/data/images/dxa/imgs"]
-    _plan_dirs = ["/data/images/ap/plans", "/data/images/bh/plans", "/data/images/dxa/plans"]
-    n_imgs  = sum(len(os.listdir(d)) for d in _img_dirs  if os.path.isdir(d))
-    n_plans = sum(len(os.listdir(d)) for d in _plan_dirs if os.path.isdir(d))
-    print(f"  Images:    {n_imgs} site photos, {n_plans} floorplans (AP+BH+DXA)")
+    # v0.5 images (site photos + floorplans)
+    _v05_dirs = ["/data/images/v05/imgs", "/data/images/v05/floorplans"]
+    n_v05 = {d.split("/")[-1]: len(os.listdir(d)) for d in _v05_dirs if os.path.isdir(d)}
+    # v0.4 images (for enriched records)
+    _v04_img_dirs  = ["/data/images/ap/imgs",  "/data/images/bh/imgs",  "/data/images/dxa/imgs"]
+    _v04_plan_dirs = ["/data/images/ap/plans", "/data/images/bh/plans", "/data/images/dxa/plans"]
+    n_v04_imgs  = sum(len(os.listdir(d)) for d in _v04_img_dirs  if os.path.isdir(d))
+    n_v04_plans = sum(len(os.listdir(d)) for d in _v04_plan_dirs if os.path.isdir(d))
+    print(f"  v0.5 images: {n_v05}")
+    print(f"  v0.4 images: {n_v04_imgs} site photos, {n_v04_plans} floorplans")
 
     # ── 2. Load and remap data ───────────────────────────────────────────
     # Returns plain Python list — NOT HF Dataset (matches notebook pattern)
@@ -295,17 +313,7 @@ def train(
     print(f"  Trainable: {trainable:,} / {total_params:,} "
           f"({100 * trainable / total_params:.2f}%)")
 
-    # ── 5. Setup wandb ───────────────────────────────────────────────────
-    # Explicitly init to keep run alive for evaluate() and inference check
-    # 显式初始化，防止 Trainer 在 train() 结束后自动关闭 run
-    wandb.init(
-        project=config.wandb_project,
-        name=config.wandb_run,
-        config=dataclasses.asdict(config),
-        reinit=True
-    )
-
-    # ── 6. Train ─────────────────────────────────────────────────────────
+    # ── 5. Train ─────────────────────────────────────────────────────────
     # Enable training mode (required by Unsloth before creating trainer)
     FastVisionModel.for_training(model)
 
@@ -357,11 +365,9 @@ def train(
         optim="adamw_8bit",
         fp16=not torch.cuda.is_bf16_supported(),
         bf16=torch.cuda.is_bf16_supported(),
-        eval_strategy="steps",
-        eval_steps=config.eval_steps,
+        eval_strategy="epoch",
         per_device_eval_batch_size=1,
-        save_strategy="steps",
-        save_steps=config.save_steps,
+        save_strategy="epoch",
         save_total_limit=config.save_total_limit,
         load_best_model_at_end=True,
         metric_for_best_model="eval_loss",
@@ -398,7 +404,7 @@ def train(
     print(f"  Effective batch size: {config.batch_size * config.grad_accum}")
     print(f"  Steps/epoch: {steps_per_epoch} | Total steps: {total_steps}")
     print(f"  Epochs: {config.epochs}")
-    print(f"  Logging every 5 steps | Eval every {config.eval_steps} steps")
+    print(f"  Logging every 5 steps | Eval & save every epoch")
     print(flush=True)
 
     result = trainer.train()
@@ -447,8 +453,8 @@ def train(
 
     print(f"\nAdapter saved to volume: {final_path}")
     print("Download with:")
-    print(f"  modal volume get mscd-checkpoints /mscd-lora/final "
-          f"./models/adapters/v2_lora_qwen")
+    print(f"  modal volume get mscd-checkpoints /mscd-lora-v3/final "
+          f"./models/adapters/v3_lora_qwen")
 
     try:
         wandb.finish()
@@ -464,7 +470,10 @@ def train(
 
 
 def _run_inference_check(model, tokenizer, test_samples, step=0):
-    """Quick inference on test samples to verify JSON output quality."""
+    """Quick inference on test samples to verify JSON output quality.
+
+    Checks: JSON validity, ifc_class, storey_name, spatial_relations predicate.
+    """
     import torch
     import wandb
     from PIL import Image
@@ -472,7 +481,11 @@ def _run_inference_check(model, tokenizer, test_samples, step=0):
     n_valid_json = 0
     n_class_match = 0
     n_storey_match = 0
-    n_total = min(len(test_samples), 10)
+    n_spatial_match = 0  # predicate match for topology test samples
+    n_spatial_total = 0  # test samples that have spatial_relations
+    n_false_positive = 0  # model outputs spatial_relations when GT has []
+    n_attr_only = 0       # GT has spatial_relations: []
+    n_total = min(len(test_samples), 20)  # check more samples for LoRA_3
 
     for i in range(n_total):
         sample = test_samples[i]
@@ -547,6 +560,20 @@ def _run_inference_check(model, tokenizer, test_samples, step=0):
             if parsed.get("storey_name") == gt.get("storey_name"):
                 n_storey_match += 1
 
+            # Check spatial_relations
+            gt_rels = gt.get("spatial_relations", [])
+            pred_rels = parsed.get("spatial_relations", [])
+            if gt_rels:
+                n_spatial_total += 1
+                gt_pred = gt_rels[0].get("predicate", "")
+                pred_pred = pred_rels[0].get("predicate", "") if pred_rels else ""
+                if gt_pred == pred_pred:
+                    n_spatial_match += 1
+            else:
+                n_attr_only += 1
+                if pred_rels:
+                    n_false_positive += 1
+
             status = "OK"
         except json.JSONDecodeError:
             parsed = None
@@ -554,12 +581,25 @@ def _run_inference_check(model, tokenizer, test_samples, step=0):
 
         class_ok = parsed and parsed.get("ifc_class") == gt.get("ifc_class")
         storey_ok = parsed and parsed.get("storey_name") == gt.get("storey_name")
+        spatial_tag = ""
+        if parsed:
+            gt_rels = gt.get("spatial_relations", [])
+            pred_rels = parsed.get("spatial_relations", [])
+            if gt_rels:
+                gt_p = gt_rels[0].get("predicate", "")
+                pred_p = pred_rels[0].get("predicate", "") if pred_rels else "NONE"
+                spatial_tag = f" | spatial:{gt_p}={'Y' if gt_p == pred_p else 'N('+pred_p+')'}"
+            elif pred_rels:
+                spatial_tag = f" | spatial:FP({pred_rels[0].get('predicate','')})"
 
         print(f"  [{i+1}] JSON:{status} | "
               f"class:{'Y' if class_ok else 'N'} | "
-              f"storey:{'Y' if storey_ok else 'N'}")
+              f"storey:{'Y' if storey_ok else 'N'}{spatial_tag}")
         if status == "FAIL":
             print(f"       Raw: {output_text[:120]}")
+
+    spatial_acc = n_spatial_match / n_spatial_total if n_spatial_total else 0
+    fp_rate = n_false_positive / n_attr_only if n_attr_only else 0
 
     if wandb.run is not None:
         try:
@@ -567,16 +607,20 @@ def _run_inference_check(model, tokenizer, test_samples, step=0):
                 "test_json_rate": n_valid_json / n_total if n_total else 0,
                 "test_class_accuracy": n_class_match / n_total if n_total else 0,
                 "test_storey_accuracy": n_storey_match / n_total if n_total else 0,
+                "test_spatial_predicate_acc": spatial_acc,
+                "test_spatial_false_positive_rate": fp_rate,
                 "train/global_step": step,
             })
         except Exception:
-            pass  # 忽略任何日志错误，避免打断流程
+            pass
     else:
         print("  [Warn] WandB run closed, skipping inference metrics logging.")
 
-    print(f"\n  JSON parse rate:   {n_valid_json}/{n_total}")
-    print(f"  Class accuracy:    {n_class_match}/{n_total}")
-    print(f"  Storey accuracy:   {n_storey_match}/{n_total}")
+    print(f"\n  JSON parse rate:      {n_valid_json}/{n_total}")
+    print(f"  Class accuracy:       {n_class_match}/{n_total}")
+    print(f"  Storey accuracy:      {n_storey_match}/{n_total}")
+    print(f"  Spatial predicate:    {n_spatial_match}/{n_spatial_total} ({spatial_acc:.0%})")
+    print(f"  False positive rate:  {n_false_positive}/{n_attr_only} ({fp_rate:.0%})")
 
 
 # ── CLI entry point ──────────────────────────────────────────────────────────
@@ -594,13 +638,16 @@ def main(
     """Launch training on Modal GPU."""
     n_train = sum(1 for _ in open(TRAIN_JSONL))
     n_test  = sum(1 for _ in open(TEST_JSONL))
-    n_imgs  = sum(len(list(d.glob("*"))) for d in [AP_IMGS_DIR, BH_IMGS_DIR, DXA_IMGS_DIR] if d.exists())
-    n_plans = sum(len(list(d.glob("*"))) for d in [AP_PLANS_DIR, BH_PLANS_DIR, DXA_PLANS_DIR] if d.exists())
+    n_v05_imgs = len(list(V05_SITE_IMGS_DIR.glob("*"))) if V05_SITE_IMGS_DIR.exists() else 0
+    n_v05_fp   = len(list(V05_FLOORPLANS_DIR.glob("*"))) if V05_FLOORPLANS_DIR.exists() else 0
+    n_v04_imgs  = sum(len(list(d.glob("*"))) for d in [AP_IMGS_DIR, BH_IMGS_DIR, DXA_IMGS_DIR] if d.exists())
+    n_v04_plans = sum(len(list(d.glob("*"))) for d in [AP_PLANS_DIR, BH_PLANS_DIR, DXA_PLANS_DIR] if d.exists())
 
-    print("Launching MSCD VLM LoRA training on Modal...")
+    print("Launching MSCD VLM LoRA_3 training on Modal...")
     print(f"  Config: epochs={epochs}, lr={lr}, r={lora_r}, alpha={lora_alpha}")
-    print(f"  Data:   {MERGED_DIR} ({n_train} train / {n_test} test)")
-    print(f"  Images: {n_imgs} site photos, {n_plans} floorplans (AP+BH+DXA)")
+    print(f"  Data:   {V05_DIR} ({n_train} train / {n_test} test)")
+    print(f"  v0.5:   {n_v05_imgs} site photos, {n_v05_fp} floorplans")
+    print(f"  v0.4:   {n_v04_imgs} site photos, {n_v04_plans} floorplans (AP+BH+DXA)")
 
     # .spawn() submits the job and returns immediately — no blocking, no gRPC timeout.
     # .remote() blocks until the result is ready (~25 min) and hits Deadline exceeded.
@@ -619,8 +666,8 @@ def main(
     print("=" * 60)
     print(f"  Job ID: {handle.object_id}")
     print(f"\nMonitor:")
-    print(f"  modal app logs mscd-vlm-lora-train")
-    print(f"  wandb: project=mscd-vlm-lora  run=qwen25vl-7b-r16-synth_v04")
+    print(f"  modal app logs mscd-vlm-lora3-train")
+    print(f"  wandb: project=mscd-vlm-lora  run={wandb_run or 'qwen25vl-7b-r16-lora3-synth_v05'}")
     print(f"\nWhen complete, download adapter:")
     print(f"  ./training/train.sh --download-only")
     print(f"\nThen evaluate:")

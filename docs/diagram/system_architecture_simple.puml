@@ -1,0 +1,81 @@
+---
+config:
+  layout: elk
+---
+flowchart LR
+ subgraph V1["V1 — Agent-Driven  (main_mcp.py)"]
+    direction TB
+        V1_AGENT["LangGraph ReAct Agent<br>Gemini 2.5 Flash + system prompt"]
+        MCP_D["MCP Dispatcher<br>"]
+        IFC_MCP["IFC MCP Server<br>parse IFC"]
+        VIS_MCP["Visual MCP Server<br>analyze_image · match_elements"]
+        RPARSER["Response Parser<br>extract GUID + candidates"]
+  end
+ subgraph V2["V2 — Constraints-Driven  (Neuro-Symbolic)"]
+    direction TB
+        IMG_P["Image Parser<br>Gemini 2.5 Flash VLM<br>prompt path only"]
+        LORA_M["LoRA Qwen2.5-VL-7B"]
+        CEXT["<b>Constraints Extractor</b><br>Constraints + SpatialTriplet list"]
+        QPLAN["<b>Query Planner</b><br>P0 spatial_triplet<br>P1 space+type · P2 name_keyword<br>P3 neighbor+type · P4 storey+type<br>P5-P8 coarse fallback"]
+        RET_B["<b>Retrieval Backend</b><br>cascade P0-P8 until pool &gt; 0<br>"]
+  end
+ subgraph BACKEND["Shared Backend"]
+    direction LR
+        ENG["IFC Engine<br>ifcopenshell +space registry"]
+        CLIP_A["CLIP Visual Aligner<br>"]
+        NEO[("Neo4j IFC Graph<br>FILLS · CONTAINS<br>ADJACENT_TO<br>optional")]
+  end
+ subgraph OUTPUT["Evaluation & Output"]
+    direction TB
+        EVAL["Evaluation"]
+        BCF["Schema Mapping &amp; BCF Handoff<br>"]
+        ART[["Output Artifacts<br>bcf/"]]
+  end
+    V1_AGENT -- tool calls --> MCP_D
+    MCP_D --> IFC_MCP & RPARSER
+    MCP_D -- if visual --> VIS_MCP
+    IMG_P -- ImageParseResult --> CEXT
+    LORA_M -- SpatialTriplets --> CEXT
+    CEXT --> QPLAN
+    QPLAN --> RET_B
+    MASK@{ label: "Input:<br style=\"--tw-scale-x:\">chat · images · floorplan · 4D metadata" } -- "pipeline == v1" --> V1_AGENT
+    MASK -- v2 prompt path --> IMG_P
+    MASK -- v2 lora path --> LORA_M
+    ENG -. cypher .-> NEO
+    IFC_MCP --> ENG
+    VIS_MCP --> CLIP_A
+    RET_B -- memory --> ENG
+    RET_B -- neo4j P0 FILLS/ADJACENT_TO --> NEO
+    RET_B -- rerank --> CLIP_A
+    BCF --> ART
+    RPARSER --> EVAL
+    RET_B --> EVAL
+
+    MASK@{ shape: rect}
+     V1_AGENT:::v1node
+     MCP_D:::v1node
+     IFC_MCP:::v1node
+     VIS_MCP:::v1node
+     RPARSER:::v1node
+     IMG_P:::v2node
+     LORA_M:::v2node
+     CEXT:::v2node
+     QPLAN:::v2node
+     RET_B:::v2node
+     ENG:::backend
+     CLIP_A:::backend
+     NEO:::db
+     EVAL:::output
+     BCF:::output
+     ART:::output
+     MASK:::Ash
+    classDef input   fill:#E8F5E9,stroke:#388E3C,color:#1B5E20
+    classDef backend fill:#F3E5F5,stroke:#7B1FA2,color:#4A148C
+    classDef db      fill:#ECEFF1,stroke:#546E7A,color:#263238
+    classDef output fill:#FFFFFF, stroke:#C62828, color:#B71C1C
+    classDef v1node fill:#FFFFFF, stroke:#1565C0, color:#4E342E
+    classDef Ash stroke-width:1px, stroke-dasharray:none, stroke:#999999, fill:#EEEEEE, color:#000000
+    classDef v2node fill:#FFFFFF, stroke:#F57C00, color:#424242
+    style OUTPUT fill:#FFCDD2
+    style V1 fill:#BBDEFB
+    style V2 fill:#FFE0B2

@@ -28,8 +28,7 @@
 - VLM visual inspection — image understanding, no schema mapping
 - Rule-based IFC querying — rigid, not multimodal
 
-**The gap:** No system takes **informal multimodal site input** and outputs a
-**grounded, validated, reproducible BIM element identifier**.
+**The gap:** No system takes **informal multimodal site input** and outputs a **grounded, validated, reproducible BIM element identifier**.
 
 **Research position:** An *interpreter layer* between messy site reality and the formal BIM model.
 
@@ -39,8 +38,7 @@
 |-----------|-------------|-----------|
 | Wang et al. 2024 (Industrial SGG) | AEC requires a predefined predicate vocabulary; open-domain VLMs hallucinate spatial relations | Motivates domain-specific predicate set |
 | Wang et al. 2025 (VLM-VG) | Object-Centric Crops physically isolate background context, blocking language-prior shortcuts | Motivates anti-shortcut crop training strategy |
-| Zhu et al. 2023/2025 (IFC-Graph) | IFC semantic relationships can be stored and queried as a graph | Motivates Neo4j Symbolic Layer |
-| Iranmanesh et al. 2025 (Graph-RAG) | Graph traversal outperforms vector retrieval in AEC disambiguation | Motivates deterministic Cypher compilation |
+
 
 **This work's claim:** Combining (1) Relation-Region Crops for VLM training and
 (2) deterministic Cypher compilation breaks the attribute entropy bottleneck that
