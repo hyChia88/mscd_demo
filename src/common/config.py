@@ -153,7 +153,10 @@ def init_registry_llm(config: Dict[str, Any]):
         Object with .complete(prompt: str) -> str interface,
         or None if GOOGLE_API_KEY is not set (falls back to regex).
     """
-    import google.generativeai as genai
+    try:
+        import google.generativeai as genai
+    except ModuleNotFoundError:
+        return None
 
     api_key = os.environ.get("GOOGLE_API_KEY", "")
     if not api_key:

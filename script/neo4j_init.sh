@@ -30,8 +30,8 @@ NEO4J_PASSWORD="password"
 BOLT_PORT=7687
 BOLT_WAIT_SECS=30
 
-IFC_PATH="../../data_curation/ifc_models/AdvancedProject.ifc"
-INDEX_PATH="../../data_curation/references/element_index.jsonl"
+IFC_PATH="$(cd "$SCRIPT_DIR" && realpath ../../data_curation/ifc_models/AdvancedProject.ifc)"
+INDEX_PATH="$(cd "$SCRIPT_DIR" && realpath ../../data_curation/references/element_index.jsonl)"
 
 # ── Parse args ────────────────────────────────────────────────────────────────
 RELOAD=false
@@ -181,20 +181,11 @@ if [ "$RELOAD" = true ] || [ "$node_count" -lt 100 ]; then
     fi
 
     info "Running IFC → Neo4j export (may take 30-60s)..."
-    conda run -n mscd_demo python - << PYEOF
-import sys, os
-os.chdir('${SCRIPT_DIR}/..')
-sys.path.insert(0, 'src')
-from py2neo import Graph
-from ifc_engine import IFCEngine
-
-g = Graph('bolt://localhost:${BOLT_PORT}', auth=('neo4j', '${NEO4J_PASSWORD}'))
-engine = IFCEngine('${IFC_PATH}', neo4j_conn=g)
-stats = engine.export_to_neo4j(clear_existing=True)
-nodes = g.run("MATCH (n:IFCElement) RETURN count(n) AS c").data()[0]["c"]
-fills = g.run("MATCH ()-[:FILLS]->() RETURN count(*) AS c").data()[0]["c"]
-print(f"Exported: {nodes} nodes, {fills} FILLS edges")
-PYEOF
+    conda run -n mscd_demo python "${SCRIPT_DIR}/../src/ifc_export_cli.py" \
+        --ifc "${IFC_PATH}" \
+        --uri "bolt://localhost:${BOLT_PORT}" \
+        --password "${NEO4J_PASSWORD}" \
+        || fail "IFC export failed"
 
     ok "IFC export complete"
 else
@@ -213,7 +204,7 @@ if [ "$RELOAD" = true ] || [ "$adj_count" -lt 100 ]; then
         warn "Skipping topology enrichment. Run data_curation/scripts/synth/1_build_index.py first."
     else
         info "Running topology enrichment (ADJACENT_TO + CONTINUOUS)..."
-        conda run -n mscd_demo python legacy/script/add_topology_edges.py \
+        conda run -n mscd_demo python ../legacy/script/add_topology_edges.py \
             --index "$INDEX_PATH" \
             --threshold 1500.0 \
             --uri "bolt://localhost:${BOLT_PORT}" \

@@ -11,11 +11,16 @@ from pathlib import Path
 # Ensure repo root is on path so `from src...` and `from demo...` work
 REPO_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(REPO_ROOT / "src"))  # for `from common.config` etc.
 
+from dotenv import load_dotenv
 import streamlit as st
 
 from demo import server, loader
 from demo.ui import sidebar, tab_context, tab_pipeline, tab_result, tab_inference
+
+# Load API keys from project-root .env (e.g., GOOGLE_API_KEY for registry LLM).
+load_dotenv(REPO_ROOT / ".env")
 
 # ── page config ────────────────────────────────────────────────────────────
 st.set_page_config(

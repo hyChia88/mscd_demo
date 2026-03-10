@@ -5,6 +5,7 @@
 # Data (large / generated)
 data/
 data/archive/
+docs/screenshots
 
 # Python
 __pycache__/
