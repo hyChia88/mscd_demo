@@ -1,6 +1,7 @@
 """Tab 1 — Query Context: modality badges, chat history, input images + floorplan."""
 import streamlit as st
 from pathlib import Path
+from PIL import Image, ImageDraw, ImageFont
 
 
 # ── Modality badge colours ────────────────────────────────────────────────────
@@ -70,6 +71,48 @@ def _modality_signals(trace: dict) -> dict:
     )
 
 
+def _annotate_image(image_path: Path, rels: list[dict], label: str) -> Image.Image:
+    """Overlay spatial relation banner on top of image."""
+    img = Image.open(image_path).convert("RGB")
+    draw = ImageDraw.Draw(img, "RGBA")
+
+    # Build annotation text from first relation
+    rel = rels[0]
+    pred = rel.get("predicate", "?")
+    obj_type = rel.get("object_type", "?")
+    obj_mat = rel.get("object_material")
+    mat_tag = f" ({obj_mat})" if obj_mat else ""
+    text = f"{pred} → {obj_type}{mat_tag}"
+
+    pred_colors = {
+        "FILLS": (59, 130, 246),       # blue
+        "ADJACENT_TO": (245, 158, 11),  # amber
+        "CONTINUOUS": (139, 92, 246),   # purple
+    }
+    color = pred_colors.get(pred, (107, 114, 128))
+
+    # Draw banner at top of image
+    w, h = img.size
+    banner_h = max(24, h // 12)
+    draw.rectangle([(0, 0), (w, banner_h)], fill=(*color, 200))
+
+    # Draw text centered in banner
+    try:
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+                                  max(12, banner_h - 8))
+    except (OSError, IOError):
+        font = ImageFont.load_default()
+
+    bbox = draw.textbbox((0, 0), text, font=font)
+    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    draw.text(((w - tw) / 2, (banner_h - th) / 2 - 1), text, fill=(255, 255, 255), font=font)
+
+    # Draw thin border in predicate color
+    draw.rectangle([(0, 0), (w - 1, h - 1)], outline=(*color, 255), width=3)
+
+    return img
+
+
 def render(trace: dict) -> None:
     m = _modality_signals(trace)
 
@@ -99,6 +142,9 @@ def render(trace: dict) -> None:
         st.divider()
         st.subheader("Input Images & Floorplan")
 
+        # Get spatial relations for annotation overlay
+        rels = ((trace.get("internals") or {}).get("constraints") or {}).get("spatial_relations") or []
+
         items: list[tuple[Path, str]] = []
         for path in m["photo_paths"]:
             items.append((Path(path), "Site Photo"))
@@ -108,7 +154,11 @@ def render(trace: dict) -> None:
         cols = st.columns(len(items))
         for col, (p, label) in zip(cols, items):
             if p.exists():
-                col.image(str(p), caption=f"{label}\n{p.name}", width=260)
+                if rels:
+                    img = _annotate_image(p, rels, label)
+                    col.image(img, caption=f"{label}\n{p.name}", width=260)
+                else:
+                    col.image(str(p), caption=f"{label}\n{p.name}", width=260)
             else:
                 col.warning(f"{label} not found:\n{p.name}")
 

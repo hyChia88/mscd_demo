@@ -15,7 +15,7 @@ sys.path.insert(0, str(REPO_ROOT))
 import streamlit as st
 
 from demo import server, loader
-from demo.ui import sidebar, tab_context, tab_pipeline, tab_result
+from demo.ui import sidebar, tab_context, tab_pipeline, tab_result, tab_inference
 
 # ── page config ────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -63,7 +63,9 @@ st.markdown(
 )
 
 # ── main tabs ─────────────────────────────────────────────────────────────
-t1, t2, t3 = st.tabs(["📋 Query Context", "🔍 Pipeline Trace", "🏗️ Result"])
+t1, t2, t3, t4 = st.tabs([
+    "📋 Query Context", "🔍 Pipeline Trace", "🏗️ Result", "🧠 Live Inference"
+])
 
 with t1:
     tab_context.render(trace)
@@ -73,3 +75,6 @@ with t2:
 
 with t3:
     tab_result.render(trace, static_base_url=static_base)
+
+with t4:
+    tab_inference.render(static_base_url=static_base)

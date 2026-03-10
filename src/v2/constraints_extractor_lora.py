@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .condition_mask import ConditionMask
-from .types import Constraints, ImageParseResult
+from .types import Constraints, ImageParseResult, SpatialTriplet
 from common.config import load_yaml_prompts
 
 # ── System prompt — loaded from prompts/constraints_extraction.yaml ───────────
@@ -40,7 +40,7 @@ class LoRAConstraintsExtractor:
     - Base model: unsloth/Qwen2.5-VL-7B-Instruct-bnb-4bit
     - Adapter: LoRA (r=16, alpha=32)
     - Target modules: q/k/v/o_proj, gate/up/down_proj
-    - Output: JSON with {storey_name, ifc_class, near_keywords, relations}
+    - Output: JSON with {storey_name, ifc_class, space_name, target_name_keyword, spatial_relations}
     """
 
     def __init__(
@@ -165,13 +165,28 @@ class LoRAConstraintsExtractor:
         # Parse JSON output
         data = self._parse_json(output_text)
         if data:
+            # LoRA_3 schema: spatial_relations with per-relation confidence
+            spatial_rels = []
+            for rel in (data.get("spatial_relations") or []):
+                spatial_rels.append(SpatialTriplet(
+                    subject_type=data.get("ifc_class", ""),
+                    predicate=rel.get("predicate", "ADJACENT_TO"),
+                    object_type=rel.get("object_type", ""),
+                    object_material=rel.get("object_material"),
+                    confidence=rel.get("confidence", 0.0),
+                ))
+
+            # Use max relation confidence, or 0.85 for attribute-only cases
+            conf = max((r.confidence for r in spatial_rels), default=0.85)
+
             return Constraints(
                 storey_name=data.get("storey_name"),
                 ifc_class=data.get("ifc_class"),
-                near_keywords=data.get("near_keywords", []),
-                relations=data.get("relations", []),
-                confidence=0.85,
-                source="lora",
+                space_name=data.get("space_name"),
+                target_name_keyword=data.get("target_name_keyword"),
+                spatial_relations=spatial_rels,
+                confidence=conf,
+                source="lora3",
             )
 
         print(f"  [LoRA] JSON parse failed. Raw output: {output_text[:200]}")
@@ -352,8 +367,8 @@ class LoRAConstraintsExtractor:
             except json.JSONDecodeError:
                 pass
 
-        # Find JSON object with expected keys
-        match = re.search(r'(\{[^{]*"storey_name"[^}]*\})', text, re.DOTALL)
+        # Find JSON object with expected keys (handles nested arrays)
+        match = re.search(r'(\{.*?"storey_name".*\})\s*$', text, re.DOTALL)
         if match:
             try:
                 return json.loads(match.group(1))

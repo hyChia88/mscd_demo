@@ -4,8 +4,9 @@ MSCD VLM LoRA Training — Modal GPU Training Script
 Fine-tunes Qwen2.5-VL-7B-Instruct with LoRA for multimodal constraints
 extraction (site photos + floorplans + chat → JSON constraints with spatial_relations).
 
-LoRA_3 version: trains on synth_v0.5 dataset (1,111 train / 19 test) with
+LoRA_3 version: trains on synth_v0.5 dataset (1,377 train / 69 test) with
 spatial triplet extraction (FILLS, ADJACENT_TO, CONTINUOUS predicates).
+Includes 3x text augmentation + modality dropout + GUID-validated data.
 
 Based on Unsloth's official Qwen2.5-VL vision fine-tuning notebook:
   Qwen2_5_VL_(7B)_Vision.ipynb
@@ -35,14 +36,18 @@ import modal
 DATA_ROOT    = Path(__file__).parent.parent.parent / "data_curation"
 DATASETS_DIR = DATA_ROOT / "datasets"
 
-# synth_v0.5 — LoRA_3 training data (1,111 train / 19 test)
+# synth_v0.5 — LoRA_3 training data (1,377 train / 69 test)
 V05_DIR     = DATASETS_DIR / "synth_v0.5" / "train"
 TRAIN_JSONL = V05_DIR / "lora3_train.jsonl"
 TEST_JSONL  = V05_DIR / "lora3_test.jsonl"
 
-# v0.5 image directories (site photos + floorplans only — global renders are pipeline artifacts)
-V05_SITE_IMGS_DIR  = DATASETS_DIR / "synth_v0.5" / "imgs"
-V05_FLOORPLANS_DIR = DATASETS_DIR / "synth_v0.5" / "floorplans"
+# v0.5 image directories per model (site photos + floorplans only)
+V05_AP_IMGS_DIR  = DATASETS_DIR / "synth_v0.5"     / "imgs"
+V05_AP_FP_DIR    = DATASETS_DIR / "synth_v0.5"     / "floorplans"
+V05_BH_IMGS_DIR  = DATASETS_DIR / "synth_v0.5_bh"  / "imgs"
+V05_BH_FP_DIR    = DATASETS_DIR / "synth_v0.5_bh"  / "floorplans"
+V05_DXA_IMGS_DIR = DATASETS_DIR / "synth_v0.5_dxa" / "imgs"
+V05_DXA_FP_DIR   = DATASETS_DIR / "synth_v0.5_dxa" / "floorplans"
 
 # v0.4 image directories (site photos + floorplans for enriched records)
 AP_IMGS_DIR   = DATASETS_DIR / "synth_v0.4_ap"  / "cases" / "imgs"
@@ -80,9 +85,13 @@ train_image = (
     # Bake v0.5 training JSONL files
     .add_local_file(str(TRAIN_JSONL), remote_path="/data/train/lora3_train.jsonl")
     .add_local_file(str(TEST_JSONL),  remote_path="/data/train/lora3_test.jsonl")
-    # Bake v0.5 image directories (site photos + floorplans only)
-    .add_local_dir(str(V05_SITE_IMGS_DIR),  remote_path="/data/images/v05/imgs")
-    .add_local_dir(str(V05_FLOORPLANS_DIR), remote_path="/data/images/v05/floorplans")
+    # Bake v0.5 image directories per model (site photos + floorplans)
+    .add_local_dir(str(V05_AP_IMGS_DIR),  remote_path="/data/images/v05_ap/imgs")
+    .add_local_dir(str(V05_AP_FP_DIR),    remote_path="/data/images/v05_ap/floorplans")
+    .add_local_dir(str(V05_BH_IMGS_DIR),  remote_path="/data/images/v05_bh/imgs")
+    .add_local_dir(str(V05_BH_FP_DIR),    remote_path="/data/images/v05_bh/floorplans")
+    .add_local_dir(str(V05_DXA_IMGS_DIR), remote_path="/data/images/v05_dxa/imgs")
+    .add_local_dir(str(V05_DXA_FP_DIR),   remote_path="/data/images/v05_dxa/floorplans")
     # Bake v0.4 image directories (for enriched records that still reference v0.4 paths)
     .add_local_dir(str(AP_IMGS_DIR),   remote_path="/data/images/ap/imgs")
     .add_local_dir(str(AP_PLANS_DIR),  remote_path="/data/images/ap/plans")
@@ -107,10 +116,10 @@ class TrainConfig:
     # LoRA
     lora_r: int = 16
     lora_alpha: int = 32
-    lora_dropout: float = 0.0
+    lora_dropout: float = 0.1
 
     # Training
-    epochs: int = 5
+    epochs: int = 3
     batch_size: int = 2
     grad_accum: int = 8        # effective batch = 16
     lr: float = 2e-4
@@ -124,7 +133,7 @@ class TrainConfig:
 
     # Wandb
     wandb_project: str = "mscd-vlm-lora"
-    wandb_run: str = "qwen25vl-7b-r16-lora3-synth_v05"
+    wandb_run: str = "qwen25vl-7b-r16-lora3-v05-aug-clean"
 
     # Paths (inside Modal container)
     train_file: str = "/data/train/lora3_train.jsonl"
@@ -140,13 +149,17 @@ class TrainConfig:
 _LOCAL_ROOT  = "file:///root/cmu/master_thesis/data_curation/datasets/"
 _REMOTE_ROOT = "file:///data/images/"
 _DATASET_MAP = {
-    # v0.5 image paths (site photos + floorplans)
-    "synth_v0.5/imgs/":           "v05/imgs/",
-    "synth_v0.5/floorplans/":     "v05/floorplans/",
+    # v0.5 image paths per model (site photos + floorplans)
+    "synth_v0.5/imgs/":            "v05_ap/imgs/",
+    "synth_v0.5/floorplans/":      "v05_ap/floorplans/",
+    "synth_v0.5_bh/imgs/":         "v05_bh/imgs/",
+    "synth_v0.5_bh/floorplans/":   "v05_bh/floorplans/",
+    "synth_v0.5_dxa/imgs/":        "v05_dxa/imgs/",
+    "synth_v0.5_dxa/floorplans/":  "v05_dxa/floorplans/",
     # v0.4 image paths (for enriched records)
-    "synth_v0.4_ap/cases/":       "ap/",
-    "synth_v0.4_bh/cases/":       "bh/",
-    "synth_v0.4_dxa/cases/":      "dxa/",
+    "synth_v0.4_ap/cases/":        "ap/",
+    "synth_v0.4_bh/cases/":        "bh/",
+    "synth_v0.4_dxa/cases/":       "dxa/",
 }
 
 def remap_image_paths(sample: dict, config: TrainConfig) -> dict:
@@ -254,9 +267,14 @@ def train(
     assert os.path.exists(config.train_file), f"Missing: {config.train_file}"
     assert os.path.exists(config.test_file), f"Missing: {config.test_file}"
 
-    # v0.5 images (site photos + floorplans)
-    _v05_dirs = ["/data/images/v05/imgs", "/data/images/v05/floorplans"]
-    n_v05 = {d.split("/")[-1]: len(os.listdir(d)) for d in _v05_dirs if os.path.isdir(d)}
+    # v0.5 images per model (site photos + floorplans)
+    _v05_dirs = [
+        "/data/images/v05_ap/imgs", "/data/images/v05_ap/floorplans",
+        "/data/images/v05_bh/imgs", "/data/images/v05_bh/floorplans",
+        "/data/images/v05_dxa/imgs", "/data/images/v05_dxa/floorplans",
+    ]
+    n_v05 = {d.split("/")[-2] + "/" + d.split("/")[-1]: len(os.listdir(d))
+             for d in _v05_dirs if os.path.isdir(d)}
     # v0.4 images (for enriched records)
     _v04_img_dirs  = ["/data/images/ap/imgs",  "/data/images/bh/imgs",  "/data/images/dxa/imgs"]
     _v04_plan_dirs = ["/data/images/ap/plans", "/data/images/bh/plans", "/data/images/dxa/plans"]
@@ -485,7 +503,7 @@ def _run_inference_check(model, tokenizer, test_samples, step=0):
     n_spatial_total = 0  # test samples that have spatial_relations
     n_false_positive = 0  # model outputs spatial_relations when GT has []
     n_attr_only = 0       # GT has spatial_relations: []
-    n_total = min(len(test_samples), 20)  # check more samples for LoRA_3
+    n_total = len(test_samples)  # check ALL test samples (attr-only + topology)
 
     for i in range(n_total):
         sample = test_samples[i]
@@ -638,15 +656,17 @@ def main(
     """Launch training on Modal GPU."""
     n_train = sum(1 for _ in open(TRAIN_JSONL))
     n_test  = sum(1 for _ in open(TEST_JSONL))
-    n_v05_imgs = len(list(V05_SITE_IMGS_DIR.glob("*"))) if V05_SITE_IMGS_DIR.exists() else 0
-    n_v05_fp   = len(list(V05_FLOORPLANS_DIR.glob("*"))) if V05_FLOORPLANS_DIR.exists() else 0
+    _v05_img_dirs = [V05_AP_IMGS_DIR, V05_BH_IMGS_DIR, V05_DXA_IMGS_DIR]
+    _v05_fp_dirs  = [V05_AP_FP_DIR, V05_BH_FP_DIR, V05_DXA_FP_DIR]
+    n_v05_imgs = sum(len(list(d.glob("*"))) for d in _v05_img_dirs if d.exists())
+    n_v05_fp   = sum(len(list(d.glob("*"))) for d in _v05_fp_dirs if d.exists())
     n_v04_imgs  = sum(len(list(d.glob("*"))) for d in [AP_IMGS_DIR, BH_IMGS_DIR, DXA_IMGS_DIR] if d.exists())
     n_v04_plans = sum(len(list(d.glob("*"))) for d in [AP_PLANS_DIR, BH_PLANS_DIR, DXA_PLANS_DIR] if d.exists())
 
     print("Launching MSCD VLM LoRA_3 training on Modal...")
     print(f"  Config: epochs={epochs}, lr={lr}, r={lora_r}, alpha={lora_alpha}")
     print(f"  Data:   {V05_DIR} ({n_train} train / {n_test} test)")
-    print(f"  v0.5:   {n_v05_imgs} site photos, {n_v05_fp} floorplans")
+    print(f"  v0.5:   {n_v05_imgs} site photos, {n_v05_fp} floorplans (AP+BH+DXA)")
     print(f"  v0.4:   {n_v04_imgs} site photos, {n_v04_plans} floorplans (AP+BH+DXA)")
 
     # .remote() blocks until training completes — keeps the app alive.

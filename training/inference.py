@@ -1,0 +1,212 @@
+"""
+MSCD VLM LoRA_3 Inference — Modal Serverless Endpoint
+
+Loads Qwen2.5-VL-7B-Instruct + LoRA_3 adapter from Modal volume,
+runs inference on multimodal inputs (site photo + floorplan + chat text).
+
+Usage:
+    # From Python (e.g. Streamlit demo):
+    import modal
+    f = modal.Function.from_name("mscd-vlm-lora3-inference", "predict")
+    result = f.remote(images=[...], chat_text="...", metadata_text="...")
+
+    # CLI test:
+    modal run training/inference.py --chat "crack near the railing on floor 3"
+"""
+
+import json
+import os
+from pathlib import Path
+
+import modal
+
+# ── Modal infrastructure ─────────────────────────────────────────────────────
+
+app = modal.App("mscd-vlm-lora3-inference")
+
+# Same container image as training (model + deps already installed)
+inference_image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .apt_install("git")
+    .pip_install(
+        "unsloth",
+        "qwen-vl-utils",
+        "datasets==4.3.0",
+        "hf-transfer",
+    )
+    .run_commands("pip install --no-deps --force-reinstall 'unsloth @ git+https://github.com/unslothai/unsloth.git'")
+    .pip_install("transformers==4.56.2")
+    .run_commands("pip install --no-deps trl==0.22.2")
+    .env({"HF_HOME": "/model_cache"})
+)
+
+model_cache = modal.Volume.from_name("mscd-model-cache", create_if_missing=True)
+checkpoint_vol = modal.Volume.from_name("mscd-checkpoints", create_if_missing=True)
+
+_SYSTEM_PROMPT = (
+    "You are a construction site assistant that extracts IFC element search constraints "
+    "from multimodal inputs (site photos, floorplans, chat messages, 4D metadata). "
+    "Output valid JSON only — no markdown, no explanation."
+)
+
+ADAPTER_PATH = "/checkpoints/mscd-lora-v3-5ep/final"
+BASE_MODEL = "unsloth/Qwen2.5-VL-7B-Instruct-bnb-4bit"
+
+
+@app.cls(
+    image=inference_image,
+    gpu="A100",
+    volumes={
+        "/model_cache": model_cache,
+        "/checkpoints": checkpoint_vol,
+    },
+    container_idle_timeout=300,  # keep warm for 5 min between calls
+)
+class LoRA3Predictor:
+    """Persistent inference class — model stays loaded between calls."""
+
+    @modal.enter()
+    def load_model(self):
+        import torch
+        from transformers import AutoProcessor
+        from unsloth import FastVisionModel
+
+        print(f"Loading adapter from {ADAPTER_PATH}...")
+        assert os.path.isdir(ADAPTER_PATH), f"Adapter not found: {ADAPTER_PATH}"
+
+        self.model, _tokenizer = FastVisionModel.from_pretrained(
+            ADAPTER_PATH,
+            load_in_4bit=True,
+        )
+        FastVisionModel.for_inference(self.model)
+
+        # Load the full multimodal processor (handles images + text)
+        # The saved adapter may only have a plain tokenizer, so load from base model
+        self.processor = AutoProcessor.from_pretrained(BASE_MODEL)
+        print("Model loaded and ready for inference.")
+
+    @modal.method()
+    def predict(
+        self,
+        image_bytes_list: list[bytes],
+        chat_text: str = "",
+        metadata_text: str = "",
+    ) -> dict:
+        """Run LoRA_3 inference on multimodal inputs.
+
+        Args:
+            image_bytes_list: List of PNG/JPEG image bytes (site photo, floorplan)
+            chat_text: Chat log text
+            metadata_text: 4D metadata text (task status, phase, location)
+
+        Returns:
+            {
+                "raw_output": str,          # raw model output
+                "parsed": dict | None,      # parsed JSON if valid
+                "valid_json": bool,
+            }
+        """
+        import io
+        import torch
+        from PIL import Image
+
+        # Build user message content
+        images = []
+        content_parts = []
+
+        for img_bytes in image_bytes_list:
+            img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+            images.append(img)
+            content_parts.append({"type": "image", "image": img})
+
+        # Combine metadata + chat text
+        text_parts = []
+        if metadata_text:
+            text_parts.append(metadata_text)
+        if chat_text:
+            text_parts.append(f"[Chat Log]\n{chat_text}")
+        if text_parts:
+            content_parts.append({"type": "text", "text": "\n".join(text_parts)})
+
+        messages = [
+            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "user", "content": content_parts},
+        ]
+
+        input_text = self.processor.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+
+        if images:
+            inputs = self.processor(
+                text=[input_text],
+                images=images,
+                add_special_tokens=False,
+                return_tensors="pt",
+            ).to(self.model.device)
+        else:
+            inputs = self.processor(
+                text=[input_text],
+                add_special_tokens=False,
+                return_tensors="pt",
+            ).to(self.model.device)
+
+        with torch.no_grad():
+            output_ids = self.model.generate(
+                **inputs, max_new_tokens=512, do_sample=False, use_cache=True
+            )
+
+        trimmed = output_ids[0][len(inputs.input_ids[0]):]
+        raw_output = self.processor.decode(trimmed, skip_special_tokens=True).strip()
+
+        # Try to parse JSON
+        parsed = None
+        valid_json = False
+        try:
+            parsed = json.loads(raw_output)
+            valid_json = True
+        except json.JSONDecodeError:
+            pass
+
+        return {
+            "raw_output": raw_output,
+            "parsed": parsed,
+            "valid_json": valid_json,
+        }
+
+
+# ── CLI entry point for testing ──────────────────────────────────────────────
+
+@app.local_entrypoint()
+def main(
+    chat: str = "There's a crack on the window next to the railing, third floor",
+    image: str = "",
+):
+    """Quick CLI test of the inference endpoint."""
+    predictor = LoRA3Predictor()
+
+    image_bytes_list = []
+    if image and Path(image).exists():
+        image_bytes_list.append(Path(image).read_bytes())
+
+    metadata = (
+        "[4D Task Status] TASK_0001: Window inspection — IN_PROGRESS\n"
+        "[Project Phase] Interior Fit-out\n"
+        "[Location] 3 - Third Floor"
+    )
+
+    print(f"Chat: {chat}")
+    print(f"Images: {len(image_bytes_list)}")
+    print("Running inference...")
+
+    result = predictor.predict.remote(
+        image_bytes_list=image_bytes_list,
+        chat_text=chat,
+        metadata_text=metadata,
+    )
+
+    print(f"\nValid JSON: {result['valid_json']}")
+    print(f"Raw output:\n{result['raw_output']}")
+    if result["parsed"]:
+        print(f"\nParsed:")
+        print(json.dumps(result["parsed"], indent=2))

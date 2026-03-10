@@ -68,6 +68,41 @@ def _render_v2(
             conf = c.get("confidence", 0)
             src  = c.get("source", "?")
             st.progress(conf, text=f"Confidence {conf:.2f}  ·  source: `{src}`")
+
+            # ── Spatial Relations (LoRA_3) ────────────────────────────────
+            rels = c.get("spatial_relations") or []
+            if rels:
+                st.markdown("**Spatial Relations** (Priority 0)")
+                for rel in rels:
+                    pred = rel.get("predicate", "?")
+                    obj_type = rel.get("object_type", "?")
+                    obj_mat = rel.get("object_material")
+                    triplet_conf = rel.get("confidence", 0)
+
+                    pred_colors = {
+                        "FILLS": "#3b82f6",
+                        "ADJACENT_TO": "#f59e0b",
+                        "CONTINUOUS": "#8b5cf6",
+                    }
+                    color = pred_colors.get(pred, "#6b7280")
+                    mat_tag = f" ({obj_mat})" if obj_mat else ""
+
+                    st.markdown(
+                        f'<div style="display:flex;align-items:center;gap:8px;'
+                        f'padding:6px 12px;background:#1e293b;border-radius:8px;'
+                        f'border-left:4px solid {color};margin-bottom:6px;">'
+                        f'<span style="color:#e2e8f0;font-family:monospace;font-size:0.9em;">'
+                        f'{c.get("ifc_class", "?")} '
+                        f'<span style="background:{color};color:white;padding:2px 8px;'
+                        f'border-radius:4px;font-weight:700;font-size:0.85em;">'
+                        f'{pred}</span>'
+                        f' → {obj_type}{mat_tag}'
+                        f'</span>'
+                        f'<span style="margin-left:auto;color:#94a3b8;font-size:0.8em;">'
+                        f'conf: {triplet_conf:.2f}</span>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
         else:
             st.info("No constraints extracted.")
 

@@ -11,10 +11,10 @@
 #   5. Print graph verification stats
 #
 # Usage:
-#   ./neo4j_init.sh              # Smart init — skips steps already done
-#   ./neo4j_init.sh --reload     # Force re-export IFC data (clears existing graph)
-#   ./neo4j_init.sh --start-only # Only start Neo4j, skip all data loading
-#   ./neo4j_init.sh --status     # Print current graph state and exit
+#   ./script/neo4j_init.sh              # Smart init — skips steps already done
+#   ./script/neo4j_init.sh --reload     # Force re-export IFC data (clears existing graph)
+#   ./script/neo4j_init.sh --start-only # Only start Neo4j, skip all data loading
+#   ./script/neo4j_init.sh --status     # Print current graph state and exit
 # =============================================================================
 
 set -e
@@ -30,8 +30,8 @@ NEO4J_PASSWORD="password"
 BOLT_PORT=7687
 BOLT_WAIT_SECS=30
 
-IFC_PATH="../data_curation/ifc_models/AdvancedProject.ifc"
-INDEX_PATH="../data_curation/references/element_index.jsonl"
+IFC_PATH="../../data_curation/ifc_models/AdvancedProject.ifc"
+INDEX_PATH="../../data_curation/references/element_index.jsonl"
 
 # ── Parse args ────────────────────────────────────────────────────────────────
 RELOAD=false
@@ -183,7 +183,7 @@ if [ "$RELOAD" = true ] || [ "$node_count" -lt 100 ]; then
     info "Running IFC → Neo4j export (may take 30-60s)..."
     conda run -n mscd_demo python - << PYEOF
 import sys, os
-os.chdir('${SCRIPT_DIR}')
+os.chdir('${SCRIPT_DIR}/..')
 sys.path.insert(0, 'src')
 from py2neo import Graph
 from ifc_engine import IFCEngine
@@ -243,7 +243,7 @@ echo ""
 
 # Warn if numbers are far off
 if [ "$nodes" -lt 1000 ]; then
-    warn "Node count (${nodes}) is lower than expected — consider ./neo4j_init.sh --reload"
+    warn "Node count (${nodes}) is lower than expected — consider ./script/neo4j_init.sh --reload"
 fi
 if [ "$fills" -eq 0 ]; then
     warn "No FILLS edges found — IFC export may have failed"
@@ -254,3 +254,4 @@ echo ""
 echo "To run tests:"
 echo "  conda run -n mscd_demo python test/test_priority0_retrieval.py"
 echo "  conda run -n mscd_demo python test/test_e2e_pipeline_trace.py"
+echo "  conda run -n mscd_demo python eval/h2_eval.py"
