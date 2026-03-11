@@ -82,4 +82,4 @@ with t3:
     tab_result.render(trace, static_base_url=static_base)
 
 with t4:
-    tab_inference.render(static_base_url=static_base)
+    tab_inference.render(static_base_url=static_base, trace=trace, case_id=case_id)

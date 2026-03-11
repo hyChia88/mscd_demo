@@ -107,19 +107,134 @@ class LoRA3Predictor:
             }
         """
         import io
-        import torch
         from PIL import Image
 
-        # Build user message content
-        images = []
-        content_parts = []
-
+        pil_images = []
         for img_bytes in image_bytes_list:
-            img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-            images.append(img)
+            pil_images.append(Image.open(io.BytesIO(img_bytes)).convert("RGB"))
+
+        return self._predict_core(pil_images, chat_text, metadata_text)
+
+    @modal.method()
+    def explain(
+        self,
+        image_bytes_list: list[bytes],
+        chat_text: str = "",
+        metadata_text: str = "",
+        grid_size: int = 4,
+    ) -> dict:
+        """Occlusion-based saliency: mask image patches, measure prediction change.
+
+        For each image, divides it into a grid_size x grid_size grid.  Each patch
+        is occluded (replaced with gray), inference is re-run, and the change in
+        spatial-relation confidence is recorded as that patch's importance.
+
+        Returns:
+            {
+                "baseline": {raw_output, parsed, valid_json},
+                "heatmaps": [                        # one per input image
+                    [[float, ...], ...],             # grid_size x grid_size
+                ],
+                "image_sizes": [(w, h), ...],
+                "grid_size": int,
+                "spatial_focus_tokens": [str, ...],  # which tokens were tracked
+            }
+        """
+        import io
+        import copy
+        import torch
+        import numpy as np
+        from PIL import Image
+
+        # ── Load images ──────────────────────────────────────────────────
+        pil_images = []
+        for img_bytes in image_bytes_list:
+            pil_images.append(Image.open(io.BytesIO(img_bytes)).convert("RGB"))
+
+        if not pil_images:
+            return {"error": "No images provided for explain"}
+
+        # ── Baseline prediction ──────────────────────────────────────────
+        baseline = self._predict_core(pil_images, chat_text, metadata_text)
+        baseline_rels = (baseline.get("parsed") or {}).get("spatial_relations") or []
+        baseline_conf = max(
+            (r.get("confidence", 0) for r in baseline_rels), default=0.0
+        )
+        baseline_pred = baseline_rels[0].get("predicate", "") if baseline_rels else ""
+
+        # ── Occlusion sweep ──────────────────────────────────────────────
+        heatmaps = []
+        image_sizes = []
+        for img_idx, img in enumerate(pil_images):
+            w, h = img.size
+            image_sizes.append((w, h))
+            pw, ph = w // grid_size, h // grid_size
+            heatmap = np.zeros((grid_size, grid_size), dtype=np.float32)
+
+            for gi in range(grid_size):
+                for gj in range(grid_size):
+                    # Create occluded copy
+                    masked = img.copy()
+                    x0, y0 = gj * pw, gi * ph
+                    x1 = w if gj == grid_size - 1 else x0 + pw
+                    y1 = h if gi == grid_size - 1 else y0 + ph
+                    # Fill patch with gray
+                    gray_patch = Image.new("RGB", (x1 - x0, y1 - y0), (128, 128, 128))
+                    masked.paste(gray_patch, (x0, y0))
+
+                    # Run inference with this image masked
+                    masked_images = list(pil_images)
+                    masked_images[img_idx] = masked
+                    result = self._predict_core(masked_images, chat_text, metadata_text)
+
+                    # Measure change
+                    m_rels = (result.get("parsed") or {}).get("spatial_relations") or []
+                    m_conf = max(
+                        (r.get("confidence", 0) for r in m_rels), default=0.0
+                    )
+                    m_pred = m_rels[0].get("predicate", "") if m_rels else ""
+
+                    # Importance = how much the prediction degrades
+                    if not m_rels:
+                        # Spatial relation disappeared entirely
+                        importance = 1.0
+                    elif m_pred != baseline_pred:
+                        # Predicate changed
+                        importance = 0.8
+                    else:
+                        # Confidence drop
+                        importance = max(0.0, baseline_conf - m_conf)
+
+                    heatmap[gi, gj] = importance
+
+            # Normalize per image
+            hmax = heatmap.max()
+            if hmax > 0:
+                heatmap = heatmap / hmax
+
+            heatmaps.append(heatmap.tolist())
+
+        return {
+            "baseline": baseline,
+            "heatmaps": heatmaps,
+            "image_sizes": image_sizes,
+            "grid_size": grid_size,
+            "spatial_focus_tokens": [baseline_pred] if baseline_pred else [],
+        }
+
+    def _predict_core(
+        self,
+        pil_images: list,
+        chat_text: str,
+        metadata_text: str,
+    ) -> dict:
+        """Shared prediction logic used by both predict() and explain()."""
+        import torch
+
+        content_parts = []
+        for img in pil_images:
             content_parts.append({"type": "image", "image": img})
 
-        # Combine metadata + chat text
         text_parts = []
         if metadata_text:
             text_parts.append(metadata_text)
@@ -137,10 +252,10 @@ class LoRA3Predictor:
             messages, tokenize=False, add_generation_prompt=True
         )
 
-        if images:
+        if pil_images:
             inputs = self.processor(
                 text=[input_text],
-                images=images,
+                images=pil_images,
                 add_special_tokens=False,
                 return_tensors="pt",
             ).to(self.model.device)
@@ -159,7 +274,6 @@ class LoRA3Predictor:
         trimmed = output_ids[0][len(inputs.input_ids[0]):]
         raw_output = self.processor.decode(trimmed, skip_special_tokens=True).strip()
 
-        # Try to parse JSON
         parsed = None
         valid_json = False
         try:

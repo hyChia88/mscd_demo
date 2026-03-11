@@ -56,7 +56,8 @@ def _render_3d_viewer(
 
     ifc_url      = get_ifc_url(case_id, static_base_url)
     static_base  = static_base_url + "/demo/static"
-    gt_param     = gt_guid if (gt_guid and gt_guid != target_guid) else ""
+    # Always pass GT GUID so viewer receives the true case target, even when GT == prediction.
+    gt_param     = gt_guid or ""
 
     params = urllib.parse.urlencode({
         "ifc":    ifc_url,

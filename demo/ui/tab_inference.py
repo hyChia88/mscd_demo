@@ -5,8 +5,11 @@ Tab 4 — Live Inference: upload images + enter chat → LoRA_3 extracts constra
 Full neuro-symbolic pipeline: VLM (Modal GPU) → Constraints → Cypher → GUIDs → 3D.
 """
 import asyncio
+import hashlib
 import json
+import re
 import time
+from pathlib import Path
 from urllib.parse import urlencode
 
 import streamlit as st
@@ -31,6 +34,13 @@ _ARROW_HTML = (
 )
 
 _CONF_THRESHOLD = 0.7
+
+# IFC model code -> static path used by demo static server (for 3D viewer URL).
+_IFC_VIEWER_REL_PATH = {
+    "AP": "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc",
+    "BH": "data/ifc/BasicHouse.ifc",
+    "DXA": "data/ifc/Duplex_A_20110505.ifc",
+}
 
 
 def _stage_header(number: int, title: str, subtitle: str, latency_ms: int = 0) -> str:
@@ -69,13 +79,27 @@ def _kv_pill(key: str, value: str, color: str = "#3b82f6") -> str:
 # Main render
 # ══════════════════════════════════════════════════════════════════════════════
 
-def render(*, static_base_url: str = "") -> None:
+def render(
+    *,
+    static_base_url: str = "",
+    trace: dict | None = None,
+    case_id: str = "",
+) -> None:
     st.markdown("#### Neuro-Symbolic Inference Pipeline")
     st.caption(
         "Upload site photos / floorplans and enter chat text. "
         "Watch each pipeline stage execute in sequence: "
         "**VLM → Constraints → Query Plan → Cypher → Pool → 3D**"
     )
+    # Avoid showing stale retrieval output when user switches selected case.
+    if st.session_state.get("live_case_id") != case_id:
+        st.session_state.pop("last_inference", None)
+        st.session_state.pop("last_retrieval", None)
+        st.session_state["live_case_id"] = case_id
+
+    gt_mode = "None"
+    gt_case_id = ""
+    gt_guid = ""
 
     # ── Input form ────────────────────────────────────────────────────────
     col_img, col_text = st.columns([1, 1], gap="medium")
@@ -116,11 +140,43 @@ def render(*, static_base_url: str = "") -> None:
             ["AP (AdvancedProject)", "BH (BasicHouse)", "DXA (Duplex)"],
             key="inf_ifc_model",
         )
+        model_code = ifc_model.split(" ", 1)[0].strip()
+
+        st.markdown("**Ground Truth** (optional)")
+        gt_mode = st.radio(
+            "GT source",
+            ["None", "Sidebar case", "Manual case ID"],
+            horizontal=True,
+            key="inf_gt_source_mode",
+        )
+        if gt_mode == "Sidebar case":
+            gt_case_id = case_id
+            if case_id:
+                st.caption(f"Using sidebar case: `{case_id}`")
+        elif gt_mode == "Manual case ID":
+            gt_case_id = st.text_input(
+                "GT case ID",
+                value=st.session_state.get("inf_gt_case_manual", ""),
+                placeholder="e.g. SYNTH_V3_002_SK_002 or H2_001",
+                key="inf_gt_case_manual",
+            ).strip()
+
+    allow_trace_fallback = (gt_mode == "Sidebar case")
+    gt_guid = _extract_gt_guid(
+        trace,
+        case_id=gt_case_id,
+        allow_trace_fallback=allow_trace_fallback,
+    )
+    if gt_guid:
+        st.caption(f"GT loaded for 3D coloring: `{gt_guid}`")
+    elif gt_case_id:
+        st.warning(f"No target_guid found for case id `{gt_case_id}`.")
 
     metadata_text = (
         f"[4D Task Status] TASK_0001: Inspection — {task_status}\n"
         f"[Project Phase] {phase}\n"
-        f"[Location] {storey}"
+        f"[Location] {storey}\n"
+        f"[IFC Model] {model_code}"
     )
 
     # ── Run inference ─────────────────────────────────────────────────────
@@ -149,7 +205,11 @@ def render(*, static_base_url: str = "") -> None:
         if vlm_result.get("valid_json") and vlm_result.get("parsed"):
             t1 = time.time()
             with st.spinner("Stage 2-3 — Query planning + Neo4j retrieval..."):
-                retrieval_result = _run_retrieval(vlm_result["parsed"])
+                retrieval_result = _run_retrieval(
+                    vlm_result["parsed"],
+                    model_code=model_code,
+                    gt_guid=gt_guid,
+                )
             if retrieval_result:
                 retrieval_result["_latency_ms"] = int((time.time() - t1) * 1000)
 
@@ -165,6 +225,44 @@ def render(*, static_base_url: str = "") -> None:
     retrieval_result = st.session_state.get("last_retrieval")
     _render_pipeline(vlm_result, retrieval_result, static_base_url=static_base_url)
 
+    # ── Explain: occlusion saliency ──────────────────────────────────────
+    has_images = bool(uploaded_files)
+    has_spatial = bool((vlm_result.get("parsed") or {}).get("spatial_relations"))
+
+    if has_images and has_spatial:
+        st.markdown("---")
+        st.markdown("#### VLM Spatial Grounding")
+        st.caption(
+            "Occlusion saliency: masks each image patch, re-runs VLM, "
+            "measures which regions drive the spatial relation prediction."
+        )
+        grid_col, btn_col = st.columns([1, 2])
+        grid_size = grid_col.select_slider(
+            "Grid resolution",
+            options=[3, 4, 5, 6],
+            value=4,
+            key="explain_grid",
+        )
+        explain_btn = btn_col.button(
+            f"Run Explain ({grid_size}x{grid_size} = {grid_size**2} forward passes)",
+            key="explain_btn",
+        )
+
+        if explain_btn:
+            image_bytes_list = [f.getvalue() for f in uploaded_files]
+            with st.spinner(
+                f"Running occlusion saliency ({grid_size*grid_size} passes, ~{grid_size*grid_size}s)..."
+            ):
+                explain_result = _call_modal_explain(
+                    image_bytes_list, chat_text, metadata_text, grid_size
+                )
+            if explain_result:
+                st.session_state["last_explain"] = explain_result
+
+        explain_result = st.session_state.get("last_explain")
+        if explain_result and "heatmaps" in explain_result:
+            _render_saliency(explain_result, uploaded_files)
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Pipeline visualization
@@ -176,12 +274,77 @@ def _render_pipeline(
     *,
     static_base_url: str = "",
 ) -> None:
-    """Render the full pipeline as numbered stages with data flowing between them."""
+    """Render key outputs first, then optional step-by-step details."""
     valid = vlm_result.get("valid_json", False)
     parsed = vlm_result.get("parsed") or {}
     raw = vlm_result.get("raw_output", "")
     vlm_ms = vlm_result.get("_latency_ms", 0)
 
+    if not valid:
+        st.error("VLM returned invalid JSON — pipeline halted")
+        st.code(raw, language="text")
+        return
+
+    _render_key_outputs(parsed, retrieval_result, static_base_url=static_base_url)
+
+    st.markdown("#### Step-by-Step Details")
+    with st.expander("Show pipeline execution steps", expanded=False):
+        _render_pipeline_details(
+            parsed=parsed,
+            vlm_ms=vlm_ms,
+            retrieval_result=retrieval_result,
+        )
+
+    _render_raw_outputs_panel(vlm_result, retrieval_result)
+
+
+def _render_key_outputs(
+    parsed: dict,
+    retrieval_result: dict | None,
+    *,
+    static_base_url: str = "",
+) -> None:
+    """Show the two demo-critical outputs immediately: graph retrieval + 3D pool."""
+    st.markdown("#### Key Outputs")
+
+    if retrieval_result is None:
+        st.warning("Symbolic retrieval unavailable, so graph and 3D outputs are not shown.")
+        return
+
+    _render_graph_retrieval_panel(parsed, retrieval_result)
+
+    pool_guids = retrieval_result.get("pool_guids") or []
+    if pool_guids:
+        _render_3d_pool(retrieval_result, static_base_url)
+        return
+
+    if static_base_url:
+        viewer_url = _build_viewer_url(
+            static_base_url,
+            [],
+            target_guid="",
+            gt_guid=(retrieval_result or {}).get("gt_guid", ""),
+            guid_match=bool((retrieval_result or {}).get("guid_match", False)),
+            ifc_model_code=retrieval_result.get("ifc_model_code", "AP"),
+        )
+        st.markdown(
+            f'<a href="{viewer_url}" target="_blank" style="text-decoration:none;">'
+            f'<button style="margin-top:8px;padding:8px 18px;background:#1e293b;color:#e2e8f0;'
+            f'border:1px solid #334155;border-radius:6px;font-family:monospace;'
+            f'font-size:13px;cursor:pointer;">Open 3D Viewer (empty) &#8599;</button></a>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.info("No 3D candidates returned for this query.")
+
+
+def _render_pipeline_details(
+    *,
+    parsed: dict,
+    vlm_ms: int,
+    retrieval_result: dict | None,
+) -> None:
+    """Render detailed stage trace below the key outputs."""
     # ━━ Stage 1: Neuro Layer (VLM) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     st.markdown(
         f'<div style="{_STAGE_STYLE}">'
@@ -190,12 +353,6 @@ def _render_pipeline(
         unsafe_allow_html=True,
     )
 
-    if not valid:
-        st.error("VLM returned invalid JSON — pipeline halted")
-        st.code(raw, language="text")
-        return
-
-    # Show extracted JSON compactly
     with st.expander("VLM raw output", expanded=False):
         st.code(json.dumps(parsed, indent=2, ensure_ascii=False), language="json")
 
@@ -257,7 +414,7 @@ def _render_pipeline(
 
     st.markdown(_ARROW_HTML, unsafe_allow_html=True)
 
-    # ━━ Stage 5: Candidate Pool + 3D ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # ━━ Stage 5: Candidate Pool ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     pool_guids = retrieval_result.get("pool_guids") or []
 
     st.markdown(
@@ -271,19 +428,6 @@ def _render_pipeline(
         _render_candidates_table(winning)
     else:
         st.warning("No candidates returned — all plans returned empty pools.")
-
-    # 3D viewer
-    if pool_guids:
-        _render_3d_pool(retrieval_result, static_base_url)
-    elif static_base_url:
-        viewer_url = _build_viewer_url(static_base_url, [], target_guid="")
-        st.markdown(
-            f'<a href="{viewer_url}" target="_blank" style="text-decoration:none;">'
-            f'<button style="margin-top:8px;padding:8px 18px;background:#1e293b;color:#e2e8f0;'
-            f'border:1px solid #334155;border-radius:6px;font-family:monospace;'
-            f'font-size:13px;cursor:pointer;">Open 3D Viewer (empty) &#8599;</button></a>',
-            unsafe_allow_html=True,
-        )
 
     # ── Pipeline summary ──────────────────────────────────────────────────
     total_ms = vlm_ms + ret_ms
@@ -340,9 +484,9 @@ def _render_constraints_inline(parsed: dict) -> str:
                 f'conf={conf:.2f}</span></div>'
             )
 
-        # Confidence gate
-        first_conf = rels[0].get("confidence", 0)
-        gate_pass = first_conf >= _CONF_THRESHOLD
+        # Confidence gate (must match backend logic: max confidence across relations)
+        max_conf = max((rel.get("confidence", 0) for rel in rels), default=0)
+        gate_pass = max_conf >= _CONF_THRESHOLD
         gate_color = "#22c55e" if gate_pass else "#f59e0b"
         gate_icon = "PASS" if gate_pass else "SKIP"
         gate_action = "Priority 0 Cypher executes" if gate_pass else "Falls back to P1-P8"
@@ -350,7 +494,7 @@ def _render_constraints_inline(parsed: dict) -> str:
             f'<div style="margin-top:6px;padding:4px 10px;border-radius:4px;'
             f'background:rgba(30,41,59,0.5);font-size:0.82em;font-family:monospace;">'
             f'<span style="color:{gate_color};font-weight:700;">GATE {gate_icon}</span>'
-            f'<span style="color:#94a3b8;"> — conf {first_conf:.2f} vs '
+            f'<span style="color:#94a3b8;"> — max_conf {max_conf:.2f} vs '
             f'threshold {_CONF_THRESHOLD} → {gate_action}</span></div>'
         )
     else:
@@ -495,6 +639,407 @@ def _render_candidates_table(winning: dict) -> None:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Graph explainability
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _gv_escape(value: str) -> str:
+    return str(value).replace('"', "'")
+
+
+def _gv_node_id(guid: str) -> str:
+    """Build a DOT-safe node id from an IFC GUID."""
+    raw = str(guid or "").strip()
+    if not raw:
+        return "n_empty"
+    safe = re.sub(r"[^A-Za-z0-9_]", "_", raw)
+    digest = hashlib.md5(raw.encode("utf-8")).hexdigest()[:8]
+    return f"n_{safe[:18]}_{digest}"
+
+
+def _build_plan_graph_dot(parsed: dict, plans: list, results: list, winning: dict | None) -> str:
+    """Build Graphviz DOT string for VLM -> constraints -> plan cascade."""
+    subject = parsed.get("ifc_class") or "UnknownIfcClass"
+    storey = parsed.get("storey_name") or "UnknownStorey"
+
+    lines = [
+        "digraph G {",
+        'rankdir=LR;',
+        'graph [bgcolor="transparent"];',
+        'node [shape=box, style="rounded,filled", fillcolor="#0f172a", color="#334155", fontcolor="#e2e8f0"];',
+        'edge [color="#64748b", fontcolor="#94a3b8"];',
+        f'vlm [label="VLM Output\\n{_gv_escape(subject)} @ {_gv_escape(storey)}", fillcolor="#1e293b", color="#3b82f6"];',
+        'constraints [label="Constraints\\nstructured JSON", fillcolor="#1e293b", color="#22c55e"];',
+        'vlm -> constraints [label="parse"];',
+    ]
+
+    winner_key = (winning or {}).get("strategy")
+    for i, plan in enumerate(plans):
+        result = results[i] if i < len(results) else None
+        pool_size = (result or {}).get("pool_size", 0)
+        strategy = plan.get("strategy", "?")
+        priority = plan.get("priority", "?")
+        node_id = f"p{i}"
+        is_winner = winner_key == strategy and pool_size > 0
+        color = "#22c55e" if is_winner else "#334155"
+        fill = "#14532d" if is_winner else "#0f172a"
+        lines.append(
+            f'{node_id} [label="P{priority}: {_gv_escape(strategy)}\\npool={pool_size}", color="{color}", fillcolor="{fill}"];'
+        )
+        lines.append(f"constraints -> {node_id};")
+
+    lines.append("}")
+    return "\n".join(lines)
+
+
+def _build_subgraph_dot(subgraph: dict, gt_guid: str = "") -> str:
+    """Build Graphviz DOT for a 1-hop Neo4j subgraph around top-1 candidate."""
+    anchor_guid = subgraph.get("anchor_guid")
+    nodes = subgraph.get("nodes") or []
+    edges = subgraph.get("edges") or []
+
+    lines = [
+        "digraph SG {",
+        'rankdir=LR;',
+        'graph [bgcolor="transparent"];',
+        'node [shape=ellipse, style="filled", fillcolor="#334155", color="#64748b", fontcolor="#e2e8f0"];',
+        'edge [color="#6b7280", fontcolor="#cbd5e1"];',
+    ]
+
+    node_ids: dict[str, str] = {}
+    for n in nodes[:40]:
+        guid = n.get("guid", "")
+        if not guid:
+            continue
+        node_ids[guid] = _gv_node_id(guid)
+        name = n.get("name") or n.get("type") or "node"
+        if len(name) > 26:
+            name = name[:23] + "..."
+        label = f"{name}\\n{guid[:10]}..."
+        is_anchor = guid == anchor_guid
+        is_gt = bool(gt_guid and guid == gt_guid)
+        if is_anchor:
+            # Keep top-1 green; if GT==top-1 add blue outline for dual meaning.
+            color = "#3b82f6" if is_gt else "#22c55e"
+            fill = "#14532d"
+            pen = "2.8" if is_gt else "2.2"
+        elif is_gt:
+            color = "#3b82f6"
+            fill = "#1e3a8a"
+            pen = "2.2"
+        else:
+            color = "#64748b"
+            fill = "#334155"
+            pen = "1.0"
+        lines.append(
+            f'{node_ids[guid]} [label="{_gv_escape(label)}", color="{color}", fillcolor="{fill}", penwidth={pen}];'
+        )
+
+    for e in edges[:80]:
+        src_guid = e.get("source_guid", "")
+        dst_guid = e.get("target_guid", "")
+        src = node_ids.get(src_guid)
+        dst = node_ids.get(dst_guid)
+        rel = _gv_escape(e.get("rel_type", "REL"))
+        if not src or not dst:
+            continue
+        lines.append(f"{src} -> {dst} [label=\"{rel}\"];")
+
+    lines.append("}")
+    return "\n".join(lines)
+
+
+def _build_ifc_context_dot(
+    graph_snapshot: dict,
+    subgraph: dict | None,
+    gt_guid: str = "",
+) -> str:
+    """Build a Neo4j-style bubble DOT view with highlighted 1-hop around top-1."""
+    snap_nodes = graph_snapshot.get("nodes") or []
+    snap_edges = graph_snapshot.get("edges") or []
+    hop_nodes_raw = (subgraph or {}).get("nodes") or []
+    hop_edges_raw = (subgraph or {}).get("edges") or []
+    anchor_guid = (subgraph or {}).get("anchor_guid", "")
+
+    nodes_by_guid: dict[str, dict] = {}
+    for n in snap_nodes + hop_nodes_raw:
+        guid = (n.get("guid") or "").strip()
+        if not guid:
+            continue
+        existing = nodes_by_guid.get(guid, {})
+        nodes_by_guid[guid] = {
+            "guid": guid,
+            "name": n.get("name") or existing.get("name") or "",
+            "type": n.get("type") or existing.get("type") or "IFCElement",
+        }
+
+    edges: list[dict] = []
+    seen_edges: set[tuple[str, str, str]] = set()
+
+    def _add_edge(edge: dict) -> None:
+        src = (edge.get("source_guid") or "").strip()
+        dst = (edge.get("target_guid") or "").strip()
+        rel = (edge.get("rel_type") or "REL").strip() or "REL"
+        if not src or not dst:
+            return
+        key = (src, rel, dst)
+        if key in seen_edges:
+            return
+        seen_edges.add(key)
+        edges.append({"source_guid": src, "target_guid": dst, "rel_type": rel})
+
+    for e in snap_edges:
+        _add_edge(e)
+    for e in hop_edges_raw:
+        _add_edge(e)
+
+    hop_nodes = {
+        (n.get("guid") or "").strip()
+        for n in hop_nodes_raw
+        if n.get("guid")
+    }
+    hop_edges = {
+        (
+            (e.get("source_guid") or "").strip(),
+            (e.get("rel_type") or "REL").strip() or "REL",
+            (e.get("target_guid") or "").strip(),
+        )
+        for e in hop_edges_raw
+        if e.get("source_guid") and e.get("target_guid")
+    }
+
+    ordered_guids: list[str] = []
+    if anchor_guid and anchor_guid in nodes_by_guid:
+        ordered_guids.append(anchor_guid)
+    if gt_guid and gt_guid in nodes_by_guid and gt_guid not in ordered_guids:
+        ordered_guids.append(gt_guid)
+    for guid in hop_nodes:
+        if guid not in ordered_guids and guid in nodes_by_guid:
+            ordered_guids.append(guid)
+    for guid in nodes_by_guid:
+        if guid not in ordered_guids:
+            ordered_guids.append(guid)
+
+    keep_guids = set(ordered_guids[:170])
+    node_ids = {guid: _gv_node_id(guid) for guid in keep_guids}
+
+    lines = [
+        "graph IFC {",
+        'graph [bgcolor="transparent", layout="sfdp", overlap=false, splines=true, K=1.15, repulsiveforce=1.25];',
+        'node [shape=ellipse, style="filled", fillcolor="#334155", color="#64748b", fontcolor="#cbd5e1"];',
+        'edge [color="#6b7280", fontcolor="#cbd5e1", penwidth=0.9];',
+        '__hub [label="", shape=point, width=0.01, height=0.01, style=invis];',
+    ]
+
+    for guid in ordered_guids[:170]:
+        node = nodes_by_guid.get(guid, {})
+        if not node:
+            continue
+        node_id = node_ids.get(guid)
+        if not node_id:
+            continue
+
+        name = node.get("name") or node.get("type") or "node"
+        type_name = node.get("type") or "IFCElement"
+        if len(name) > 22:
+            name = name[:19] + "..."
+        label = f"{name}\\n{guid[:10]}..."
+
+        is_anchor = guid == anchor_guid
+        is_gt = bool(gt_guid and guid == gt_guid)
+        in_hop = guid in hop_nodes
+
+        if is_anchor:
+            # Top-1 always green; when GT==top-1, keep green fill and add blue outline.
+            color = "#22c55e"
+            fill = "#14532d"
+            font = "#ecfdf5"
+            pen = "2.6"
+            if is_gt:
+                color = "#3b82f6"
+                pen = "3.0"
+        elif is_gt:
+            color = "#3b82f6"
+            fill = "#1e3a8a"
+            font = "#dbeafe"
+            pen = "2.4"
+        elif in_hop:
+            color = "#f59e0b"
+            fill = "#78350f"
+            font = "#fef3c7"
+            pen = "2.0"
+        else:
+            color = "#64748b"
+            fill = "#334155"
+            font = "#cbd5e1"
+            pen = "1.0"
+            label = f"{type_name}\\n{guid[:8]}..."
+
+        lines.append(
+            f'{node_id} [label="{_gv_escape(label)}", color="{color}", fillcolor="{fill}", '
+            f'fontcolor="{font}", penwidth={pen}];'
+        )
+        # Invisible links keep sampled nodes in one visual collection (single bubble cloud).
+        lines.append(f"__hub -- {node_id} [style=invis, weight=0.05];")
+
+    kept_edges = 0
+    for e in edges:
+        src_guid = e.get("source_guid", "")
+        dst_guid = e.get("target_guid", "")
+        rel = e.get("rel_type", "REL")
+        if src_guid not in keep_guids or dst_guid not in keep_guids:
+            continue
+        src = node_ids.get(src_guid)
+        dst = node_ids.get(dst_guid)
+        if not src or not dst:
+            continue
+
+        is_hop_edge = (
+            (src_guid, rel, dst_guid) in hop_edges
+            or (dst_guid, rel, src_guid) in hop_edges
+        )
+        if is_hop_edge:
+            lines.append(
+                f'{src} -- {dst} [color="#f59e0b", penwidth=2.1, '
+                f'label="{_gv_escape(rel)}", fontcolor="#fbbf24"];'
+            )
+        else:
+            lines.append(
+                f'{src} -- {dst} [color="#6b7280", penwidth=0.9];'
+            )
+
+        kept_edges += 1
+        if kept_edges >= 260:
+            break
+
+    lines.append("}")
+    return "\n".join(lines)
+
+
+def _render_graph_retrieval_panel(parsed: dict, retrieval_result: dict | None) -> None:
+    """Render graph-centric explainability for why symbolic retrieval helps."""
+    if not retrieval_result:
+        return
+
+    plans = retrieval_result.get("plans") or []
+    results = retrieval_result.get("results") or []
+    winning = retrieval_result.get("winning") or {}
+    if not plans:
+        return
+
+    st.markdown("#### Graph Retrieval Explainability")
+
+    rows = []
+    for i, plan in enumerate(plans):
+        result = results[i] if i < len(results) else None
+        rows.append({
+            "Priority": f"P{plan.get('priority', '?')}",
+            "Strategy": plan.get("strategy", "?"),
+            "Pool Size": (result or {}).get("pool_size", 0),
+            "Winner": "YES" if winning and plan.get("strategy") == winning.get("strategy") else "",
+            "Fallback": "YES" if (result or {}).get("fallback_triggered") else "",
+        })
+
+    # Compare graph-first vs attribute baseline to highlight retrieval gain.
+    graph_size = None
+    attr_size = None
+    for row in rows:
+        if row["Strategy"] in {"spatial_triplet", "continuous_span"} and graph_size is None:
+            graph_size = row["Pool Size"]
+        if row["Strategy"] in {"storey+type", "type_only"} and attr_size is None:
+            attr_size = row["Pool Size"]
+
+    c1, c2 = st.columns([1, 1], gap="large")
+    with c1:
+        st.dataframe(rows, use_container_width=True, hide_index=True)
+        if graph_size is not None and attr_size is not None:
+            delta = attr_size - graph_size
+            st.caption(
+                f"Graph gain: attribute pool {attr_size} → graph-first pool {graph_size} (Δ {delta})"
+            )
+
+    with c2:
+        dot = _build_plan_graph_dot(parsed, plans, results, winning)
+        st.graphviz_chart(dot, use_container_width=True)
+
+    subgraph = retrieval_result.get("subgraph")
+    gt_guid = (retrieval_result.get("gt_guid") or "").strip()
+    graph_snapshot = retrieval_result.get("graph_snapshot")
+    if graph_snapshot and graph_snapshot.get("edges"):
+        snap_nodes = len(graph_snapshot.get("nodes") or [])
+        snap_edges = len(graph_snapshot.get("edges") or [])
+        hop_nodes = len((subgraph or {}).get("nodes") or [])
+        hop_edges = len((subgraph or {}).get("edges") or [])
+        st.caption(
+            f"Whole IFC graph sample: {snap_nodes} nodes / {snap_edges} edges. "
+            f"Highlighted 1-hop around top-1: {hop_nodes} nodes / {hop_edges} edges."
+        )
+        st.graphviz_chart(
+            _build_ifc_context_dot(graph_snapshot, subgraph, gt_guid=gt_guid),
+            use_container_width=True,
+        )
+        st.caption(
+            "Classic Neo4j explainability: gray = whole graph context, "
+            "green = top-1, amber = 1-hop neighbors/edges, blue = GT (if set)."
+        )
+
+        if subgraph and subgraph.get("edges"):
+            with st.expander("Show isolated 1-hop neighborhood", expanded=False):
+                st.graphviz_chart(
+                    _build_subgraph_dot(subgraph, gt_guid=gt_guid),
+                    use_container_width=True,
+                )
+    elif subgraph and subgraph.get("edges"):
+        st.caption("Neo4j 1-hop neighborhood around top-1 candidate")
+        st.graphviz_chart(
+            _build_subgraph_dot(subgraph, gt_guid=gt_guid),
+            use_container_width=True,
+        )
+    else:
+        st.caption("Neo4j graph visualization unavailable (Neo4j disabled or graph edges not returned).")
+
+
+def _render_raw_outputs_panel(vlm_result: dict, retrieval_result: dict | None) -> None:
+    """Single raw-output panel for demo transparency and Q&A."""
+    st.markdown("---")
+    with st.expander("Raw key outputs (VLM → Constraints → Plans → Retrieval)", expanded=False):
+        st.markdown("**VLM raw output**")
+        st.code(vlm_result.get("raw_output", ""), language="text")
+
+        st.markdown("**Parsed constraints JSON**")
+        st.json(vlm_result.get("parsed") or {})
+
+        if retrieval_result:
+            plans = retrieval_result.get("plans") or []
+            results = retrieval_result.get("results") or []
+            winning = retrieval_result.get("winning") or {}
+
+            compact_results = []
+            for r in results:
+                cands = r.get("candidates") or []
+                compact = {k: v for k, v in r.items() if k != "candidates"}
+                compact["candidates_total"] = len(cands)
+                compact["candidates_preview"] = cands[:10]
+                compact_results.append(compact)
+
+            st.markdown("**Query plans**")
+            st.json(plans)
+            st.markdown("**Execution results (compact)**")
+            st.json(compact_results)
+            st.markdown("**Winning result**")
+            st.json({
+                **{k: v for k, v in winning.items() if k != "candidates"},
+                "candidates_total": len(winning.get("candidates") or []),
+                "candidates_preview": (winning.get("candidates") or [])[:10],
+            })
+            if retrieval_result.get("subgraph"):
+                st.markdown("**Neo4j subgraph payload**")
+                st.json(retrieval_result.get("subgraph"))
+            if retrieval_result.get("graph_snapshot"):
+                st.markdown("**Neo4j IFC graph snapshot payload**")
+                st.json(retrieval_result.get("graph_snapshot"))
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # 3D Viewer
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -508,6 +1053,8 @@ def _render_3d_pool(
 
     winning = (retrieval_result or {}).get("winning")
     pool_guids = (retrieval_result or {}).get("pool_guids") or []
+    ifc_model_code = (retrieval_result or {}).get("ifc_model_code", "AP")
+    gt_guid = (retrieval_result or {}).get("gt_guid", "")
     candidates = (winning or {}).get("candidates") or [] if winning else []
 
     if not pool_guids:
@@ -517,13 +1064,34 @@ def _render_3d_pool(
         st.markdown("#### 3D Pool Viewer")
 
         top1_guid = pool_guids[0]
+        # Keep top-1 out of pool highlights so it stays visually distinct.
+        pool_for_viewer = [g for g in pool_guids if g and g != top1_guid]
+        has_gt = bool(gt_guid)
+        guid_match = (top1_guid == gt_guid) if has_gt else True
         strategy = winning.get("strategy", "?") if winning else "?"
         pool_size = winning.get("pool_size", len(pool_guids)) if winning else len(pool_guids)
 
+        status_suffix = ", GT in blue" if has_gt else ""
         st.markdown(
             f"**{pool_size} candidates** from `{strategy}` "
-            f"— top-1 highlighted green, pool in amber"
+            f"— top-1 highlighted green/red, pool in amber{status_suffix}"
         )
+
+        # Explicit GUID chips for demo clarity.
+        pred_color = "#22c55e" if guid_match else "#ef4444"
+        st.markdown(
+            f'<div style="margin:6px 0 4px 0;font-family:monospace;font-size:0.84em;">'
+            f'<span style="color:{pred_color};font-weight:700;">Predicted</span> '
+            f'<code style="color:#e2e8f0;">{top1_guid}</code></div>',
+            unsafe_allow_html=True,
+        )
+        if gt_guid:
+            st.markdown(
+                f'<div style="margin:0 0 8px 0;font-family:monospace;font-size:0.84em;">'
+                f'<span style="color:#3b82f6;font-weight:700;">Ground Truth</span> '
+                f'<code style="color:#e2e8f0;">{gt_guid}</code></div>',
+                unsafe_allow_html=True,
+            )
 
         # GUID chips
         chip_html = ""
@@ -562,7 +1130,12 @@ def _render_3d_pool(
 
         # Viewer button
         viewer_url = _build_viewer_url(
-            static_base_url, pool_guids, target_guid=top1_guid
+            static_base_url,
+            pool_for_viewer,
+            target_guid=top1_guid,
+            gt_guid=gt_guid,
+            guid_match=guid_match,
+            ifc_model_code=ifc_model_code,
         )
         st.markdown(
             f'<a href="{viewer_url}" target="_blank" style="text-decoration:none;">'
@@ -608,7 +1181,169 @@ def _call_modal_inference(
         return None
 
 
-def _run_retrieval(parsed: dict) -> dict | None:
+def _call_modal_explain(
+    image_bytes_list: list[bytes],
+    chat_text: str,
+    metadata_text: str,
+    grid_size: int = 4,
+) -> dict | None:
+    """Call the Modal explain endpoint for occlusion saliency."""
+    try:
+        import modal
+        predictor_cls = modal.Cls.from_name("mscd-vlm-lora3-inference", "LoRA3Predictor")
+        predictor = predictor_cls()
+        result = predictor.explain.remote(
+            image_bytes_list=image_bytes_list,
+            chat_text=chat_text,
+            metadata_text=metadata_text,
+            grid_size=grid_size,
+        )
+        return result
+    except Exception as e:
+        st.error(f"Explain failed: {e}")
+        return None
+
+
+def _render_saliency(explain_result: dict, uploaded_files) -> None:
+    """Render occlusion saliency heatmaps overlaid on input images."""
+    import io
+    import numpy as np
+    from PIL import Image, ImageFilter
+
+    heatmaps = explain_result.get("heatmaps") or []
+    image_sizes = explain_result.get("image_sizes") or []
+    grid_size = explain_result.get("grid_size", 4)
+    focus_tokens = explain_result.get("spatial_focus_tokens") or []
+
+    if focus_tokens:
+        st.caption(f"Tracked spatial predicate: **{', '.join(focus_tokens)}**")
+
+    cols = st.columns(max(len(heatmaps), 1))
+
+    for idx, heatmap_2d in enumerate(heatmaps):
+        if idx >= len(uploaded_files):
+            break
+
+        hm = np.array(heatmap_2d, dtype=np.float32)
+
+        # Load original image
+        img_bytes = uploaded_files[idx].getvalue()
+        orig = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        w, h = orig.size
+
+        # Upscale heatmap to image size with smooth interpolation
+        hm_img = Image.fromarray((hm * 255).astype(np.uint8), mode="L")
+        hm_img = hm_img.resize((w, h), Image.BILINEAR)
+        hm_img = hm_img.filter(ImageFilter.GaussianBlur(radius=max(w, h) // 20))
+
+        # Create colormap overlay (blue-to-red)
+        hm_array = np.array(hm_img, dtype=np.float32) / 255.0
+        overlay = np.zeros((h, w, 3), dtype=np.uint8)
+        # Low importance = blue, high importance = red
+        overlay[..., 0] = (hm_array * 255).astype(np.uint8)       # Red channel
+        overlay[..., 2] = ((1 - hm_array) * 180).astype(np.uint8)  # Blue channel
+
+        overlay_img = Image.fromarray(overlay, mode="RGB")
+
+        # Blend original + overlay
+        blended = Image.blend(orig, overlay_img, alpha=0.45)
+
+        with cols[idx]:
+            st.image(blended, caption=f"Image {idx+1}: saliency ({grid_size}x{grid_size})", use_container_width=True)
+            # Show raw heatmap values
+            with st.expander("Raw heatmap", expanded=False):
+                for row in heatmap_2d:
+                    st.text("  ".join(f"{v:.2f}" for v in row))
+
+
+@st.cache_data(show_spinner=False)
+def _load_demo_gt_index() -> dict[str, str]:
+    """Load case_id -> target_guid from local demo JSONL datasets."""
+    repo_root = Path(__file__).resolve().parents[2]
+    candidates = [
+        repo_root / "data" / "test_data" / "demo10_h1h3_top1" / "h1_h3_top1_success10.jsonl",
+        repo_root / "data" / "test_data" / "demo10" / "h2_test_cases_demo10.jsonl",
+        repo_root / "data" / "test_data" / "h2_test_cases.jsonl",
+    ]
+    index: dict[str, str] = {}
+    for path in candidates:
+        if not path.exists():
+            continue
+        try:
+            with path.open("r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    row = json.loads(line)
+                    gt = row.get("target_guid") or ((row.get("ground_truth") or {}).get("target_guid"))
+                    if not gt:
+                        continue
+                    id_candidates = [
+                        row.get("case_id"),
+                        row.get("id"),
+                        row.get("h2_id"),
+                        row.get("skeleton_id"),
+                    ]
+                    for cid in id_candidates:
+                        if not cid:
+                            continue
+                        cid_s = str(cid).strip()
+                        index[cid_s] = gt
+                        # Also index normalized form to bridge IDs with/without model segment.
+                        cid_norm = _normalize_case_id(cid_s)
+                        if cid_norm and cid_norm not in index:
+                            index[cid_norm] = gt
+        except Exception:
+            continue
+    return index
+
+
+def _normalize_case_id(case_id: str) -> str:
+    """Normalize IDs across formats, e.g. SYNTH_V3_002_AP_SK_002 -> SYNTH_V3_002_SK_002."""
+    cid = (case_id or "").strip()
+    if not cid:
+        return ""
+    return re.sub(r"_(AP|BH|DXA)(?=_SK_)", "", cid, flags=re.IGNORECASE)
+
+
+def _extract_gt_guid(
+    trace: dict | None,
+    case_id: str = "",
+    *,
+    allow_trace_fallback: bool = True,
+) -> str:
+    """Resolve GT by explicit case_id first, with optional trace fallback."""
+    gt_index = _load_demo_gt_index()
+    lookup_candidates = []
+    if case_id:
+        lookup_candidates.append(case_id)
+        lookup_candidates.append(_normalize_case_id(case_id))
+
+    if allow_trace_fallback and trace:
+        trace_case = (trace.get("scenario") or {}).get("id", "")
+        if trace_case:
+            lookup_candidates.append(trace_case)
+            lookup_candidates.append(_normalize_case_id(trace_case))
+
+    for cid in lookup_candidates:
+        cid_s = (cid or "").strip()
+        if cid_s and cid_s in gt_index:
+            return gt_index[cid_s]
+
+    if not allow_trace_fallback or not trace:
+        return ""
+
+    # Fallback to trace payload if case lookup misses.
+    scenario = trace.get("scenario") or {}
+    gt = scenario.get("ground_truth") or {}
+    if gt.get("target_guid"):
+        return gt["target_guid"]
+    ev = trace.get("evaluation") or {}
+    return ev.get("target_guid", "")
+
+
+def _run_retrieval(parsed: dict, model_code: str = "AP", gt_guid: str = "") -> dict | None:
     """Run the symbolic retrieval pipeline: Constraints → QueryPlanner → Neo4j."""
     try:
         from src.v2.types import Constraints, SpatialTriplet
@@ -654,7 +1389,7 @@ def _run_retrieval(parsed: dict) -> dict | None:
         retrieval_mode = "neo4j" if neo4j_cfg.get("enabled", False) else "memory"
 
         # Init engine + backend
-        engine = _get_engine(config)
+        engine = _get_engine(config, model_code=model_code)
         backend = RetrievalBackend(
             engine=engine,
             retrieval_mode=retrieval_mode,
@@ -669,7 +1404,7 @@ def _run_retrieval(parsed: dict) -> dict | None:
                 "priority": plan.priority,
                 "strategy": plan.strategy,
                 "pool_size": result.pool_size,
-                "candidates": result.candidates[:20],
+                "candidates": result.candidates,
                 "backend": result.backend,
                 "fallback_triggered": result.fallback_triggered,
                 "strategy_actually_used": result.strategy_actually_used,
@@ -682,6 +1417,21 @@ def _run_retrieval(parsed: dict) -> dict | None:
         if winning_result:
             pool_guids = [c.get("guid", "") for c in winning_result["candidates"] if c.get("guid")]
 
+        # GT is explicit from UI case selection/manual case ID.
+        gt_guid_final = (gt_guid or "").strip()
+
+        subgraph = None
+        graph_snapshot = None
+        if winning_result and pool_guids and retrieval_mode == "neo4j":
+            subgraph = _fetch_neo4j_subgraph(engine, pool_guids[0])
+            graph_snapshot = _fetch_neo4j_graph_snapshot(
+                engine,
+                anchor_guid=pool_guids[0],
+                gt_guid=gt_guid_final,
+            )
+
+        guid_match = bool(gt_guid_final and pool_guids and pool_guids[0] == gt_guid_final)
+
         return {
             "plans": [{"priority": p.priority, "strategy": p.strategy,
                         "params": p.params, "expected_pool_size": p.expected_pool_size}
@@ -689,6 +1439,11 @@ def _run_retrieval(parsed: dict) -> dict | None:
             "results": all_results,
             "winning": winning_result,
             "pool_guids": pool_guids,
+            "ifc_model_code": model_code,
+            "subgraph": subgraph,
+            "graph_snapshot": graph_snapshot,
+            "gt_guid": gt_guid_final,
+            "guid_match": guid_match,
         }
 
     except Exception as e:
@@ -700,18 +1455,49 @@ def _run_retrieval(parsed: dict) -> dict | None:
 
 
 @st.cache_resource(show_spinner="Loading IFC engine...")
-def _get_engine(_config: dict):
+def _get_engine(_config: dict, model_code: str = "AP"):
     """Cache the IFCEngine instance."""
     from src.ifc_engine import IFCEngine
     from src.common.config import init_registry_llm
     from pathlib import Path
 
     neo4j_cfg = _config.get("neo4j", {})
+    ifc_cfg = _config.get("ifc", {})
     repo_root = Path(__file__).parent.parent.parent
 
-    ifc_path = repo_root / "data" / "ifc" / "AdvancedProject" / "IFC" / "AdvancedProject.ifc"
+    models = ifc_cfg.get("models") or {}
+    selected_rel = models.get(model_code) or ifc_cfg.get("model_path") or _IFC_VIEWER_REL_PATH["AP"]
+    selected_path = Path(selected_rel)
+    if selected_path.is_absolute():
+        ifc_path = selected_path
+    else:
+        ifc_path = (repo_root / selected_path).resolve()
+
+    # Keep robust fallbacks for local demo setups.
+    fallback_paths = {
+        "AP": [
+            repo_root / "data" / "ifc" / "AdvancedProject" / "IFC" / "AdvancedProject.ifc",
+            Path("/root/cmu/master_thesis/data_curation/ifc_models/AdvancedProject.ifc"),
+        ],
+        "BH": [
+            repo_root / "data" / "ifc" / "BasicHouse.ifc",
+            Path("/root/cmu/master_thesis/data_curation/ifc_models/BasicHouse.ifc"),
+        ],
+        "DXA": [
+            repo_root / "data" / "ifc" / "Duplex_A_20110505.ifc",
+            Path("/root/cmu/master_thesis/data_curation/ifc_models/Duplex_A_20110505.ifc"),
+        ],
+    }
     if not ifc_path.exists():
-        ifc_path = Path("/root/cmu/master_thesis/data_curation/ifc_models/AdvancedProject.ifc")
+        for candidate in fallback_paths.get(model_code, []):
+            if candidate.exists():
+                ifc_path = candidate
+                break
+    if not ifc_path.exists():
+        raise FileNotFoundError(
+            f"IFC file not found for model {model_code}: {selected_rel}. "
+            "Check config.yaml `ifc.models` paths."
+        )
 
     neo4j_conn = None
     if neo4j_cfg.get("enabled", False):
@@ -732,19 +1518,258 @@ def _get_engine(_config: dict):
     return engine
 
 
+def _fetch_neo4j_subgraph(engine, anchor_guid: str, limit: int = 80) -> dict | None:
+    """Fetch 1-hop neighborhood around a candidate GUID for graph visualization."""
+    neo4j_conn = getattr(engine, "neo4j_conn", None)
+    if not neo4j_conn or not anchor_guid:
+        return None
+
+    query = """
+    MATCH (a {guid: $guid})
+    OPTIONAL MATCH (a)-[r]-(n)
+    RETURN
+      a.guid AS anchor_guid,
+      a.name AS anchor_name,
+      labels(a) AS anchor_labels,
+      n.guid AS n_guid,
+      n.name AS n_name,
+      n.ifc_type AS n_type,
+      labels(n) AS n_labels,
+      type(r) AS rel_type,
+      startNode(r).guid AS source_guid,
+      endNode(r).guid AS target_guid
+    LIMIT $limit
+    """
+    try:
+        records = [dict(r) for r in neo4j_conn.run(query, guid=anchor_guid, limit=limit)]
+    except Exception:
+        return None
+
+    if not records:
+        return None
+
+    nodes_by_guid: dict[str, dict] = {}
+    edges: list[dict] = []
+    seen_edges: set[tuple[str, str, str]] = set()
+
+    for rec in records:
+        a_guid = rec.get("anchor_guid")
+        if a_guid and a_guid not in nodes_by_guid:
+            anchor_labels = rec.get("anchor_labels") or []
+            nodes_by_guid[a_guid] = {
+                "guid": a_guid,
+                "name": rec.get("anchor_name") or "",
+                "type": (anchor_labels[0] if anchor_labels else "IFCElement"),
+            }
+
+        n_guid = rec.get("n_guid")
+        if n_guid and n_guid not in nodes_by_guid:
+            n_labels = rec.get("n_labels") or []
+            nodes_by_guid[n_guid] = {
+                "guid": n_guid,
+                "name": rec.get("n_name") or "",
+                "type": rec.get("n_type") or (n_labels[0] if n_labels else "IFCElement"),
+            }
+
+        rel_type = rec.get("rel_type")
+        src = rec.get("source_guid")
+        dst = rec.get("target_guid")
+        if rel_type and src and dst:
+            edge_key = (src, rel_type, dst)
+            if edge_key not in seen_edges:
+                seen_edges.add(edge_key)
+                edges.append(
+                    {
+                        "source_guid": src,
+                        "target_guid": dst,
+                        "rel_type": rel_type,
+                    }
+                )
+
+    return {
+        "anchor_guid": anchor_guid,
+        "nodes": list(nodes_by_guid.values())[:limit],
+        "edges": edges[:limit],
+    }
+
+
+def _fetch_neo4j_graph_snapshot(
+    engine,
+    anchor_guid: str = "",
+    gt_guid: str = "",
+    limit_edges: int = 260,
+    limit_nodes: int = 170,
+) -> dict | None:
+    """Fetch a bounded whole-IFC graph snapshot for demo visualization."""
+    neo4j_conn = getattr(engine, "neo4j_conn", None)
+    if not neo4j_conn:
+        return None
+
+    # Anchor-centric sample keeps the graph visually coherent around the predicted element.
+    core_query = """
+    MATCH (a {guid: $anchor_guid})
+    MATCH p=(a)-[*1..2]-(n)
+    UNWIND relationships(p) AS rel
+    WITH DISTINCT rel
+    WITH startNode(rel) AS s, endNode(rel) AS t, type(rel) AS rel_type
+    WHERE s.guid IS NOT NULL AND t.guid IS NOT NULL
+    RETURN
+      s.guid AS source_guid,
+      coalesce(s.name, s.ifc_type, head(labels(s)), 'node') AS source_name,
+      coalesce(s.ifc_type, head(labels(s)), 'IFCElement') AS source_type,
+      t.guid AS target_guid,
+      coalesce(t.name, t.ifc_type, head(labels(t)), 'node') AS target_name,
+      coalesce(t.ifc_type, head(labels(t)), 'IFCElement') AS target_type,
+      rel_type AS rel_type
+    LIMIT $core_limit
+    """
+    context_query = """
+    MATCH (s)-[r]->(t)
+    WHERE s.guid IS NOT NULL AND t.guid IS NOT NULL
+    RETURN
+      s.guid AS source_guid,
+      coalesce(s.name, s.ifc_type, head(labels(s)), 'node') AS source_name,
+      coalesce(s.ifc_type, head(labels(s)), 'IFCElement') AS source_type,
+      t.guid AS target_guid,
+      coalesce(t.name, t.ifc_type, head(labels(t)), 'node') AS target_name,
+      coalesce(t.ifc_type, head(labels(t)), 'IFCElement') AS target_type,
+      type(r) AS rel_type
+    LIMIT $context_limit
+    """
+    records: list[dict] = []
+    try:
+        if anchor_guid:
+            core_limit = max(60, min(limit_edges // 2, 140))
+            core_records = [dict(r) for r in neo4j_conn.run(
+                core_query,
+                anchor_guid=anchor_guid,
+                core_limit=core_limit,
+            )]
+            records.extend(core_records)
+    except Exception:
+        # Fall back to global context query.
+        pass
+
+    if gt_guid and gt_guid != anchor_guid:
+        try:
+            gt_core_limit = max(30, min(limit_edges // 3, 90))
+            gt_records = [dict(r) for r in neo4j_conn.run(
+                core_query,
+                anchor_guid=gt_guid,
+                core_limit=gt_core_limit,
+            )]
+            records.extend(gt_records)
+        except Exception:
+            pass
+
+    remaining = max(limit_edges - len(records), 0)
+    if remaining > 0:
+        try:
+            context_records = [dict(r) for r in neo4j_conn.run(
+                context_query,
+                context_limit=remaining,
+            )]
+            records.extend(context_records)
+        except Exception:
+            if not records:
+                return None
+
+    if not records:
+        return None
+
+    nodes_by_guid: dict[str, dict] = {}
+    edges: list[dict] = []
+    seen_edges: set[tuple[str, str, str]] = set()
+
+    for rec in records:
+        src = (rec.get("source_guid") or "").strip()
+        dst = (rec.get("target_guid") or "").strip()
+        rel = (rec.get("rel_type") or "REL").strip() or "REL"
+        if not src or not dst:
+            continue
+
+        if src not in nodes_by_guid:
+            nodes_by_guid[src] = {
+                "guid": src,
+                "name": rec.get("source_name") or "",
+                "type": rec.get("source_type") or "IFCElement",
+            }
+        if dst not in nodes_by_guid:
+            nodes_by_guid[dst] = {
+                "guid": dst,
+                "name": rec.get("target_name") or "",
+                "type": rec.get("target_type") or "IFCElement",
+            }
+
+        edge_key = (src, rel, dst)
+        if edge_key in seen_edges:
+            continue
+        seen_edges.add(edge_key)
+        edges.append(
+            {
+                "source_guid": src,
+                "target_guid": dst,
+                "rel_type": rel,
+            }
+        )
+
+    kept_guids = list(nodes_by_guid.keys())[:limit_nodes]
+    keep_set = set(kept_guids)
+    nodes = [nodes_by_guid[g] for g in kept_guids]
+    edges = [
+        e for e in edges
+        if e["source_guid"] in keep_set and e["target_guid"] in keep_set
+    ][:limit_edges]
+
+    # Ensure GT node appears in graph even if its edges are outside sampled slice.
+    if gt_guid and gt_guid not in keep_set:
+        try:
+            gt_node_query = """
+            MATCH (g {guid: $guid})
+            RETURN
+              g.guid AS guid,
+              coalesce(g.name, g.ifc_type, head(labels(g)), 'node') AS name,
+              coalesce(g.ifc_type, head(labels(g)), 'IFCElement') AS type
+            LIMIT 1
+            """
+            gt_rows = [dict(r) for r in neo4j_conn.run(gt_node_query, guid=gt_guid)]
+            if gt_rows:
+                gt_row = gt_rows[0]
+                nodes = [n for n in nodes if n.get("guid") != gt_guid]
+                nodes.insert(0, {
+                    "guid": gt_row.get("guid") or gt_guid,
+                    "name": gt_row.get("name") or "",
+                    "type": gt_row.get("type") or "IFCElement",
+                })
+                nodes = nodes[:limit_nodes]
+        except Exception:
+            pass
+
+    return {
+        "nodes": nodes,
+        "edges": edges,
+    }
+
+
 def _build_viewer_url(
     static_base_url: str,
     pool_guids: list[str],
     target_guid: str = "",
+    gt_guid: str = "",
+    guid_match: bool = True,
+    ifc_model_code: str = "AP",
 ) -> str:
     """Build URL for the 3D viewer with candidate GUIDs highlighted."""
-    ifc_url = static_base_url + "/data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+    ifc_rel = _IFC_VIEWER_REL_PATH.get(ifc_model_code, _IFC_VIEWER_REL_PATH["AP"])
+    ifc_url = static_base_url + "/" + ifc_rel
     viewer_base = static_base_url + "/demo/static/test_viewer.html"
+    # Always pass GT GUID so viewer receives the true per-case target, even when GT == prediction.
+    gt_param = gt_guid or ""
     params = {
         "ifc": ifc_url,
         "target": target_guid,
-        "gt": "",
-        "match": "1",
+        "gt": gt_param,
+        "match": "1" if guid_match else "0",
         "pool": ",".join(pool_guids[:60]),
         "base": static_base_url + "/demo/static",
     }
