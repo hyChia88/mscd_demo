@@ -896,13 +896,13 @@ This matches the natural data distribution: ~900 v0.4 attribute + ~150–200 v0.
 ## 7.4 Data Generation Plan
 execution order:
 Step	Task	Status
-1	Raise skeleton mining quotas	Not started
-2	Enrich v0.4 SPATIAL_PROXIMITY (33 cases)	Not started
-3	Fix renders + re-skin all topology skeletons	Not started
-4	Cross-IFC pipeline (BasicHouse + Duplex)	Not started
-5	Assemble training records (new LoRA_3 schema)	Not started
-6	LLM-as-Judge image quality	Not started
-7-8	LoRA_3 training + eval	Not started
+1	Raise skeleton mining quotas	✅ Done (251 skeletons, AP)
+2	Enrich v0.4 SPATIAL_PROXIMITY (33 cases)	✅ Done (933 records)
+3	Fix renders + re-skin all topology skeletons	✅ Done (312 skins, 197 KEEP)
+4	Cross-IFC pipeline (BasicHouse + Duplex)	✅ Done (BH=25, DXA=39 KEEP)
+5	Assemble training records (new LoRA_3 schema)	✅ Done (1,377 train / 69 test)
+6	LLM-as-Judge image quality	✅ Done (in 3b_generate_skin.py)
+7-8	LoRA_3 training + eval	✅ Done (Run 2, 93% spatial acc)
 
 
 ### Step 1: Raise Skeleton Mining Quotas (1 day)
@@ -1200,10 +1200,10 @@ Step 4: Cross-IFC pipeline (BH + DXA)          — ✅ Done (BH=25 KEEP, DXA=39 
 Step 5: Assemble + fix schema                  — ✅ Done (1,377 train / 69 test, GUID-validated)
 Step 6: LLM-as-Judge image quality             — ✅ Done (integrated in 3b_generate_skin.py)
 Step 7: LoRA_3 training on Modal A100          — ✅ Done (Run 2: 2026-03-10, 5 ep, 93% spatial acc)
-Step 8: Evaluate on H2 + tune confidence       — ⚠️ Partial (see §7.8 — graph edges missing)
+Step 8: Evaluate on H2 + tune confidence       — ✅ Done (h2_p4_4.jsonl: 213/213 GT-in-pool, 0 fallbacks)
 ```
 
-**Next**: Fix ADJACENT_TO/FILLS Neo4j edge loading, re-run H2 eval for true end-to-end numbers.
+**Status**: H2 re-run complete. Remaining items (continuous_span storey filter, thesis plots, etc.) tracked in `0307_post_mid_plan.md`.
 
 ---
 
@@ -1263,85 +1263,49 @@ Step 8: Evaluate on H2 + tune confidence       — ⚠️ Partial (see §7.8 —
 
 **Test conditions:** AdvancedProject.ifc, Neo4j Community 5.26.0, bolt://localhost:7687
 
-**Overall Results:**
+> **Initial run (2026-03-10)** had 30% GT-in-pool due to missing ADJACENT_TO/FILLS edges.
+> **Re-run (2026-03-11)** after `neo4j_init.sh --reload` fixed edge loading. Results below are from the corrected re-run (`h2_p4_4.jsonl`).
+
+**Overall Results (corrected, 2026-03-11):**
 
 | Metric | Value |
 |---|---|
 | H2 cases | 213 |
-| GT-in-pool rate | 63/213 (30%) |
-| Fallback rate | 213/213 (100%) |
-| Mean SSR | 49% (120 → 113 candidates) |
+| GT-in-pool rate | **213/213 (100%)** |
+| Fallback rate | **0/213 (0%)** |
 | Attribute baseline Top-1 | 2.5% |
 
 **Per-Predicate Breakdown:**
 
-| Predicate | Cases | GT Found | Fallback | Post-Pool | SSR | Attr Baseline |
-|---|---|---|---|---|---|---|
-| ADJACENT_TO | 66 | 0/66 (0%) | 66/66 | 0.0 | 100% (empty) | 4.5% |
-| FILLS | 84 | 0/84 (0%) | 84/84 | 0.0 | 100% (empty) | 2.4% |
-| CONTINUOUS | 63 | 63/63 (100%) | 63/63 | 381.0 | -74% (expanded) | 0.5% |
-
-**Confidence Threshold Sweep (simulated, 93% VLM accuracy):**
-
-| Threshold | P0 Fires | GT Found | Est. Top-1 |
-|---|---|---|---|
-| 0.3 | 100% | 213/213 | 100.0% |
-| 0.5 | 95% | 198/213 | 93.1% |
-| 0.6 | 76% | 158/213 | 75.0% |
-| **0.7** | **56%** | **119/213** | **56.9%** |
-| 0.8 | 37% | 79/213 | 38.8% |
-| 0.9 | 19% | 40/213 | 20.6% |
-
----
-
-### 7.8.3 Root Cause Analysis
-
-The 30% GT-in-pool rate is **NOT a VLM extraction failure** — it is a **Neo4j graph incompleteness issue**. Each predicate has a distinct failure mode:
-
-#### ADJACENT_TO: 0/66 — Missing edges in Neo4j
-
-**Root cause:** The `neo4j_init.sh` topology enrichment step (`add_topology_edges.py`) did not complete successfully. The Neo4j graph has 0 ADJACENT_TO edges, so the Priority-0 Cypher `MATCH (target)-[:ADJACENT_TO]->(ref)` returns empty for all 66 cases.
-
-**Evidence:** In the P2 unit tests (§6.3), with ADJACENT_TO edges loaded (466 bidirectional edges), the same Cypher queries returned 1–8 candidates with 100% GT-in-pool.
-
-**Fix:** Re-run `neo4j_init.sh --reload` to ensure Step 4 (topology enrichment) completes. Verify with `--status` that ADJACENT_TO edge count ≥ 400.
-
-#### FILLS: 0/84 — Missing edges in Neo4j
-
-**Root cause:** Same as ADJACENT_TO — the FILLS edges (389 expected) were not present in the graph at eval time. The Priority-0 Cypher `MATCH (target)-[:FILLS]->(ref)` returns empty.
-
-**Evidence:** In P2 testing with 389 FILLS edges loaded, all FILLS cases returned the correct GT element in a pool of 1–8 candidates.
-
-**Fix:** Same as ADJACENT_TO — `neo4j_init.sh --reload`. The IFC export step creates FILLS edges from `IfcRelFillsElement` chains.
-
-#### CONTINUOUS: 63/63 GT found, but SSR is negative
-
-**Root cause:** The `continuous_span` Cypher strategy correctly identifies continuous walls (via `is_continuous=true` + `top_constraint` property filter), but the fallback mechanism returns **all** IfcWallStandardCase elements (381) instead of only those matching the storey constraint. GT is always in the pool (100%), but the pool is larger than the pre-pool.
-
-**Details:**
-- Pre-pool sizes: 167 (Garage), 217 (1st Floor), 361 (Level 1) — these are same-storey same-type counts
-- Post-pool: 381 for all cases — the Cypher returns all continuous walls across all storeys
-- The `fallback_triggered=YES` flag confirms the primary query failed and the system degraded
-
-**Fix:** Tighten the `continuous_span` Cypher WHERE clause to filter by `target.storey` in addition to `top_constraint`. Expected post-pool after fix: 5–20 (walls with same top_constraint on same storey).
-
----
-
-### 7.8.4 Projected Results After Fixes
-
-Based on P2 unit test results (§6.3) where all edges were present:
-
-| Predicate | Current GT | Projected GT | Current SSR | Projected SSR |
+| Predicate | Cases | GT Found | Fallback | Avg SSR |
 |---|---|---|---|---|
-| ADJACENT_TO | 0/66 | **66/66 (100%)** | 100% (empty) | **~70–90%** |
-| FILLS | 0/84 | **84/84 (100%)** | 100% (empty) | **~90–95%** |
-| CONTINUOUS | 63/63 | 63/63 (100%) | -74% (expanded) | **~60–80%** |
-| **Overall** | **63/213 (30%)** | **213/213 (100%)** | 49% | **~75–90%** |
+| ADJACENT_TO | 66 | **66/66 (100%)** | 0/66 | **57.0%** |
+| FILLS | 84 | **84/84 (100%)** | 0/84 | **0.0%** (all same-storey windows fill walls) |
+| CONTINUOUS | 63 | **63/63 (100%)** | 0/63 | **47.5%** |
 
-**Projected Top-1 accuracy** (with VLM 93% spatial accuracy, threshold=0.7):
-- Attribute baseline: 2.5%
-- Neuro-Symbolic (projected): **56.9%** (22.8× improvement over baseline)
-- With threshold=0.5: **93.1%** (37.2× improvement)
+**Notes:**
+- FILLS SSR=0%: all windows on a storey fill walls, so pool size doesn't shrink without `object_material` filter (see P5 in `0307_post_mid_plan.md`)
+- CONTINUOUS SSR=47.5%: improved from -74% but storey filter still incomplete (see P4.3 in `0307_post_mid_plan.md`)
+
+---
+
+### 7.8.3 Root Cause Analysis (historical — from initial failed run)
+
+> The initial 30% GT-in-pool was a **Neo4j graph incompleteness issue**, not a VLM failure.
+> All issues below were **resolved** by re-running `neo4j_init.sh --reload` (2026-03-11).
+
+#### ADJACENT_TO: was 0/66 → now 66/66 ✅
+**Root cause (resolved):** `neo4j_init.sh` Step 4 (`add_topology_edges.py`) had not completed. After `--reload`, 466 bidirectional ADJACENT_TO edges loaded.
+
+#### FILLS: was 0/84 → now 84/84 ✅
+**Root cause (resolved):** FILLS edges (389) were not loaded at eval time. After `--reload`, `_create_element_relationships()` correctly creates Door/Window → FILLS → Wall edges.
+
+#### CONTINUOUS: 63/63 GT found, SSR improved but storey filter still incomplete ⚠️
+**Root cause (partially resolved):** `continuous_span` Cypher now returns correct candidates (SSR=47.5%), but does not yet filter by base storey. See P4.3 in `0307_post_mid_plan.md`.
+
+---
+
+### ~~7.8.4 Projected Results After Fixes~~ (superseded by actual results above)
 
 ---
 
@@ -1352,18 +1316,20 @@ Based on P2 unit test results (§6.3) where all edges were present:
 2. **Symbolic layer (CONTINUOUS predicate)** — 100% GT-in-pool, proving that deterministic graph traversal on property-based predicates works end-to-end.
 3. **Anti-hallucination design** — Zero false positives on 26 attribute-only test cases validates the Tier-2 negative training strategy.
 
-**What needs fixing (infrastructure, not model):**
-1. `neo4j_init.sh` topology enrichment must load ADJACENT_TO + FILLS edges before eval
-2. `continuous_span` Cypher needs storey-aware WHERE clause to reduce post-pool size
-3. H2 eval harness should verify edge counts before running (fail-fast on empty graph)
+**What needs fixing (infrastructure, not model) — remaining items tracked in `0307_post_mid_plan.md`:**
+1. ~~`neo4j_init.sh` topology enrichment must load ADJACENT_TO + FILLS edges before eval~~ — ✅ DONE
+2. ~~Re-run H2 eval with full graph~~ — ✅ DONE (213/213 GT-in-pool, 0 fallbacks)
+3. `continuous_span` Cypher needs storey-aware WHERE clause to reduce post-pool size — ⚠️ INCOMPLETE → P4.3
+4. H2 eval harness should verify edge counts before running (fail-fast on empty graph) — ✗ TODO → P4.2
+5. Produce thesis plots with corrected data — ✗ TODO → P4.5
 
 **Action items:**
 ```
-1. Fix neo4j_init.sh edge loading          — Priority: CRITICAL
-2. Re-run H2 eval with full graph          — Blocked on #1
-3. Fix continuous_span storey filter       — Priority: HIGH
-4. Add edge count pre-check to h2_eval.py  — Priority: MEDIUM
-5. Produce thesis plots with corrected data — Blocked on #2
+1. Fix neo4j_init.sh edge loading          — ✅ DONE
+2. Re-run H2 eval with full graph          — ✅ DONE (h2_p4_4.jsonl, 2026-03-11)
+3. Fix continuous_span storey filter       — ⚠️ INCOMPLETE → see P4.3 in 0307_post_mid_plan.md
+4. Add edge count pre-check to h2_eval.py  — ✗ TODO → see P4.2 in 0307_post_mid_plan.md
+5. Produce thesis plots with corrected data — ✗ TODO → see P4.5 in 0307_post_mid_plan.md
 ```
 
 **Adapter checkpoint:** `models/adapters/v3_lora_qwen_20260310_5ep/final/`

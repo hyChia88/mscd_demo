@@ -272,32 +272,56 @@ python scripts/synth/3c_assemble.py
 
 ---
 
-## Results
+## Evaluation Framework
 
-### LoRA_3 VLM Extraction (69 test samples)
+Evaluation is organized into three experiment groups. Full details in [RESULTS.md](RESULTS.md).
 
-| Metric | Score | Notes |
+### Group 1 — Agentic vs. Structured Pipeline
+
+Compares V1 free-form ReAct agent against V2 constrained neuro-symbolic pipeline.
+
+| System | Architecture | Top-1 (v0.2, 43 cases) |
 |---|---|---|
-| JSON parse rate | **100%** (69/69) | — |
-| IFC class accuracy | **98.6%** (68/69) | — |
-| Storey accuracy | **87.0%** (60/69) | Weakest field; minimal impact on P0 |
-| Spatial predicate accuracy | **93.0%** (40/43) | Target was 60% |
-| False positive rate | **0%** (0/26) | No hallucinated spatial relations |
+| V1 Agent (memory) | ReAct + tool calling | 32.6% |
+| V2 Structured (A1) | Constraint extraction → query planner | **50.0%** |
+| V2 Structured (all) | Same, on harder v0.3 (84 cases) | 3.6% |
+
+V2 outperforms V1 when inputs are clear (+17pp Top-1), but degrades more sharply on vague/deictic text — motivating LoRA fine-tuning.
+
+### Group 2 — 3-Way Neuro-Symbolic Comparison
+
+Compares Gemini baseline, LoRA_2 (attribute-only), and LoRA_3 (spatial triplets) on identical test conditions.
+
+| System | Spatial Capability | Max Priority | Status |
+|---|---|---|---|
+| Baseline (Gemini) | None — prompt-only | P1–P8 | Evaluated (v0.4, 50 cases) |
+| LoRA_2 | Attribute-only, 7-field schema | P1–P8 | Evaluated (v0.4, 50 cases) |
+| LoRA_3 | Spatial triplets (FILLS, ADJACENT_TO, CONTINUOUS) | **P0–P8** | **3-way eval pending** |
+
+**LoRA_2 results (50 cases, MA condition):**
+
+| Metric | LoRA_2 | Gemini Prompt | Delta |
+|---|---|---|---|
+| Top-1 Accuracy | **35.3%** | 25.7% | +9.6 pp |
+| Valid SSR | **66.2%** | 52.8% | +13.4 pp |
+
+**LoRA_3 VLM extraction quality (69 held-out test samples):**
+
+| Metric | Score |
+|---|---|
+| JSON parse rate | **100%** (69/69) |
+| IFC class accuracy | **98.6%** (68/69) |
+| Storey accuracy | **87.0%** (60/69) |
+| Spatial predicate accuracy | **93.0%** (40/43) |
+| False positive rate | **0%** (0/26) |
 
 Per-predicate: FILLS 24/24 (100%), CONTINUOUS 3/3 (100%), ADJACENT_TO 13/16 (81%).
 
-### H2 Hard-Negative Eval (213 topology cases)
+End-to-end 3-way comparison (same cases, same Neo4j state) is in progress — see [P10 in post-mid plan](docs/README/0307_post_mid_plan.md).
 
-**Current (Neo4j edges partially loaded):**
+### Group 3 — H2 Hard-Negative Stress Test (Topology Only)
 
-| Predicate | Cases | GT-in-Pool | Notes |
-|---|---|---|---|
-| ADJACENT_TO | 66 | 0/66 (0%) | Missing ADJACENT_TO edges in Neo4j |
-| FILLS | 84 | 0/84 (0%) | Missing FILLS edges in Neo4j |
-| CONTINUOUS | 63 | 63/63 (100%) | Property-based, works end-to-end |
-| **Total** | **213** | **63/213 (30%)** | **Blocked by graph incompleteness** |
-
-Root cause: `neo4j_init.sh` topology enrichment did not load ADJACENT_TO/FILLS edges. See [§7.8.3](README/0224_demo_plan.md) for full analysis.
+Tests spatial triplet retrieval on cases where **all candidates share identical attributes** (same IFC class, storey, dimensions). Only spatial topology can distinguish them.
 
 **P2 unit tests (edges manually loaded, 83 cases):**
 
@@ -307,17 +331,16 @@ Root cause: `neo4j_init.sh` topology enrichment did not load ADJACENT_TO/FILLS e
 | CONTINUOUS | 21 | 21/21 (100%) | 74 | 65% | 0.4% |
 | FILLS | 28 | 28/28 (100%) | 43 | 0% | N/A |
 
-**Projected after graph fix**: 213/213 GT-in-pool (100%), 75–90% SSR, Top-1 ~57% at threshold=0.7.
+Full H2 eval (213 cases) pending re-run with complete Neo4j graph.
 
-### Comparison: LoRA_2 vs LoRA_3
+### Metrics Summary
 
-| Capability | LoRA_2 | LoRA_3 |
-|---|---|---|
-| Training data | synth_v0.4 (933) | synth_v0.5 (1,377) |
-| Output schema | 6 flat fields | 5 fields + spatial_relations[] |
-| Max priority | P4 (storey+type) | **P0 (spatial_triplet)** |
-| Spatial extraction | None | FILLS / ADJACENT_TO / CONTINUOUS |
-| Confidence | Static 0.85 | Dynamic (VLM output, threshold 0.7) |
+| Category | Metrics |
+|---|---|
+| **Retrieval** | Top-1, Top-K (K=3,5), SSR, Over-Reduction Rate, GT-in-Pool |
+| **VLM Extraction** | Parse Rate, Field EM F1, Spatial Predicate Acc, FP Rate, mR@100 |
+| **Query Planner** | P0 Activation Rate, Strategy Distribution (P0–P8), Fallback Rate, Avg Pool Size |
+| **Operational** | Latency, Tool Calls (V1), Escalation Rate |
 
 ---
 

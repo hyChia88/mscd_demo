@@ -292,11 +292,11 @@ def _generate_h2_plot(results: list, attr_baseline: float, out_path: str):
     ax = axes[0]
     x = np.arange(n_preds)
     w = 0.35
-    ax.bar(x - w/2, attr_top1, w, label="Attribute Baseline", color="#94a3b8", edgecolor="white")
+    ax.bar(x - w/2, attr_top1, w, label="Random Chance (1/N)", color="#94a3b8", edgecolor="white")
     ax.bar(x + w/2, sym_top1, w, label="Neuro-Symbolic (P0)", color="#3b82f6", edgecolor="white")
     ax.set_xticks(x)
     ax.set_xticklabels(pred_labels, fontsize=9)
-    ax.set_ylabel("Top-1 Accuracy (%)")
+    ax.set_ylabel("GT-in-Pool Rate (%)")
     ax.set_title("GT-in-Pool Rate by Predicate")
     ax.legend(fontsize=8)
     ax.set_ylim(0, 110)
@@ -332,7 +332,7 @@ def _generate_h2_plot(results: list, attr_baseline: float, out_path: str):
 
     fig.suptitle(
         f"H2 Hard-Negative Evaluation — {len(results)} cases, "
-        f"Attr baseline Top-1 = {attr_baseline:.1f}%",
+        f"Random chance 1/N = {attr_baseline:.1f}%",
         fontsize=12, fontweight="bold",
     )
     plt.tight_layout()
