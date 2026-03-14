@@ -24,14 +24,52 @@ Usage:
 
   # Mix: auto-discover + charts
   python script/compare_results.py --latest 4 --plots --output logs/plots/
+
+  # Thesis mode (auto-discover eval/results/, generate thesis figures)
+  python script/compare_results.py --thesis
+  python script/compare_results.py --thesis --output eval/plots/v1
 """
 
 import argparse
 import csv
 import json
+import os
 import sys
+from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Thesis mode constants
+# ─────────────────────────────────────────────────────────────────────────────
+
+THESIS_LABELS = {
+    "baseline_MB":    "Baseline (GT labels)",
+    "lora_label_MB":  "LoRA-label (train)",
+    "oracle_MB":      "Oracle (GT spatial)",
+    "lora3_MB":       "LoRA\u2083 wire MB",
+    "lora3_MC":       "LoRA\u2083 wire MC",
+    "lora3_site_MB":  "LoRA\u2083 site MB",
+    "lora3_site_MC":  "LoRA\u2083 site MC",
+}
+
+THESIS_ORDER = [
+    "baseline_MB", "lora_label_MB", "oracle_MB",
+    "lora3_MB", "lora3_MC", "lora3_site_MB", "lora3_site_MC",
+]
+
+THESIS_COLORS = {
+    "baseline_MB":    "#6B7280",  # gray
+    "lora_label_MB":  "#3B82F6",  # blue
+    "oracle_MB":      "#10B981",  # green
+    "lora3_MB":       "#FCD34D",  # amber light
+    "lora3_MC":       "#FBBF24",  # amber
+    "lora3_site_MB":  "#EF4444",  # red
+    "lora3_site_MC":  "#8B5CF6",  # purple
+}
+
+TOTAL_ELEMENTS = 1257  # AdvancedProject.ifc element count
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -202,6 +240,116 @@ def _compute_ssr(traces: list) -> dict:
         "over_reduction_rate": (
             len(invalid) / n_reduced if n_reduced > 0 else None
         ),
+    }
+
+
+def _discover_thesis_experiments(project_root: Path) -> OrderedDict:
+    """Auto-discover eval/results/*/traces_*.jsonl, pick latest per directory.
+
+    Returns OrderedDict of {human_label: [traces]} in THESIS_ORDER.
+    """
+    eval_dir = project_root / "eval" / "results"
+    experiments = OrderedDict()
+
+    for dir_key in THESIS_ORDER:
+        d = eval_dir / dir_key
+        if not d.is_dir():
+            continue
+        trace_files = sorted(d.glob("traces_*.jsonl"))
+        if not trace_files:
+            continue
+        latest = trace_files[-1]  # filenames contain timestamps → lexicographic = chronological
+        traces = load_traces(str(latest))
+        label = THESIS_LABELS.get(dir_key, dir_key)
+        experiments[dir_key] = traces
+        print(f"  {label:<28} {len(traces):>3} traces  ← {latest.name}")
+
+    return experiments
+
+
+def _compute_thesis_metrics(traces: list) -> dict:
+    """Compute thesis-specific metrics from a trace list.
+
+    Metrics:
+        gt_in_pool:  GT GUID in first retrieval attempt's candidates (rr[0])
+        top1/top5:   GT in reranked interpreter_output.candidates positions 0 / 0-4
+        mrr:         Mean reciprocal rank (from interpreter_output.candidates)
+        p0_fired:    Any rr entry used spatial_triplet or continuous_span with pool>0
+        sr_extracted: constraints.spatial_relations is non-empty
+        avg_pool:    Mean of final_pool_size
+    """
+    n = len(traces)
+    if n == 0:
+        return {k: 0 for k in [
+            "n", "gt_in_pool", "gt_in_pct", "top1", "top1_pct", "top5", "top5_pct",
+            "mrr", "avg_pool", "ssr_pct", "p0_fired", "p0_pct", "sr_extracted",
+            "sr_pct", "over_reduction_rate",
+        ]}
+
+    gt_in_pool = top1 = top5 = p0_fired = sr_extracted = 0
+    rrs = []
+    pools = []
+
+    P0_STRATEGIES = {"spatial_triplet", "continuous_span"}
+
+    for t in traces:
+        gt_guid = t.get("scenario", {}).get("ground_truth", {}).get("target_guid", "")
+        internals = t.get("internals", {})
+        rr_list = internals.get("retrieval_results", [])
+        io_cands = [c.get("guid", "") for c in t.get("interpreter_output", {}).get("candidates", [])]
+        constraints = internals.get("constraints", {})
+
+        # GT-in-pool: check rr[0] candidates (first strategy's pool)
+        if rr_list:
+            rr0_guids = [c.get("guid", "") for c in rr_list[0].get("candidates", [])]
+            if gt_guid in rr0_guids:
+                gt_in_pool += 1
+
+        # Top-1 / Top-5 / MRR from reranked output
+        if gt_guid in io_cands:
+            rank = io_cands.index(gt_guid) + 1
+            rrs.append(1.0 / rank)
+            if rank == 1:
+                top1 += 1
+            if rank <= 5:
+                top5 += 1
+        else:
+            rrs.append(0.0)
+
+        # P0 fire: any retrieval step used P0 strategy with results
+        for rr in rr_list:
+            strat = rr.get("query_plan_used", {}).get("strategy", "")
+            if strat in P0_STRATEGIES and rr.get("pool_size", 0) > 0:
+                p0_fired += 1
+                break
+
+        # Spatial relations extracted
+        if constraints.get("spatial_relations"):
+            sr_extracted += 1
+
+        # Pool size
+        pools.append(t.get("final_pool_size", 0))
+
+    avg_pool = sum(pools) / len(pools) if pools else 0
+    mrr = sum(rrs) / len(rrs) if rrs else 0
+    ssr = _compute_ssr(traces)
+
+    return {
+        "n": n,
+        "gt_in_pool": gt_in_pool,
+        "gt_in_pct": round(gt_in_pool / n * 100, 1),
+        "top1": top1,
+        "top1_pct": round(top1 / n * 100, 1),
+        "top5": top5,
+        "top5_pct": round(top5 / n * 100, 1),
+        "mrr": round(mrr, 4),
+        "avg_pool": round(avg_pool, 1),
+        "ssr_pct": round((1 - avg_pool / TOTAL_ELEMENTS) * 100, 1),
+        "p0_fired": p0_fired,
+        "p0_pct": round(p0_fired / n * 100, 1),
+        "sr_extracted": sr_extracted,
+        "sr_pct": round(sr_extracted / n * 100, 1),
+        "over_reduction_rate": round(ssr["over_reduction_rate"] * 100, 1) if ssr["over_reduction_rate"] is not None else 0.0,
     }
 
 
@@ -2129,6 +2277,337 @@ def export_csv(results: list, path: Path) -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Thesis mode — plots, CSV, orchestrator
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _plot_thesis_system_comparison(
+    all_metrics: dict, output_path: str
+) -> None:
+    """Plot T1: GT-in-pool / Top-5 / MRR bar chart across 5 key systems."""
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    # Select key runs for thesis (skip wire runs to keep figure clean)
+    keys = ["baseline_MB", "lora_label_MB", "oracle_MB", "lora3_site_MB", "lora3_site_MC"]
+    keys = [k for k in keys if k in all_metrics]
+    labels = [THESIS_LABELS[k] for k in keys]
+    colors = [THESIS_COLORS[k] for k in keys]
+
+    fig, axes = plt.subplots(1, 3, figsize=(14, 5))
+    metric_defs = [
+        ("gt_in_pct", "GT-in-Pool (%)"),
+        ("top5_pct", "Top-5 Accuracy (%)"),
+        ("mrr", "MRR"),
+    ]
+
+    for ax, (metric_key, title) in zip(axes, metric_defs):
+        values = [all_metrics[k][metric_key] for k in keys]
+        bars = ax.bar(range(len(keys)), values, color=colors, width=0.6,
+                      edgecolor="white", linewidth=0.5)
+        ax.set_xticks(range(len(keys)))
+        ax.set_xticklabels(labels, fontsize=7.5, rotation=15, ha="right")
+        ax.set_title(title, fontsize=12, fontweight="bold")
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+        # Scale annotation offset to data range
+        max_val = max(values) if values else 1
+        offset = max_val * 0.03
+        for bar, val in zip(bars, values):
+            fmt = f"{val:.3f}" if metric_key == "mrr" else f"{val:.1f}%"
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + offset,
+                    fmt, ha="center", va="bottom", fontsize=8, fontweight="bold")
+        ax.set_ylim(0, max_val * 1.15)
+
+    fig.suptitle("Neuro-Symbolic Retrieval: System Comparison (69 test cases)",
+                 fontsize=13, fontweight="bold")
+    fig.subplots_adjust(top=0.88, bottom=0.18, wspace=0.35)
+    fig.savefig(output_path, dpi=200, bbox_inches="tight")
+    plt.close()
+    print(f"  Saved: {output_path}")
+
+
+def _plot_thesis_pool_reduction(
+    all_metrics: dict, output_path: str
+) -> None:
+    """Plot T2: Horizontal bar showing avg pool per system with SSR annotation."""
+    import matplotlib.pyplot as plt
+
+    keys = [k for k in THESIS_ORDER if k in all_metrics]
+    labels = [THESIS_LABELS[k] for k in keys]
+    colors = [THESIS_COLORS[k] for k in keys]
+    avg_pools = [all_metrics[k]["avg_pool"] for k in keys]
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+
+    # Background: total elements
+    ax.barh(range(len(keys)), [TOTAL_ELEMENTS] * len(keys),
+            color="#F3F4F6", height=0.6, label=f"Total ({TOTAL_ELEMENTS})")
+    # Foreground: actual pool
+    bars = ax.barh(range(len(keys)), avg_pools, color=colors,
+                   height=0.6, edgecolor="white")
+
+    ax.set_yticks(range(len(keys)))
+    ax.set_yticklabels(labels, fontsize=10)
+    ax.set_xlabel("Average Candidate Pool Size", fontsize=11)
+    ax.set_title("Search Space Reduction (Lower = Better)", fontsize=13, fontweight="bold")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    for i, (bar, val) in enumerate(zip(bars, avg_pools)):
+        ssr = all_metrics[keys[i]]["ssr_pct"]
+        ax.text(val + 15, i, f"Pool={val:.0f}  SSR={ssr:.1f}%",
+                va="center", fontsize=9, fontweight="bold")
+
+    plt.tight_layout()
+    fig.savefig(output_path, dpi=200, bbox_inches="tight")
+    plt.close()
+    print(f"  Saved: {output_path}")
+
+
+def _plot_thesis_modality_ablation(
+    all_metrics: dict, output_path: str
+) -> None:
+    """Plot T3: Modality ablation — wireframe vs site, MB vs MC for LoRA3."""
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    keys = ["lora3_MB", "lora3_MC", "lora3_site_MB", "lora3_site_MC"]
+    keys = [k for k in keys if k in all_metrics]
+    if len(keys) < 2:
+        print("  Skipped: T3 modality ablation (insufficient runs)")
+        return
+
+    labels = [THESIS_LABELS[k] for k in keys]
+    colors = [THESIS_COLORS[k] for k in keys]
+
+    fig, axes = plt.subplots(1, 2, figsize=(11, 5))
+
+    for ax, (metric_key, title) in zip(axes, [
+        ("gt_in_pct", "GT-in-Pool (%)"),
+        ("mrr", "Mean Reciprocal Rank"),
+    ]):
+        values = [all_metrics[k][metric_key] for k in keys]
+        bars = ax.bar(range(len(keys)), values, color=colors, width=0.6, edgecolor="white")
+        ax.set_xticks(range(len(keys)))
+        ax.set_xticklabels(labels, fontsize=8, rotation=15, ha="right")
+        ax.set_title(title, fontsize=12, fontweight="bold")
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+        max_val = max(values) if values else 1
+        offset = max_val * 0.03
+        for bar, val in zip(bars, values):
+            fmt = f"{val:.4f}" if metric_key == "mrr" else f"{val:.1f}%"
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + offset,
+                    fmt, ha="center", va="bottom", fontsize=9, fontweight="bold")
+        ax.set_ylim(0, max_val * 1.18)
+
+    # Annotate MB→MC delta for site photos
+    if "lora3_site_MB" in all_metrics and "lora3_site_MC" in all_metrics:
+        delta = all_metrics["lora3_site_MC"]["gt_in_pct"] - all_metrics["lora3_site_MB"]["gt_in_pct"]
+        mc_idx = keys.index("lora3_site_MC") if "lora3_site_MC" in keys else -1
+        mb_idx = keys.index("lora3_site_MB") if "lora3_site_MB" in keys else -1
+        if mc_idx >= 0 and mb_idx >= 0:
+            mc_val = all_metrics["lora3_site_MC"]["gt_in_pct"]
+            # Draw bracket between MB and MC bars
+            mid_x = (mb_idx + mc_idx) / 2
+            axes[0].annotate(
+                f"+{delta:.1f}pp (floorplan)",
+                xy=(mid_x, mc_val + 1),
+                fontsize=8, color="#8B5CF6", fontweight="bold", ha="center",
+            )
+
+    fig.suptitle("LoRA\u2083 Modality Ablation: Image Domain \u00d7 Input Condition",
+                 fontsize=13, fontweight="bold")
+    fig.subplots_adjust(top=0.88, bottom=0.18, wspace=0.3)
+    fig.savefig(output_path, dpi=200, bbox_inches="tight")
+    plt.close()
+    print(f"  Saved: {output_path}")
+
+
+def _plot_thesis_pipeline_waterfall(
+    experiments: dict, all_metrics: dict, output_path: str
+) -> None:
+    """Plot T4: Pipeline waterfall from oracle traces (log-scale)."""
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    oracle_traces = experiments.get("oracle_MB", [])
+    if not oracle_traces:
+        print("  Skipped: T4 waterfall (no oracle traces)")
+        return
+
+    # Compute average pool at each pipeline stage from oracle traces
+    stage_pools = {"storey+type": [], "p0": [], "reranked": []}
+    for t in oracle_traces:
+        rr_list = t.get("internals", {}).get("retrieval_results", [])
+        io_cands = t.get("interpreter_output", {}).get("candidates", [])
+        stage_pools["reranked"].append(len(io_cands))
+
+        # Find which strategy was used
+        for rr in rr_list:
+            strat = rr.get("query_plan_used", {}).get("strategy", "")
+            pool = rr.get("pool_size", 0)
+            if pool > 0:
+                if strat in ("spatial_triplet", "continuous_span"):
+                    stage_pools["p0"].append(pool)
+                else:
+                    stage_pools["storey+type"].append(pool)
+                break
+
+    avg_st = np.mean(stage_pools["storey+type"]) if stage_pools["storey+type"] else 80
+    avg_p0 = np.mean(stage_pools["p0"]) if stage_pools["p0"] else avg_st
+    avg_rr = np.mean(stage_pools["reranked"]) if stage_pools["reranked"] else 10
+
+    stages = ["Total\nElements", "Storey+Type\n(P4)", "Spatial Triplet\n(P0)", "Reranked\n(Top-10)"]
+    values = [TOTAL_ELEMENTS, avg_st, avg_p0, avg_rr]
+    colors_wf = ["#E5E7EB", "#3B82F6", "#10B981", "#EF4444"]
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    bars = ax.bar(range(len(stages)), values, color=colors_wf, width=0.5,
+                  edgecolor="white", linewidth=1)
+    ax.set_xticks(range(len(stages)))
+    ax.set_xticklabels(stages, fontsize=10)
+    ax.set_ylabel("Candidate Pool Size", fontsize=11)
+    ax.set_title("Candidate Reduction Waterfall (Oracle Pipeline)", fontsize=13, fontweight="bold")
+    ax.set_yscale("log")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    for bar, val in zip(bars, values):
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() * 1.15,
+                f"{val:.0f}", ha="center", va="bottom", fontsize=10, fontweight="bold")
+
+    # Reduction arrows
+    for i in range(len(values) - 1):
+        if values[i] > 0:
+            reduction = (1 - values[i + 1] / values[i]) * 100
+            mid_y = (values[i] * values[i + 1]) ** 0.5  # geometric mean for log scale
+            ax.annotate(f"\u2212{reduction:.0f}%",
+                        xy=(i + 0.5, mid_y),
+                        fontsize=9, color="#DC2626", fontweight="bold", ha="center")
+
+    plt.tight_layout()
+    fig.savefig(output_path, dpi=200, bbox_inches="tight")
+    plt.close()
+    print(f"  Saved: {output_path}")
+
+
+def _plot_thesis_p0_vs_accuracy(
+    all_metrics: dict, output_path: str
+) -> None:
+    """Plot T5: P0 fire rate vs GT-in-pool grouped bar for all systems."""
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    keys = [k for k in THESIS_ORDER if k in all_metrics]
+    labels = [THESIS_LABELS[k] for k in keys]
+
+    p0_rates = [all_metrics[k]["p0_pct"] for k in keys]
+    gt_in_rates = [all_metrics[k]["gt_in_pct"] for k in keys]
+
+    x = np.arange(len(keys))
+    width = 0.35
+
+    fig, ax = plt.subplots(figsize=(11, 5))
+    bars1 = ax.bar(x - width / 2, p0_rates, width, label="P0 Fire Rate",
+                   color="#3B82F6", edgecolor="white")
+    bars2 = ax.bar(x + width / 2, gt_in_rates, width, label="GT-in-Pool",
+                   color="#10B981", edgecolor="white")
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=8, rotation=15, ha="right")
+    ax.set_ylabel("Percentage (%)", fontsize=11)
+    ax.set_title("P0 Fire Rate vs GT-in-Pool: Spatial Extraction is the Bottleneck",
+                 fontsize=12, fontweight="bold")
+    ax.legend(fontsize=10)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    for bars in [bars1, bars2]:
+        for bar in bars:
+            h = bar.get_height()
+            if h > 0:
+                ax.text(bar.get_x() + bar.get_width() / 2, h + 0.8,
+                        f"{h:.1f}%", ha="center", va="bottom", fontsize=7.5)
+
+    plt.tight_layout()
+    fig.savefig(output_path, dpi=200, bbox_inches="tight")
+    plt.close()
+    print(f"  Saved: {output_path}")
+
+
+def _export_thesis_csv(
+    all_metrics: dict, output_path: str
+) -> None:
+    """Export thesis metrics as CSV."""
+    fieldnames = [
+        "system", "label", "n", "gt_in_pool", "gt_in_pct",
+        "top1", "top1_pct", "top5", "top5_pct", "mrr",
+        "avg_pool", "ssr_pct", "p0_fired", "p0_pct",
+        "sr_extracted", "sr_pct", "over_reduction_rate",
+    ]
+
+    with open(output_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        for key in THESIS_ORDER:
+            if key not in all_metrics:
+                continue
+            row = {"system": key, "label": THESIS_LABELS[key]}
+            row.update(all_metrics[key])
+            writer.writerow(row)
+
+    print(f"  Saved: {output_path}")
+
+
+def _run_thesis_mode(project_root: Path, output_dir: str) -> None:
+    """Orchestrate thesis mode: discover → compute → plot → CSV."""
+    os.makedirs(output_dir, exist_ok=True)
+
+    print("Discovering evaluation runs...")
+    experiments = _discover_thesis_experiments(project_root)
+
+    if not experiments:
+        print("No eval results found in eval/results/. Run evaluations first.")
+        return
+
+    print(f"\nComputing metrics for {len(experiments)} runs...")
+    all_metrics = {}
+    for key, traces in experiments.items():
+        all_metrics[key] = _compute_thesis_metrics(traces)
+
+    # Print summary table
+    header = f"{'System':<28} {'n':>3} {'GT-in%':>7} {'Top1%':>6} {'Top5%':>6} {'MRR':>6} {'SSR%':>6} {'P0%':>5} {'SR':>3}"
+    print(f"\n{header}")
+    print("-" * len(header))
+    for key in THESIS_ORDER:
+        if key not in all_metrics:
+            continue
+        m = all_metrics[key]
+        label = THESIS_LABELS[key]
+        print(
+            f"{label:<28} {m['n']:>3} {m['gt_in_pct']:>6.1f}% {m['top1_pct']:>5.1f}% "
+            f"{m['top5_pct']:>5.1f}% {m['mrr']:>5.4f} {m['ssr_pct']:>5.1f}% "
+            f"{m['p0_pct']:>4.1f}% {m['sr_extracted']:>3}"
+        )
+
+    # Generate plots
+    print(f"\nGenerating thesis plots to {output_dir}/...")
+    _plot_thesis_system_comparison(all_metrics, f"{output_dir}/T1_system_comparison.png")
+    _plot_thesis_pool_reduction(all_metrics, f"{output_dir}/T2_pool_reduction.png")
+    _plot_thesis_modality_ablation(all_metrics, f"{output_dir}/T3_modality_ablation.png")
+    _plot_thesis_pipeline_waterfall(experiments, all_metrics, f"{output_dir}/T4_pipeline_waterfall.png")
+    _plot_thesis_p0_vs_accuracy(all_metrics, f"{output_dir}/T5_p0_vs_accuracy.png")
+
+    # Export CSV
+    _export_thesis_csv(all_metrics, f"{output_dir}/thesis_summary.csv")
+
+    print(f"\nDone. {5} plots + CSV saved to {output_dir}/")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # main
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -2188,9 +2667,22 @@ def main():
         help="Generate paired modality ablation charts (Charts 10-12). "
              "Expects traces with MA/MB/MC conditions.",
     )
+    parser.add_argument(
+        "--thesis", action="store_true",
+        help="Thesis mode: auto-discover eval/results/*/traces_*.jsonl, "
+             "compute comprehensive metrics, and generate thesis figures.",
+    )
     args = parser.parse_args()
 
     project_root = Path(__file__).resolve().parent.parent
+
+    # ── Mode 0: Thesis auto-discover ──
+    if args.thesis:
+        output_dir = args.output or str(project_root / "eval" / "plots")
+        if not Path(output_dir).is_absolute():
+            output_dir = str(project_root / output_dir)
+        _run_thesis_mode(project_root, output_dir)
+        return
 
     # ── Mode 1: Traces comparison (N-way) ──
     if args.traces:

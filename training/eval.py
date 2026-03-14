@@ -14,6 +14,10 @@ Usage:
     modal run training/eval.py --adapter-dir /mscd-lora/final
     modal run training/eval.py --adapter-dir /mscd-lora/checkpoint-180
     modal run training/eval.py --limit 5  # Quick test
+
+    # v0.5 topology cases (69 cases with spatial relations)
+    modal run training/eval.py --cases /data/v05_test.jsonl --condition-override MB
+    modal run training/eval.py --cases /data/v05_test.jsonl --condition-override MC
 """
 
 import copy
@@ -34,15 +38,27 @@ PROFILES_YAML = PROJECT_ROOT / "profiles.yaml"
 PROMPTS_YAML  = PROJECT_ROOT / "prompts" / "constraints_extraction.yaml"
 COND_MASK_PY  = PROJECT_ROOT / "src" / "v2" / "condition_mask.py"
 
-# v0.4 merged holdout — 50 cases, all assets complete (images + floorplans)
-CASES_FILE = DATA_ROOT / "datasets" / "synth_v0.4_merged" / "train" / "test_holdout_with_images.jsonl"
-# Image dirs per IFC model
+# Default cases file — override with --cases flag
+DEFAULT_CASES_FILE = DATA_ROOT / "datasets" / "synth_v0.4_merged" / "train" / "test_holdout_with_images.jsonl"
+
+# ── v0.4 image dirs (legacy) ────────────────────────────────────────────────
 AP_IMGS_DIR   = DATA_ROOT / "datasets" / "synth_v0.4_ap"  / "cases" / "imgs"
 AP_PLANS_DIR  = DATA_ROOT / "datasets" / "synth_v0.4_ap"  / "cases" / "plans"
 BH_IMGS_DIR   = DATA_ROOT / "datasets" / "synth_v0.4_bh"  / "cases" / "imgs"
 BH_PLANS_DIR  = DATA_ROOT / "datasets" / "synth_v0.4_bh"  / "cases" / "plans"
 DXA_IMGS_DIR  = DATA_ROOT / "datasets" / "synth_v0.4_dxa" / "cases" / "imgs"
 DXA_PLANS_DIR = DATA_ROOT / "datasets" / "synth_v0.4_dxa" / "cases" / "plans"
+
+# ── v0.5 image dirs (topology skeletons) ────────────────────────────────────
+V05_AP_IMGS_DIR   = DATA_ROOT / "datasets" / "synth_v0.5"     / "imgs"
+V05_AP_WIRE_DIR   = DATA_ROOT / "datasets" / "synth_v0.5"     / "renders" / "wireframes"
+V05_AP_PLANS_DIR  = DATA_ROOT / "datasets" / "synth_v0.5"     / "floorplans"
+V05_DXA_IMGS_DIR  = DATA_ROOT / "datasets" / "synth_v0.5_dxa" / "imgs"
+
+# v0.5 test cases — 69 topology skeleton cases (file uses "v3" case schema format)
+V05_CASES_FILE = PROJECT_ROOT / "eval" / "cases_v3_test.jsonl"
+V05_CASES_SITE_FILE = PROJECT_ROOT / "eval" / "cases_v3_test_site.jsonl"
+V05_BH_IMGS_DIR   = DATA_ROOT / "datasets" / "synth_v0.5_bh"  / "imgs"
 
 # ── Modal infrastructure ─────────────────────────────────────────────────────
 
@@ -73,14 +89,22 @@ eval_image = (
     .add_local_file(str(PROFILES_YAML), remote_path="/app/profiles.yaml")
     .add_local_file(str(PROMPTS_YAML),  remote_path="/app/constraints_extraction.yaml")
     .add_local_file(str(COND_MASK_PY),  remote_path="/app/condition_mask.py")
-    # ── Evaluation data ───────────────────────────────────────────────────────
-    .add_local_file(str(CASES_FILE), remote_path="/data/test_holdout.jsonl")
+    # ── Evaluation data — v0.4 (legacy) ────────────────────────────────────────
+    .add_local_file(str(DEFAULT_CASES_FILE), remote_path="/data/test_holdout.jsonl")
     .add_local_dir(str(AP_IMGS_DIR),   remote_path="/data/images/ap/imgs")
     .add_local_dir(str(AP_PLANS_DIR),  remote_path="/data/images/ap/plans")
     .add_local_dir(str(BH_IMGS_DIR),   remote_path="/data/images/bh/imgs")
     .add_local_dir(str(BH_PLANS_DIR),  remote_path="/data/images/bh/plans")
     .add_local_dir(str(DXA_IMGS_DIR),  remote_path="/data/images/dxa/imgs")
     .add_local_dir(str(DXA_PLANS_DIR), remote_path="/data/images/dxa/plans")
+    # ── Evaluation data — v0.5 topology cases (69 cases, "v3" schema) ──────
+    .add_local_file(str(V05_CASES_FILE), remote_path="/data/v05_test.jsonl")
+    .add_local_file(str(V05_CASES_SITE_FILE), remote_path="/data/v05_test_site.jsonl")
+    .add_local_dir(str(V05_AP_IMGS_DIR),  remote_path="/data/images/v05_ap/imgs")
+    .add_local_dir(str(V05_AP_WIRE_DIR),  remote_path="/data/images/v05_ap/wireframes")
+    .add_local_dir(str(V05_AP_PLANS_DIR), remote_path="/data/images/v05_ap/plans")
+    .add_local_dir(str(V05_DXA_IMGS_DIR), remote_path="/data/images/v05_dxa/imgs")
+    .add_local_dir(str(V05_BH_IMGS_DIR),  remote_path="/data/images/v05_bh/imgs")
 )
 
 model_cache    = modal.Volume.from_name("mscd-model-cache",  create_if_missing=True)
@@ -134,11 +158,33 @@ _MODEL_IMAGE_ROOT = {
 def _remap_to_modal(path: str, case_id: str = "") -> str:
     """Remap local case image path to Modal container path.
 
-    Derives the model subdirectory from the case_id (e.g. _AP_, _BH_, _DXA_).
-    Falls back to /data/images/ap for legacy paths.
+    Handles both v0.4 paths (case_id prefix → model subdir) and v0.5 paths
+    (relative paths like ``datasets/synth_v0.5/imgs/SK_136_site.png``).
     """
     path_str = str(path)
-    # Determine model key from case_id
+    p = Path(path_str)
+    filename = p.name
+
+    # ── v0.5 paths: detected by "synth_v0.5" in path ────────────────────
+    if "synth_v0.5" in path_str:
+        # wireframes
+        if "wireframes" in path_str or "renders" in path_str:
+            if "_dxa" in path_str or "v0.5_dxa" in path_str:
+                return f"/data/images/v05_dxa/wireframes/{filename}"
+            return f"/data/images/v05_ap/wireframes/{filename}"
+        # floorplans
+        if "floorplan" in path_str:
+            if "_dxa" in path_str or "v0.5_dxa" in path_str:
+                return f"/data/images/v05_dxa/plans/{filename}"
+            return f"/data/images/v05_ap/plans/{filename}"
+        # site photos
+        if "_dxa" in path_str or "v0.5_dxa" in path_str:
+            return f"/data/images/v05_dxa/imgs/{filename}"
+        if "_bh" in path_str or "v0.5_bh" in path_str:
+            return f"/data/images/v05_bh/imgs/{filename}"
+        return f"/data/images/v05_ap/imgs/{filename}"
+
+    # ── v0.4 paths (legacy): derive model from case_id ───────────────────
     model_key = "ap"
     if "_BH_" in case_id:
         model_key = "bh"
@@ -146,9 +192,6 @@ def _remap_to_modal(path: str, case_id: str = "") -> str:
         model_key = "dxa"
     model_root = _MODEL_IMAGE_ROOT[model_key]
 
-    # Determine imgs vs plans from path content, then return filename under model root
-    p = Path(path_str)
-    filename = p.name
     subdir = "plans" if ("plans" in p.parts or filename.startswith("plan_")) else "imgs"
     return f"{model_root}/{subdir}/{filename}"
 
@@ -256,6 +299,7 @@ def run_eval(
     adapter_dir: str = "/mscd-lora/final",
     limit: int = 0,
     condition_override: str = "",
+    cases_file: str = "",
 ):
     """Run LoRA constraint extraction on all cases (Modal A100)."""
     import torch
@@ -300,8 +344,10 @@ def run_eval(
     print("Model ready.\n")
 
     # ── 3. Load cases ────────────────────────────────────────────────────
+    data_path = cases_file if cases_file else "/data/test_holdout.jsonl"
+    print(f"Loading cases from: {data_path}")
     cases = []
-    with open("/data/test_holdout.jsonl") as f:
+    with open(data_path) as f:
         for line in f:
             if line.strip():
                 cases.append(json.loads(line))
@@ -404,6 +450,7 @@ def run_eval(
                 "space_name": parsed.get("space_name"),
                 "target_name_keyword": parsed.get("target_name_keyword"),
                 "neighbor_type": parsed.get("neighbor_type"),
+                "spatial_relations": parsed.get("spatial_relations", []),
             },
             "raw_output": raw_output[:500],
             "latency_ms": round(latency_ms, 1),
@@ -448,7 +495,7 @@ def run_eval(
           f"./logs/evaluations/")
     print(f"\nRun local pipeline with pre-computed constraints:")
     print(f"  python script/run.py --profile v2_lora \\")
-    print(f"    --cases ../data_curation/datasets/synth_v0.4_merged/train/test_holdout.jsonl \\")
+    print(f"    --cases eval/cases_v3_test.jsonl \\")
     print(f"    --precomputed logs/evaluations/eval_constraints_{tag}.jsonl")
 
     return {
@@ -494,11 +541,19 @@ def main(
     adapter_dir: str = "/mscd-lora/final",
     limit: int = 0,
     condition_override: str = "",
+    cases: str = "",
 ):
-    """Launch LoRA evaluation on Modal GPU."""
+    """Launch LoRA evaluation on Modal GPU.
+
+    Args:
+        cases: Remote path to cases JSONL inside Modal container.
+               Use "/data/v05_test.jsonl" for v0.5 topology cases (69 cases).
+               Default: "/data/test_holdout.jsonl" (v0.4 holdout, 50 cases).
+    """
+    cases_label = cases if cases else str(DEFAULT_CASES_FILE)
     print("Launching MSCD LoRA evaluation on Modal...")
     print(f"  Adapter:  {adapter_dir}")
-    print(f"  Cases:    {CASES_FILE}")
+    print(f"  Cases:    {cases_label}")
     if limit > 0:
         print(f"  Limit:    {limit} cases")
     if condition_override:
@@ -512,6 +567,7 @@ def main(
         adapter_dir=adapter_dir,
         limit=limit,
         condition_override=condition_override,
+        cases_file=cases,
     )
     result = None
     poll_secs = 120  # re-open gRPC connection every 2 minutes
@@ -544,7 +600,8 @@ def main(
     print(f"  modal volume get mscd-checkpoints "
           f"/mscd-lora/eval_constraints_{tag}.jsonl "
           f"./logs/evaluations/")
+    cases_hint = cases if cases else "eval/cases_v3_test.jsonl"
     print(f"\nRun local pipeline:")
     print(f"  python script/run.py --profile v2_lora \\")
-    print(f"    --cases ../data_curation/datasets/synth_v0.4_merged/train/test_holdout.jsonl \\")
+    print(f"    --cases {cases_hint} \\")
     print(f"    --precomputed logs/evaluations/eval_constraints_{tag}.jsonl")

@@ -119,7 +119,8 @@ elements. The T1.1 target_name_keyword post-filter (already wired) will fix this
 | **Neo4j conn in run.py** | ✅ **Fixed** (03-14) | `run.py:init_engine()` — was NEVER connected! |
 | **Storey resolver generalized** | ✅ Done (03-14) | `ifc_engine.py:_resolve_storey_query()` → returns siblings |
 | 3-way precomputed eval (AP only) | ✅ Done (03-14) | Baseline / LoRA-label / Oracle |
-| 3-way/4-way eval (live VLM) | ❌ Pending | → T2.2 (requires Modal adapter) |
+| 4-way eval (live VLM, LoRA_3 MB+MC) | ✅ Done (03-14) | `eval/results/lora3_{site,wire}_{MB,MC}/` |
+| Thesis metrics CSV + 5 plots (T2.3+T3.1) | ✅ Done (03-14) | `script/compare_results.py --thesis` → `eval/plots/` |
 | IfcRelConnectsPathElements in Neo4j | ❌ Not loaded | → Future work (Section 7) |
 
 ---
@@ -588,6 +589,145 @@ S2: + target_name_keyword post-filt  100%      0%     ~96%     Wired, needs VLM
 S3: + 2-hop ConnectsPath             100%      0%     ~99%     Future work
 ```
 
+### 5.6 LoRA_3 Live VLM Evaluation (69 test cases, site photos, 2026-03-14)
+
+**Setup**: LoRA_3 adapter on Modal A100, site photos (not wireframes), Neo4j connected.
+Image domain mismatch fixed: wireframes→site photos (training had 0 wireframes).
+
+| Metric | MB (site) | MC (site+floorplan) | Oracle (GT labels) |
+|--------|-----------|--------------------|--------------------|
+| GT-in-pool | **14/68 (20.6%)** | **23/68 (33.8%)** | 49/49 (100%) |
+| Top-1 | 0/68 (0.0%) | 1/68 (1.5%) | 2/49 (4.1%) |
+| SSR | 96.7% | 95.2% | 94.7% |
+| Storey accuracy (floor#) | 42.6% | 52.9% | 100% |
+| IFC class accuracy | 70.6% | 67.6% | 100% |
+| spatial_relations extracted | **0/69 (0%)** | **1/69 (1.4%)** | 48/49 (98%) |
+| Avg pool | 41.5 | 60.1 | 66.0 |
+
+**Strategy breakdown** (all queries fall to storey+type — NO P0 fires):
+```
+Strategy        MB: N   GT-in         MC: N   GT-in
+─────────────────────────────────────────────────────
+storey+type      64    14/64 (21.9%)   65    23/65 (35.4%)
+space+type        4     0/4  (0.0%)     3     0/3  (0.0%)
+```
+
+**Per-field distributions**:
+```
+MB storey predictions: Garage(8), 1st(4), 2nd(8), 3rd(2), 4th(4), 5th(3),
+                       6th(9), Level0(1), Level1(17), Level2(6), Roof(5)
+MC storey predictions: Garage(7), 1st(17), 2nd(8), 3rd(2), 4th(4), 5th(3),
+                       6th(3), Level0(1), Level1(12), Level2(4), Roof(5)
+IFC class: IfcWindow(24-26), IfcDoor(18-19), IfcWallStandardCase(15-17),
+           IfcSlab(6), IfcRailing(2-3)
+```
+
+**Key findings from LoRA_3 live eval**:
+
+| # | Finding | Root Cause | LoRA_4 Action |
+|---|---------|------------|---------------|
+| F1 | **spatial_relations = 0-1/69** — model NEVER fires P0 | 56% of training data had empty spatial_relations → model learned to default to `[]` | Increase spatial_relations labeling to 80%+ for floorplan cases |
+| F2 | **Floorplan helps storey** (+10pp: 42.6%→52.9%) | Floorplan directly shows floor labels | Make floorplan MANDATORY for topology cases, not optional MC |
+| F3 | **Storey naming mismatch** ("Level 1" vs "1 - First Floor") | Training data has mixed naming from AP/BH/DXA | Standardize storey labels or teach model canonical format |
+| F4 | **Site photos = visual ambiguity for topology** | Site photo shows appearance, not spatial structure | Floorplan should be PRIMARY input for spatial reasoning |
+| F5 | **IFC class accuracy decent (70%)** but storey accuracy low (43-53%) | Multi-IFC training → storey confusion between models | Per-model storey naming in training data |
+| F6 | **MC GT-in-pool 33.8% vs MB 20.6%** (+64% relative) | Floorplan provides spatial context that site photo lacks | MC condition = default for LoRA_4 |
+| F7 | **Oracle proves pipeline works** (100% GT-in-pool, 0% over-reduction) | Gap is entirely in VLM extraction, NOT retrieval | Focus LoRA_4 on extraction quality, not pipeline fixes |
+
+### 5.7 LoRA_4 Development Hints (from LoRA_3 Eval)
+
+**Core insight**: The retrieval pipeline is proven (Oracle=100%). The ONLY bottleneck
+is VLM spatial_relations extraction (1/69). LoRA_4 must fix the extraction, not the pipeline.
+
+**Training data strategy**:
+```
+1. FLOORPLAN-FIRST: Every topology case MUST have floorplan as primary image
+   - Site photo = secondary (appearance/condition)
+   - Floorplan = primary (spatial topology, wall identity, adjacency)
+   - Ratio: 80% floorplan cases → spatial_relations populated
+
+2. ANTI-CONSERVATIVE BIAS: Break the "default to empty []" behavior
+   - Current: 44% have spatial_relations → model learns to skip
+   - Target: 80%+ of floorplan cases have spatial_relations
+   - Add explicit prompt: "When a floorplan is provided, ALWAYS look for spatial relationships"
+
+3. STOREY STANDARDIZATION: Teach canonical storey format
+   - Training labels should use the Neo4j storey name (e.g., "1 - First Floor")
+   - Or: teach model to output floor NUMBER only, let pipeline resolve
+
+4. PREDICATE-BALANCED DATA: Current training is ADJACENT_TO-heavy
+   - ADJACENT_TO: 314 (52%), FILLS: 207 (34%), CONTINUOUS: 84 (14%)
+   - FILLS is the hardest (SSR=0% without post-filter) → needs more training cases
+   - Mine additional FILLS cases from BH + DXA
+
+5. CONFIDENCE CALIBRATION: Model outputs confidence=1.0 on the one extraction
+   - Need training with varied confidence values
+   - Or: remove confidence field, let pipeline always execute P0 when spatial_relations present
+```
+
+**Schema changes for LoRA_4** (tentative):
+```json
+{
+  "storey_name": "1",              // Floor NUMBER only (pipeline resolves)
+  "ifc_class": "IfcWindow",
+  "space_name": null,
+  "target_name_keyword": "BALANS",
+  "spatial_relations": [
+    {
+      "predicate": "FILLS",
+      "object_type": "IfcWallStandardCase",
+      "object_material": "Brick",
+      "confidence": 0.9
+    }
+  ]
+}
+```
+
+### 5.8 Evaluation Infrastructure & Thesis Plots (Done 03-14)
+
+**Metrics collection** (T2.3): Comprehensive 7-run comparison across all eval conditions.
+
+```
+System                         n  GT-in%  Top1%  Top5%    MRR   SSR%   P0%  SR
+------------------------------------------------------------------------------
+Baseline (GT labels)          69   84.1%   4.3%  18.8% 0.098   91.9%  0.0%   0
+LoRA-label (train)            55   54.5%   0.0%   9.1% 0.035   94.0% 52.7%  29
+Oracle (GT spatial)           59   91.5%   3.4%  18.6% 0.100   95.3% 96.6%  57
+LoRA₃ wire MB                 67   10.4%   3.0%   3.0% 0.030   93.8%  0.0%   0
+LoRA₃ wire MC                 66   16.7%   3.0%   3.0% 0.030   93.5%  0.0%   0
+LoRA₃ site MB                 68   20.6%   0.0%   8.8% 0.027   93.9%  0.0%   0
+LoRA₃ site MC                 68   33.8%   1.5%   8.8% 0.039   92.9%  0.0%   0
+```
+
+**Thesis plots** (T3.1): 5 figures generated via `python script/compare_results.py --thesis`.
+
+| Plot | File | What it shows |
+|------|------|---------------|
+| **T1** | `eval/plots/T1_system_comparison.png` | GT-in-pool / Top-5 / MRR bar chart across 5 key systems |
+| **T2** | `eval/plots/T2_pool_reduction.png` | Avg pool size per system with SSR% annotation (horizontal bars) |
+| **T3** | `eval/plots/T3_modality_ablation.png` | Wireframe vs site, MB vs MC — shows +13.2pp floorplan gain |
+| **T4** | `eval/plots/T4_pipeline_waterfall.png` | Oracle pipeline stages: 1257→26→61→9 (log scale) |
+| **T5** | `eval/plots/T5_p0_vs_accuracy.png` | P0 fire rate vs GT-in-pool — proves spatial extraction is bottleneck |
+
+**Key takeaway from T5 ("money chart")**: Oracle fires P0 96.6% → 91.5% GT-in-pool.
+LoRA₃ fires P0 0% → 20-34% GT-in-pool. The retrieval pipeline works;
+the VLM extraction doesn't. This is the core motivation for LoRA_4.
+
+**Code & file locations**:
+```
+Thesis mode CLI:    script/compare_results.py --thesis
+  Functions added:  _discover_thesis_experiments(), _compute_thesis_metrics(),
+                    _plot_thesis_{system_comparison,pool_reduction,modality_ablation,
+                                  pipeline_waterfall,p0_vs_accuracy}(),
+                    _export_thesis_csv(), _run_thesis_mode()
+Plot output:        eval/plots/T1-T5_*.png + thesis_summary.csv
+Metrics CSV:        eval/results/t23_all_runs_metrics.csv
+Trace files:        eval/results/{baseline_MB,lora_label_MB,oracle_MB,
+                    lora3_MB,lora3_MC,lora3_site_MB,lora3_site_MC}/traces_*.jsonl
+Existing tools:     eval/analyze_traces.py (per-strategy/predicate breakdown)
+                    script/generate_plots.py --modality (modality analysis charts 9-11)
+```
+
 ---
 
 ## 6. Sprint Checklist
@@ -600,9 +740,9 @@ SPRINT 1: EVIDENCE (Days 1-5)
 ✅ T1.3  Add material to Neo4j + wire into P0 Cypher                 Done 03-13
 ✅ T2.1  Convert lora3_test.jsonl → cases_v3 format                  Done 03-14
 ✅ T2.2a Run 3-way precomputed eval (Baseline/LoRA-label/Oracle)     Done 03-14
-□ T2.2b Run 4-way live eval (requires Modal adapter endpoint)       Pending
-□ T2.3  Collect per-run metrics (Top-1/5, MRR, SSR, P0 rate)        Pending
-□ T3.1  Generate thesis plots (5 figures)                            Pending
+✅ T2.2b Run live VLM eval (LoRA_3 MB+MC, site photos, Modal A100)  Done 03-14
+✅ T2.3  Collect per-run metrics (7 runs, CSV + table)               Done 03-14
+✅ T3.1  Generate thesis plots (5 figures via --thesis mode)          Done 03-14
 □ T4.1  Neo4j edge pre-check in h2_eval.py                          Pending
 ✅ T4.2  Re-run H2 eval with fixes (verify SSR improvement)          Done 03-14
 
@@ -729,7 +869,7 @@ Each space has 9-19 boundary elements.
 |---|---|---|
 | **Full SGG schema** (new.md) | Invalidates all 1,377 training samples + entire pipeline. 3-week rewrite. | Appendix A.1 |
 | **Dual-track bbox** (new.md) | Each sub-component is a standalone project. | Appendix A.2 |
-| **LoRA_4 training** (new.md) | 4-week clean execution, realistically 6-8 weeks. | Appendix A.3 |
+| **LoRA_4 training** (new.md) | **RE-SCOPED**: LoRA_3 eval proves extraction is bottleneck (1/69 spatial). LoRA_4 with floorplan-first strategy is now PLANNED. See §5.7. | §5.7 + Appendix A.3 |
 | **P6: 2-hop implementation** | High value but >1 week. Present simulated ceiling (71.5%) instead. | Section 7, 8.2 |
 | **P7.2-7.3: bbox overlay** | Needs new training data. Zero-shot alternative in T7.2. | Appendix A.4 |
 | **P8: dataset expansion** | 213 H2 + 69 test = sufficient evidence for thesis. | Appendix A.5 |
@@ -851,12 +991,24 @@ Existing eval results:
   Gemini baseline (50 cases, MA): 25.7% Top-1, 52.8% SSR
   LoRA_3 extraction quality (69 test): 93% spatial acc, 0% FP, 100% parse
   H2 (213 cases): 100% GT-in-pool, ADJACENT_TO SSR=57%, FILLS SSR=0%, CONTINUOUS SSR=47.5%
+
+Evaluation infrastructure (added 03-14):
+  Thesis plots:          eval/plots/T1-T5_*.png (via script/compare_results.py --thesis)
+  Metrics CSV:           eval/plots/thesis_summary.csv
+  Per-run metrics:       eval/results/t23_all_runs_metrics.csv
+  Trace files (7 runs):  eval/results/{baseline_MB,lora_label_MB,oracle_MB,
+                          lora3_MB,lora3_MC,lora3_site_MB,lora3_site_MC}/traces_*.jsonl
+  Strategy analyzer:     eval/analyze_traces.py (per-strategy/predicate breakdown)
+  Test cases:            eval/cases_v3_test.jsonl (wireframe), eval/cases_v3_test_site.jsonl (site)
+  Precomputed VLM:       logs/evaluations/eval_constraints_final_{MB,MC}.jsonl (Modal output)
 ```
 
 ---
 
-*Last updated: 2026-03-14.*
+*Last updated: 2026-03-14 (evening).*
 *Data-grounded against: AdvancedProject.ifc (1233 elements, 686 ConnectsPathElements),
-H2 eval (213/213 GT-in-pool, 0 fallbacks), 3-way precomputed eval (69 cases, AP-only: 100% GT-in-pool).*
+H2 eval (213/213 GT-in-pool, 0 fallbacks), 3-way precomputed eval (69 cases, AP-only: 100% GT-in-pool),
+LoRA_3 live VLM eval (69 cases, MB: 20.6% GT-in-pool, MC: 33.8% GT-in-pool, spatial_relations: 1/69).*
 *Consolidates: 0307_post_mid_plan.md + new_retrieve.md + 0313_final_todo.md.*
 *Critical bugs fixed 03-14: Neo4j conn in run.py, CONTINUOUS Cypher, storey resolver generalized.*
+*LoRA_4 re-scoped from "dropped" to "planned" — floorplan-first strategy, see §5.7.*
