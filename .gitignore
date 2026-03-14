@@ -29,6 +29,8 @@ env/
 # Outputs and logs
 outputs/
 logs/
+evals/
+
 
 # Large model / weight files
 models/
