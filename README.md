@@ -319,7 +319,7 @@ Per-predicate: FILLS 24/24 (100%), CONTINUOUS 3/3 (100%), ADJACENT_TO 13/16 (81%
 
 End-to-end 3-way comparison (same cases, same Neo4j state) is in progress — see [P10 in post-mid plan](docs/README/0307_post_mid_plan.md).
 
-### Group 3 — H2 Hard-Negative Stress Test (Topology Only)
+- H2 Hard-Negative Stress Test (Topology Only)
 
 Tests spatial triplet retrieval on cases where **all candidates share identical attributes** (same IFC class, storey, dimensions). Only spatial topology can distinguish them.
 
@@ -332,6 +332,10 @@ Tests spatial triplet retrieval on cases where **all candidates share identical 
 | FILLS | 28 | 28/28 (100%) | 43 | 0% | N/A |
 
 Full H2 eval (213 cases) pending re-run with complete Neo4j graph.
+
+### Group 3 — Ablation Studies: (a) modality ablation (MA/MB/MC/MA−) on same cases, (b) component ablation (±spatial, ±Neo4j, ±CLIP), (c) performance across difference IFC files
+Each group specifies independent variables, metrics with definitions, test data, profiles, and expected outputs. The execution plan at the bottom maps directly to P10 tasks in the post-mid plan.
+
 
 ### Metrics Summary
 

@@ -295,12 +295,19 @@ class QueryPlanner:
             params["spatial_relations"] = [t.model_dump() for t in constraints.spatial_relations]
             if triplet.object_material:
                 params["object_material"] = triplet.object_material
-            # storey used in WHERE clause for edge-traversal predicates
+            # storey routing depends on context:
+            # - H2 eval sets storey_name = top_constraint for CONTINUOUS
+            # - LoRA sets storey_name = base storey (the floor the element is on)
+            # Strategy: put storey_name in BOTH params; Cypher uses OR logic
+            # so either match works. The more specific match wins.
             if "storey" not in params:
                 params["storey"] = constraints.storey_name or ""
-            # top_storey used in WHERE clause for CONTINUOUS (property filter)
-            # storey_name in a CONTINUOUS query = the top storey the element reaches
             params["top_storey"] = constraints.storey_name or ""
+
+        # T1.1: Always propagate target_name_keyword for post-filtering P0 results.
+        # This applies AFTER Cypher returns candidates (Python-side filter).
+        if constraints.target_name_keyword:
+            params["target_name_keyword"] = constraints.target_name_keyword
 
         return params
 

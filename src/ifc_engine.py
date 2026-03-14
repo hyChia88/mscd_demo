@@ -184,7 +184,7 @@ class IFCEngine:
         # ── Regex fallback (if LLM unavailable / parse error) ─────────────────
         _CAT_RE = [
             (re.compile(r'ground|g/?f|lobby|entrance',          re.I), 'ground'),
-            (re.compile(r'basement|b\d|underground|carpark|park', re.I), 'basement'),
+            (re.compile(r'basement|b\d|underground|carpark|park|garage', re.I), 'basement'),
             (re.compile(r'roof|rooftop|sky\s*lobby',            re.I), 'roof'),
             (re.compile(r'mezzanine|mezz',                      re.I), 'mezzanine'),
             (re.compile(r'podium',                              re.I), 'podium'),
@@ -205,7 +205,7 @@ class IFCEngine:
 
         # ── Build registry & secondary indices ────────────────────────────────
         self.storey_registry = {}
-        self._storey_by_num  = {}
+        self._storey_by_num  = {}   # {floor_num: [canonical, ...]} — 1:many
         self._storey_by_cat  = {}
 
         for name, info in zip(names, parsed):
@@ -216,44 +216,59 @@ class IFCEngine:
                 "raw": name, "floor_num": floor_num, "category": category
             }
             if floor_num is not None:
-                self._storey_by_num[floor_num] = canonical
+                self._storey_by_num.setdefault(floor_num, []).append(canonical)
             self._storey_by_cat.setdefault(category, []).append(canonical)
 
     def _resolve_storey_query(self, query: str):
         """
-        Resolve a natural-language storey reference → canonical key in storey_registry.
+        Resolve a natural-language storey reference → list of canonical siblings.
+
+        IFC files may have multiple storeys sharing the same floor_num
+        (e.g. "Level 1" and "1 - First Floor" both at floor_num=1).
+        This method returns ALL siblings so Cypher can match any of them.
 
         Strategy (ordered by cost):
-        1. Exact canonical match    O(1)   "6 - sixth floor" as-is
-        2. Floor number extraction  O(1)   "level 6", "6f" → floor_num=6
-        3. Category keyword         O(k)   "ground floor", "basement" → category lookup
+        1. Exact canonical match    O(1)   "6 - sixth floor" → siblings of floor_num
+        2. Floor number extraction  O(1)   "level 6", "6f" → floor_num=6 → siblings
+        3. Category keyword         O(k)   "ground floor" → category lookup
         4. difflib fuzzy            O(n)   typo fallback, last resort
 
-        Returns canonical key (str) or None if unresolved.
+        Returns list[str] of canonical keys (siblings), or [query] if unresolved.
         """
         import re
         from difflib import get_close_matches
 
         q = query.lower().strip()
+        if not q:
+            return []
         registry = getattr(self, 'storey_registry', {})
         if not registry:
-            return None
+            return [q]
+
+        def _siblings_of(canonical: str) -> list:
+            """Return all canonicals sharing the same floor_num."""
+            info = registry.get(canonical, {})
+            fnum = info.get("floor_num")
+            if fnum is not None:
+                return list(self._storey_by_num.get(fnum, [canonical]))
+            return [canonical]
 
         # 1. Exact
         if q in registry:
-            return q
+            return _siblings_of(q)
 
         # 2. Floor number
         m = re.search(r'(-?\d+)', q)
         if m:
             num = int(m.group(1))
-            if num in getattr(self, '_storey_by_num', {}):
-                return self._storey_by_num[num]
+            siblings = self._storey_by_num.get(num, [])
+            if siblings:
+                return list(siblings)
 
         # 3. Category keyword (universal English vocabulary, not project-specific)
         _QUERY_CAT = {
             "ground": "ground", "g/f": "ground", "gf": "ground", "grade": "ground",
-            "basement": "basement", "carpark": "basement", "underground": "basement",
+            "basement": "basement", "carpark": "basement", "underground": "basement", "garage": "basement",
             "roof": "roof", "rooftop": "roof",
             "mezzanine": "mezzanine", "mezz": "mezzanine",
             "podium": "podium",
@@ -262,21 +277,20 @@ class IFCEngine:
         for kw, cat in _QUERY_CAT.items():
             if kw in q:
                 candidates = by_cat.get(cat, [])
-                if len(candidates) == 1:
-                    return candidates[0]
-                if len(candidates) > 1:
-                    # Multiple in same category (B1/B2) — disambiguate by floor_num
-                    if m:
+                if candidates:
+                    if m and len(candidates) > 1:
                         num = int(m.group(1))
                         for c in candidates:
-                            if self.storey_registry[c].get("floor_num") == num:
-                                return c
-                    return candidates[0]  # default to first
+                            if registry[c].get("floor_num") == num:
+                                return _siblings_of(c)
+                    return list(candidates)
                 break
 
         # 4. difflib fallback
         close = get_close_matches(q, list(registry.keys()), n=1, cutoff=0.60)
-        return close[0] if close else None
+        if close:
+            return _siblings_of(close[0])
+        return [q]
 
     def _build_space_registry(self):
         """
@@ -453,10 +467,12 @@ class IFCEngine:
         if matches:
             return [e for elems in matches for e in elems]
 
-        # 2. Structured storey resolution
-        storey_key = self._resolve_storey_query(q)
-        if storey_key and storey_key in self.spatial_index:
-            return self.spatial_index[storey_key]
+        # 2. Structured storey resolution (returns list of siblings)
+        storey_keys = self._resolve_storey_query(q)
+        storey_matches = [e for k in storey_keys if k in self.spatial_index
+                          for e in self.spatial_index[k]]
+        if storey_matches:
+            return storey_matches
 
         # 3. Structured space resolution (may return multiple spaces of same type)
         space_keys = self._resolve_space_query(q)
@@ -670,6 +686,11 @@ class IFCEngine:
                     "storey": storey_map.get(element.GlobalId),
                 }
 
+                # T1.3: Extract material via IfcRelAssociatesMaterial
+                material_name = self._get_element_material(element)
+                if material_name:
+                    node_props["material"] = material_name
+
                 # Flatten key properties for graph queries
                 for pset_name, props in psets.items():
                     for prop_name, prop_value in props.items():
@@ -682,6 +703,39 @@ class IFCEngine:
                 count += 1
 
         return count
+
+    def _get_element_material(self, element) -> Optional[str]:
+        """
+        T1.3 — Extract material name(s) from an IFC element via IfcRelAssociatesMaterial.
+
+        Handles multiple IFC material representations:
+        - IfcMaterialLayerSetUsage / IfcMaterialLayerSet → join layer names
+        - IfcMaterialList → join material names
+        - IfcMaterial → single name
+
+        Returns a pipe-separated string of material names, or None.
+        """
+        try:
+            if not hasattr(element, 'HasAssociations'):
+                return None
+            for assoc in element.HasAssociations:
+                if not assoc.is_a('IfcRelAssociatesMaterial'):
+                    continue
+                mat = assoc.RelatingMaterial
+                if mat.is_a('IfcMaterialLayerSetUsage'):
+                    mat = mat.ForLayerSet
+                if mat.is_a('IfcMaterialLayerSet'):
+                    names = [layer.Material.Name for layer in mat.MaterialLayers
+                             if layer.Material and layer.Material.Name]
+                    return '|'.join(names) if names else None
+                elif mat.is_a('IfcMaterialList'):
+                    names = [m.Name for m in mat.Materials if m.Name]
+                    return '|'.join(names) if names else None
+                elif mat.is_a('IfcMaterial'):
+                    return mat.Name
+        except Exception:
+            pass
+        return None
 
     def _create_spatial_relationships(self) -> int:
         """Create CONTAINS_IN relationships between spaces and elements"""
@@ -776,15 +830,15 @@ class IFCEngine:
         if not self.neo4j_conn:
             return self.find_elements_in_space(level_name)
 
-        # Structured resolve before Cypher — handles "level 6" → "6 - sixth floor"
-        canonical = self._resolve_storey_query(level_name.lower()) or level_name
+        # Structured resolve before Cypher — handles "level 6" → ["6 - sixth floor", "level 6"]
+        canonicals = self._resolve_storey_query(level_name.lower()) or [level_name]
         query = """
         MATCH (s:IFCStorey)-[:CONTAINS]->(e:IFCElement)
-        WHERE toLower(s.name) CONTAINS toLower($level_name)
+        WHERE ANY(c IN $level_names WHERE toLower(s.name) CONTAINS c)
         RETURN e.guid as guid, e.name as name, e.ifc_type as type,
                e.FireRating as fire_rating, e.LoadBearing as load_bearing
         """
-        result = self.neo4j_conn.run(query, level_name=canonical)
+        result = self.neo4j_conn.run(query, level_names=canonicals)
         return [dict(record) for record in result]
 
     def query_elements_by_property(self, property_name: str, property_value: Any) -> List[Dict]:

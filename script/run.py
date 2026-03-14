@@ -43,7 +43,7 @@ load_dotenv(PROJECT_ROOT / ".env")
 from src.eval.contracts import EvalTrace
 from src.eval.metrics import compute_summary
 from src.v2.metrics_v2 import compute_v2_metrics, compute_v2_summary
-from src.v2.types import Constraints, V2Trace
+from src.v2.types import Constraints, SpatialTriplet, V2Trace
 from src.common.trace_io import write_trace
 
 
@@ -148,11 +148,27 @@ def _fmt(v: Any) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def init_engine(config: Dict[str, Any], llm_client: Optional[Any] = None):
-    """Return an IFCEngine (v1 component, reused)."""
+    """Return an IFCEngine (v1 component, reused).
+    Connects to Neo4j if neo4j.enabled=true in config."""
     from src.ifc_engine import IFCEngine
 
     ifc_path = config.get("ifc", {}).get("model_path", "")
-    return IFCEngine(ifc_path, llm_client=llm_client)
+
+    neo4j_conn = None
+    neo4j_cfg = config.get("neo4j", {})
+    if neo4j_cfg.get("enabled", False):
+        try:
+            from py2neo import Graph
+            neo4j_conn = Graph(
+                neo4j_cfg.get("uri", "bolt://localhost:7687"),
+                auth=(neo4j_cfg.get("user", "neo4j"), neo4j_cfg.get("password", "password"))
+            )
+            neo4j_conn.run("RETURN 1")  # connectivity check
+        except Exception as e:
+            print(f"⚠️  Neo4j connection failed ({e}), falling back to memory mode")
+            neo4j_conn = None
+
+    return IFCEngine(ifc_path, neo4j_conn=neo4j_conn, llm_client=llm_client)
 
 
 def init_llm(config: Dict[str, Any]):
@@ -244,6 +260,16 @@ async def main(args: argparse.Namespace) -> None:
                 entry = json.loads(line)
                 cid = entry["case_id"]
                 c = entry["constraints"]
+                # Build spatial_relations if present
+                spatial_rels = []
+                for sr in c.get("spatial_relations", []):
+                    spatial_rels.append(SpatialTriplet(
+                        subject_type=sr.get("subject_type", c.get("ifc_class", "")),
+                        predicate=sr["predicate"],
+                        object_type=sr["object_type"],
+                        object_material=sr.get("object_material"),
+                        confidence=sr.get("confidence", 0.9),
+                    ))
                 precomputed_constraints[cid] = Constraints(
                     storey_name=c.get("storey_name"),
                     ifc_class=c.get("ifc_class"),
@@ -253,6 +279,8 @@ async def main(args: argparse.Namespace) -> None:
                     space_name=c.get("space_name"),
                     target_name_keyword=c.get("target_name_keyword"),
                     neighbor_type=c.get("neighbor_type"),
+                    # Phase 5 spatial relations
+                    spatial_relations=spatial_rels,
                     confidence=0.85 if entry.get("status") == "OK" else 0.0,
                     source="lora_precomputed",
                 )

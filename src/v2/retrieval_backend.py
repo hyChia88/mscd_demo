@@ -245,25 +245,29 @@ class RetrievalBackend:
             # predicate is a validated Literal — safe for f-string injection.
             if not self.engine.neo4j_conn:
                 return self._execute_memory(plan)
-            subject_type = params.get("subject_type", "")
-            predicate    = params.get("predicate", "")
-            object_type  = params.get("object_type", "")
-            storey       = params.get("storey", "")
+            subject_type    = params.get("subject_type", "")
+            predicate       = params.get("predicate", "")
+            object_type     = params.get("object_type", "")
+            storey          = params.get("storey", "")
+            object_material = params.get("object_material", "")
             if not predicate:
                 return []
-            # Resolve natural-language storey → IFC canonical ("Floor 1" → "1 - first floor")
-            # so the CONTAINS filter matches the actual storey property on Neo4j nodes.
-            storey_resolved = self._resolve_storey(storey)
+            # Resolve storey → all canonical siblings sharing the same floor number.
+            # "Level 1" and "1 - First Floor" are different IFC storeys but same floor_num=1.
+            # Elements are split across both → must match either.
+            storey_siblings = self._resolve_storey_siblings(storey) if storey else []
             # IFC subtype-aware match: IfcWall matches IfcWallStandardCase etc.
-            # IFC naming convention guarantees all subtypes start with the supertype name.
+            # T1.3: Added graceful material filter on ref element.
             cypher = f"""
                 MATCH (target:IFCElement)-[:{predicate}]->(ref:IFCElement)
                 WHERE (target.ifc_type = $subject_type
                        OR target.ifc_type STARTS WITH $subject_type)
                   AND (ref.ifc_type = $object_type
                        OR ref.ifc_type STARTS WITH $object_type)
-                  AND (toLower(target.storey) CONTAINS toLower($storey)
-                       OR $storey = '')
+                  AND (size($storey_list) = 0
+                       OR ANY(s IN $storey_list WHERE toLower(target.storey) CONTAINS s))
+                  AND ($object_material = ''
+                       OR toLower(ref.material) CONTAINS toLower($object_material))
                 RETURN DISTINCT target.guid as guid, target.name as name,
                        target.ifc_type as type,
                        ref.ifc_type as ref_type, ref.storey as ref_storey
@@ -272,7 +276,8 @@ class RetrievalBackend:
                 cypher,
                 subject_type=subject_type,
                 object_type=object_type,
-                storey=storey_resolved
+                storey_list=storey_siblings,
+                object_material=object_material
             )
             candidates = [dict(r) for r in result]
             # Predicate relaxation step 1: if storey filter gives 0, retry without storey
@@ -284,6 +289,8 @@ class RetrievalBackend:
                            OR target.ifc_type STARTS WITH $subject_type)
                       AND (ref.ifc_type = $object_type
                            OR ref.ifc_type STARTS WITH $object_type)
+                      AND ($object_material = ''
+                           OR toLower(ref.material) CONTAINS toLower($object_material))
                     RETURN DISTINCT target.guid as guid, target.name as name,
                            target.ifc_type as type,
                            ref.ifc_type as ref_type, ref.storey as ref_storey
@@ -292,6 +299,7 @@ class RetrievalBackend:
                     cypher_no_storey,
                     subject_type=subject_type,
                     object_type=object_type,
+                    object_material=object_material,
                 )
                 candidates = [dict(r) for r in result2]
             # Predicate relaxation step 2: no topology edges at all → storey+type
@@ -309,7 +317,8 @@ class RetrievalBackend:
                     params=fallback_params,
                     expected_pool_size=fallback_pool
                 ))
-            return candidates
+            # T1.1: Post-filter by target_name_keyword (e.g. BALANS 15M window subtype)
+            return self._post_filter_by_name_keyword(candidates, params)
 
         elif strategy == "continuous_span":
             # Property-filter for CONTINUOUS (is_continuous + top_constraint).
@@ -317,15 +326,22 @@ class RetrievalBackend:
                 return self._execute_memory(plan)
             subject_type = params.get("subject_type", "")
             top_storey   = params.get("top_storey", "")
-            # top_constraint in Neo4j is the raw IFC storey name ("3 - Third Floor").
-            # _resolve_storey converts natural language → canonical for correct CONTAINS.
-            top_storey_resolved = self._resolve_storey(top_storey)
+            storey       = params.get("storey", "")
+            # Resolve to sibling lists for naming-agnostic matching.
+            top_siblings = self._resolve_storey_siblings(top_storey)
+            storey_siblings = self._resolve_storey_siblings(storey)
+            # storey_name could be base storey OR top_constraint (context-dependent).
+            # Use OR: match if EITHER target.storey or target.top_constraint
+            # matches any sibling. Handles both LoRA output and H2 eval.
             cypher = """
                 MATCH (target:IFCElement)
                 WHERE target.ifc_type = $subject_type
                   AND target.is_continuous = true
-                  AND (toLower(target.top_constraint) CONTAINS toLower($top_storey)
-                       OR $top_storey = '')
+                  AND (
+                       (size($top_list) = 0 AND size($storey_list) = 0)
+                    OR ANY(s IN $top_list WHERE toLower(target.top_constraint) CONTAINS s)
+                    OR ANY(s IN $storey_list WHERE toLower(target.storey) CONTAINS s)
+                  )
                 RETURN target.guid as guid, target.name as name,
                        target.ifc_type as type,
                        target.base_constraint as ref_storey,
@@ -334,7 +350,8 @@ class RetrievalBackend:
             result = self.engine.neo4j_conn.run(
                 cypher,
                 subject_type=subject_type,
-                top_storey=top_storey_resolved
+                top_list=top_siblings,
+                storey_list=storey_siblings
             )
             candidates = [dict(r) for r in result]
             # Predicate relaxation: 0 results → fall back to type_only
@@ -347,7 +364,8 @@ class RetrievalBackend:
                     params={"type": subject_type},
                     expected_pool_size=150
                 ))
-            return candidates
+            # T1.1: Post-filter by target_name_keyword
+            return self._post_filter_by_name_keyword(candidates, params)
 
         # ── Phase 5B: new high-priority strategies (Neo4j graph queries) ──────
         elif strategy == "space+type":
@@ -400,29 +418,50 @@ class RetrievalBackend:
 
         return []
 
-    def _resolve_storey(self, storey_query: str) -> str:
+    def _post_filter_by_name_keyword(
+        self,
+        candidates: List[Dict[str, Any]],
+        params: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
         """
-        Convert a natural-language storey reference to the IFC canonical form
-        stored in Neo4j node properties (e.g. "Floor 1" → "1 - first floor").
+        T1.1 — Post-filter P0 candidates by target_name_keyword.
 
-        Delegates to IFCEngine._resolve_storey_query() which uses the LLM-parsed
-        (or regex-fallback) storey_registry built at engine init time.
+        Window ObjectType (e.g. BALANS 15M vs 10M) is discriminating (pool 42→~9).
+        Applied after Cypher returns candidates to avoid Cypher complexity.
+        Graceful: never filters to empty set; skips if pool already small.
+        """
+        keyword = params.get("target_name_keyword", "")
+        if not keyword or len(candidates) <= 3:
+            return candidates
+        kw_lower = keyword.lower()
+        filtered = [
+            c for c in candidates
+            if kw_lower in (c.get("name") or "").lower()
+        ]
+        # Graceful: don't filter to empty
+        return filtered if filtered else candidates
 
-        Returns the resolved canonical string, or the original query if resolution
-        fails — so the Cypher CONTAINS still works for exact/partial matches.
+    def _resolve_storey_siblings(self, storey_query: str) -> list:
+        """
+        Resolve a storey query → list of ALL canonical siblings sharing the same
+        floor_num. Delegates to IFCEngine._resolve_storey_query() which now
+        returns siblings directly.
+
+        e.g. "Floor 1" → ["level 1", "1 - first floor"]
+
+        This handles IFC naming heterogeneity: different modelers use different
+        naming conventions, and the same physical floor may appear under multiple
+        IfcBuildingStorey names. Returns [] for empty query.
         """
         if not storey_query:
-            return ""
+            return []
         resolver = getattr(self.engine, "_resolve_storey_query", None)
         if resolver is None:
-            return storey_query.lower()
+            return [storey_query.lower()]
         resolved = resolver(storey_query.lower())
-        # _resolve_storey_query returns: str (canonical key), list (difflib), or None
-        if isinstance(resolved, str):
-            return resolved
         if isinstance(resolved, list) and resolved:
-            return resolved[0]
-        return storey_query.lower()
+            return resolved
+        return [storey_query.lower()]
 
     def _apply_property_filter(
         self,
