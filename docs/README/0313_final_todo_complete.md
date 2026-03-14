@@ -123,6 +123,48 @@ elements. The T1.1 target_name_keyword post-filter (already wired) will fix this
 | Thesis metrics CSV + 5 plots (T2.3+T3.1) | ✅ Done (03-14) | `script/compare_results.py --thesis` → `eval/plots/` |
 | IfcRelConnectsPathElements in Neo4j | ❌ Not loaded | → Future work (Section 7) |
 
+### Sprint Checklist
+
+> Keep in sync with System Status above — when a task completes, update both.
+
+```
+SPRINT 1: EVIDENCE (Days 1-5)
+─────────────────────────────
+✅ T1.1  target_name_keyword post-filter                              Done 03-13
+✅ T1.2  Fix continuous_span storey filter                            Done 03-14
+✅ T1.3  Add material to Neo4j + wire into P0 Cypher                 Done 03-13
+✅ T2.1  Convert lora3_test.jsonl → cases_v3 format                  Done 03-14
+✅ T2.2a Run 3-way precomputed eval (Baseline/LoRA-label/Oracle)     Done 03-14
+✅ T2.2b Run live VLM eval (LoRA_3 MB+MC, site photos, Modal A100)  Done 03-14
+✅ T2.3  Collect per-run metrics (7 runs, CSV + table)               Done 03-14
+✅ T3.1  Generate thesis plots (5 figures via --thesis mode)          Done 03-14
+□ T4.1  Neo4j edge pre-check in h2_eval.py                          Pending
+✅ T4.2  Re-run H2 eval with fixes (verify SSR improvement)          Done 03-14
+
+CRITICAL BUGS FOUND & FIXED (03-14):
+✅ BF-1  run.py never connected Neo4j → ALL P0 was memory-mode fallback!
+✅ BF-2  CONTINUOUS Cypher: CONTAINS '' matched everything → 149 instead of 8
+✅ BF-3  Storey resolver 1:1 → 1:many (siblings), naming-agnostic for any IFC
+
+SPRINT 2: DEMO + THESIS (Days 6-14)
+────────────────────────────────────
+□ T5.1  Entropy Collapse demo panel                                  Day 6-7
+□ T5.2  Post-retrieval result viewer (3-column)                      Day 7
+□ T6.1  Chapter 4: Method (architecture, P0-P8, dual-modal)         Day 8-9
+□ T6.2  Chapter 5: Experiments (real numbers from T2-T3)             Day 10-11
+□ T6.3  Chapter 6: Discussion + Future Work                          Day 12-13
+□ T6.4  Revisions, figures, abstract                                 Day 14
+
+SPRINT 3: WORKABLE NEW.MD IDEAS (Optional, Days 15-17)
+──────────────────────────────────────────────────────
+□ T7.1  Floorplan-augmented inference (10 FILLS cases)               Day 15, 0.5 day
+□ T7.2  Bbox prompt engineering (zero-shot grounding)                Day 15, 0.5 day
+□ T7.3  Multi-triplet prompt + intersection code                     Day 16, 0.5 day
+□ T7.4  OPTIONAL MATCH fallback in retrieval_backend.py              Day 16, 0.5 day
+□ T7.5  Full 69-case eval if T7.1 positive                          Day 17
+□ T7.6  Update thesis with Sprint 3 results                          Day 17
+```
+
 ---
 
 ## 3. Sprint Plan (Priority-Ordered Tasks)
@@ -726,48 +768,6 @@ Trace files:        eval/results/{baseline_MB,lora_label_MB,oracle_MB,
                     lora3_MB,lora3_MC,lora3_site_MB,lora3_site_MC}/traces_*.jsonl
 Existing tools:     eval/analyze_traces.py (per-strategy/predicate breakdown)
                     script/generate_plots.py --modality (modality analysis charts 9-11)
-```
-
----
-
-## 6. Sprint Checklist
-
-```
-SPRINT 1: EVIDENCE (Days 1-5)
-─────────────────────────────
-✅ T1.1  target_name_keyword post-filter                              Done 03-13
-✅ T1.2  Fix continuous_span storey filter                            Done 03-14
-✅ T1.3  Add material to Neo4j + wire into P0 Cypher                 Done 03-13
-✅ T2.1  Convert lora3_test.jsonl → cases_v3 format                  Done 03-14
-✅ T2.2a Run 3-way precomputed eval (Baseline/LoRA-label/Oracle)     Done 03-14
-✅ T2.2b Run live VLM eval (LoRA_3 MB+MC, site photos, Modal A100)  Done 03-14
-✅ T2.3  Collect per-run metrics (7 runs, CSV + table)               Done 03-14
-✅ T3.1  Generate thesis plots (5 figures via --thesis mode)          Done 03-14
-□ T4.1  Neo4j edge pre-check in h2_eval.py                          Pending
-✅ T4.2  Re-run H2 eval with fixes (verify SSR improvement)          Done 03-14
-
-CRITICAL BUGS FOUND & FIXED (03-14):
-✅ BF-1  run.py never connected Neo4j → ALL P0 was memory-mode fallback!
-✅ BF-2  CONTINUOUS Cypher: CONTAINS '' matched everything → 149 instead of 8
-✅ BF-3  Storey resolver 1:1 → 1:many (siblings), naming-agnostic for any IFC
-
-SPRINT 2: DEMO + THESIS (Days 6-14)
-────────────────────────────────────
-□ T5.1  Entropy Collapse demo panel                                  Day 6-7
-□ T5.2  Post-retrieval result viewer (3-column)                      Day 7
-□ T6.1  Chapter 4: Method (architecture, P0-P8, dual-modal)         Day 8-9
-□ T6.2  Chapter 5: Experiments (real numbers from T2-T3)             Day 10-11
-□ T6.3  Chapter 6: Discussion + Future Work                          Day 12-13
-□ T6.4  Revisions, figures, abstract                                 Day 14
-
-SPRINT 3: WORKABLE NEW.MD IDEAS (Optional, Days 15-17)
-──────────────────────────────────────────────────────
-□ T7.1  Floorplan-augmented inference (10 FILLS cases)               Day 15, 0.5 day
-□ T7.2  Bbox prompt engineering (zero-shot grounding)                Day 15, 0.5 day
-□ T7.3  Multi-triplet prompt + intersection code                     Day 16, 0.5 day
-□ T7.4  OPTIONAL MATCH fallback in retrieval_backend.py              Day 16, 0.5 day
-□ T7.5  Full 69-case eval if T7.1 positive                          Day 17
-□ T7.6  Update thesis with Sprint 3 results                          Day 17
 ```
 
 ---
