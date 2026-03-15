@@ -1353,11 +1353,17 @@ def _run_retrieval(parsed: dict, model_code: str = "AP", gt_guid: str = "") -> d
         from pathlib import Path
 
         # Build Constraints from parsed VLM output
+        # Normalise: model may output 'relations' (old) or 'spatial_relations'
+        sr_raw = parsed.get("spatial_relations") or []
+        if not sr_raw:
+            rel_raw = parsed.get("relations")
+            if isinstance(rel_raw, list):
+                sr_raw = [r for r in rel_raw if isinstance(r, dict) and "predicate" in r]
         spatial_rels = []
-        for rel in (parsed.get("spatial_relations") or []):
+        for rel in sr_raw:
             spatial_rels.append(SpatialTriplet(
                 subject_type=parsed.get("ifc_class", ""),
-                predicate=rel.get("predicate", "ADJACENT_TO"),
+                predicate=rel.get("predicate", "ADJACENT_TO").upper(),
                 object_type=rel.get("object_type", ""),
                 object_material=rel.get("object_material"),
                 confidence=rel.get("confidence", 0.0),

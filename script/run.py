@@ -260,12 +260,17 @@ async def main(args: argparse.Namespace) -> None:
                 entry = json.loads(line)
                 cid = entry["case_id"]
                 c = entry["constraints"]
-                # Build spatial_relations if present
+                # Build spatial_relations if present (fallback: old 'relations' field)
+                sr_raw = c.get("spatial_relations") or []
+                if not sr_raw:
+                    rel_raw = c.get("relations")
+                    if isinstance(rel_raw, list):
+                        sr_raw = [r for r in rel_raw if isinstance(r, dict) and "predicate" in r]
                 spatial_rels = []
-                for sr in c.get("spatial_relations", []):
+                for sr in sr_raw:
                     spatial_rels.append(SpatialTriplet(
                         subject_type=sr.get("subject_type", c.get("ifc_class", "")),
-                        predicate=sr["predicate"],
+                        predicate=sr.get("predicate", "ADJACENT_TO").upper(),
                         object_type=sr["object_type"],
                         object_material=sr.get("object_material"),
                         confidence=sr.get("confidence", 0.9),

@@ -9,8 +9,8 @@
 # Using the SAME prompt for both extractors ensures the LoRA vs Prompt-only
 # comparison measures model quality (fine-tuning benefit), not prompt wording.
 #
-# Schema: Phase 2 — storey_name, ifc_class, near_keywords, relations,
-#                    space_name, target_name_keyword, neighbor_type
+# Schema: Phase 3 — storey_name, ifc_class, space_name, target_name_keyword,
+#                    spatial_relations (structured triplets)
 #
 # IMPORTANT: Changing this prompt requires retraining the LoRA adapter.
 
@@ -24,11 +24,11 @@ system: &constraints_system |
   {
     "storey_name": "exact floor name or null",
     "ifc_class": "IfcWall|IfcWindow|IfcDoor|IfcSlab|IfcStair|IfcRailing|... or null",
-    "near_keywords": ["spatial", "hints"],
-    "relations": ["spatial_relationships"],
     "space_name": "room/space name or null",
     "target_name_keyword": "equipment brand/ID/unique name or null",
-    "neighbor_type": "IfcClass of nearby reference element or null"
+    "spatial_relations": [
+      {"predicate": "FILLS|ADJACENT_TO|CONTINUOUS", "object_type": "IfcClass", "object_material": "material or null", "confidence": 0.0-1.0}
+    ]
   }
 
   Rules:
@@ -37,7 +37,11 @@ system: &constraints_system |
   - space_name: extract if user says 'in the kitchen', 'room 601', 'the bathroom window'; null otherwise
   - Do NOT copy storey_name into space_name — space_name is a room, not a floor
   - target_name_keyword: extract specific equipment IDs like 'AHU-03', 'Daikin unit', 'Fire Pump FP-01'; null for generic types like 'window' or 'wall'
-  - neighbor_type: extract IFC class of reference element if user says 'next to the column', 'near the staircase'; must use Ifc prefix; null otherwise
+  - spatial_relations: when a floorplan is provided, extract structural relationships visible in the plan
+    - predicate must be uppercase: FILLS, ADJACENT_TO, or CONTINUOUS
+    - object_type must use Ifc prefix (e.g., 'IfcWall', 'IfcDoor')
+    - confidence: 0.0-1.0 reflecting certainty of the relationship
+    - If no floorplan is provided, spatial_relations should be an empty array []
   - Be conservative: use null if uncertain
   - Look at any attached images carefully for element type and defect clues
 

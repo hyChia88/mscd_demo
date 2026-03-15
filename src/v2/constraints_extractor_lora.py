@@ -165,12 +165,18 @@ class LoRAConstraintsExtractor:
         # Parse JSON output
         data = self._parse_json(output_text)
         if data:
-            # LoRA_3 schema: spatial_relations with per-relation confidence
+            # Normalise field: model may output 'relations' (old) or 'spatial_relations'
+            sr_raw = data.get("spatial_relations") or []
+            if not sr_raw:
+                rel_raw = data.get("relations")
+                if isinstance(rel_raw, list):
+                    sr_raw = [r for r in rel_raw if isinstance(r, dict) and "predicate" in r]
+
             spatial_rels = []
-            for rel in (data.get("spatial_relations") or []):
+            for rel in sr_raw:
                 spatial_rels.append(SpatialTriplet(
                     subject_type=data.get("ifc_class", ""),
-                    predicate=rel.get("predicate", "ADJACENT_TO"),
+                    predicate=rel.get("predicate", "ADJACENT_TO").upper(),
                     object_type=rel.get("object_type", ""),
                     object_material=rel.get("object_material"),
                     confidence=rel.get("confidence", 0.0),
