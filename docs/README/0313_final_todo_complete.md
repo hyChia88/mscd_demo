@@ -121,7 +121,11 @@ elements. The T1.1 target_name_keyword post-filter (already wired) will fix this
 | 3-way precomputed eval (AP only) | ✅ Done (03-14) | Baseline / LoRA-label / Oracle |
 | 4-way eval (live VLM, LoRA_3 MB+MC) | ✅ Done (03-14) | `eval/results/lora3_{site,wire}_{MB,MC}/` |
 | Thesis metrics CSV + 5 plots (T2.3+T3.1) | ✅ Done (03-14) | `script/compare_results.py --thesis` → `eval/plots/` |
-| IfcRelConnectsPathElements in Neo4j | ❌ Not loaded | → Future work (Section 7) |
+| IfcRelConnectsPathElements in Neo4j | ✅ **Loaded** (03-14) | `add_topology_edges.py` — 1362 CONNECTS_TO edges |
+| CONNECTS_TO predicate in schema | ✅ Done (03-14) | `types.py`, `constraints_to_query.py` (P0a handles it) |
+| LoRA_4 dataset (649 train, 4 pred, 110 2-hop) | ✅ Assembled (03-14) | `6_assemble_lora4.py` → `lora4_train.jsonl` |
+| 2-hop OPTIONAL MATCH | ✅ Done (03-14) | `retrieval_backend.py` — rank, don't filter |
+| Multi-triplet miner (389 FILLS+CONNECTS_TO) | ✅ Done (03-14) | `7_mine_multitriplet.py` |
 
 ### Sprint Checklist
 
@@ -163,7 +167,66 @@ SPRINT 3: WORKABLE NEW.MD IDEAS (Optional, Days 15-17)
 □ T7.4  OPTIONAL MATCH fallback in retrieval_backend.py              Day 16, 0.5 day
 □ T7.5  Full 69-case eval if T7.1 positive                          Day 17
 □ T7.6  Update thesis with Sprint 3 results                          Day 17
+
+SPRINT 4: LoRA_4 TRAINING (Days 15-20)
+──────────────────────────────────────
+✅ T8.0  Create 6_assemble_lora4.py (SR ratio, storey norm, fp-coupling)  Done 03-14
+✅ T8.0b Dry-run: 578 train (75% SR) from existing data                   Done 03-14
+✅ T8.1  Generate CONNECTS_TO skins (45 generated, 18 KEEP)               Done 03-14
+✅ T8.2  Assemble LoRA_4 dataset (297 train, 75.1% SR, 0 noFP+SR)        Done 03-14
+         Predicates: ADJACENT_TO=108, FILLS=73, CONTINUOUS=27, CONNECTS_TO=15
+□ T8.3  Train LoRA_4 on Modal A100 (Qwen2.5-VL-7B, 5ep, lr=2e-4)
+□ T8.4  Run MC eval on LoRA_4 adapter
+□ T8.5  Compare LoRA_4 vs LoRA_3 (target: >50% P0 fire, >55% GT-in-pool)
+
+SPRINT 4B: 2-HOP OPTIONAL MATCH (Days 20-22)
+─────────────────────────────────────────────
+✅ T8.6  Wire CONNECTS_TO into Neo4j (1362 edges)                         Done 03-14
+✅ T8.7  Mine multi-triplet cases (389 FILLS+CONNECTS_TO)                 Done 03-14
+✅ T8.8  Wire OPTIONAL MATCH 2-hop in retrieval_backend.py                Done 03-14
+✅ T8.9  Update 6_assemble_lora4.py for multi-triplet records             Done 03-14
+✅ T8.10 Re-assemble LoRA_4 (649 train, 110 2-hop, 75% SR)               Done 03-14
+□ T8.11 Eval 2-hop: GT-in-pool improvement (target: 71.5% ceiling)
 ```
+
+### 2-Hop OPTIONAL MATCH Architecture
+
+**Problem**: Windows filling the same wall type on the same storey are indistinguishable
+by single-hop FILLS alone (pool=42). The walls those windows fill have different
+CONNECTS_TO signatures (which other walls they connect to), creating a
+discriminating "wall connection fingerprint".
+
+**Solution**: 2-hop query with OPTIONAL MATCH (rank, don't filter):
+```cypher
+-- Hop 1 (hard filter): Window→FILLS→Wall
+MATCH (t:IFCElement)-[:FILLS]->(w:IFCElement)
+WHERE (t.ifc_type = $subject_type OR t.ifc_type STARTS WITH $subject_type)
+  AND (w.ifc_type = $object_type OR w.ifc_type STARTS WITH $object_type)
+  AND (size($storey_list) = 0
+       OR ANY(s IN $storey_list WHERE toLower(t.storey) CONTAINS s))
+-- Hop 2 (soft re-rank): Wall→CONNECTS_TO→Wall2
+OPTIONAL MATCH (w)-[:CONNECTS_TO]->(w2:IFCElement)
+WHERE (w2.ifc_type = $object_type2 OR w2.ifc_type STARTS WITH $object_type2)
+RETURN DISTINCT t.guid AS guid, t.name AS name, t.ifc_type AS type,
+       w2 IS NOT NULL AS has_hop2
+ORDER BY has_hop2 DESC
+```
+
+**Key design**: OPTIONAL MATCH means hop-2 never removes candidates from hop-1 pool.
+Results with hop-2 match are ranked higher (has_hop2=true first). This prevents
+over-reduction while using wall topology as a soft signal.
+
+**Training format**: Multi-triplet spatial_relations:
+```json
+{
+  "spatial_relations": [
+    {"predicate": "FILLS", "object_type": "IfcWallStandardCase", "confidence": 1.0},
+    {"predicate": "CONNECTS_TO", "object_type": "IfcWallStandardCase", "confidence": 0.8}
+  ]
+}
+```
+
+**Theoretical ceiling**: 71.5% Top-1 (from wall connection signature analysis).
 
 ---
 
@@ -725,7 +788,46 @@ is VLM spatial_relations extraction (1/69). LoRA_4 must fix the extraction, not 
 }
 ```
 
-### 5.8 Evaluation Infrastructure & Thesis Plots (Done 03-14)
+### 5.8 LoRA_4 Data Analysis (Done 03-14)
+
+**Root cause diagnosis** — why LoRA_3 training failed to teach SR extraction:
+
+```
+LoRA_3 Training Data Cross-Tab (the core problem):
+                  has_SR    no_SR
+  has_floorplan:    434      387   ← 387 cases: "see floorplan, output []"
+  no_floorplan:     171      385   ← 171 cases: SR from text alone (unreliable)
+
+Result: Model learned "always output []" (56% of training = no SR)
+```
+
+**LoRA_4 assembler** (`6_assemble_lora4.py`) applies 5 fixes:
+1. **SR ratio 43%→75%**: downsample attribute-only records
+2. **Floorplan-SR coupling**: strip SR from records without floorplan (171→0 noFP+SR)
+3. **Storey normalization**: "1 - First Floor" → "1" (pipeline resolver handles mapping)
+4. **Updated system prompt**: explicitly guides spatial extraction when floorplan present
+5. **Balanced predicates**: ADJACENT_TO=185, FILLS=178, CONTINUOUS=71
+
+**Dry-run results** (existing data only):
+```
+LoRA_4 (578 total, 75.1% SR):
+  fp+SR:  434    fp+noSR:   57
+  noFP+SR:  0    noFP+noSR: 87
+  ✓ Clean coupling — no SR-without-floorplan
+```
+
+**Projection** (after skinning 115 unskinned skeletons, ~65% judge pass):
+```
+Projected LoRA_4: ~924 total, 75% SR
+  v0.5 topology: ~648 train records (3x augment on ~216 KEEP skins)
+  v0.4 enriched: ~276 (45 with SR+FP, 231 attribute-only)
+```
+
+**Key files**:
+- Assembler: `data_curation/scripts/synth/6_assemble_lora4.py`
+- Unskinned skeletons: AP=81, DXA=22, BH=12 (need 3a→3b pipeline)
+
+### 5.9 Evaluation Infrastructure & Thesis Plots (Done 03-14)
 
 **Metrics collection** (T2.3): Comprehensive 7-run comparison across all eval conditions.
 

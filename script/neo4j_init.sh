@@ -104,10 +104,12 @@ if [ "$STATUS_ONLY" = true ]; then
     nodes=$(neo4j_count "MATCH (n:IFCElement) RETURN count(n) AS c")
     fills=$(neo4j_count "MATCH ()-[:FILLS]->() RETURN count(*) AS c")
     adj=$(neo4j_count "MATCH ()-[:ADJACENT_TO]->() RETURN count(*) AS c")
+    conn=$(neo4j_count "MATCH ()-[:CONNECTS_TO]->() RETURN count(*) AS c")
     cont=$(neo4j_count "MATCH (n:IFCElement) WHERE n.is_continuous=true RETURN count(n) AS c")
     echo "  IFCElement nodes : ${nodes}"
     echo "  FILLS edges      : ${fills}"
     echo "  ADJACENT_TO edges: ${adj}  (bidirectional)"
+    echo "  CONNECTS_TO edges: ${conn}  (bidirectional)"
     echo "  is_continuous    : ${cont}"
     exit 0
 fi
@@ -203,10 +205,11 @@ if [ "$RELOAD" = true ] || [ "$adj_count" -lt 100 ]; then
         warn "element_index.jsonl not found: ${INDEX_PATH}"
         warn "Skipping topology enrichment. Run data_curation/scripts/synth/1_build_index.py first."
     else
-        info "Running topology enrichment (ADJACENT_TO + CONTINUOUS)..."
+        info "Running topology enrichment (ADJACENT_TO + CONTINUOUS + CONNECTS_TO)..."
         conda run -n mscd_demo python ../legacy/script/add_topology_edges.py \
             --index "$INDEX_PATH" \
             --threshold 1500.0 \
+            --ifc "$IFC_PATH" \
             --uri "bolt://localhost:${BOLT_PORT}" \
             --password "$NEO4J_PASSWORD"
         ok "Topology enrichment complete"
@@ -224,11 +227,13 @@ echo "============================================="
 nodes=$(neo4j_count "MATCH (n:IFCElement) RETURN count(n) AS c")
 fills=$(neo4j_count "MATCH ()-[:FILLS]->() RETURN count(*) AS c")
 adj=$(neo4j_count "MATCH ()-[:ADJACENT_TO]->() RETURN count(*) AS c")
+conn=$(neo4j_count "MATCH ()-[:CONNECTS_TO]->() RETURN count(*) AS c")
 cont=$(neo4j_count "MATCH (n:IFCElement) WHERE n.is_continuous=true RETURN count(n) AS c")
 
 echo "  IFCElement nodes : ${nodes}   (expect ~1257)"
 echo "  FILLS edges      : ${fills}   (expect 389)"
 echo "  ADJACENT_TO edges: ${adj}   (expect 466, bidirectional)"
+echo "  CONNECTS_TO edges: ${conn}   (expect ~1372, bidirectional)"
 echo "  is_continuous    : ${cont}   (expect 150)"
 echo ""
 

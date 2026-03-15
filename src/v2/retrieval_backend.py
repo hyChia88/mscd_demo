@@ -256,51 +256,126 @@ class RetrievalBackend:
             # "Level 1" and "1 - First Floor" are different IFC storeys but same floor_num=1.
             # Elements are split across both → must match either.
             storey_siblings = self._resolve_storey_siblings(storey) if storey else []
+
+            # ── 2-hop OPTIONAL MATCH detection ───────────────────────────────
+            # If spatial_relations has 2+ triplets, triplet[0] is the hard
+            # filter (hop 1) and triplet[1] is the soft re-rank (hop 2).
+            # The OPTIONAL MATCH NEVER reduces the candidate pool vs single-hop
+            # — it only reorders (has_hop2=true ranked first).
+            spatial_rels = params.get("spatial_relations", [])
+            has_hop2 = len(spatial_rels) >= 2
+
+            if has_hop2:
+                hop2 = spatial_rels[1]
+                predicate2 = hop2.get("predicate", "")
+                object_type2 = hop2.get("object_type", "")
+            else:
+                predicate2 = ""
+                object_type2 = ""
+
             # IFC subtype-aware match: IfcWall matches IfcWallStandardCase etc.
             # T1.3: Added graceful material filter on ref element.
-            cypher = f"""
-                MATCH (target:IFCElement)-[:{predicate}]->(ref:IFCElement)
-                WHERE (target.ifc_type = $subject_type
-                       OR target.ifc_type STARTS WITH $subject_type)
-                  AND (ref.ifc_type = $object_type
-                       OR ref.ifc_type STARTS WITH $object_type)
-                  AND (size($storey_list) = 0
-                       OR ANY(s IN $storey_list WHERE toLower(target.storey) CONTAINS s))
-                  AND ($object_material = ''
-                       OR toLower(ref.material) CONTAINS toLower($object_material))
-                RETURN DISTINCT target.guid as guid, target.name as name,
-                       target.ifc_type as type,
-                       ref.ifc_type as ref_type, ref.storey as ref_storey
-            """
-            result = self.engine.neo4j_conn.run(
-                cypher,
-                subject_type=subject_type,
-                object_type=object_type,
-                storey_list=storey_siblings,
-                object_material=object_material
-            )
-            candidates = [dict(r) for r in result]
-            # Predicate relaxation step 1: if storey filter gives 0, retry without storey
-            # (stays Priority-0, avoids collapsing to storey+type prematurely)
-            if not candidates and storey_resolved:
-                cypher_no_storey = f"""
+            if has_hop2 and predicate2:
+                # 2-hop Cypher: hard filter on hop 1, soft re-rank on hop 2
+                cypher = f"""
                     MATCH (target:IFCElement)-[:{predicate}]->(ref:IFCElement)
                     WHERE (target.ifc_type = $subject_type
                            OR target.ifc_type STARTS WITH $subject_type)
                       AND (ref.ifc_type = $object_type
                            OR ref.ifc_type STARTS WITH $object_type)
+                      AND (size($storey_list) = 0
+                           OR ANY(s IN $storey_list WHERE toLower(target.storey) CONTAINS s))
+                      AND ($object_material = ''
+                           OR toLower(ref.material) CONTAINS toLower($object_material))
+                    OPTIONAL MATCH (ref)-[:{predicate2}]->(ref2:IFCElement)
+                    WHERE (ref2.ifc_type = $object_type2
+                           OR ref2.ifc_type STARTS WITH $object_type2)
+                    RETURN DISTINCT target.guid AS guid, target.name AS name,
+                           target.ifc_type AS type,
+                           ref.ifc_type AS ref_type, ref.storey AS ref_storey,
+                           ref2 IS NOT NULL AS has_hop2
+                    ORDER BY has_hop2 DESC
+                """
+                result = self.engine.neo4j_conn.run(
+                    cypher,
+                    subject_type=subject_type,
+                    object_type=object_type,
+                    storey_list=storey_siblings,
+                    object_material=object_material,
+                    object_type2=object_type2,
+                )
+            else:
+                # Single-hop Cypher (original behavior)
+                cypher = f"""
+                    MATCH (target:IFCElement)-[:{predicate}]->(ref:IFCElement)
+                    WHERE (target.ifc_type = $subject_type
+                           OR target.ifc_type STARTS WITH $subject_type)
+                      AND (ref.ifc_type = $object_type
+                           OR ref.ifc_type STARTS WITH $object_type)
+                      AND (size($storey_list) = 0
+                           OR ANY(s IN $storey_list WHERE toLower(target.storey) CONTAINS s))
                       AND ($object_material = ''
                            OR toLower(ref.material) CONTAINS toLower($object_material))
                     RETURN DISTINCT target.guid as guid, target.name as name,
                            target.ifc_type as type,
                            ref.ifc_type as ref_type, ref.storey as ref_storey
                 """
-                result2 = self.engine.neo4j_conn.run(
-                    cypher_no_storey,
+                result = self.engine.neo4j_conn.run(
+                    cypher,
                     subject_type=subject_type,
                     object_type=object_type,
-                    object_material=object_material,
+                    storey_list=storey_siblings,
+                    object_material=object_material
                 )
+            candidates = [dict(r) for r in result]
+
+            # Predicate relaxation step 1: if storey filter gives 0, retry without storey
+            # (stays Priority-0, avoids collapsing to storey+type prematurely)
+            if not candidates and storey_siblings:
+                if has_hop2 and predicate2:
+                    cypher_no_storey = f"""
+                        MATCH (target:IFCElement)-[:{predicate}]->(ref:IFCElement)
+                        WHERE (target.ifc_type = $subject_type
+                               OR target.ifc_type STARTS WITH $subject_type)
+                          AND (ref.ifc_type = $object_type
+                               OR ref.ifc_type STARTS WITH $object_type)
+                          AND ($object_material = ''
+                               OR toLower(ref.material) CONTAINS toLower($object_material))
+                        OPTIONAL MATCH (ref)-[:{predicate2}]->(ref2:IFCElement)
+                        WHERE (ref2.ifc_type = $object_type2
+                               OR ref2.ifc_type STARTS WITH $object_type2)
+                        RETURN DISTINCT target.guid AS guid, target.name AS name,
+                               target.ifc_type AS type,
+                               ref.ifc_type AS ref_type, ref.storey AS ref_storey,
+                               ref2 IS NOT NULL AS has_hop2
+                        ORDER BY has_hop2 DESC
+                    """
+                    result2 = self.engine.neo4j_conn.run(
+                        cypher_no_storey,
+                        subject_type=subject_type,
+                        object_type=object_type,
+                        object_material=object_material,
+                        object_type2=object_type2,
+                    )
+                else:
+                    cypher_no_storey = f"""
+                        MATCH (target:IFCElement)-[:{predicate}]->(ref:IFCElement)
+                        WHERE (target.ifc_type = $subject_type
+                               OR target.ifc_type STARTS WITH $subject_type)
+                          AND (ref.ifc_type = $object_type
+                               OR ref.ifc_type STARTS WITH $object_type)
+                          AND ($object_material = ''
+                               OR toLower(ref.material) CONTAINS toLower($object_material))
+                        RETURN DISTINCT target.guid as guid, target.name as name,
+                               target.ifc_type as type,
+                               ref.ifc_type as ref_type, ref.storey as ref_storey
+                    """
+                    result2 = self.engine.neo4j_conn.run(
+                        cypher_no_storey,
+                        subject_type=subject_type,
+                        object_type=object_type,
+                        object_material=object_material,
+                    )
                 candidates = [dict(r) for r in result2]
             # Predicate relaxation step 2: no topology edges at all → storey+type
             if not candidates:
