@@ -1436,23 +1436,14 @@ Wall_A
 children avg). This transforms every window from a 1-edge island into a
 node with 2-3 edges.
 
-#### 12.2.2 LEFT_OF / RIGHT_OF Positional Edges
+#### 12.2.2 Design Constraint: NO Absolute Directions
 
-Extend NEXT_TO with global orientation:
+~~LEFT_OF / RIGHT_OF / NORTH_OF~~ — **REMOVED from plan**.
 
-```python
-# Project onto wall's local axis
-wall_dir = wall_endpoint_b - wall_endpoint_a  # wall direction vector
-for i, child_a in enumerate(sorted_children[:-1]):
-    child_b = sorted_children[i + 1]
-    # NEXT_TO is always in wall-axis order
-    create_edge(child_a, child_b, "NEXT_TO", position_index=i)
-    # LEFT_OF/RIGHT_OF based on global X or Y dominance
-    if abs(wall_dir.x) > abs(wall_dir.y):  # E-W wall
-        create_edge(child_a, child_b, "LEFT_OF")
-    else:  # N-S wall
-        create_edge(child_a, child_b, "BELOW" if wall_dir.y > 0 else "ABOVE")
-```
+Determining absolute direction requires the VLM to read the compass/legend
+from the floorplan — too much cognitive load for marginal gain. Humans on
+construction sites say "the window next to the door", not "the window north
+of the door". NEXT_TO (1D wall-axis sequence) is sufficient and robust.
 
 #### 12.2.3 Wall-to-Wall SHARES_CORNER Edges
 
@@ -1460,20 +1451,47 @@ Connect walls that share endpoints (corner joints). Many walls already have
 `IfcRelConnectsPathElements` in IFC — we already parse 686 of these. Ensure
 they are exposed as explicit `SHARES_CORNER` edges in Neo4j.
 
-#### 12.2.4 Expected Discrimination After Enrichment
+#### 12.2.4 Design Constraint: Heterogeneous Anchors
+
+**Data reality** (AdvancedProject.ifc, 98 walls with FILLS children):
+```
+Wall category       Count  Children  Example
+─────────────────────────────────────────────
+WINDOWS_ONLY          13      242   Curtain walls (85/50/45 windows each)
+DOORS_ONLY            81      115   Interior partition walls
+MIXED (Door+Window)    4       32   ← Only 4% of walls!
+```
+
+**Implication**: Window NEXT_TO Window on a 85-window curtain wall is nearly
+useless (still 85 candidates). The 72 heterogeneous Door↔Window pairs on
+4 mixed walls are the high-value cases.
+
+**Training data strategy**:
+- **Priority 1**: Mixed-wall cases (Window NEXT_TO Door) — maximum discriminative power
+- **Priority 2**: Wall-boundary cases (Window at edge of wall, NEXT_TO = null on one side)
+- **Priority 3**: Same-type NEXT_TO on small walls (2-4 children) — still useful
+- **Deprioritize**: Same-type NEXT_TO on large curtain walls (>10 children)
+
+#### 12.2.5 Expected Discrimination After Enrichment
 
 ```
 Before (1-hop degenerate):
-  Window_17: FILLS Wall_A                    → 46 candidates
-  Window_23: FILLS Wall_A                    → 46 candidates
+  Window_17: FILLS Wall_A                    → 46 candidates (all Floor-1 windows)
+  Window_23: FILLS Wall_B                    → 46 candidates (same pool)
 
-After (multi-hop fingerprint):
-  Window_17: FILLS Wall_A, NEXT_TO Door_5    → 3-5 candidates
-  Window_23: FILLS Wall_A, NEXT_TO Window_24, LEFT_OF Door_8  → 1-2 candidates
+After (heterogeneous NEXT_TO):
+  Window_17: FILLS Wall_A, NEXT_TO [IfcDoor] → 4-8 candidates (mixed-wall subset)
+  Window_23: FILLS Wall_B, NEXT_TO [null]    → 10-15 candidates (edge-of-wall subset)
+  Window_5:  FILLS Wall_C, NEXT_TO [IfcWindow] → 40+ candidates (still degenerate)
 ```
 
-Estimated pool reduction: **46 → 3-10** per wall with NEXT_TO, → **1-3**
-with position (LEFT_OF/RIGHT_OF).
+**Realistic pool reduction** (with heterogeneous NEXT_TO only):
+- Mixed walls (4 walls, 32 elements): **46 → 3-8** per case
+- Edge positions on homogeneous walls: **46 → 10-20**
+- Interior of large curtain walls: **minimal reduction** (need wall-ID or count)
+
+**Complementary signal**: Wall child count. "Window on a wall with 3 openings"
+vs "a wall with 85 openings" is highly discriminative even without NEXT_TO type.
 
 ### 12.3 Layer 2: Floorplan-Focused VLM Training (LoRA_5)
 
@@ -1538,12 +1556,14 @@ Phase 1: Graph Enrichment (ifc_engine.py)                  Est. 1 day
           - 2-hop query: target -[:FILLS]-> wall <-[:FILLS]- neighbor
             WHERE neighbor has NEXT_TO edge to target
 □  T10.5  Run H2 eval with enriched graph → verify no regression
-□  T10.6  (Optional) LEFT_OF/RIGHT_OF from wall axis orientation
+□  T10.6  Add wall_child_count property to FILLS edges (complementary signal)
 
 Phase 2: Training Data (data_curation)                     Est. 2 days
 ────────────────────────────────────────────────────────────────────
 □  T11.1  Update skeleton miner to emit NEXT_TO skeletons
           - For each FILLS skeleton, find NEXT_TO neighbor → 2-hop skeleton
+          - PRIORITY: heterogeneous pairs (Door↔Window) over same-type
+          - Include wall_child_count as skeleton field
 □  T11.2  Generate floorplan-only training images (crop floorplan around
           target element, annotate with arrow/highlight)
 □  T11.3  Update skin generator for NEXT_TO text descriptions
@@ -1593,8 +1613,8 @@ P0 over-reduction         12%              <5%              Fewer wrong-storey P
 ```
 Risk                                Likelihood  Mitigation
 ───────────────────────────────────────────────────────────────────
-NEXT_TO edges still not enough      Medium      Add LEFT_OF/RIGHT_OF for position
-  to disambiguate (duplicate walls)
+NEXT_TO edges still not enough      Medium      Wall child count as complementary
+  to disambiguate (curtain walls)               signal; focus on mixed walls first
 VLM can't read NEXT_TO from         Medium      Annotated floorplan crops with
   raw floorplan                                  arrows showing neighbors
 Storey-from-floorplan fails on      Low         Floorplans almost always have
