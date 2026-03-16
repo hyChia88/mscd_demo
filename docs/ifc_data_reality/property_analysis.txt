@@ -1,0 +1,1472 @@
+=================================================================
+1. IfcSpace INVENTORY
+=================================================================
+  Total IfcSpace: 8
+  19                   LongName=3ROK                           Storey=—                         Children={}
+  20                   LongName=3ROK                           Storey=—                         Children={}
+  21                   LongName=3ROK                           Storey=—                         Children={}
+  22                   LongName=3ROK                           Storey=—                         Children={}
+  23                   LongName=Area                           Storey=—                         Children={}
+  24                   LongName=5ROK                           Storey=—                         Children={}
+  25                   LongName=Area                           Storey=—                         Children={}
+  27                   LongName=5ROK                           Storey=—                         Children={}
+
+  Elements contained directly in IfcSpace:
+  Total: 0
+
+=================================================================
+2. PROPERTY SETS on Windows (sample 5)
+=================================================================
+
+  Window 'BALANS Fixed Single Window:BALANS 20M FLOOR (SH = 0):773593' GUID=1ebX2H7F...
+    [BALANS Fixed Single Window:BALANS 20M FLOOR (SH = 0):773593]
+    [Analytical Properties]
+      Define Thermal Properties by: Schematic Type
+      Analytic Construction: <None>
+    [Construction]
+      Wall Closure: By host
+      BO_Blinds: True
+      BO_Glazing Bars Type: S 0010 + S 0002 övre
+      BO_Window Glass Type: Energiglas - Le+arg
+    [Dimensions]
+      BO_Gap: 10.0
+      BO_Glass Height: 2094.0
+      BO_Glass Sill Height: 53.0
+      BO_Glass Width: 1894.0
+      Height: 2180.0
+      Rough Height: 2200.0
+      Rough Width: 2000.0
+      Width: 1980.0
+      Area: 15.0588205681262
+      BO_Inset: 50.0
+      Volume: 0.0866946968213052
+    [General]
+      Date of publishing: 
+      Design country: Sweden
+      Edition number: 1
+      Manufacturer country: Sweden
+      Manufacturer name: SP Fönster
+      Product family: Balans Fönster
+      Product group: Fasta fönster
+      Product name: BALANS Karmfasta fönster
+      Product SKU: SP_KF_F
+      QR code: http://sp-fonster.bimobject.com/sp_kf_f
+      Weight Net (Kg): 0
+    [Identity Data]
+      Assembly Code: 
+      Assembly Description: 
+      Code Name: 
+      Installation instructions: 
+      Product certification: 
+      Youtube clip: 
+      EAN code: http://-
+      Manufacturer: Svenska Fönster
+      Model: SP Fönster BALANS Fixed Single Window
+      OmniClass Number: 23.30.20.00
+      OmniClass Title: Windows
+      Product data url: http://sp-fonster.bimobject.com/sp_kf_f
+      Technical description: http://www.spfonster.se/images/pdf/teknisk-information/500-teknisk-info-balans-karmfast-fonster.pdf
+      Type Mark: 53
+      Type Name: BALANS 20M FLOOR (SH = 0)
+      URL: http://www.svenskafonster.se
+      Mark: 99
+    [Materials and Finishes]
+      BO_Aluminium Anodic Brown: Anodic Brown
+      BO_Aluminium Anodic Natura: Anodic Natura
+      BO_Aluminium Anthracite RAL 7016: Anthracite RAL 7016
+      BO_Aluminium Brown RAL 8011: Brown RAL 8011
+      BO_Aluminium Brownred RAL 3011: Brownred RAL 3011
+      BO_Aluminium Clear White NCS-S0500-n: Clear White NCS-S0500-n
+      BO_Aluminium Light Gray RAL 7035: Light Gray RAL 7035
+      BO_Aluminium Silver Gray RAL 7001: Silver Gray RAL 7001
+      BO_Aluminium Sky-blue RAL 5023: Sky-blue RAL 5023
+      BO_Aluminium White RAL 9010: White RAL 9010
+      BO_Glass: Glass
+      BO_Glass Distancer: Steel, Chrome Plated
+      BO_Glazing Bars Aluminium: White RAL 9010
+      BO_Moulding: White RAL 9010
+      BO_Seal: Rubber, Black
+      BO_Timber Brown Black: Brown Black
+      BO_Timber Hazel: Birch
+      BO_Timber Light Pine: Light Pine
+      BO_Timber Tar Black: Tar Black
+      BO_Timber Teak: Teak
+      BO_Timber White NCS S0502-Y: White NCS S0502-Y
+      BO_Window Frame: White NCS S0502-Y
+      Material main: Wood
+      Material secondary: Aluminium
+    [Other]
+      Category: Windows
+      Default Sill Height: 0.0
+      Family Name: BALANS Fixed Single Window
+      Host Id: Basic Wall: MockUp Exterior Ground Floor
+      Family: BALANS Fixed Single Window: BALANS 20M FLOOR (SH = 0)
+      Family and Type: BALANS Fixed Single Window: BALANS 20M FLOOR (SH = 0)
+      Head Height: 2180.0
+      Type: BALANS Fixed Single Window: BALANS 20M FLOOR (SH = 0)
+      Type Id: BALANS Fixed Single Window: BALANS 20M FLOOR (SH = 0)
+    [Pset_ManufacturerTypeInformation]
+      Manufacturer: Svenska Fönster
+    [Pset_ProductRequirements]
+      Category: Windows
+    [Pset_QuantityTakeOff]
+      Reference: BALANS 20M FLOOR (SH = 0)
+    [Pset_WindowCommon]
+      IsExternal: True
+      Reference: BALANS 20M FLOOR (SH = 0)
+    [Custom_Pset]
+      TypeMark: 53
+      Height: 2180.0
+      Width: 1980.0
+      RoughWidth: 2000.0
+      Hyperlink: http://www.svenskafonster.se
+      SillHeight: 0.0
+      StoreyName: Level: 0 - Ground Floor
+      StatusConstruction: New Construction
+      NetArea: 15.0588205681262
+    [BaseQuantities]
+      Height: 2180.0
+      Width: 1980.0
+      Area: 15.0588205681262
+    [Constraints]
+      Sill Height: 0.0
+      Level: Level: 0 - Ground Floor
+      BO_Glass Applicability: GLASS IS APPLICABLE
+    [Data]
+      BO_Acoustic Isolation: 35dB
+      BO_Actual Glass Weight: 118.98108
+      BO_Glass Weight: 30.0
+      BO_LT/g: 73/57
+      BO_Uw: 1.1
+    [Phasing]
+      Phase Created: New Construction
+    [Visibility]
+      BO_Glazing Bars Visibility: True
+      BO_Warning Triangle: False
+
+  Window 'BALANS Fixed Single Window:BALANS 20M FLOOR (SH = 0):773676' GUID=1ebX2H7F...
+    [BALANS Fixed Single Window:BALANS 20M FLOOR (SH = 0):773593]
+    [Analytical Properties]
+      Define Thermal Properties by: Schematic Type
+      Analytic Construction: <None>
+    [Construction]
+      Wall Closure: By host
+      BO_Blinds: True
+      BO_Glazing Bars Type: S 0010 + S 0002 övre
+      BO_Window Glass Type: Energiglas - Le+arg
+    [Dimensions]
+      BO_Gap: 10.0
+      BO_Glass Height: 2094.0
+      BO_Glass Sill Height: 53.0
+      BO_Glass Width: 1894.0
+      Height: 2180.0
+      Rough Height: 2200.0
+      Rough Width: 2000.0
+      Width: 1980.0
+      Area: 15.0588205681262
+      BO_Inset: 50.0
+      Volume: 0.0866946968213052
+    [General]
+      Date of publishing: 
+      Design country: Sweden
+      Edition number: 1
+      Manufacturer country: Sweden
+      Manufacturer name: SP Fönster
+      Product family: Balans Fönster
+      Product group: Fasta fönster
+      Product name: BALANS Karmfasta fönster
+      Product SKU: SP_KF_F
+      QR code: http://sp-fonster.bimobject.com/sp_kf_f
+      Weight Net (Kg): 0
+    [Identity Data]
+      Assembly Code: 
+      Assembly Description: 
+      Code Name: 
+      Installation instructions: 
+      Product certification: 
+      Youtube clip: 
+      EAN code: http://-
+      Manufacturer: Svenska Fönster
+      Model: SP Fönster BALANS Fixed Single Window
+      OmniClass Number: 23.30.20.00
+      OmniClass Title: Windows
+      Product data url: http://sp-fonster.bimobject.com/sp_kf_f
+      Technical description: http://www.spfonster.se/images/pdf/teknisk-information/500-teknisk-info-balans-karmfast-fonster.pdf
+      Type Mark: 53
+      Type Name: BALANS 20M FLOOR (SH = 0)
+      URL: http://www.svenskafonster.se
+      Mark: 100
+    [Materials and Finishes]
+      BO_Aluminium Anodic Brown: Anodic Brown
+      BO_Aluminium Anodic Natura: Anodic Natura
+      BO_Aluminium Anthracite RAL 7016: Anthracite RAL 7016
+      BO_Aluminium Brown RAL 8011: Brown RAL 8011
+      BO_Aluminium Brownred RAL 3011: Brownred RAL 3011
+      BO_Aluminium Clear White NCS-S0500-n: Clear White NCS-S0500-n
+      BO_Aluminium Light Gray RAL 7035: Light Gray RAL 7035
+      BO_Aluminium Silver Gray RAL 7001: Silver Gray RAL 7001
+      BO_Aluminium Sky-blue RAL 5023: Sky-blue RAL 5023
+      BO_Aluminium White RAL 9010: White RAL 9010
+      BO_Glass: Glass
+      BO_Glass Distancer: Steel, Chrome Plated
+      BO_Glazing Bars Aluminium: White RAL 9010
+      BO_Moulding: White RAL 9010
+      BO_Seal: Rubber, Black
+      BO_Timber Brown Black: Brown Black
+      BO_Timber Hazel: Birch
+      BO_Timber Light Pine: Light Pine
+      BO_Timber Tar Black: Tar Black
+      BO_Timber Teak: Teak
+      BO_Timber White NCS S0502-Y: White NCS S0502-Y
+      BO_Window Frame: White NCS S0502-Y
+      Material main: Wood
+      Material secondary: Aluminium
+    [Other]
+      Category: Windows
+      Default Sill Height: 0.0
+      Family Name: BALANS Fixed Single Window
+      Host Id: Basic Wall: MockUp Exterior Ground Floor
+      Family: BALANS Fixed Single Window: BALANS 20M FLOOR (SH = 0)
+      Family and Type: BALANS Fixed Single Window: BALANS 20M FLOOR (SH = 0)
+      Type: BALANS Fixed Single Window: BALANS 20M FLOOR (SH = 0)
+      Type Id: BALANS Fixed Single Window: BALANS 20M FLOOR (SH = 0)
+      Head Height: 2180.0
+    [Pset_ManufacturerTypeInformation]
+      Manufacturer: Svenska Fönster
+    [Pset_ProductRequirements]
+      Category: Windows
+    [Pset_QuantityTakeOff]
+      Reference: BALANS 20M FLOOR (SH = 0)
+    [Pset_WindowCommon]
+      IsExternal: True
+      Reference: BALANS 20M FLOOR (SH = 0)
+    [Custom_Pset]
+      TypeMark: 53
+      Height: 2180.0
+      Width: 1980.0
+      RoughWidth: 2000.0
+      Hyperlink: http://www.svenskafonster.se
+      SillHeight: 0.0
+      StoreyName: Level: 0 - Ground Floor
+      StatusConstruction: New Construction
+      NetArea: 15.0588205681262
+    [BaseQuantities]
+      Height: 2180.0
+      Width: 1980.0
+      Area: 15.0588205681262
+    [Constraints]
+      Sill Height: 0.0
+      Level: Level: 0 - Ground Floor
+      BO_Glass Applicability: GLASS IS APPLICABLE
+    [Data]
+      BO_Acoustic Isolation: 35dB
+      BO_Actual Glass Weight: 118.98108
+      BO_Glass Weight: 30.0
+      BO_LT/g: 73/57
+      BO_Uw: 1.1
+    [Phasing]
+      Phase Created: New Construction
+    [Visibility]
+      BO_Glazing Bars Visibility: True
+      BO_Warning Triangle: False
+
+  Window 'BALANS Fixed Single Window:BALANS TRAPPHUS GROUND:773888' GUID=1ebX2H7F...
+    [BALANS Fixed Single Window:BALANS TRAPPHUS GROUND:773888]
+    [Analytical Properties]
+      Define Thermal Properties by: Schematic Type
+      Analytic Construction: <None>
+    [Construction]
+      Wall Closure: By host
+      BO_Blinds: True
+      BO_Glazing Bars Type: S 0010 + S 0002 övre
+      BO_Window Glass Type: Energiglas - Le+arg
+    [Dimensions]
+      BO_Gap: 10.0
+      BO_Glass Height: 1094.0
+      BO_Glass Sill Height: 852.999999999999
+      BO_Glass Width: 2394.0
+      Height: 1180.0
+      Rough Height: 1200.0
+      Rough Width: 2500.0
+      Width: 2480.0
+      Area: 10.5922677696735
+      BO_Inset: 50.0
+      Volume: 0.0656405874202708
+    [General]
+      Date of publishing: 
+      Design country: Sweden
+      Edition number: 1
+      Manufacturer country: Sweden
+      Manufacturer name: SP Fönster
+      Product family: Balans Fönster
+      Product group: Fasta fönster
+      Product name: BALANS Karmfasta fönster
+      Product SKU: SP_KF_F
+      QR code: http://sp-fonster.bimobject.com/sp_kf_f
+      Weight Net (Kg): 0
+    [Identity Data]
+      Assembly Code: 
+      Assembly Description: 
+      Code Name: 
+      Installation instructions: 
+      Product certification: 
+      Youtube clip: 
+      EAN code: http://-
+      Manufacturer: Svenska Fönster
+      Model: SP Fönster BALANS Fixed Single Window
+      OmniClass Number: 23.30.20.00
+      OmniClass Title: Windows
+      Product data url: http://sp-fonster.bimobject.com/sp_kf_f
+      Technical description: http://www.spfonster.se/images/pdf/teknisk-information/500-teknisk-info-balans-karmfast-fonster.pdf
+      Type Mark: 43
+      Type Name: BALANS TRAPPHUS GROUND
+      URL: http://www.svenskafonster.se
+      Mark: 101
+    [Materials and Finishes]
+      BO_Aluminium Anodic Brown: Anodic Brown
+      BO_Aluminium Anodic Natura: Anodic Natura
+      BO_Aluminium Anthracite RAL 7016: Anthracite RAL 7016
+      BO_Aluminium Brown RAL 8011: Brown RAL 8011
+      BO_Aluminium Brownred RAL 3011: Brownred RAL 3011
+      BO_Aluminium Clear White NCS-S0500-n: Clear White NCS-S0500-n
+      BO_Aluminium Light Gray RAL 7035: Light Gray RAL 7035
+      BO_Aluminium Silver Gray RAL 7001: Silver Gray RAL 7001
+      BO_Aluminium Sky-blue RAL 5023: Sky-blue RAL 5023
+      BO_Aluminium White RAL 9010: White RAL 9010
+      BO_Glass: Glass
+      BO_Glass Distancer: Steel, Chrome Plated
+      BO_Glazing Bars Aluminium: White RAL 9010
+      BO_Moulding: White RAL 9010
+      BO_Seal: Rubber, Black
+      BO_Timber Brown Black: Brown Black
+      BO_Timber Hazel: Birch
+      BO_Timber Light Pine: Light Pine
+      BO_Timber Tar Black: Tar Black
+      BO_Timber Teak: Teak
+      BO_Timber White NCS S0502-Y: White NCS S0502-Y
+      BO_Window Frame: White NCS S0502-Y
+      Material main: Wood
+      Material secondary: Aluminium
+    [Other]
+      Category: Windows
+      Default Sill Height: 799.999999999999
+      Family Name: BALANS Fixed Single Window
+      Host Id: Basic Wall: MockUp Exterior Ground Floor
+      Family: BALANS Fixed Single Window: BALANS TRAPPHUS GROUND
+      Family and Type: BALANS Fixed Single Window: BALANS TRAPPHUS GROUND
+      Head Height: 2580.0
+      Type: BALANS Fixed Single Window: BALANS TRAPPHUS GROUND
+      Type Id: BALANS Fixed Single Window: BALANS TRAPPHUS GROUND
+    [Pset_ManufacturerTypeInformation]
+      Manufacturer: Svenska Fönster
+    [Pset_ProductRequirements]
+      Category: Windows
+    [Pset_QuantityTakeOff]
+      Reference: BALANS TRAPPHUS GROUND
+    [Pset_WindowCommon]
+      IsExternal: True
+      Reference: BALANS TRAPPHUS GROUND
+    [Custom_Pset]
+      TypeMark: 43
+      Height: 1180.0
+      Width: 2480.0
+      RoughWidth: 2500.0
+      Hyperlink: http://www.svenskafonster.se
+      StoreyName: Level: 0 - Ground Floor
+      StatusConstruction: New Construction
+      NetArea: 10.5922677696735
+      SillHeight: 1400.0
+    [BaseQuantities]
+      Height: 1180.0
+      Width: 2480.0
+      Area: 10.5922677696735
+    [Constraints]
+      Level: Level: 0 - Ground Floor
+      BO_Glass Applicability: GLASS IS APPLICABLE
+      Sill Height: 1400.0
+    [Data]
+      BO_Acoustic Isolation: 35dB
+      BO_Actual Glass Weight: 78.57108
+      BO_Glass Weight: 30.0
+      BO_LT/g: 73/57
+      BO_Uw: 1.1
+    [Phasing]
+      Phase Created: New Construction
+    [Visibility]
+      BO_Glazing Bars Visibility: True
+      BO_Warning Triangle: False
+
+  Window 'BALANS Fixed Single Window:BALANS TRAPPHUS GROUND:774256' GUID=1ebX2H7F...
+    [Analytical Properties]
+      Define Thermal Properties by: Schematic Type
+      Analytic Construction: <None>
+    [Construction]
+      Wall Closure: By host
+      BO_Blinds: True
+      BO_Glazing Bars Type: S 0010 + S 0002 övre
+      BO_Window Glass Type: Energiglas - Le+arg
+    [Dimensions]
+      BO_Gap: 10.0
+      BO_Glass Height: 1094.0
+      BO_Glass Sill Height: 852.999999999999
+      BO_Glass Width: 2394.0
+      Height: 1180.0
+      Rough Height: 1200.0
+      Rough Width: 2500.0
+      Width: 2480.0
+      Area: 10.5922677696735
+      BO_Inset: 50.0
+      Volume: 0.0656405874202707
+    [General]
+      Date of publishing: 
+      Design country: Sweden
+      Edition number: 1
+      Manufacturer country: Sweden
+      Manufacturer name: SP Fönster
+      Product family: Balans Fönster
+      Product group: Fasta fönster
+      Product name: BALANS Karmfasta fönster
+      Product SKU: SP_KF_F
+      QR code: http://sp-fonster.bimobject.com/sp_kf_f
+      Weight Net (Kg): 0
+    [Identity Data]
+      Assembly Code: 
+      Assembly Description: 
+      Code Name: 
+      Installation instructions: 
+      Product certification: 
+      Youtube clip: 
+      EAN code: http://-
+      Manufacturer: Svenska Fönster
+      Model: SP Fönster BALANS Fixed Single Window
+      OmniClass Number: 23.30.20.00
+      OmniClass Title: Windows
+      Product data url: http://sp-fonster.bimobject.com/sp_kf_f
+      Technical description: http://www.spfonster.se/images/pdf/teknisk-information/500-teknisk-info-balans-karmfast-fonster.pdf
+      Type Mark: 43
+      Type Name: BALANS TRAPPHUS GROUND
+      URL: http://www.svenskafonster.se
+      Mark: 102
+    [Materials and Finishes]
+      BO_Aluminium Anodic Brown: Anodic Brown
+      BO_Aluminium Anodic Natura: Anodic Natura
+      BO_Aluminium Anthracite RAL 7016: Anthracite RAL 7016
+      BO_Aluminium Brown RAL 8011: Brown RAL 8011
+      BO_Aluminium Brownred RAL 3011: Brownred RAL 3011
+      BO_Aluminium Clear White NCS-S0500-n: Clear White NCS-S0500-n
+      BO_Aluminium Light Gray RAL 7035: Light Gray RAL 7035
+      BO_Aluminium Silver Gray RAL 7001: Silver Gray RAL 7001
+      BO_Aluminium Sky-blue RAL 5023: Sky-blue RAL 5023
+      BO_Aluminium White RAL 9010: White RAL 9010
+      BO_Glass: Glass
+      BO_Glass Distancer: Steel, Chrome Plated
+      BO_Glazing Bars Aluminium: White RAL 9010
+      BO_Moulding: White RAL 9010
+      BO_Seal: Rubber, Black
+      BO_Timber Brown Black: Brown Black
+      BO_Timber Hazel: Birch
+      BO_Timber Light Pine: Light Pine
+      BO_Timber Tar Black: Tar Black
+      BO_Timber Teak: Teak
+      BO_Timber White NCS S0502-Y: White NCS S0502-Y
+      BO_Window Frame: White NCS S0502-Y
+      Material main: Wood
+      Material secondary: Aluminium
+    [Other]
+      Category: Windows
+      Default Sill Height: 799.999999999999
+      Family Name: BALANS Fixed Single Window
+      Host Id: Basic Wall: MockUp Exterior Ground Floor
+      Family: BALANS Fixed Single Window: BALANS TRAPPHUS GROUND
+      Family and Type: BALANS Fixed Single Window: BALANS TRAPPHUS GROUND
+      Type: BALANS Fixed Single Window: BALANS TRAPPHUS GROUND
+      Type Id: BALANS Fixed Single Window: BALANS TRAPPHUS GROUND
+      Head Height: 2580.0
+    [BALANS Fixed Single Window:BALANS TRAPPHUS GROUND:774256]
+    [Pset_ManufacturerTypeInformation]
+      Manufacturer: Svenska Fönster
+    [Pset_ProductRequirements]
+      Category: Windows
+    [Pset_QuantityTakeOff]
+      Reference: BALANS TRAPPHUS GROUND
+    [Pset_WindowCommon]
+      IsExternal: True
+      Reference: BALANS TRAPPHUS GROUND
+    [Custom_Pset]
+      TypeMark: 43
+      Height: 1180.0
+      Width: 2480.0
+      RoughWidth: 2500.0
+      Hyperlink: http://www.svenskafonster.se
+      StoreyName: Level: 0 - Ground Floor
+      StatusConstruction: New Construction
+      NetArea: 10.5922677696735
+      SillHeight: 1400.0
+    [BaseQuantities]
+      Height: 1180.0
+      Width: 2480.0
+      Area: 10.5922677696735
+    [Constraints]
+      Level: Level: 0 - Ground Floor
+      BO_Glass Applicability: GLASS IS APPLICABLE
+      Sill Height: 1400.0
+    [Data]
+      BO_Acoustic Isolation: 35dB
+      BO_Actual Glass Weight: 78.57108
+      BO_Glass Weight: 30.0
+      BO_LT/g: 73/57
+      BO_Uw: 1.1
+    [Phasing]
+      Phase Created: New Construction
+    [Visibility]
+      BO_Glazing Bars Visibility: True
+      BO_Warning Triangle: False
+
+  Window 'BALANS Fixed Single Window:BALANS TRAPPHUS GROUND:777049' GUID=0xyFL4yS...
+    [BALANS Fixed Single Window:BALANS TRAPPHUS GROUND:773888]
+    [Analytical Properties]
+      Define Thermal Properties by: Schematic Type
+      Analytic Construction: <None>
+    [Construction]
+      Wall Closure: By host
+      BO_Blinds: True
+      BO_Glazing Bars Type: S 0010 + S 0002 övre
+      BO_Window Glass Type: Energiglas - Le+arg
+    [Dimensions]
+      BO_Gap: 10.0
+      BO_Glass Height: 1094.0
+      BO_Glass Sill Height: 852.999999999999
+      BO_Glass Width: 2394.0
+      Height: 1180.0
+      Rough Height: 1200.0
+      Rough Width: 2500.0
+      Width: 2480.0
+      Area: 10.5922677696735
+      BO_Inset: 50.0
+      Volume: 0.0656405874202708
+    [General]
+      Date of publishing: 
+      Design country: Sweden
+      Edition number: 1
+      Manufacturer country: Sweden
+      Manufacturer name: SP Fönster
+      Product family: Balans Fönster
+      Product group: Fasta fönster
+      Product name: BALANS Karmfasta fönster
+      Product SKU: SP_KF_F
+      QR code: http://sp-fonster.bimobject.com/sp_kf_f
+      Weight Net (Kg): 0
+    [Identity Data]
+      Assembly Code: 
+      Assembly Description: 
+      Code Name: 
+      Installation instructions: 
+      Product certification: 
+      Youtube clip: 
+      EAN code: http://-
+      Manufacturer: Svenska Fönster
+      Model: SP Fönster BALANS Fixed Single Window
+      OmniClass Number: 23.30.20.00
+      OmniClass Title: Windows
+      Product data url: http://sp-fonster.bimobject.com/sp_kf_f
+      Technical description: http://www.spfonster.se/images/pdf/teknisk-information/500-teknisk-info-balans-karmfast-fonster.pdf
+      Type Mark: 43
+      Type Name: BALANS TRAPPHUS GROUND
+      URL: http://www.svenskafonster.se
+      Mark: 105
+    [Materials and Finishes]
+      BO_Aluminium Anodic Brown: Anodic Brown
+      BO_Aluminium Anodic Natura: Anodic Natura
+      BO_Aluminium Anthracite RAL 7016: Anthracite RAL 7016
+      BO_Aluminium Brown RAL 8011: Brown RAL 8011
+      BO_Aluminium Brownred RAL 3011: Brownred RAL 3011
+      BO_Aluminium Clear White NCS-S0500-n: Clear White NCS-S0500-n
+      BO_Aluminium Light Gray RAL 7035: Light Gray RAL 7035
+      BO_Aluminium Silver Gray RAL 7001: Silver Gray RAL 7001
+      BO_Aluminium Sky-blue RAL 5023: Sky-blue RAL 5023
+      BO_Aluminium White RAL 9010: White RAL 9010
+      BO_Glass: Glass
+      BO_Glass Distancer: Steel, Chrome Plated
+      BO_Glazing Bars Aluminium: White RAL 9010
+      BO_Moulding: White RAL 9010
+      BO_Seal: Rubber, Black
+      BO_Timber Brown Black: Brown Black
+      BO_Timber Hazel: Birch
+      BO_Timber Light Pine: Light Pine
+      BO_Timber Tar Black: Tar Black
+      BO_Timber Teak: Teak
+      BO_Timber White NCS S0502-Y: White NCS S0502-Y
+      BO_Window Frame: White NCS S0502-Y
+      Material main: Wood
+      Material secondary: Aluminium
+    [Other]
+      Category: Windows
+      Default Sill Height: 799.999999999999
+      Family Name: BALANS Fixed Single Window
+      Host Id: Basic Wall: MockUp Exterior Ground Floor
+      Family: BALANS Fixed Single Window: BALANS TRAPPHUS GROUND
+      Family and Type: BALANS Fixed Single Window: BALANS TRAPPHUS GROUND
+      Type: BALANS Fixed Single Window: BALANS TRAPPHUS GROUND
+      Type Id: BALANS Fixed Single Window: BALANS TRAPPHUS GROUND
+      Head Height: 2580.0
+    [Pset_ManufacturerTypeInformation]
+      Manufacturer: Svenska Fönster
+    [Pset_ProductRequirements]
+      Category: Windows
+    [Pset_QuantityTakeOff]
+      Reference: BALANS TRAPPHUS GROUND
+    [Pset_WindowCommon]
+      IsExternal: True
+      Reference: BALANS TRAPPHUS GROUND
+    [Custom_Pset]
+      TypeMark: 43
+      Height: 1180.0
+      Width: 2480.0
+      RoughWidth: 2500.0
+      Hyperlink: http://www.svenskafonster.se
+      StoreyName: Level: 0 - Ground Floor
+      StatusConstruction: New Construction
+      NetArea: 10.5922677696735
+      SillHeight: 1400.0
+    [BaseQuantities]
+      Height: 1180.0
+      Width: 2480.0
+      Area: 10.5922677696735
+    [Constraints]
+      Level: Level: 0 - Ground Floor
+      BO_Glass Applicability: GLASS IS APPLICABLE
+      Sill Height: 1400.0
+    [Data]
+      BO_Acoustic Isolation: 35dB
+      BO_Actual Glass Weight: 78.57108
+      BO_Glass Weight: 30.0
+      BO_LT/g: 73/57
+      BO_Uw: 1.1
+    [Phasing]
+      Phase Created: New Construction
+    [Visibility]
+      BO_Glazing Bars Visibility: True
+      BO_Warning Triangle: False
+
+=================================================================
+3. PROPERTY SETS on Doors (sample 5)
+=================================================================
+
+  Door 'Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:473744' GUID=1_jeQ1u6...
+    [Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:473744]
+      PanelOperation: NOTDEFINED
+      PanelPosition: NOTDEFINED
+    [Analytical Properties]
+      Define Thermal Properties by: Schematic Type
+      Analytic Construction: <None>
+    [Construction]
+      Function: Interior
+      Wall Closure: By host
+    [Dimensions]
+      Bottom Panel Height: 2090.00000000001
+      Clear Opening 180°: 850.0
+      Clear Opening 90°: 805.0
+      Door Glass Width: 770.0
+      Door Leaf Height: 2050.0
+      Door Leaf Width: 910.0
+      Frame Depth: 65.0
+      Frame Width: 50.0
+      Glass Beading Depth: 26.0
+      Glass Thickness: 25.0
+      Height: 2390.0
+      Over Panel Glass Height: 249.999999999995
+      Over Panel Glass Width: 890.0
+      Over Panel Height: 299.999999999995
+      Panel Thickness: 65.0
+      Rough Height: 2400.0
+      Rough Width: 2010.0
+      Side Panel Glass Height: 1990.0
+      Side Panel Left Glass Width: 390.0
+      Side Panel Left Width: 480.0
+      Side Panel Right Glass Width: 510.0
+      Side Panel Right Width: 600.0
+      Width: 1990.0
+      Area: 9.68725851835601
+      Door Glass Height: 1900.0
+      Door Offset: 0.0
+      Threshold Gap: 30.0
+      Volume: 0.176005594265132
+    [General]
+      Date of publishing: 
+      Design country: Denmark
+      Edition number: 1
+      Manufacturer country: Estonia
+      Manufacturer name: SWEDOOR JELD-WEN 
+      Nominal height: 0.0
+      Nominal width: 0.0
+      Product family: Interior Door Professional
+      Product group: SD4220
+      Product SKU: swedoor_interior_steel_door_sd4220_p65_ei60_single-left-right-over
+      QR code: http://bimobject.com/swedoor-jeld-wen/product/swedoor_interior_steel_door_sd4220_p65_ei60_single-left-right-over
+      Region Africa: All
+      Region Antarctica: All
+      Region Asia: All
+      Region Europe: All
+      Region Middle East: All
+      Region North America: All
+      Region Oceania: All
+      Region South America: All
+      Weight Net (Kg): 0.0
+    [Graphics]
+      Error Text: OK
+      Threshold_Type: Standard 50x20 mm
+    [Identity Data]
+      Assembly Code: 
+      Assembly Description: 
+      Code Name: 
+      Youtube clip: 
+      EAN code: 
+      Fire Rating: EI60
+      Handing: Right-handed
+      Installation instructions: http://www.swedoor.se/support-teknisk-info/download-center/#6849
+      Installation Instructions URL: 
+      OmniClass Number: 23.30.10.00
+      OmniClass Title: Doors
+      Product certification: http://www.swedoor.se/support-teknisk-info/download-center/
+      Product data url: https://bimobject.com/swedoor-jeld-wen/product/swedoor_interior_steel_door_sd4220_p65_ei60_single-left-right-over
+      Product Guid: 13d22080-b752-49a1-aea5-7915f55b7ee8
+      Technical description: http://www.swedoor.se/mattofakta_stal/
+      Type Mark: 55
+      Type Name: 1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed
+      Mark: 78
+    [Materials and Finishes]
+      Coating System: C2-M Regular Steel (S235JR)
+      Frame Surface Finish: Paint - JW - Steel Doors RAL 5005
+      Glass Material: Glass
+      Material main: Steel
+      Material secondary: Glass
+      Threshold Material: Metal - JW - Stainless Steel - Brushed
+    [Model Properties]
+      Left Handed: False
+      Right Handed: True
+    [Other]
+      Category: Doors
+      Family Name: Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0
+      Host Id: Basic Wall: MockUp Exterior Ground Floor
+      Family: Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0: 1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed
+      Family and Type: Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0: 1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed
+      Head Height: 2390.0
+      Threshold 5mm Flat Steel: False
+      Threshold Automatic Drop Down: False
+      Threshold Not: False
+      Threshold Rubber: False
+      Threshold Standard: True
+      Type: Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0: 1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed
+      Type Id: Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0: 1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed
+    [Pset_ConcreteElementGeneral]
+      FireRating: EI60
+    [Pset_DoorCommon]
+      IsExternal: False
+      Reference: 1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed
+      FireRating: EI60
+    [Pset_ProductRequirements]
+      Category: Doors
+    [Pset_QuantityTakeOff]
+      Reference: 1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed
+    [Custom_Pset]
+      TypeMark: 55
+      Height: 2390.0
+      Width: 1990.0
+      RoughWidth: 2010.0
+      SillHeight: 0.0
+      StoreyName: Level: 0 - Ground Floor
+      StatusConstruction: New Construction
+      NetArea: 9.68725851835601
+    [BaseQuantities]
+      Height: 2390.0
+      Width: 1990.0
+      Area: 9.68725851835601
+    [Constraints]
+      Sill Height: 0.0
+      Level: Level: 0 - Ground Floor
+      REMARK: DO NOT MIRROR THIS OBJECT
+    [Phasing]
+      Phase Created: New Construction
+    [Visibility]
+      Sealant visible on left: True
+      Sealant visible on right: True
+
+  Door 'M_Single-Flush:Generic Door:586077' GUID=0MOEoDTm...
+    [Analytical Properties(Type)]
+      Analytic Construction: Metal
+      Define Thermal Properties by: Schematic Type
+      Heat Transfer Coefficient (U): 3.7021
+      Solar Heat Gain Coefficient: 0.0
+      Thermal Resistance (R): 0.270116960643959
+      Visual Light Transmittance: 0.0
+    [Construction(Type)]
+      Function: Interior
+      Wall Closure: By host
+    [Dimensions(Type)]
+      Height: 2134.0
+      Thickness: 51.0
+      Trim Projection Ext: 25.0
+      Trim Projection Int: 25.0
+      Trim Width: 76.0
+      Width: 915.0
+    [Identity Data(Type)]
+      Assembly Description: 
+      Assembly Code: Door: Assembly Code
+      Code Name: 
+      Description: Door: Description
+      Fire Rating: Door: Fire Rating
+      Keynote: Door: Keynote
+      Manufacturer: Door: Manufacturer
+      Model: Door: Model
+      OmniClass Number: 23.30.10.00
+      OmniClass Title: Doors
+      Type Comments: Door: Type Comments
+      Type Mark: Door: Type Mark
+      Type Name: Generic Door
+      URL: Door: URL
+    [Materials and Finishes(Type)]
+      Door Material: Door - Panel
+      Frame Material: Door - Frame
+    [Other(Type)]
+      Category: Doors
+      Family Name: M_Single-Flush
+    [M_Single-Flush:Generic Door:586077]
+      PanelOperation: NOTDEFINED
+      PanelPosition: NOTDEFINED
+    [Pset_ConcreteElementGeneral]
+      FireRating: Door: Fire Rating
+    [Pset_DoorCommon]
+      IsExternal: False
+      Reference: Generic Door
+      FireRating: Door: Fire Rating
+      ThermalTransmittance: 3.7021
+    [Pset_ManufacturerTypeInformation]
+      Manufacturer: Door: Manufacturer
+    [Pset_ProductRequirements]
+      Category: Doors
+    [Pset_QuantityTakeOff]
+      Reference: Generic Door
+    [Custom_Pset]
+      TypeMark: Door: Type Mark
+      Keynote: Door: Keynote
+      TypeDescription: Door: Description
+      Height: 2134.0
+      Width: 915.0
+      Hyperlink: Door: URL
+      SillHeight: 0.0
+      StoreyName: Level: 1 - First Floor
+      StatusConstruction: New Construction
+      NetArea: 3.18957899999998
+    [BaseQuantities]
+      Height: 2134.0
+      Width: 915.0
+      Area: 3.18957899999998
+    [Constraints]
+      Level: Level: 1 - First Floor
+      Sill Height: 0.0
+    [Dimensions]
+      Area: 3.18957899999998
+      Volume: 0.119856109999999
+    [Identity Data]
+      Mark: 217
+    [Other]
+      Category: Doors
+      Family: M_Single-Flush: Generic Door
+      Family and Type: M_Single-Flush: Generic Door
+      Type: M_Single-Flush: Generic Door
+      Type Id: M_Single-Flush: Generic Door
+      Host Id: Basic Wall: MockUp Interior between App
+      Head Height: 2134.0
+    [Phasing]
+      Phase Created: New Construction
+
+  Door 'M_Single-Flush:Generic Door:586864' GUID=0MOEoDTm...
+    [Analytical Properties(Type)]
+      Analytic Construction: Metal
+      Define Thermal Properties by: Schematic Type
+      Heat Transfer Coefficient (U): 3.7021
+      Solar Heat Gain Coefficient: 0.0
+      Thermal Resistance (R): 0.270116960643959
+      Visual Light Transmittance: 0.0
+    [Construction(Type)]
+      Function: Interior
+      Wall Closure: By host
+    [Dimensions(Type)]
+      Height: 2134.0
+      Thickness: 51.0
+      Trim Projection Ext: 25.0
+      Trim Projection Int: 25.0
+      Trim Width: 76.0
+      Width: 915.0
+    [Identity Data(Type)]
+      Assembly Description: 
+      Assembly Code: Door: Assembly Code
+      Code Name: 
+      Description: Door: Description
+      Fire Rating: Door: Fire Rating
+      Keynote: Door: Keynote
+      Manufacturer: Door: Manufacturer
+      Model: Door: Model
+      OmniClass Number: 23.30.10.00
+      OmniClass Title: Doors
+      Type Comments: Door: Type Comments
+      Type Mark: Door: Type Mark
+      Type Name: Generic Door
+      URL: Door: URL
+    [Materials and Finishes(Type)]
+      Door Material: Door - Panel
+      Frame Material: Door - Frame
+    [Other(Type)]
+      Category: Doors
+      Family Name: M_Single-Flush
+    [M_Single-Flush:Generic Door:586077]
+      PanelOperation: NOTDEFINED
+      PanelPosition: NOTDEFINED
+    [Pset_ConcreteElementGeneral]
+      FireRating: Door: Fire Rating
+    [Pset_DoorCommon]
+      IsExternal: False
+      Reference: Generic Door
+      FireRating: Door: Fire Rating
+      ThermalTransmittance: 3.7021
+    [Pset_ManufacturerTypeInformation]
+      Manufacturer: Door: Manufacturer
+    [Pset_ProductRequirements]
+      Category: Doors
+    [Pset_QuantityTakeOff]
+      Reference: Generic Door
+    [Custom_Pset]
+      TypeMark: Door: Type Mark
+      Keynote: Door: Keynote
+      TypeDescription: Door: Description
+      Height: 2134.0
+      Width: 915.0
+      Hyperlink: Door: URL
+      SillHeight: 0.0
+      StoreyName: Level: 1 - First Floor
+      StatusConstruction: New Construction
+      NetArea: 3.18957899999998
+    [BaseQuantities]
+      Height: 2134.0
+      Width: 915.0
+      Area: 3.18957899999998
+    [Constraints]
+      Level: Level: 1 - First Floor
+      Sill Height: 0.0
+    [Dimensions]
+      Area: 3.18957899999998
+      Volume: 0.119856109999999
+    [Identity Data]
+      Mark: 219
+    [Other]
+      Category: Doors
+      Family: M_Single-Flush: Generic Door
+      Family and Type: M_Single-Flush: Generic Door
+      Type: M_Single-Flush: Generic Door
+      Type Id: M_Single-Flush: Generic Door
+      Host Id: Basic Wall: MockUp Interior between App
+      Head Height: 2134.0
+    [Phasing]
+      Phase Created: New Construction
+
+  Door 'M_Single-Flush:Generic Door:587735' GUID=2sG0Vcmg...
+    [Analytical Properties(Type)]
+      Analytic Construction: Metal
+      Define Thermal Properties by: Schematic Type
+      Heat Transfer Coefficient (U): 3.7021
+      Solar Heat Gain Coefficient: 0.0
+      Thermal Resistance (R): 0.270116960643959
+      Visual Light Transmittance: 0.0
+    [Construction(Type)]
+      Function: Interior
+      Wall Closure: By host
+    [Dimensions(Type)]
+      Height: 2134.0
+      Thickness: 51.0
+      Trim Projection Ext: 25.0
+      Trim Projection Int: 25.0
+      Trim Width: 76.0
+      Width: 915.0
+    [Identity Data(Type)]
+      Assembly Description: 
+      Assembly Code: Door: Assembly Code
+      Code Name: 
+      Description: Door: Description
+      Fire Rating: Door: Fire Rating
+      Keynote: Door: Keynote
+      Manufacturer: Door: Manufacturer
+      Model: Door: Model
+      OmniClass Number: 23.30.10.00
+      OmniClass Title: Doors
+      Type Comments: Door: Type Comments
+      Type Mark: Door: Type Mark
+      Type Name: Generic Door
+      URL: Door: URL
+    [Materials and Finishes(Type)]
+      Door Material: Door - Panel
+      Frame Material: Door - Frame
+    [Other(Type)]
+      Category: Doors
+      Family Name: M_Single-Flush
+    [M_Single-Flush:Generic Door:587735]
+      PanelOperation: NOTDEFINED
+      PanelPosition: NOTDEFINED
+    [Pset_ConcreteElementGeneral]
+      FireRating: Door: Fire Rating
+    [Pset_DoorCommon]
+      IsExternal: False
+      Reference: Generic Door
+      FireRating: Door: Fire Rating
+      ThermalTransmittance: 3.7021
+    [Pset_ManufacturerTypeInformation]
+      Manufacturer: Door: Manufacturer
+    [Pset_ProductRequirements]
+      Category: Doors
+    [Pset_QuantityTakeOff]
+      Reference: Generic Door
+    [Custom_Pset]
+      TypeMark: Door: Type Mark
+      Keynote: Door: Keynote
+      TypeDescription: Door: Description
+      Height: 2134.0
+      Width: 915.0
+      Hyperlink: Door: URL
+      SillHeight: 0.0
+      StoreyName: Level: 1 - First Floor
+      StatusConstruction: New Construction
+      NetArea: 3.18957899999998
+    [BaseQuantities]
+      Height: 2134.0
+      Width: 915.0
+      Area: 3.18957899999998
+    [Constraints]
+      Level: Level: 1 - First Floor
+      Sill Height: 0.0
+    [Dimensions]
+      Area: 3.18957899999998
+      Volume: 0.119856109999999
+    [Identity Data]
+      Mark: 221
+    [Other]
+      Category: Doors
+      Family: M_Single-Flush: Generic Door
+      Family and Type: M_Single-Flush: Generic Door
+      Host Id: Basic Wall: MockUp Interior
+      Type: M_Single-Flush: Generic Door
+      Type Id: M_Single-Flush: Generic Door
+      Head Height: 2134.0
+    [Phasing]
+      Phase Created: New Construction
+
+  Door 'M_Single-Flush:Generic Door:589153' GUID=2sG0Vcmg...
+    [Analytical Properties(Type)]
+      Analytic Construction: Metal
+      Define Thermal Properties by: Schematic Type
+      Heat Transfer Coefficient (U): 3.7021
+      Solar Heat Gain Coefficient: 0.0
+      Thermal Resistance (R): 0.270116960643959
+      Visual Light Transmittance: 0.0
+    [Construction(Type)]
+      Function: Interior
+      Wall Closure: By host
+    [Dimensions(Type)]
+      Height: 2134.0
+      Thickness: 51.0
+      Trim Projection Ext: 25.0
+      Trim Projection Int: 25.0
+      Trim Width: 76.0
+      Width: 915.0
+    [Identity Data(Type)]
+      Assembly Description: 
+      Assembly Code: Door: Assembly Code
+      Code Name: 
+      Description: Door: Description
+      Fire Rating: Door: Fire Rating
+      Keynote: Door: Keynote
+      Manufacturer: Door: Manufacturer
+      Model: Door: Model
+      OmniClass Number: 23.30.10.00
+      OmniClass Title: Doors
+      Type Comments: Door: Type Comments
+      Type Mark: Door: Type Mark
+      Type Name: Generic Door
+      URL: Door: URL
+    [Materials and Finishes(Type)]
+      Door Material: Door - Panel
+      Frame Material: Door - Frame
+    [Other(Type)]
+      Category: Doors
+      Family Name: M_Single-Flush
+    [M_Single-Flush:Generic Door:587735]
+      PanelOperation: NOTDEFINED
+      PanelPosition: NOTDEFINED
+    [Pset_ConcreteElementGeneral]
+      FireRating: Door: Fire Rating
+    [Pset_DoorCommon]
+      IsExternal: False
+      Reference: Generic Door
+      FireRating: Door: Fire Rating
+      ThermalTransmittance: 3.7021
+    [Pset_ManufacturerTypeInformation]
+      Manufacturer: Door: Manufacturer
+    [Pset_ProductRequirements]
+      Category: Doors
+    [Pset_QuantityTakeOff]
+      Reference: Generic Door
+    [Custom_Pset]
+      TypeMark: Door: Type Mark
+      Keynote: Door: Keynote
+      TypeDescription: Door: Description
+      Height: 2134.0
+      Width: 915.0
+      Hyperlink: Door: URL
+      SillHeight: 0.0
+      StoreyName: Level: 1 - First Floor
+      StatusConstruction: New Construction
+      NetArea: 3.18957899999998
+    [BaseQuantities]
+      Height: 2134.0
+      Width: 915.0
+      Area: 3.18957899999998
+    [Constraints]
+      Level: Level: 1 - First Floor
+      Sill Height: 0.0
+    [Dimensions]
+      Area: 3.18957899999998
+      Volume: 0.119856109999999
+    [Identity Data]
+      Mark: 225
+    [Other]
+      Category: Doors
+      Family: M_Single-Flush: Generic Door
+      Family and Type: M_Single-Flush: Generic Door
+      Host Id: Basic Wall: MockUp Interior
+      Type: M_Single-Flush: Generic Door
+      Type Id: M_Single-Flush: Generic Door
+      Head Height: 2134.0
+    [Phasing]
+      Phase Created: New Construction
+
+=================================================================
+4. DISCRIMINATIVE PROPERTY ANALYSIS — IfcWindow
+=================================================================
+
+  Attribute: Name — 263 unique values
+    'BALANS Fixed Single Window:BALANS 20M FLOOR (SH = 0):773593': 1
+    'BALANS Fixed Single Window:BALANS 20M FLOOR (SH = 0):773676': 1
+    'BALANS Fixed Single Window:BALANS TRAPPHUS GROUND:773888': 1
+    'BALANS Fixed Single Window:BALANS TRAPPHUS GROUND:774256': 1
+    'BALANS Fixed Single Window:BALANS TRAPPHUS GROUND:777049': 1
+    'BALANS Fixed Single Window:BALANS GROUND SMALL A:777648': 1
+    'BALANS Fixed Single Window:BALANS 30M FLOOR (SH = 0):778282': 1
+    'BALANS Fixed Single Window:BALANS 25M FLOOR (SH = 0):780926': 1
+    'BALANS Fixed Single Window:BALANS 30M FLOOR (SH = 0):781363': 1
+    'BALANS Fixed Single Window:BALANS 30M FLOOR (SH = 0):781498': 1
+
+  Attribute: Description — 1 unique values
+    '—': 263
+
+  Attribute: ObjectType — 14 unique values
+    'BALANS Fixed Single Window:BALANS 15M PRIVATE': 68
+    'BALANS Fixed Single Window:BALANS 10M PRIVATE': 60
+    'BALANS Fixed Single Window:BALANS 20M PRIVATE': 35
+    'BALANS Fixed Single Window:BALANS 30M FLOOR (SH = 0)': 24
+    'BALANS Fixed Single Window:BALANS 10M BATHROOM': 17
+    'BALANS Fixed Single Window:BALANS TRAPPHUS': 15
+    'BALANS Fixed Single Window:BALANS 15M FLOOR (SH = 0)': 12
+    'BALANS Fixed Single Window:BALANS 20M FLOOR (SH = 0)': 8
+    'BALANS Fixed Single Window:BALANS 25M FLOOR (SH = 0)': 8
+    'BALANS Fixed Single Window:BALANS 10M FLOOR (SH = 0)': 7
+
+  Attribute: Tag — 263 unique values
+    '773593': 1
+    '773676': 1
+    '773888': 1
+    '774256': 1
+    '777049': 1
+    '777648': 1
+    '778282': 1
+    '780926': 1
+    '781363': 1
+    '781498': 1
+
+  Properties ranked by uniqueness (out of 263 windows):
+    Identity Data.Mark                                 unique= 263  max_dup=   1  entropy=100.0%
+    Dimensions.Volume                                  unique=  24  max_dup=  35  entropy=9.1%
+    Dimensions.Area                                    unique=  20  max_dup=  40  entropy=7.6%
+    Custom_Pset.NetArea                                unique=  20  max_dup=  40  entropy=7.6%
+    BaseQuantities.Area                                unique=  20  max_dup=  40  entropy=7.6%
+    Other.Family                                       unique=  14  max_dup=  68  entropy=5.3%
+    Other.Family and Type                              unique=  14  max_dup=  68  entropy=5.3%
+    Other.Type                                         unique=  14  max_dup=  68  entropy=5.3%
+    Other.Type Id                                      unique=  14  max_dup=  68  entropy=5.3%
+    Pset_QuantityTakeOff.Reference                     unique=  14  max_dup=  68  entropy=5.3%
+    Pset_WindowCommon.Reference                        unique=  14  max_dup=  68  entropy=5.3%
+    Custom_Pset.TypeMark                               unique=  14  max_dup=  68  entropy=5.3%
+    Data.BO_Actual Glass Weight                        unique=  13  max_dup=  68  entropy=4.9%
+    Identity Data.Type Mark                            unique=  12  max_dup=  68  entropy=4.6%
+    Identity Data.Type Name                            unique=  12  max_dup=  68  entropy=4.6%
+    Custom_Pset.SillHeight                             unique=  10  max_dup=  74  entropy=3.8%
+    Constraints.Sill Height                            unique=  10  max_dup=  74  entropy=3.8%
+    Custom_Pset.StoreyName                             unique=   7  max_dup=  46  entropy=2.7%
+    Constraints.Level                                  unique=   7  max_dup=  46  entropy=2.7%
+    Dimensions.BO_Glass Width                          unique=   6  max_dup=  80  entropy=2.3%
+    Dimensions.Rough Width                             unique=   6  max_dup=  80  entropy=2.3%
+    Dimensions.Width                                   unique=   6  max_dup=  80  entropy=2.3%
+    Dimensions.BO_Inset                                unique=   6  max_dup= 141  entropy=2.3%
+    Other.Head Height                                  unique=   6  max_dup= 233  entropy=2.3%
+    Custom_Pset.Height                                 unique=   6  max_dup= 163  entropy=2.3%
+    Custom_Pset.Width                                  unique=   6  max_dup=  86  entropy=2.3%
+    Custom_Pset.RoughWidth                             unique=   6  max_dup=  86  entropy=2.3%
+    BaseQuantities.Height                              unique=   6  max_dup= 163  entropy=2.3%
+    BaseQuantities.Width                               unique=   6  max_dup=  86  entropy=2.3%
+    Dimensions.BO_Glass Height                         unique=   5  max_dup= 163  entropy=1.9%
+
+=================================================================
+5. DISCRIMINATIVE PROPERTY ANALYSIS — IfcDoor
+=================================================================
+
+  Attribute: Name — 126 unique values
+    'Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:473744': 1
+    'M_Single-Flush:Generic Door:586077': 1
+    'M_Single-Flush:Generic Door:586864': 1
+    'M_Single-Flush:Generic Door:587735': 1
+    'M_Single-Flush:Generic Door:589153': 1
+    'M_Single-Flush:Generic Door:592071': 1
+    'M_Single-Flush:Generic Door:592203': 1
+    'M_Single-Flush:Generic Door:598697': 1
+    'M_Single-Flush:Generic Door:598784': 1
+    'M_Single-Flush:Generic Door:661041': 1
+
+  Properties ranked by uniqueness (out of 126 doors):
+    Identity Data.Mark                                 unique= 126  max_dup=   1  entropy=100.0%
+    Dimensions.Area                                    unique=   5  max_dup=  75  entropy=4.0%
+    Other.Host Id                                      unique=   5  max_dup=  51  entropy=4.0%
+    Other.Family                                       unique=   5  max_dup=  77  entropy=4.0%
+    Other.Family and Type                              unique=   5  max_dup=  77  entropy=4.0%
+    Other.Type                                         unique=   5  max_dup=  77  entropy=4.0%
+    Other.Type Id                                      unique=   5  max_dup=  77  entropy=4.0%
+    Pset_DoorCommon.Reference                          unique=   5  max_dup=  77  entropy=4.0%
+    Pset_QuantityTakeOff.Reference                     unique=   5  max_dup=  77  entropy=4.0%
+    Custom_Pset.TypeMark                               unique=   5  max_dup=  77  entropy=4.0%
+    Custom_Pset.NetArea                                unique=   5  max_dup=  75  entropy=4.0%
+    BaseQuantities.Area                                unique=   5  max_dup=  75  entropy=4.0%
+    Dimensions.Volume                                  unique=   4  max_dup=  77  entropy=3.2%
+    Identity Data.Type Mark                            unique=   4  max_dup=  38  entropy=3.2%
+    Identity Data.Type Name                            unique=   4  max_dup=  38  entropy=3.2%
+    Other.Head Height                                  unique=   4  max_dup=  77  entropy=3.2%
+    Custom_Pset.Height                                 unique=   4  max_dup=  77  entropy=3.2%
+    Custom_Pset.Width                                  unique=   4  max_dup=  77  entropy=3.2%
+    Custom_Pset.StoreyName                             unique=   4  max_dup=  45  entropy=3.2%
+    BaseQuantities.Height                              unique=   4  max_dup=  77  entropy=3.2%
+    BaseQuantities.Width                               unique=   4  max_dup=  77  entropy=3.2%
+    Constraints.Level                                  unique=   4  max_dup=  45  entropy=3.2%
+    Dimensions.Height                                  unique=   3  max_dup=  38  entropy=2.4%
+    Dimensions.Width                                   unique=   3  max_dup=  38  entropy=2.4%
+    Other.Family Name                                  unique=   3  max_dup=  38  entropy=2.4%
+    Analytical Properties.Analytic Construction        unique=   2  max_dup=  39  entropy=1.6%
+    Construction.Function                              unique=   2  max_dup=  48  entropy=1.6%
+    Dimensions.Rough Height                            unique=   2  max_dup=  10  entropy=1.6%
+    Dimensions.Rough Width                             unique=   2  max_dup=  10  entropy=1.6%
+    Identity Data.Assembly Code                        unique=   2  max_dup=  48  entropy=1.6%
+
+=================================================================
+6. DISCRIMINATIVE PROPERTY ANALYSIS — IfcWallStandardCase
+=================================================================
+
+  Attribute: Name — 381 unique values
+    'Basic Wall:Generic - 200mm:308895': 1
+    'Basic Wall:Generic - 200mm:308944': 1
+    'Basic Wall:Generic - 200mm:309002': 1
+    'Basic Wall:Generic - 200mm:309062': 1
+    'Basic Wall:Generic - 200mm:309227': 1
+    'Basic Wall:Generic - 200mm:309277': 1
+    'Basic Wall:Generic - 200mm:309306': 1
+    'Basic Wall:Generic - 200mm:309392': 1
+    'Basic Wall:Generic - 200mm:309437': 1
+    'Basic Wall:Generic - 200mm:309489': 1
+
+  Properties ranked by uniqueness (out of 381 walls):
+    BaseQuantities.NetVolume                           unique= 380  max_dup=   2  entropy=99.7%
+    Dimensions.Volume                                  unique= 380  max_dup=   2  entropy=99.7%
+    Custom_Pset.NetArea                                unique= 379  max_dup=   3  entropy=99.5%
+    BaseQuantities.NetSideArea                         unique= 379  max_dup=   3  entropy=99.5%
+    Dimensions.Area                                    unique= 379  max_dup=   3  entropy=99.5%
+    Custom_Pset.Length                                 unique= 364  max_dup=   3  entropy=95.5%
+    Dimensions.Length                                  unique= 364  max_dup=   3  entropy=95.5%
+    BaseQuantities.GrossFootprintArea                  unique= 363  max_dup=   3  entropy=95.3%
+    BaseQuantities.Length                              unique= 362  max_dup=   3  entropy=95.0%
+    BaseQuantities.Height                              unique=  34  max_dup= 109  entropy=8.9%
+    Custom_Pset.Height                                 unique=  29  max_dup= 109  entropy=7.6%
+    Constraints.Unconnected Height                     unique=  29  max_dup= 109  entropy=7.6%
+    Identity Data.Type Name                            unique=  10  max_dup= 130  entropy=2.6%
+    Other.Family                                       unique=  10  max_dup= 130  entropy=2.6%
+    Other.Family and Type                              unique=  10  max_dup= 130  entropy=2.6%
+    Other.Type                                         unique=  10  max_dup= 130  entropy=2.6%
+    Other.Type Id                                      unique=  10  max_dup= 130  entropy=2.6%
+    Pset_QuantityTakeOff.Reference                     unique=  10  max_dup= 130  entropy=2.6%
+    Pset_ReinforcementBarPitchOfWall.Reference         unique=  10  max_dup= 130  entropy=2.6%
+    Pset_WallCommon.Reference                          unique=  10  max_dup= 130  entropy=2.6%
+    Materials and Finishes.Structural Material         unique=   7  max_dup= 190  entropy=1.8%
+    Construction.Width                                 unique=   5  max_dup= 130  entropy=1.3%
+    Graphics.Coarse Scale Fill Color                   unique=   5  max_dup= 130  entropy=1.3%
+    Custom_Pset.Width                                  unique=   5  max_dup= 130  entropy=1.3%
+    Custom_Pset.StoreyName                             unique=   5  max_dup= 133  entropy=1.3%
+    BaseQuantities.Width                               unique=   5  max_dup= 130  entropy=1.3%
+    Constraints.Base Constraint                        unique=   5  max_dup= 133  entropy=1.3%
+    Analytical Properties.Heat Transfer Coefficient (U) unique=   5  max_dup=  33  entropy=1.3%
+    Analytical Properties.Thermal Mass                 unique=   5  max_dup=  33  entropy=1.3%
+    Analytical Properties.Thermal Resistance (R)       unique=   5  max_dup=  33  entropy=1.3%
+
+=================================================================
+7. MATERIAL DISCRIMINATION
+=================================================================
+
+  Window materials (sample 50/263):
+    ('Glass', 'Rubber, Black', 'Steel, Chrome Plated', 'White NCS S0502-Y', 'White RAL 9010'): 50
+
+  Door materials (sample 50/126):
+    ('Door - Frame', 'Door - Panel'): 43
+    ('Glass', 'Metal - JW - Stainless Steel - Brushed', 'Paint - JW - Steel Doors RAL 5005', 'Titanium'): 5
+    ('Glass', 'Metal - JW - Stainless Steel - Brushed', 'Oak', 'Titanium'): 1
+    ('Garage MockUp',): 1
+
+  Wall materials (sample 50/381):
+    ('Paint',): 50
+
+=================================================================
+8. DIMENSION DISCRIMINATION (OverallWidth × OverallHeight)
+=================================================================
+
+  Window dimensions (29 unique combos / 263 total):
+    1499.99999999999mm × 1400.0mm : 38
+    1000.00000000001mm × 1400.0mm : 35
+    1500.00000000003mm × 1400.0mm : 30
+    3000.00000000001mm × 2200.0mm : 21
+    2000.00000000003mm × 1400.0mm : 15
+    2500.00000000003mm × 3000.0mm : 15
+    1999.99999999999mm × 1400.0mm : 15
+    999.999999999994mm × 1400.0mm : 15
+    1000.00000000001mm × 600.0mm : 12
+    1499.99999999999mm × 2200.0mm : 10
+    1000.0mm × 1400.0mm : 10
+    1999.99999999999mm × 2200.0mm : 8
+    999.999999999999mm × 2200.0mm : 6
+    2000.00000000002mm × 1400.0mm : 5
+    1000.0mm × 600.0mm : 5
+
+  Door dimensions (29 unique combos / 126 total):
+    915.00000000001mm × 2134.0mm : 20
+    915.000000000023mm × 2134.0mm : 19
+    915.000000000014mm × 2134.0mm : 9
+    762.00000000005mm × 2032.0mm : 9
+    915.000000000031mm × 2134.0mm : 7
+    915.000000000049mm × 2134.0mm : 6
+    762.000000000013mm × 2032.0mm : 6
+    2010.00000000002mm × 2399.99999999998mm : 5
+    915.000000000034mm × 2134.0mm : 5
+    762.000000000004mm × 2032.0mm : 5
+    915.000000000003mm × 2134.0mm : 4
+    762.000000000011mm × 2032.0mm : 4
+    2009.99999999998mm × 2399.99999999998mm : 3
+    762.000000000021mm × 2032.0mm : 3
+    762.000000000033mm × 2032.0mm : 3
+
+=================================================================
+9. TYPE OBJECTS (IfcWindowStyle / IfcDoorStyle)
+=================================================================
+
+  Window types (14 unique / 263 total):
+    'BALANS Fixed Single Window:BALANS 15M PRIVATE': 68
+    'BALANS Fixed Single Window:BALANS 10M PRIVATE': 60
+    'BALANS Fixed Single Window:BALANS 20M PRIVATE': 35
+    'BALANS Fixed Single Window:BALANS 30M FLOOR (SH = 0)': 24
+    'BALANS Fixed Single Window:BALANS 10M BATHROOM': 17
+    'BALANS Fixed Single Window:BALANS TRAPPHUS': 15
+    'BALANS Fixed Single Window:BALANS 15M FLOOR (SH = 0)': 12
+    'BALANS Fixed Single Window:BALANS 20M FLOOR (SH = 0)': 8
+    'BALANS Fixed Single Window:BALANS 25M FLOOR (SH = 0)': 8
+    'BALANS Fixed Single Window:BALANS 10M FLOOR (SH = 0)': 7
+    'BALANS Fixed Single Window:BALANS TRAPPHUS GROUND': 3
+    'BALANS Fixed Single Window:BALANS GROUND SMALL A': 3
+    'BALANS Fixed Single Window:BALANS GROUND SMALL B': 2
+    'BALANS Fixed Single Window:BALANS TRAPPHUS TOP': 1
+
+  Door types (5 unique / 126 total):
+    'M_Single-Flush:Generic Door': 77
+    'M_Single-Flush:0762 x 2032mm': 38
+    'Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed': 7
+    'Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Left-handed': 3
+    'M_Door-Overhead-Sectional:2400 x 2000mm': 1
+
+=================================================================
+10. COMBINED FINGERPRINT (type + dim + material + name + storey)
+=================================================================
+
+  --- IfcWindow ---
+    1 - First Floor           n= 46  unique_attr_fps= 46  max_dup=  1  attr_oracle_top1=100.0%
+      ('BALANS Fixed Single Window:BALANS 20M PRIVATE:793588', 'BALANS Fixed Single Window:BALANS 20M PRIVATE', 2000.00000000003, 1400.0): 1
+      ('BALANS Fixed Single Window:BALANS 20M PRIVATE:793589', 'BALANS Fixed Single Window:BALANS 20M PRIVATE', 2000.00000000003, 1400.0): 1
+      ('BALANS Fixed Single Window:BALANS 10M PRIVATE:793590', 'BALANS Fixed Single Window:BALANS 10M PRIVATE', 1000.00000000001, 1400.0): 1
+      ('BALANS Fixed Single Window:BALANS 15M PRIVATE:793591', 'BALANS Fixed Single Window:BALANS 15M PRIVATE', 1500.00000000003, 1400.0): 1
+      ('BALANS Fixed Single Window:BALANS 15M PRIVATE:793592', 'BALANS Fixed Single Window:BALANS 15M PRIVATE', 1500.00000000003, 1400.0): 1
+    2 - Second Floor          n= 46  unique_attr_fps= 46  max_dup=  1  attr_oracle_top1=100.0%
+      ('BALANS Fixed Single Window:BALANS 20M PRIVATE:944979', 'BALANS Fixed Single Window:BALANS 20M PRIVATE', 2000.00000000003, 1400.0): 1
+      ('BALANS Fixed Single Window:BALANS 20M PRIVATE:944980', 'BALANS Fixed Single Window:BALANS 20M PRIVATE', 2000.00000000003, 1400.0): 1
+      ('BALANS Fixed Single Window:BALANS 10M PRIVATE:944981', 'BALANS Fixed Single Window:BALANS 10M PRIVATE', 1000.00000000001, 1400.0): 1
+      ('BALANS Fixed Single Window:BALANS 15M PRIVATE:944982', 'BALANS Fixed Single Window:BALANS 15M PRIVATE', 1500.00000000003, 1400.0): 1
+      ('BALANS Fixed Single Window:BALANS 15M PRIVATE:944983', 'BALANS Fixed Single Window:BALANS 15M PRIVATE', 1500.00000000003, 1400.0): 1
+    3 - Third Floor           n= 46  unique_attr_fps= 46  max_dup=  1  attr_oracle_top1=100.0%
+      ('BALANS Fixed Single Window:BALANS 20M PRIVATE:940672', 'BALANS Fixed Single Window:BALANS 20M PRIVATE', 2000.00000000003, 1400.0): 1
+      ('BALANS Fixed Single Window:BALANS 20M PRIVATE:940673', 'BALANS Fixed Single Window:BALANS 20M PRIVATE', 2000.00000000003, 1400.0): 1
+      ('BALANS Fixed Single Window:BALANS 10M PRIVATE:940674', 'BALANS Fixed Single Window:BALANS 10M PRIVATE', 1000.00000000001, 1400.0): 1
+      ('BALANS Fixed Single Window:BALANS 15M PRIVATE:940675', 'BALANS Fixed Single Window:BALANS 15M PRIVATE', 1500.00000000003, 1400.0): 1
+      ('BALANS Fixed Single Window:BALANS 15M PRIVATE:940676', 'BALANS Fixed Single Window:BALANS 15M PRIVATE', 1500.00000000003, 1400.0): 1
+    4 - Fourth Floor          n= 46  unique_attr_fps= 46  max_dup=  1  attr_oracle_top1=100.0%
+      ('BALANS Fixed Single Window:BALANS 20M PRIVATE:940748', 'BALANS Fixed Single Window:BALANS 20M PRIVATE', 2000.00000000003, 1400.0): 1
+      ('BALANS Fixed Single Window:BALANS 20M PRIVATE:940749', 'BALANS Fixed Single Window:BALANS 20M PRIVATE', 2000.00000000003, 1400.0): 1
+      ('BALANS Fixed Single Window:BALANS 10M PRIVATE:940750', 'BALANS Fixed Single Window:BALANS 10M PRIVATE', 1000.00000000001, 1400.0): 1
+      ('BALANS Fixed Single Window:BALANS 15M PRIVATE:940751', 'BALANS Fixed Single Window:BALANS 15M PRIVATE', 1500.00000000003, 1400.0): 1
+      ('BALANS Fixed Single Window:BALANS 15M PRIVATE:940752', 'BALANS Fixed Single Window:BALANS 15M PRIVATE', 1500.00000000003, 1400.0): 1
+    5 - Fifth Floor           n= 46  unique_attr_fps= 46  max_dup=  1  attr_oracle_top1=100.0%
+      ('BALANS Fixed Single Window:BALANS 20M PRIVATE:940905', 'BALANS Fixed Single Window:BALANS 20M PRIVATE', 2000.00000000003, 1400.0): 1
+      ('BALANS Fixed Single Window:BALANS 20M PRIVATE:940906', 'BALANS Fixed Single Window:BALANS 20M PRIVATE', 2000.00000000003, 1400.0): 1
+      ('BALANS Fixed Single Window:BALANS 10M PRIVATE:940907', 'BALANS Fixed Single Window:BALANS 10M PRIVATE', 1000.00000000001, 1400.0): 1
+      ('BALANS Fixed Single Window:BALANS 15M PRIVATE:940908', 'BALANS Fixed Single Window:BALANS 15M PRIVATE', 1500.00000000003, 1400.0): 1
+      ('BALANS Fixed Single Window:BALANS 15M PRIVATE:940909', 'BALANS Fixed Single Window:BALANS 15M PRIVATE', 1500.00000000003, 1400.0): 1
+    6 - Sixth Floor           n=  3  unique_attr_fps=  3  max_dup=  1  attr_oracle_top1=100.0%
+      ('BALANS Fixed Single Window:BALANS TRAPPHUS TOP:959331', 'BALANS Fixed Single Window:BALANS TRAPPHUS TOP', 2500.00000000003, 1800.0): 1
+      ('BALANS Fixed Single Window:BALANS 10M BATHROOM:959731', 'BALANS Fixed Single Window:BALANS 10M BATHROOM', 999.999999999984, 600.000000000002): 1
+      ('BALANS Fixed Single Window:BALANS 10M BATHROOM:960189', 'BALANS Fixed Single Window:BALANS 10M BATHROOM', 1000.0, 600.000000000002): 1
+    Level 1                   n= 30  unique_attr_fps= 30  max_dup=  1  attr_oracle_top1=100.0%
+      ('BALANS Fixed Single Window:BALANS 20M FLOOR (SH = 0):773593', 'BALANS Fixed Single Window:BALANS 20M FLOOR (SH = 0)', 1999.99999999999, 2200.0): 1
+      ('BALANS Fixed Single Window:BALANS 20M FLOOR (SH = 0):773676', 'BALANS Fixed Single Window:BALANS 20M FLOOR (SH = 0)', 1999.99999999999, 2200.0): 1
+      ('BALANS Fixed Single Window:BALANS TRAPPHUS GROUND:773888', 'BALANS Fixed Single Window:BALANS TRAPPHUS GROUND', 2500.00000000003, 1200.0): 1
+      ('BALANS Fixed Single Window:BALANS TRAPPHUS GROUND:774256', 'BALANS Fixed Single Window:BALANS TRAPPHUS GROUND', 2500.00000000003, 1200.0): 1
+      ('BALANS Fixed Single Window:BALANS TRAPPHUS GROUND:777049', 'BALANS Fixed Single Window:BALANS TRAPPHUS GROUND', 2500.00000000003, 1200.0): 1
+
+  --- IfcDoor ---
+    -1 - Garage               n= 45  unique_attr_fps= 45  max_dup=  1  attr_oracle_top1=100.0%
+      ('M_Single-Flush:Generic Door:798055', 'M_Single-Flush:Generic Door', 915.00000000001, 2134.0): 1
+      ('M_Single-Flush:Generic Door:798075', 'M_Single-Flush:Generic Door', 915.00000000001, 2134.0): 1
+      ('M_Single-Flush:0762 x 2032mm:811363', 'M_Single-Flush:0762 x 2032mm', 762.000000000021, 2032.0): 1
+      ('M_Single-Flush:0762 x 2032mm:812527', 'M_Single-Flush:0762 x 2032mm', 762.000000000011, 2032.0): 1
+      ('M_Single-Flush:0762 x 2032mm:815059', 'M_Single-Flush:0762 x 2032mm', 761.999999999989, 2032.0): 1
+    1 - First Floor           n= 42  unique_attr_fps= 42  max_dup=  1  attr_oracle_top1=100.0%
+      ('M_Single-Flush:Generic Door:586077', 'M_Single-Flush:Generic Door', 915.000000000034, 2134.0): 1
+      ('M_Single-Flush:Generic Door:586864', 'M_Single-Flush:Generic Door', 915.000000000014, 2134.0): 1
+      ('M_Single-Flush:Generic Door:587735', 'M_Single-Flush:Generic Door', 915.00000000001, 2134.0): 1
+      ('M_Single-Flush:Generic Door:589153', 'M_Single-Flush:Generic Door', 915.000000000014, 2134.0): 1
+      ('M_Single-Flush:Generic Door:592071', 'M_Single-Flush:Generic Door', 915.000000000049, 2134.0): 1
+    6 - Sixth Floor           n=  3  unique_attr_fps=  3  max_dup=  1  attr_oracle_top1=100.0%
+      ('Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:950795', 'Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed', 2010.00000000001, 2399.99999999998): 1
+      ('M_Single-Flush:Generic Door:950809', 'M_Single-Flush:Generic Door', 915.000000000003, 2134.0): 1
+      ('M_Single-Flush:Generic Door:959608', 'M_Single-Flush:Generic Door', 915.000000000003, 2134.0): 1
+    Level 1                   n= 36  unique_attr_fps= 36  max_dup=  1  attr_oracle_top1=100.0%
+      ('Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:473744', 'Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed', 2010.00000000002, 2399.99999999998): 1
+      ('M_Single-Flush:Generic Door:735028', 'M_Single-Flush:Generic Door', 915.000000000023, 2134.0): 1
+      ('Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Left-handed:735342', 'Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Left-handed', 2009.99999999997, 2399.99999999998): 1
+      ('Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:739599', 'Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed', 2010.00000000002, 2399.99999999998): 1
+      ('Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:741400', 'Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed', 2010.00000000002, 2399.99999999998): 1
+
+Done.

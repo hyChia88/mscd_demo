@@ -1,0 +1,359 @@
+Loading /root/cmu/master_thesis/data_curation/ifc_models/AdvancedProject.ifc ...
+Loaded. Schema: IFC2X3
+
+=================================================================
+1. IFC RELATIONSHIP TYPES (raw from file)
+=================================================================
+  IfcRelDefinesByProperties                          19877
+  IfcRelAssociatesMaterial                            1345
+  IfcRelConnectsPathElements                           686
+  IfcRelVoidsElement                                   427
+  IfcRelFillsElement                                   389
+  IfcRelDefinesByType                                  202
+  IfcRelAssignsToGroup                                 154
+  IfcRelConnectsPortToElement                          139
+  IfcRelAggregates                                      17
+  IfcRelContainedInSpatialStructure                     10
+  IfcRelAssociatesClassification                         8
+  TOTAL                                              23254
+
+=================================================================
+2. SPATIAL ENTITY TYPES
+=================================================================
+  IfcFurnishingElement                       407
+  IfcWallStandardCase                        381
+  IfcBuildingElementProxy                    358
+  IfcWindow                                  263
+  IfcDoor                                    126
+  IfcMember                                   83
+  IfcFlowTerminal                             49
+  IfcSlab                                     43
+  IfcRailing                                  19
+  IfcSite                                     18
+  IfcBuildingStorey                           10
+  IfcWall                                      9
+  IfcStairFlight                               9
+  IfcStair                                     9
+  IfcSpace                                     8
+  IfcRampFlight                                2
+  IfcRamp                                      2
+  IfcRoof                                      2
+  IfcBuilding                                  1
+  TOTAL                                     1799
+
+=================================================================
+3a. IfcRelContainedInSpatialStructure
+=================================================================
+  IfcBuildingStorey:1 - First Floor → IfcFurnishingElement: 307
+  IfcBuildingStorey:1 - First Floor → IfcBuildingElementProxy: 189
+  IfcBuildingStorey:Level 1 → IfcWallStandardCase: 181
+  IfcBuildingStorey:1 - First Floor → IfcWallStandardCase: 109
+  IfcBuildingStorey:Level 1 → IfcBuildingElementProxy: 107
+  IfcBuildingStorey:Level 1 → IfcFurnishingElement: 100
+  IfcBuildingStorey:-1 - Garage → IfcWallStandardCase: 84
+  IfcBuildingStorey:2 - Second Floor → IfcWindow: 46
+  IfcBuildingStorey:3 - Third Floor → IfcWindow: 46
+  IfcBuildingStorey:5 - Fifth Floor → IfcWindow: 46
+  IfcBuildingStorey:1 - First Floor → IfcWindow: 46
+  IfcBuildingStorey:4 - Fourth Floor → IfcWindow: 46
+  IfcBuildingStorey:-1 - Garage → IfcDoor: 45
+  IfcBuildingStorey:1 - First Floor → IfcDoor: 42
+  IfcBuildingStorey:1 - First Floor → IfcFlowTerminal: 40
+  IfcBuildingStorey:Level 1 → IfcDoor: 36
+  IfcBuildingStorey:Level 1 → IfcSlab: 34
+  IfcBuildingStorey:6 - Sixth Floor → IfcBuildingElementProxy: 31
+  IfcBuildingStorey:Level 1 → IfcWindow: 30
+  IfcBuildingStorey:-1 - Garage → IfcBuildingElementProxy: 24
+  IfcBuildingStorey:Level 1 → IfcSite: 10
+  IfcBuildingStorey:6 - Sixth Floor → IfcWallStandardCase: 7
+  IfcBuildingStorey:6 - Sixth Floor → IfcSite: 7
+  IfcBuildingStorey:Level 2 → IfcBuildingElementProxy: 7
+  IfcBuildingStorey:-1 - Garage → IfcWall: 6
+  IfcBuildingStorey:-1 - Garage → IfcFlowTerminal: 5
+  IfcBuildingStorey:Level 1 → IfcFlowTerminal: 4
+  IfcBuildingStorey:-1 - Garage → IfcStair: 3
+  IfcBuildingStorey:6 - Sixth Floor → IfcDoor: 3
+  IfcBuildingStorey:6 - Sixth Floor → IfcWindow: 3
+
+=================================================================
+3b. IfcRelFillsElement + IfcRelVoidsElement (FILLS chain)
+=================================================================
+  Total IfcRelFillsElement: 389
+  Resolved FILLS edges (filler→host): 389
+    IfcWindow: 263
+    IfcDoor: 126
+
+  Unique host walls: 98
+  Wall child signatures (FILLS children):
+    [60x] IfcDoor
+    [14x] IfcDoor, IfcDoor
+    [3x] IfcWindow
+    [3x] IfcDoor, IfcDoor, IfcDoor
+    [2x] IfcDoor, IfcDoor, IfcDoor, IfcDoor
+    [2x] IfcDoor, IfcDoor, IfcDoor, IfcDoor, IfcDoor
+    [1x] IfcWindow, IfcWindow, IfcWindow, IfcWindow
+    [1x] IfcDoor, IfcDoor, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow
+    [1x] IfcDoor, IfcDoor, IfcDoor, IfcDoor, IfcDoor, IfcDoor, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow
+    [1x] IfcWindow, IfcWindow, IfcWindow
+    [1x] IfcDoor, IfcWindow, IfcWindow
+    [1x] IfcDoor, IfcDoor, IfcWindow, IfcWindow, IfcWindow, IfcWindow
+    [1x] IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow
+    [1x] IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow
+    [1x] IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow
+    [1x] IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow
+    [1x] IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow
+    [1x] IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow
+    [1x] IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow, IfcWindow
+    [1x] IfcWindow, IfcWindow
+
+=================================================================
+3c. IfcRelConnectsPathElements (wall-wall topology)
+=================================================================
+  Total: 686
+  IfcWallStandardCase -- IfcWallStandardCase: 644
+  IfcWall -- IfcWallStandardCase: 26
+  IfcWallStandardCase -- IfcWall: 15
+  IfcWall -- IfcWall: 1
+
+=================================================================
+3d. IfcRelSpaceBoundary
+=================================================================
+  Total: 0
+
+=================================================================
+3e. IfcRelAggregates
+=================================================================
+  IfcStair → IfcMember: 83
+  IfcStair → IfcRailing: 15
+  IfcBuilding → IfcBuildingStorey: 10
+  IfcStair → IfcStairFlight: 9
+  IfcBuildingStorey → IfcSpace: 8
+  IfcRoof → IfcSlab: 2
+  IfcRamp → IfcRampFlight: 2
+  IfcRamp → IfcRailing: 2
+  IfcProject → IfcSite: 1
+  IfcSite → IfcBuilding: 1
+
+=================================================================
+3f. IfcRelConnectsElements (generic, excl. path)
+=================================================================
+  Pure IfcRelConnectsElements: 0
+
+=================================================================
+3g. Port Connections
+=================================================================
+  IfcRelConnectsPortToElement: 139
+  IfcRelConnectsPorts: 0
+
+=================================================================
+3h. IfcRelAssociatesMaterial
+=================================================================
+  Total: 1345
+
+=================================================================
+4. PER-STOREY ELEMENT + EDGE COUNTS
+=================================================================
+
+  -1 - Garage (170 elements, 45 FILLS)
+    IfcWallStandardCase: 84
+    IfcDoor: 45
+    IfcBuildingElementProxy: 24
+    IfcWall: 6
+    IfcFlowTerminal: 5
+    IfcStair: 3
+    IfcRamp: 2
+    IfcSlab: 1
+
+  1 - First Floor (736 elements, 88 FILLS)
+    IfcFurnishingElement: 307
+    IfcBuildingElementProxy: 189
+    IfcWallStandardCase: 109
+    IfcWindow: 46
+    IfcDoor: 42
+    IfcFlowTerminal: 40
+    IfcWall: 1
+    IfcStair: 1
+    IfcSlab: 1
+
+  Level 1 (506 elements, 66 FILLS)
+    IfcWallStandardCase: 181
+    IfcBuildingElementProxy: 107
+    IfcFurnishingElement: 100
+    IfcDoor: 36
+    IfcSlab: 34
+    IfcWindow: 30
+    IfcSite: 10
+    IfcFlowTerminal: 4
+    IfcWall: 2
+    IfcStair: 1
+    IfcRailing: 1
+
+  2 - Second Floor (48 elements, 46 FILLS)
+    IfcWindow: 46
+    IfcStair: 1
+    IfcSlab: 1
+
+  Level 2 (7 elements, 0 FILLS)
+    IfcBuildingElementProxy: 7
+
+  3 - Third Floor (48 elements, 46 FILLS)
+    IfcWindow: 46
+    IfcStair: 1
+    IfcSlab: 1
+
+  4 - Fourth Floor (48 elements, 46 FILLS)
+    IfcWindow: 46
+    IfcStair: 1
+    IfcSlab: 1
+
+  5 - Fifth Floor (48 elements, 46 FILLS)
+    IfcWindow: 46
+    IfcStair: 1
+    IfcSlab: 1
+
+  6 - Sixth Floor (54 elements, 6 FILLS)
+    IfcBuildingElementProxy: 31
+    IfcWallStandardCase: 7
+    IfcSite: 7
+    IfcDoor: 3
+    IfcWindow: 3
+    IfcRoof: 1
+    IfcSlab: 1
+    IfcRailing: 1
+
+  7- ROOF (1 elements, 0 FILLS)
+    IfcRoof: 1
+
+=================================================================
+5. NEXT_TO ENRICHMENT POTENTIAL
+=================================================================
+  Walls with ≥2 children: 35
+  Total NEXT_TO edges (ordered pairs): 291
+    Heterogeneous (cross-type): 16
+    Homogeneous (same-type): 275
+    Hetero ratio: 5.5%
+
+  Wall sequences (type patterns):
+    [14x] Door → Door
+    [3x] Door → Door → Door
+    [2x] Door → Door → Door → Door
+    [2x] Door → Door → Door → Door → Door
+    [1x] Window → Window → Window → Window
+    [1x] Window → Window → Door → Door → Window → Window → Window → Window → Window
+    [1x] Door → Window → Window → Window → Door → Door → Window → Door → Window → Door → Window → Window → Door → Window
+    [1x] Window → Window → Window
+    [1x] Window → Door → Window
+    [1x] Door → Window → Window → Door → Window → Window
+    [1x] Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window
+    [1x] Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window
+    [1x] Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window
+    [1x] Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window
+    [1x] Window → Window → Window → Window → Window → Window → Window → Window → Window → Window
+    [1x] Window → Window → Window → Window → Window
+    [1x] Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window → Window
+    [1x] Window → Window
+
+=================================================================
+6. GRAPH EDGE SUMMARY — BEFORE vs AFTER ENRICHMENT
+=================================================================
+
+  Edge Type              Before    After    Delta
+  -------------------- -------- -------- --------
+  ADJACENT_TO               200      200        0
+  CONTAINS                 1666     1666        0
+  CONTINUOUS                149      149        0
+  FILLS                     389      389        0
+  NEXT_TO                     0      291     +291
+  WALL_CONNECTS               0      686     +686
+  TOTAL                    2404     3381     +977
+
+=================================================================
+7. ORACLE — THEORETICAL MAX DISCRIMINATION
+=================================================================
+
+  Current (FILLS-only 1-hop):
+    -1 - Garage               | IfcDoor                   n= 45  unique=  2  max_dup= 23  oracle_top1=4.4%
+    -1 - Garage               | IfcWallStandardCase       n= 84  unique=  2  max_dup= 66  oracle_top1=2.4%
+    1 - First Floor           | IfcWindow                 n= 46  unique=  1  max_dup= 46  oracle_top1=2.2%
+    1 - First Floor           | IfcDoor                   n= 42  unique=  2  max_dup= 41  oracle_top1=4.8%
+    1 - First Floor           | IfcWallStandardCase       n=109  unique=  3  max_dup= 69  oracle_top1=2.8%
+    Level 1                   | IfcWindow                 n= 30  unique=  1  max_dup= 30  oracle_top1=3.3%
+    Level 1                   | IfcDoor                   n= 36  unique=  2  max_dup= 32  oracle_top1=5.6%
+    Level 1                   | IfcWallStandardCase       n=181  unique=  4  max_dup=155  oracle_top1=2.2%
+    2 - Second Floor          | IfcWindow                 n= 46  unique=  1  max_dup= 46  oracle_top1=2.2%
+    3 - Third Floor           | IfcWindow                 n= 46  unique=  1  max_dup= 46  oracle_top1=2.2%
+    4 - Fourth Floor          | IfcWindow                 n= 46  unique=  1  max_dup= 46  oracle_top1=2.2%
+    5 - Fifth Floor           | IfcWindow                 n= 46  unique=  1  max_dup= 46  oracle_top1=2.2%
+    6 - Sixth Floor           | IfcWindow                 n=  3  unique=  1  max_dup=  3  oracle_top1=33.3%
+    6 - Sixth Floor           | IfcDoor                   n=  3  unique=  1  max_dup=  3  oracle_top1=33.3%
+    6 - Sixth Floor           | IfcWallStandardCase       n=  7  unique=  3  max_dup=  3  oracle_top1=42.9%
+
+  +NEXT_TO (1-hop enriched):
+    -1 - Garage               | IfcDoor                   n= 45  unique=  3  max_dup= 22  oracle_top1=6.7%
+    -1 - Garage               | IfcWallStandardCase       n= 84  unique=  2  max_dup= 66  oracle_top1=2.4%
+    1 - First Floor           | IfcWindow                 n= 46  unique=  1  max_dup= 46  oracle_top1=2.2%
+    1 - First Floor           | IfcDoor                   n= 42  unique=  3  max_dup= 26  oracle_top1=7.1%
+    1 - First Floor           | IfcWallStandardCase       n=109  unique=  3  max_dup= 69  oracle_top1=2.8%
+    Level 1                   | IfcWindow                 n= 30  unique=  4  max_dup= 14  oracle_top1=13.3%
+    Level 1                   | IfcDoor                   n= 36  unique=  5  max_dup= 15  oracle_top1=13.9%
+    Level 1                   | IfcWallStandardCase       n=181  unique=  4  max_dup=155  oracle_top1=2.2%
+    2 - Second Floor          | IfcWindow                 n= 46  unique=  1  max_dup= 46  oracle_top1=2.2%
+    3 - Third Floor           | IfcWindow                 n= 46  unique=  1  max_dup= 46  oracle_top1=2.2%
+    4 - Fourth Floor          | IfcWindow                 n= 46  unique=  1  max_dup= 46  oracle_top1=2.2%
+    5 - Fifth Floor           | IfcWindow                 n= 46  unique=  1  max_dup= 46  oracle_top1=2.2%
+    6 - Sixth Floor           | IfcWindow                 n=  3  unique=  2  max_dup=  2  oracle_top1=66.7%
+    6 - Sixth Floor           | IfcDoor                   n=  3  unique=  1  max_dup=  3  oracle_top1=33.3%
+    6 - Sixth Floor           | IfcWallStandardCase       n=  7  unique=  3  max_dup=  3  oracle_top1=42.9%
+
+  +2-hop (siblings + count):
+    -1 - Garage               | IfcDoor                   n= 45  unique=  7  max_dup= 15  oracle_top1=15.6%
+    -1 - Garage               | IfcWallStandardCase       n= 84  unique=  1  max_dup= 84  oracle_top1=1.2%
+    1 - First Floor           | IfcWindow                 n= 46  unique=  7  max_dup= 17  oracle_top1=15.2%
+    1 - First Floor           | IfcDoor                   n= 42  unique=  4  max_dup= 26  oracle_top1=9.5%
+    1 - First Floor           | IfcWallStandardCase       n=109  unique=  1  max_dup=109  oracle_top1=0.9%
+    Level 1                   | IfcWindow                 n= 30  unique= 11  max_dup=  5  oracle_top1=36.7%
+    Level 1                   | IfcDoor                   n= 36  unique=  8  max_dup= 15  oracle_top1=22.2%
+    Level 1                   | IfcWallStandardCase       n=181  unique=  1  max_dup=181  oracle_top1=0.6%
+    2 - Second Floor          | IfcWindow                 n= 46  unique=  7  max_dup= 17  oracle_top1=15.2%
+    3 - Third Floor           | IfcWindow                 n= 46  unique=  7  max_dup= 17  oracle_top1=15.2%
+    4 - Fourth Floor          | IfcWindow                 n= 46  unique=  7  max_dup= 17  oracle_top1=15.2%
+    5 - Fifth Floor           | IfcWindow                 n= 46  unique=  7  max_dup= 17  oracle_top1=15.2%
+    6 - Sixth Floor           | IfcWindow                 n=  3  unique=  2  max_dup=  2  oracle_top1=66.7%
+    6 - Sixth Floor           | IfcDoor                   n=  3  unique=  1  max_dup=  3  oracle_top1=33.3%
+    6 - Sixth Floor           | IfcWallStandardCase       n=  7  unique=  1  max_dup=  7  oracle_top1=14.3%
+
+  +position ordinal (2-hop + rank on wall):
+    -1 - Garage               | IfcDoor                   n= 45  unique= 21  max_dup= 15  oracle_top1=46.7%
+    -1 - Garage               | IfcWallStandardCase       n= 84  unique=  1  max_dup= 84  oracle_top1=1.2%
+    1 - First Floor           | IfcWindow                 n= 46  unique= 46  max_dup=  1  oracle_top1=100.0%
+    1 - First Floor           | IfcDoor                   n= 42  unique=  7  max_dup= 26  oracle_top1=16.7%
+    1 - First Floor           | IfcWallStandardCase       n=109  unique=  1  max_dup=109  oracle_top1=0.9%
+    Level 1                   | IfcWindow                 n= 30  unique= 29  max_dup=  2  oracle_top1=96.7%
+    Level 1                   | IfcDoor                   n= 36  unique= 16  max_dup= 15  oracle_top1=44.4%
+    Level 1                   | IfcWallStandardCase       n=181  unique=  1  max_dup=181  oracle_top1=0.6%
+    2 - Second Floor          | IfcWindow                 n= 46  unique= 46  max_dup=  1  oracle_top1=100.0%
+    3 - Third Floor           | IfcWindow                 n= 46  unique= 46  max_dup=  1  oracle_top1=100.0%
+    4 - Fourth Floor          | IfcWindow                 n= 46  unique= 46  max_dup=  1  oracle_top1=100.0%
+    5 - Fifth Floor           | IfcWindow                 n= 46  unique= 46  max_dup=  1  oracle_top1=100.0%
+    6 - Sixth Floor           | IfcWindow                 n=  3  unique=  3  max_dup=  1  oracle_top1=100.0%
+    6 - Sixth Floor           | IfcDoor                   n=  3  unique=  1  max_dup=  3  oracle_top1=33.3%
+    6 - Sixth Floor           | IfcWallStandardCase       n=  7  unique=  1  max_dup=  7  oracle_top1=14.3%
+
+=================================================================
+8. SUMMARY — GRAPH ENRICHMENT ROADMAP
+=================================================================
+
+  Current graph: 389 FILLS + 149 CONTINUOUS + ~200 ADJACENT_TO
+  After enrichment: +291 NEXT_TO + 686 WALL_CONNECTS
+
+  Key findings:
+  - 98 unique host walls hold 389 fillers
+  - 35 walls have ≥2 children → 291 NEXT_TO edges
+  - Heterogeneous NEXT_TO (cross-type): 16/291 (5%)
+  - Wall-wall path connections: 686 (from Revit topology)
+  - Space boundaries: 0 (rich but underutilized)
+
+  Implication for LoRA_5:
+  - Homogeneous NEXT_TO (275 edges) = low discrimination value
+  - Heterogeneous NEXT_TO (16 edges) = HIGH discrimination value
+  - Position ordinal adds unique fingerprint even for homo sequences

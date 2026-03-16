@@ -1,0 +1,60 @@
+{"storey": "-1 - Garage", "ifc_type": "IfcDoor", "stage": "current", "total": 45, "unique_fps": 2, "max_dup": 23, "oracle_top1": 0.04444444444444441}
+{"storey": "-1 - Garage", "ifc_type": "IfcWallStandardCase", "stage": "current", "total": 84, "unique_fps": 2, "max_dup": 66, "oracle_top1": 0.023809523809523805}
+{"storey": "1 - First Floor", "ifc_type": "IfcWindow", "stage": "current", "total": 46, "unique_fps": 1, "max_dup": 46, "oracle_top1": 0.021739130434782598}
+{"storey": "1 - First Floor", "ifc_type": "IfcDoor", "stage": "current", "total": 42, "unique_fps": 2, "max_dup": 41, "oracle_top1": 0.04761904761904763}
+{"storey": "1 - First Floor", "ifc_type": "IfcWallStandardCase", "stage": "current", "total": 109, "unique_fps": 3, "max_dup": 69, "oracle_top1": 0.02752293577981649}
+{"storey": "Level 1", "ifc_type": "IfcWindow", "stage": "current", "total": 30, "unique_fps": 1, "max_dup": 30, "oracle_top1": 0.03333333333333333}
+{"storey": "Level 1", "ifc_type": "IfcDoor", "stage": "current", "total": 36, "unique_fps": 2, "max_dup": 32, "oracle_top1": 0.05555555555555555}
+{"storey": "Level 1", "ifc_type": "IfcWallStandardCase", "stage": "current", "total": 181, "unique_fps": 4, "max_dup": 155, "oracle_top1": 0.022099447513812143}
+{"storey": "2 - Second Floor", "ifc_type": "IfcWindow", "stage": "current", "total": 46, "unique_fps": 1, "max_dup": 46, "oracle_top1": 0.021739130434782598}
+{"storey": "3 - Third Floor", "ifc_type": "IfcWindow", "stage": "current", "total": 46, "unique_fps": 1, "max_dup": 46, "oracle_top1": 0.021739130434782598}
+{"storey": "4 - Fourth Floor", "ifc_type": "IfcWindow", "stage": "current", "total": 46, "unique_fps": 1, "max_dup": 46, "oracle_top1": 0.021739130434782598}
+{"storey": "5 - Fifth Floor", "ifc_type": "IfcWindow", "stage": "current", "total": 46, "unique_fps": 1, "max_dup": 46, "oracle_top1": 0.021739130434782598}
+{"storey": "6 - Sixth Floor", "ifc_type": "IfcWindow", "stage": "current", "total": 3, "unique_fps": 1, "max_dup": 3, "oracle_top1": 0.3333333333333333}
+{"storey": "6 - Sixth Floor", "ifc_type": "IfcDoor", "stage": "current", "total": 3, "unique_fps": 1, "max_dup": 3, "oracle_top1": 0.3333333333333333}
+{"storey": "6 - Sixth Floor", "ifc_type": "IfcWallStandardCase", "stage": "current", "total": 7, "unique_fps": 3, "max_dup": 3, "oracle_top1": 0.42857142857142855}
+{"storey": "-1 - Garage", "ifc_type": "IfcDoor", "stage": "+NEXT_TO", "total": 45, "unique_fps": 3, "max_dup": 22, "oracle_top1": 0.06666666666666665}
+{"storey": "-1 - Garage", "ifc_type": "IfcWallStandardCase", "stage": "+NEXT_TO", "total": 84, "unique_fps": 2, "max_dup": 66, "oracle_top1": 0.023809523809523805}
+{"storey": "1 - First Floor", "ifc_type": "IfcWindow", "stage": "+NEXT_TO", "total": 46, "unique_fps": 1, "max_dup": 46, "oracle_top1": 0.021739130434782598}
+{"storey": "1 - First Floor", "ifc_type": "IfcDoor", "stage": "+NEXT_TO", "total": 42, "unique_fps": 3, "max_dup": 26, "oracle_top1": 0.07142857142857141}
+{"storey": "1 - First Floor", "ifc_type": "IfcWallStandardCase", "stage": "+NEXT_TO", "total": 109, "unique_fps": 3, "max_dup": 69, "oracle_top1": 0.02752293577981649}
+{"storey": "Level 1", "ifc_type": "IfcWindow", "stage": "+NEXT_TO", "total": 30, "unique_fps": 4, "max_dup": 14, "oracle_top1": 0.13333333333333333}
+{"storey": "Level 1", "ifc_type": "IfcDoor", "stage": "+NEXT_TO", "total": 36, "unique_fps": 5, "max_dup": 15, "oracle_top1": 0.13888888888888895}
+{"storey": "Level 1", "ifc_type": "IfcWallStandardCase", "stage": "+NEXT_TO", "total": 181, "unique_fps": 4, "max_dup": 155, "oracle_top1": 0.022099447513812143}
+{"storey": "2 - Second Floor", "ifc_type": "IfcWindow", "stage": "+NEXT_TO", "total": 46, "unique_fps": 1, "max_dup": 46, "oracle_top1": 0.021739130434782598}
+{"storey": "3 - Third Floor", "ifc_type": "IfcWindow", "stage": "+NEXT_TO", "total": 46, "unique_fps": 1, "max_dup": 46, "oracle_top1": 0.021739130434782598}
+{"storey": "4 - Fourth Floor", "ifc_type": "IfcWindow", "stage": "+NEXT_TO", "total": 46, "unique_fps": 1, "max_dup": 46, "oracle_top1": 0.021739130434782598}
+{"storey": "5 - Fifth Floor", "ifc_type": "IfcWindow", "stage": "+NEXT_TO", "total": 46, "unique_fps": 1, "max_dup": 46, "oracle_top1": 0.021739130434782598}
+{"storey": "6 - Sixth Floor", "ifc_type": "IfcWindow", "stage": "+NEXT_TO", "total": 3, "unique_fps": 2, "max_dup": 2, "oracle_top1": 0.6666666666666666}
+{"storey": "6 - Sixth Floor", "ifc_type": "IfcDoor", "stage": "+NEXT_TO", "total": 3, "unique_fps": 1, "max_dup": 3, "oracle_top1": 0.3333333333333333}
+{"storey": "6 - Sixth Floor", "ifc_type": "IfcWallStandardCase", "stage": "+NEXT_TO", "total": 7, "unique_fps": 3, "max_dup": 3, "oracle_top1": 0.42857142857142855}
+{"storey": "-1 - Garage", "ifc_type": "IfcDoor", "stage": "+2-hop", "total": 45, "unique_fps": 7, "max_dup": 15, "oracle_top1": 0.15555555555555545}
+{"storey": "-1 - Garage", "ifc_type": "IfcWallStandardCase", "stage": "+2-hop", "total": 84, "unique_fps": 1, "max_dup": 84, "oracle_top1": 0.011904761904761887}
+{"storey": "1 - First Floor", "ifc_type": "IfcWindow", "stage": "+2-hop", "total": 46, "unique_fps": 7, "max_dup": 17, "oracle_top1": 0.15217391304347827}
+{"storey": "1 - First Floor", "ifc_type": "IfcDoor", "stage": "+2-hop", "total": 42, "unique_fps": 4, "max_dup": 26, "oracle_top1": 0.09523809523809522}
+{"storey": "1 - First Floor", "ifc_type": "IfcWallStandardCase", "stage": "+2-hop", "total": 109, "unique_fps": 1, "max_dup": 109, "oracle_top1": 0.009174311926605477}
+{"storey": "Level 1", "ifc_type": "IfcWindow", "stage": "+2-hop", "total": 30, "unique_fps": 11, "max_dup": 5, "oracle_top1": 0.3666666666666665}
+{"storey": "Level 1", "ifc_type": "IfcDoor", "stage": "+2-hop", "total": 36, "unique_fps": 8, "max_dup": 15, "oracle_top1": 0.22222222222222213}
+{"storey": "Level 1", "ifc_type": "IfcWallStandardCase", "stage": "+2-hop", "total": 181, "unique_fps": 1, "max_dup": 181, "oracle_top1": 0.005524861878453026}
+{"storey": "2 - Second Floor", "ifc_type": "IfcWindow", "stage": "+2-hop", "total": 46, "unique_fps": 7, "max_dup": 17, "oracle_top1": 0.15217391304347827}
+{"storey": "3 - Third Floor", "ifc_type": "IfcWindow", "stage": "+2-hop", "total": 46, "unique_fps": 7, "max_dup": 17, "oracle_top1": 0.15217391304347827}
+{"storey": "4 - Fourth Floor", "ifc_type": "IfcWindow", "stage": "+2-hop", "total": 46, "unique_fps": 7, "max_dup": 17, "oracle_top1": 0.15217391304347827}
+{"storey": "5 - Fifth Floor", "ifc_type": "IfcWindow", "stage": "+2-hop", "total": 46, "unique_fps": 7, "max_dup": 17, "oracle_top1": 0.15217391304347827}
+{"storey": "6 - Sixth Floor", "ifc_type": "IfcWindow", "stage": "+2-hop", "total": 3, "unique_fps": 2, "max_dup": 2, "oracle_top1": 0.6666666666666666}
+{"storey": "6 - Sixth Floor", "ifc_type": "IfcDoor", "stage": "+2-hop", "total": 3, "unique_fps": 1, "max_dup": 3, "oracle_top1": 0.3333333333333333}
+{"storey": "6 - Sixth Floor", "ifc_type": "IfcWallStandardCase", "stage": "+2-hop", "total": 7, "unique_fps": 1, "max_dup": 7, "oracle_top1": 0.14285714285714282}
+{"storey": "-1 - Garage", "ifc_type": "IfcDoor", "stage": "+position", "total": 45, "unique_fps": 21, "max_dup": 15, "oracle_top1": 0.4666666666666667}
+{"storey": "-1 - Garage", "ifc_type": "IfcWallStandardCase", "stage": "+position", "total": 84, "unique_fps": 1, "max_dup": 84, "oracle_top1": 0.011904761904761887}
+{"storey": "1 - First Floor", "ifc_type": "IfcWindow", "stage": "+position", "total": 46, "unique_fps": 46, "max_dup": 1, "oracle_top1": 1.0}
+{"storey": "1 - First Floor", "ifc_type": "IfcDoor", "stage": "+position", "total": 42, "unique_fps": 7, "max_dup": 26, "oracle_top1": 0.16666666666666666}
+{"storey": "1 - First Floor", "ifc_type": "IfcWallStandardCase", "stage": "+position", "total": 109, "unique_fps": 1, "max_dup": 109, "oracle_top1": 0.009174311926605477}
+{"storey": "Level 1", "ifc_type": "IfcWindow", "stage": "+position", "total": 30, "unique_fps": 29, "max_dup": 2, "oracle_top1": 0.9666666666666667}
+{"storey": "Level 1", "ifc_type": "IfcDoor", "stage": "+position", "total": 36, "unique_fps": 16, "max_dup": 15, "oracle_top1": 0.4444444444444444}
+{"storey": "Level 1", "ifc_type": "IfcWallStandardCase", "stage": "+position", "total": 181, "unique_fps": 1, "max_dup": 181, "oracle_top1": 0.005524861878453026}
+{"storey": "2 - Second Floor", "ifc_type": "IfcWindow", "stage": "+position", "total": 46, "unique_fps": 46, "max_dup": 1, "oracle_top1": 1.0}
+{"storey": "3 - Third Floor", "ifc_type": "IfcWindow", "stage": "+position", "total": 46, "unique_fps": 46, "max_dup": 1, "oracle_top1": 1.0}
+{"storey": "4 - Fourth Floor", "ifc_type": "IfcWindow", "stage": "+position", "total": 46, "unique_fps": 46, "max_dup": 1, "oracle_top1": 1.0}
+{"storey": "5 - Fifth Floor", "ifc_type": "IfcWindow", "stage": "+position", "total": 46, "unique_fps": 46, "max_dup": 1, "oracle_top1": 1.0}
+{"storey": "6 - Sixth Floor", "ifc_type": "IfcWindow", "stage": "+position", "total": 3, "unique_fps": 3, "max_dup": 1, "oracle_top1": 1.0}
+{"storey": "6 - Sixth Floor", "ifc_type": "IfcDoor", "stage": "+position", "total": 3, "unique_fps": 1, "max_dup": 3, "oracle_top1": 0.3333333333333333}
+{"storey": "6 - Sixth Floor", "ifc_type": "IfcWallStandardCase", "stage": "+position", "total": 7, "unique_fps": 1, "max_dup": 7, "oracle_top1": 0.14285714285714282}

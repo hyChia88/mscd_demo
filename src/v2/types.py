@@ -24,6 +24,7 @@ class SpatialTriplet(BaseModel):
         "FILLS",           # door/window occupies opening in wall (IfcRelFillsElement)
         "CONTINUOUS",      # element spans multiple storeys (Top constraint ≠ storey)
         "ADJACENT_TO",     # same-storey centroid distance < 1.5 m
+        "NEXT_TO",         # consecutive filler on same wall (projected along wall axis)
         "CONNECTS_TO",     # wall-to-wall path connection (IfcRelConnectsPathElements)
         "ON_TOP_OF",       # Z_min(subject) > Z_max(object) + XY AABB overlap
         "PERPENDICULAR_TO",  # wall orientation vectors dot-product ≈ 0

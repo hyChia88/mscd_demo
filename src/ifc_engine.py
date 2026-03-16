@@ -758,7 +758,7 @@ class IFCEngine:
         return count
 
     def _create_element_relationships(self) -> int:
-        """Create relationships between elements (voids, fills, connections)"""
+        """Create relationships between elements (voids, fills, connections, NEXT_TO)"""
         count = 0
 
         # Build opening_guid -> host_wall_guid mapping first.
@@ -775,6 +775,9 @@ class IFCEngine:
         # IfcRelFillsElement: Door/Window -[:FILLS]-> Wall
         # Chain: Door/Window -[FillsElement]-> IfcOpeningElement -[VoidsElement]-> Wall
         # We compress this to a direct edge, skipping the opening element node.
+        from collections import defaultdict
+        wall_fillers: Dict[str, List] = defaultdict(list)  # wall_guid -> [filler_elements]
+
         for rel in self.file.by_type("IfcRelFillsElement"):
             filler = rel.RelatedBuildingElement    # IfcDoor or IfcWindow
             opening = rel.RelatingOpeningElement   # IfcOpeningElement (intermediate)
@@ -787,8 +790,184 @@ class IFCEngine:
                         "IFCElement", host_guid
                     )
                     count += 1
+                    wall_fillers[host_guid].append(filler)
+
+        # T10.1 + T10.2: NEXT_TO edges between consecutive fillers on the same wall
+        count += self._create_next_to_edges(wall_fillers)
+
+        # T10.6: wall_child_count property on wall nodes
+        self._set_wall_child_counts(wall_fillers)
+
+        # CONNECTS_TO: wall-to-wall path connections from IfcRelConnectsPathElements
+        count += self._create_connects_to_edges()
 
         return count
+
+    def _create_connects_to_edges(self) -> int:
+        """Create CONNECTS_TO edges between walls from IfcRelConnectsPathElements.
+
+        These are wall-to-wall structural connections (T-junctions, L-corners, etc.)
+        exported by Revit/ArchiCAD. 686 edges in AdvancedProject.ifc.
+
+        Connection types (stored as edge property):
+          ATSTART/ATEND — wall A's start connects to wall B's end
+          ATPATH — wall A connects at some point along wall B's length (T-junction)
+
+        Edges are deduplicated: same wall pair gets one edge with connection_type.
+        """
+        count = 0
+        seen_pairs: set = set()
+
+        try:
+            rels = self.file.by_type("IfcRelConnectsPathElements")
+        except RuntimeError:
+            return 0
+
+        for rel in rels:
+            a = rel.RelatingElement
+            b = rel.RelatedElement
+            if not a or not b:
+                continue
+
+            # Skip self-connections
+            if a.GlobalId == b.GlobalId:
+                continue
+
+            # Deduplicate: only one edge per unique pair
+            pair_key = tuple(sorted([a.GlobalId, b.GlobalId]))
+            if pair_key in seen_pairs:
+                continue
+            seen_pairs.add(pair_key)
+
+            conn_type_a = getattr(rel, "RelatingConnectionType", None)
+            conn_type_b = getattr(rel, "RelatedConnectionType", None)
+            conn_str = f"{conn_type_a}/{conn_type_b}" if conn_type_a else ""
+
+            # Bidirectional CONNECTS_TO
+            props = {"connection_type": conn_str} if conn_str else {}
+            self._create_relationship_with_props(
+                "IFCElement", a.GlobalId,
+                "CONNECTS_TO",
+                "IFCElement", b.GlobalId,
+                props,
+            )
+            self._create_relationship_with_props(
+                "IFCElement", b.GlobalId,
+                "CONNECTS_TO",
+                "IFCElement", a.GlobalId,
+                props,
+            )
+            count += 2
+
+        return count
+
+    def _create_next_to_edges(self, wall_fillers: Dict[str, List]) -> int:
+        """T10.1: Create NEXT_TO edges between consecutive door/window fillers on the same wall.
+
+        Algorithm:
+        1. For each wall with 2+ fillers, group fillers by storey
+           (multi-story walls have vertically stacked windows — NOT neighbors)
+        2. Within each storey group, project centroids onto wall's X-axis
+        3. Sort by projected coordinate
+        4. Create bidirectional NEXT_TO edges between consecutive pairs
+        5. Set position_index property (0-based from one end)
+
+        Returns count of NEXT_TO edges created.
+        """
+        import ifcopenshell.util.placement
+        import ifcopenshell.util.element as _ifc_util
+        import numpy as np
+        from collections import defaultdict
+
+        count = 0
+        for wall_guid, fillers in wall_fillers.items():
+            if len(fillers) < 2:
+                continue
+
+            # Get wall direction (local X-axis from placement matrix)
+            try:
+                wall = self.file.by_guid(wall_guid)
+                wall_mat = ifcopenshell.util.placement.get_local_placement(
+                    wall.ObjectPlacement
+                )
+                wall_dir = np.array([wall_mat[0][0], wall_mat[1][0], wall_mat[2][0]])
+                wall_origin = np.array([wall_mat[0][3], wall_mat[1][3], wall_mat[2][3]])
+            except Exception:
+                continue
+
+            # Group fillers by storey (multi-story walls span floors)
+            storey_groups: Dict[str, List] = defaultdict(list)
+            for filler in fillers:
+                container = _ifc_util.get_container(filler)
+                storey_key = container.Name if container else "_unknown"
+                storey_groups[storey_key].append(filler)
+
+            # Create NEXT_TO within each storey group
+            for storey_name, group in storey_groups.items():
+                if len(group) < 2:
+                    continue
+
+                # Project onto wall axis
+                filler_projections = []
+                for filler in group:
+                    try:
+                        mat = ifcopenshell.util.placement.get_local_placement(
+                            filler.ObjectPlacement
+                        )
+                        centroid = np.array([mat[0][3], mat[1][3], mat[2][3]])
+                        proj = np.dot(centroid - wall_origin, wall_dir)
+                        filler_projections.append((proj, filler))
+                    except Exception:
+                        continue
+
+                if len(filler_projections) < 2:
+                    continue
+
+                filler_projections.sort(key=lambda x: x[0])
+
+                # Create NEXT_TO edges between consecutive pairs
+                for i in range(len(filler_projections) - 1):
+                    _, filler_a = filler_projections[i]
+                    _, filler_b = filler_projections[i + 1]
+
+                    # Bidirectional NEXT_TO
+                    self._create_relationship_with_props(
+                        "IFCElement", filler_a.GlobalId,
+                        "NEXT_TO",
+                        "IFCElement", filler_b.GlobalId,
+                        {"position_index": i, "wall_guid": wall_guid},
+                    )
+                    self._create_relationship_with_props(
+                        "IFCElement", filler_b.GlobalId,
+                        "NEXT_TO",
+                        "IFCElement", filler_a.GlobalId,
+                        {"position_index": i, "wall_guid": wall_guid},
+                    )
+                    count += 2
+
+                # Set position_index on each filler node
+                for idx, (_, filler) in enumerate(filler_projections):
+                    if self.neo4j_conn:
+                        self.neo4j_conn.run(
+                            "MATCH (e:IFCElement {guid: $guid}) "
+                            "SET e.wall_position_index = $idx, "
+                            "    e.wall_child_total = $total",
+                            guid=filler.GlobalId,
+                            idx=idx,
+                            total=len(filler_projections),
+                        )
+
+        return count
+
+    def _set_wall_child_counts(self, wall_fillers: Dict[str, List]):
+        """T10.6: Set wall_child_count property on wall nodes."""
+        if not self.neo4j_conn:
+            return
+        for wall_guid, fillers in wall_fillers.items():
+            self.neo4j_conn.run(
+                "MATCH (w:IFCElement {guid: $guid}) SET w.wall_child_count = $count",
+                guid=wall_guid, count=len(fillers),
+            )
 
     def _create_node(self, label: str, properties: Dict):
         """Create a Neo4j node with given label and properties"""
@@ -816,6 +995,21 @@ class IFCEngine:
         MERGE (a)-[r:{rel_type}]->(b)
         """
         self.neo4j_conn.run(query, from_guid=from_guid, to_guid=to_guid)
+
+    def _create_relationship_with_props(self, from_label: str, from_guid: str,
+                                        rel_type: str, to_label: str, to_guid: str,
+                                        props: Dict[str, Any]):
+        """Create a Neo4j relationship with properties"""
+        if not self.neo4j_conn:
+            return
+
+        query = f"""
+        MATCH (a:{from_label} {{guid: $from_guid}})
+        MATCH (b:{to_label} {{guid: $to_guid}})
+        MERGE (a)-[r:{rel_type}]->(b)
+        SET r += $props
+        """
+        self.neo4j_conn.run(query, from_guid=from_guid, to_guid=to_guid, props=props)
 
     # =========================================================================
     # Graph Query Methods (for Agent Reasoning)

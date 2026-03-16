@@ -1393,6 +1393,121 @@ Most windows are "graph islands" with exactly 1 edge (`FILLS`). Without
 additional edges, the symbolic layer cannot distinguish them. The graph
 needs enrichment BEFORE better VLM extraction can help.
 
+### 11.6 IFC Data Reality Check (2026-03-15)
+
+Full analysis scripts and plots: `mscd_demo/docs/ifc_data_reality/`
+
+#### 11.6.1 Raw IFC Relationship Inventory (AdvancedProject.ifc)
+
+```
+Relationship Type                                  Count
+──────────────────────────────────────────────────────────
+IfcRelDefinesByProperties                          19,877
+IfcRelAssociatesMaterial                            1,345
+IfcRelConnectsPathElements (wall-wall topology)       686  ← UNTAPPED
+IfcRelVoidsElement (opening→host)                     427
+IfcRelFillsElement (door/window→opening)              389
+IfcRelDefinesByType                                   202
+IfcRelAssignsToGroup                                  154
+IfcRelConnectsPortToElement                           139
+IfcRelSpaceBoundary                                     0  ← EMPTY
+TOTAL                                              23,254
+```
+
+#### 11.6.2 Entity Counts
+
+```
+IfcFurnishingElement          407    IfcWallStandardCase  381
+IfcBuildingElementProxy       358    IfcWindow            263
+IfcDoor                       126    IfcMember             83
+IfcSlab                        43    IfcSpace               8 (useless)
+TOTAL spatial entities       1,799
+```
+
+#### 11.6.3 Wall Child Signatures (FILLS topology)
+
+```
+98 unique host walls hold 389 fillers (263 windows + 126 doors)
+──────────────────────────────────────────────────────────────
+Doors-only walls:    81 walls, 147 fillers (singles dominate: 60 walls × 1 door)
+Windows-only walls:  12 walls, 210 fillers (curtain walls: 85/50/45/20/15/10/5/4/3/2×)
+Mixed (Door+Window):  5 walls,  32 fillers ← ONLY 5% of walls!
+```
+
+#### 11.6.4 NEXT_TO Edge Potential
+
+```
+Walls with ≥2 children:     35
+Total NEXT_TO edges:        291
+  Heterogeneous (cross-type): 16  (5.5%)  ← Very rare
+  Homogeneous (same-type):   275 (94.5%)  ← Low discrimination value
+```
+
+#### 11.6.5 Oracle Discrimination by Enrichment Stage
+
+```
+Stage         │ Window oracle Top-1 │ Door oracle Top-1 │ Wall oracle Top-1
+──────────────┼─────────────────────┼───────────────────┼──────────────────
+Current       │    3%               │    6%             │    3%
++NEXT_TO      │    4%  (+1%)        │   10%  (+4%)      │    3%  (0%)
++2-hop sibl.  │   18%  (+14%)       │   16%  (+6%)      │    1%  (WORSE)
++position     │  100%  (+82%) ★     │   36%  (+20%)     │    1%  (WORSE)
+```
+
+**Key insight**: Position ordinal is the **killer discriminator** for windows
+(every window gets a unique (wall_id, rank) tuple). Walls WORSEN because
+walls without FILLS children collapse to identical empty fingerprints —
+walls need **wall-wall connectivity** (686 IfcRelConnectsPathElements).
+
+See: `docs/ifc_data_reality/fig6_oracle_discrimination.pdf`
+
+#### 11.6.6 Property-Level Discrimination (non-topology)
+
+**IfcSpace = dead end**: 8 spaces with generic names ("3ROK", "Area"),
+0 elements mapped to spaces, 0 IfcRelSpaceBoundary. This IFC has no useful
+space→element assignment.
+
+**Window ObjectType (IfcWindowStyle) = 14 subtypes**:
+```
+BALANS 15M PRIVATE:       68    BALANS 10M PRIVATE:     60
+BALANS 20M PRIVATE:       35    BALANS 30M FLOOR:       24
+BALANS 10M BATHROOM:      17    BALANS TRAPPHUS:        15
+BALANS 15M FLOOR:         12    ...and 7 more
+```
+These subtypes correlate with **visual differences**: a 1500mm×1400mm
+"PRIVATE" window looks different from a 1000mm×600mm "BATHROOM" window.
+Combined with storey → pool reduces from 46 to ~10 per group.
+
+**Window dimensions**: 29 unique (W×H) combos across 263 windows, max
+duplicate = 38. When combined with storey, max_dup drops to ~8.
+
+**Door types**: 5 types (Generic Door: 77, 0762×2032mm: 38, Swedoor EI60: 10,
+Garage: 1). Interior vs Fire-rated vs Garage = visually distinct.
+
+**Wall length/volume**: 380/381 walls have unique NetVolume — walls are
+**individually unique** by dimension, but this isn't learnable from photos.
+
+**Sill height**: 10 distinct values for windows (0, 400, 800, 1000, 1200,
+1400mm). Visible from site photos AND floorplan section marks.
+
+#### 11.6.7 Combined Feature Oracle (topology + attributes)
+
+```
+Feature combination              Window max_dup  Theoretical pool
+───────────────────────────────────────────────────────────────────
+Storey alone                     46              46
++ ObjectType (14 subtypes)       ~10             ~10
++ Wall-ID (FILLS host)           ~3-8            ~5
++ 2-hop sibling count            ~2-4            ~3
++ Position ordinal               1               1 (unique!)
+```
+
+**Conclusion**: The highest-ROI features for discrimination, ranked:
+1. **Window subtype** (14 types) — visual, learnable from photos/floorplans
+2. **Wall-ID** (FILLS host) — graph, already implemented
+3. **2-hop sibling count** — graph, auto-computable
+4. **Position ordinal** — requires floorplan spatial perception (hardest)
+
 ---
 
 ## 12. Neighborhood Fingerprinting Plan (LoRA_5 Direction)
@@ -1406,10 +1521,30 @@ The underlying graph is too sparse — most elements have ≤1 edge. We need to
 a unique multi-hop fingerprint, then (2) train the VLM to extract these
 richer patterns from floorplan images.
 
+**Data-grounded refinement** (from §11.6 IFC Reality Check):
+The oracle analysis reveals a **dual-path discrimination strategy**:
+
+- **Path A (Topology)**: NEXT_TO + 2-hop sibling count lifts Window oracle
+  from 3% → 18% (6×). Position ordinal → 100% in theory.
+- **Path B (Visual Attributes)**: Window ObjectType has 14 subtypes with
+  visually distinct dimensions (1000mm×600mm "BATHROOM" vs 2000mm×1400mm
+  "PRIVATE"). This alone reduces pool from 46 → ~10 — and is **learnable
+  from both photos and floorplans** without any graph enrichment.
+- **Path A+B combined**: subtype narrows to ~10, wall-ID to ~3, position
+  to 1. The two paths are **complementary and multiplicative**.
+
+**Pragmatic thesis stance** (per Q2 discussion):
+We do NOT need to solve the 46-identical-window problem completely. We prove:
+1. For high-entropy elements, enrichment **monotonically reduces** search space
+   (3% → 18% → 100% oracle ceiling, demonstrated in fig6)
+2. For elements with unique topology (heterogeneous anchors), the system
+   achieves **near-perfect retrieval**
+3. The remaining gap is bounded and characterized — future work target
+
 **Research contribution**: Neuro-symbolic element retrieval where the
 symbolic layer uses auto-enriched IFC topology (wall-sibling ordering,
-LEFT_OF/RIGHT_OF positional edges) and the neural layer extracts multi-hop
-spatial patterns from architectural floorplans.
+NEXT_TO positional edges) and the neural layer extracts both multi-hop
+spatial patterns AND element subtype attributes from architectural floorplans.
 
 ### 12.2 Layer 1: Graph Enrichment (`ifc_engine.py`)
 
@@ -1455,16 +1590,21 @@ they are exposed as explicit `SHARES_CORNER` edges in Neo4j.
 
 **Data reality** (AdvancedProject.ifc, 98 walls with FILLS children):
 ```
-Wall category       Count  Children  Example
-─────────────────────────────────────────────
-WINDOWS_ONLY          13      242   Curtain walls (85/50/45 windows each)
-DOORS_ONLY            81      115   Interior partition walls
-MIXED (Door+Window)    4       32   ← Only 4% of walls!
+Wall category       Count  Children  NEXT_TO edges
+──────────────────────────────────────────────────────
+DOORS_ONLY            81      147   (60 single-door, 14×2, 3×3, 2×4, 2×5)
+WINDOWS_ONLY          12      210   (curtain walls: 85/50/45/20/15/10/5/4/3/2×)
+MIXED (Door+Window)    5       32   ← Only 5% of walls! 16 hetero NEXT_TO edges
 ```
 
+**Actual NEXT_TO counts** (from reality check):
+- Total NEXT_TO edges: 291
+- Heterogeneous (cross-type): **16 (5.5%)** — very rare
+- Homogeneous (same-type): **275 (94.5%)** — low discrimination value
+
 **Implication**: Window NEXT_TO Window on a 85-window curtain wall is nearly
-useless (still 85 candidates). The 72 heterogeneous Door↔Window pairs on
-4 mixed walls are the high-value cases.
+useless (still 85 candidates). The 16 heterogeneous Door↔Window pairs on
+5 mixed walls are the high-value cases.
 
 **Training data strategy**:
 - **Priority 1**: Mixed-wall cases (Window NEXT_TO Door) — maximum discriminative power
@@ -1472,26 +1612,38 @@ useless (still 85 candidates). The 72 heterogeneous Door↔Window pairs on
 - **Priority 3**: Same-type NEXT_TO on small walls (2-4 children) — still useful
 - **Deprioritize**: Same-type NEXT_TO on large curtain walls (>10 children)
 
-#### 12.2.5 Expected Discrimination After Enrichment
+#### 12.2.5 Expected Discrimination After Enrichment (Data-Grounded)
+
+Oracle analysis from `docs/ifc_data_reality/fig6_oracle_discrimination.pdf`:
 
 ```
-Before (1-hop degenerate):
-  Window_17: FILLS Wall_A                    → 46 candidates (all Floor-1 windows)
-  Window_23: FILLS Wall_B                    → 46 candidates (same pool)
-
-After (heterogeneous NEXT_TO):
-  Window_17: FILLS Wall_A, NEXT_TO [IfcDoor] → 4-8 candidates (mixed-wall subset)
-  Window_23: FILLS Wall_B, NEXT_TO [null]    → 10-15 candidates (edge-of-wall subset)
-  Window_5:  FILLS Wall_C, NEXT_TO [IfcWindow] → 40+ candidates (still degenerate)
+Enrichment stage      Window Top-1  Door Top-1  Source
+──────────────────────────────────────────────────────
+Current (FILLS only)     3%           6%         Graph (1-hop degenerate)
++NEXT_TO                 4%          10%         Graph (+1D wall-axis seq)
++2-hop siblings         18%          16%         Graph (+child count/types)
++position ordinal      100%          36%         Graph (+rank on wall) ★
 ```
 
-**Realistic pool reduction** (with heterogeneous NEXT_TO only):
-- Mixed walls (4 walls, 32 elements): **46 → 3-8** per case
-- Edge positions on homogeneous walls: **46 → 10-20**
-- Interior of large curtain walls: **minimal reduction** (need wall-ID or count)
+**Why position ordinal is a perfect discriminator for windows**:
+Every window has a unique (wall_id, rank) tuple because walls don't share
+windows. 46 windows on 7 walls → each window at a unique position.
+For doors, 60/81 walls have single doors → position doesn't help those.
 
-**Complementary signal**: Wall child count. "Window on a wall with 3 openings"
-vs "a wall with 85 openings" is highly discriminative even without NEXT_TO type.
+**Complementary signal: Window subtype** (from §11.6.6):
+14 IfcWindowStyle subtypes with visually distinct dimensions. Combined with
+storey → pool reduces from 46 to ~10. This is **learnable from photos**
+without any graph enrichment and is **multiplicative** with topology:
+
+```
+Feature combination              Window pool (Floor 1, n=46)
+───────────────────────────────────────────────────────────
+Storey alone                     46
++ ObjectType (14 subtypes)       ~10
++ Wall-ID (FILLS host)           ~3-8
++ 2-hop sibling count            ~2-4
++ Position ordinal               1 (unique)
+```
 
 ### 12.3 Layer 2: Floorplan-Focused VLM Training (LoRA_5)
 
@@ -1534,7 +1686,28 @@ The VLM must learn to:
 3. Read what's next to it on the same wall (NEXT_TO)
 4. Report both triplets
 
-#### 12.3.3 Storey from Floorplan
+#### 12.3.3 Visual Window Subtype Recognition (NEW — from §11.6.6)
+
+**Key insight**: 14 IfcWindowStyle subtypes have **visually distinct** dimensions:
+- "BALANS 10M BATHROOM": 1000mm × 600mm (small, landscape)
+- "BALANS 15M PRIVATE": 1500mm × 1400mm (medium, square)
+- "BALANS 30M FLOOR": 3000mm × 2200mm (large, floor-to-ceiling)
+- "BALANS TRAPPHUS": 2500mm × 3000mm (stairwell, tall)
+
+These size differences are visible in **both** floorplans (symbol width) and
+site photos (physical window size). Training the VLM to output a more specific
+`ifc_class` or `target_name_keyword` (e.g., "bathroom window" vs "private window")
+could reduce pool from 46 → ~10 **without any graph enrichment**.
+
+**Implementation**: Add window subtype as `target_name_keyword` in training
+data. The VLM already outputs this field — just need training examples that
+map visual appearance to subtype names.
+
+**Training crop strategy**: For floorplan crops, **enlarge the crop to show
+the full host wall** with all children visible. The VLM doesn't need to count
+— it just needs to perceive relative size and position context.
+
+#### 12.3.4 Storey from Floorplan
 
 Train the model to read the floor label/legend from the floorplan image
 directly, rather than inferring storey from site photo context. Most
@@ -1543,22 +1716,63 @@ architectural floorplans have a title block with "Floor 1", "Level 2", etc.
 ### 12.4 Implementation Steps
 
 ```
+Phase 0: IFC Data Reality Check + Hint Module               Est. 1 day
+────────────────────────────────────────────────────────────────────
+✅ T9.1   IFC relationship inventory (23,254 rels, 686 ConnectsPath)
+          Output: mscd_demo/docs/ifc_data_reality/stats.txt
+✅ T9.2   Oracle discrimination analysis (fig6: Win 3%→100%, Door 6%→36%)
+          Output: mscd_demo/docs/ifc_data_reality/fig6_oracle_discrimination.pdf
+✅ T9.3   Property-level discrimination (14 IfcWindowStyle subtypes)
+          Output: mscd_demo/docs/ifc_data_reality/property_analysis.txt
+✅ T9.4   Thesis-ready plots (fig1–fig7 PDFs)
+          Output: mscd_demo/docs/ifc_data_reality/fig*.pdf
+✅ T9.5   Natural hint injection module (_window_subtype_hints.py)
+          - 14 window + 6 door subtype→keyword mappings
+          - LLM rewrite pipeline (Gemini, temp=0.9, forbidden canonical keyword)
+          - Template fallback (_INDIRECT_HINTS pools per keyword)
+          - build_hint_augmented_copies(): N copies w/ 1 hint + 1 no-hint
+          File: data_curation/scripts/synth/_window_subtype_hints.py
+
 Phase 1: Graph Enrichment (ifc_engine.py)                  Est. 1 day
 ────────────────────────────────────────────────────────────────────
-□  T10.1  Add NEXT_TO edge creation in _create_element_relationships()
-          - Project FILLS children centroids onto wall axis
-          - Sort by projected coordinate
-          - Create directed NEXT_TO edges between consecutive pairs
-□  T10.2  Add position_index property to NEXT_TO edges
-□  T10.3  Verify with Neo4j: count NEXT_TO edges per floor
-          Expected: 50-70 on Floor 1 (41 walls × ~2 children)
-□  T10.4  Add NEXT_TO to spatial_triplet Cypher in retrieval_backend.py
-          - 2-hop query: target -[:FILLS]-> wall <-[:FILLS]- neighbor
-            WHERE neighbor has NEXT_TO edge to target
-□  T10.5  Run H2 eval with enriched graph → verify no regression
-□  T10.6  Add wall_child_count property to FILLS edges (complementary signal)
+✅ T10.1  NEXT_TO edges: project FILLS children onto wall axis, sort,
+          create bidirectional edges between consecutive pairs.
+          Storey-grouped to avoid cross-floor edges on multi-story walls.
+          Result: 526 edges (32 heterogeneous, 494 homogeneous)
+✅ T10.2  position_index on NEXT_TO edges + wall_position_index on nodes
+✅ T10.3  Verified in Neo4j: 526 NEXT_TO, 35 wall-storey groups
+✅ T10.4  NEXT_TO works natively with existing spatial_triplet Cypher
+          (predicate injected as edge label — no code change needed)
+          Added NEXT_TO to SpatialTriplet.predicate Literal in types.py
+✅ T10.5  H2 eval: 567/568 GT-in-pool (100%), no regression
+          New results by predicate:
+            NEXT_TO:      25/25  (100%) 0% fallback  SSR=+60%  pool=13
+            CONNECTS_TO: 330/330 (100%) 0% fallback  SSR=-34%  pool=306
+            FILLS:        84/84  (100%) 0% fallback
+            ADJACENT_TO:  65/66  (98%)  100% fallback
+            CONTINUOUS:   63/63  (100%) 100% fallback
+✅ T10.6  wall_child_count property on 98 wall nodes
+✅ T10.7  CONNECTS_TO edges from IfcRelConnectsPathElements
+          681 unique wall-wall pairs → 1362 bidirectional edges
+          connection_type property (ATSTART/ATEND/ATPATH)
+✅ T10.8  H2 eval expanded: 213 → 568 cases (+25 NEXT_TO, +330 CONNECTS_TO)
+          File: data_curation/datasets/synth_v0.5/eval/h2_hard_negatives.jsonl
 
-Phase 2: Training Data (data_curation)                     Est. 2 days
+Phase 2: Training Data — Hint Integration (data_curation)  Est. 1 day
+────────────────────────────────────────────────────────────────────
+✅ T11.0a Wired _window_subtype_hints into 6_assemble_lora4.py
+          - get_subtype_keyword() via element_index (object_type + Width)
+          - rewrite_chat_with_hint() on Style A + C, no hint on Style B
+          - --gemini-hints flag for LLM rewrites (template fallback default)
+          - Dry-run: 41/576 (7.1%) records get target_name_keyword
+✅ T11.0b Hint integration tested: template fallback generates diverse
+          indirect descriptions, no canonical keyword in chat text
+✅ T11.0c target_name_keyword set in labels via build_lora4_label()
+          (lookup from element_index object_type + dimensions.Width)
+□  T11.0d Run with --gemini-hints for LLM-rewritten training text
+          (requires Gemini API key, ~225 calls, ~$0.50)
+
+Phase 2b: Training Data — NEXT_TO (data_curation)          Est. 1 day
 ────────────────────────────────────────────────────────────────────
 □  T11.1  Update skeleton miner to emit NEXT_TO skeletons
           - For each FILLS skeleton, find NEXT_TO neighbor → 2-hop skeleton
@@ -1589,9 +1803,19 @@ SR extraction (MC)        75%              80%+             Floorplan-only = cle
 Multi-hop extraction      0/75             30%+             NEXT_TO training data
 Storey accuracy           41.3%            65%+             Read from floorplan legend
 GT-in-pool (MC)           26.7%            45%+             Enriched graph × better storey
-Top-1 (MC)                0%               10%+             NEXT_TO = discriminative
+Top-1 (MC)                0%               10%+             NEXT_TO + visual subtype
 P0 over-reduction         12%              <5%              Fewer wrong-storey P0 fires
 ```
+
+**Thesis-defensible success criteria** (pragmatic stance):
+- **Claim 1** (pool reduction): Show monotonic improvement across enrichment
+  stages — even partial gains (3% → 18% oracle) are publishable as proof
+  that topology helps
+- **Claim 2** (unique relationships): For elements with distinctive topology
+  (mixed walls, heterogeneous anchors), demonstrate near-perfect retrieval
+- **Claim 3** (ceiling characterization): Present fig6 as a principled bound
+  — the gap between achieved and oracle is a characterized future-work target
+- **NOT claimed**: 100% Top-1 on 46 identical windows
 
 ### 12.6 Literature Context
 
@@ -1615,23 +1839,30 @@ Risk                                Likelihood  Mitigation
 ───────────────────────────────────────────────────────────────────
 NEXT_TO edges still not enough      Medium      Wall child count as complementary
   to disambiguate (curtain walls)               signal; focus on mixed walls first
+  UPDATE: H2 shows NEXT_TO SSR=60%             (pool 33→13), best of all predicates
 VLM can't read NEXT_TO from         Medium      Annotated floorplan crops with
   raw floorplan                                  arrows showing neighbors
 Storey-from-floorplan fails on      Low         Floorplans almost always have
   non-standard legends                           standard title blocks
 Over-enrichment: too many edges     Low         Cap at 2-hop (already implemented)
   → slow Cypher queries                          in retrieval_backend.py
+CONNECTS_TO pool too large          Medium      CONNECTS_TO returns ~306 walls avg;
+  for wall discrimination                        combine with storey filter or 2-hop
+                                                 FILLS→CONNECTS_TO pattern
 ```
 
 ---
 
 *Last updated: 2026-03-15.*
 *Data-grounded against: AdvancedProject.ifc (1233 elements, 686 ConnectsPathElements),
-H2 eval (213/213 GT-in-pool, 0 fallbacks), 3-way precomputed eval (69 cases, AP-only: 100% GT-in-pool),
+H2 eval (567/568 GT-in-pool, 23% fallback), 5 edge types: FILLS=84, NEXT_TO=25, CONNECTS_TO=330,
+ADJACENT_TO=66, CONTINUOUS=63. Neo4j graph: 389 FILLS + 526 NEXT_TO + 1362 CONNECTS_TO edges.
+3-way precomputed eval (69 cases, AP-only: 100% GT-in-pool),
 LoRA_3 live VLM eval (69 cases, MB: 20.6% GT-in-pool, MC: 33.8% GT-in-pool, spatial_relations: 1/69),
 LoRA_4 live VLM eval (75 cases, MA/MB/MC: SR=35%/16%/75%, GT-in-pool=32%/28%/27%).*
 *Consolidates: 0307_post_mid_plan.md + new_retrieve.md + 0313_final_todo.md.*
 *Critical bugs fixed 03-14: Neo4j conn in run.py, CONTINUOUS Cypher, storey resolver generalized.*
 *LoRA_4 trained 03-15: 649 train, 75% SR, 4 predicates, 110 2-hop.*
 *Shell script fix 03-15: `ls -t || true` in eval_lora4.sh (set -e killed on no-match glob).*
-*Neighborhood Fingerprinting plan added 03-15: Graph enrichment (NEXT_TO/LEFT_OF) + floorplan-focused LoRA_5.*
+*Neighborhood Fingerprinting plan added 03-15: Graph enrichment (NEXT_TO) + floorplan-focused LoRA_5.*
+*IFC Data Reality Check added 03-15: 23,254 rels, 291 NEXT_TO potential, 16 hetero, oracle Window 3%→100%, visual subtype insight (14 IfcWindowStyle).*
