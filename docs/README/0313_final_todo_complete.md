@@ -60,9 +60,9 @@ IfcWallStandardCase      381    4.2%     10.5%        2.5x
 IfcWindow                263    6.8%      6.8%        1.0x  ← DEAD
 ```
 
-### 1.4 H2 Eval Results (213 cases)
+### 1.4 H2 Eval Results
 
-**Before fixes (2026-03-11)**: P0 ran in DEGRADED MEMORY MODE (Neo4j never connected from run.py).
+**Before fixes (2026-03-11, 213 cases)**: P0 ran in DEGRADED MEMORY MODE (Neo4j never connected from run.py).
 ```
 Predicate      Cases  Pre-P0    Post-P0   SSR     Top-1(1/pool)
                       avg pool  avg pool
@@ -74,20 +74,25 @@ CONTINUOUS       63    227.4    110.2     47.5%     2.1%
 OVERALL         213    120.2     58.6     ~35%      5.3%
 ```
 
-**After fixes (2026-03-14)**: Neo4j connected, CONTINUOUS Cypher fixed, storey resolver generalized.
+**After fixes + graph enrichment (2026-03-15, 568 cases)**: Neo4j connected,
+NEXT_TO + CONNECTS_TO edges added, storey resolver generalized.
 ```
 Predicate      Cases  Pre-P0    Post-P0   SSR     Top-1(1/pool)  Fallback
                       avg pool  avg pool
-────────────────────────────────────────────────────────────────────────
-ADJACENT_TO      66    120.0     46.5     35%       4.5%          0/66
+──────────────────────────────────────────────────────────────────────────
 FILLS            84     42.4     60.3    -49%       2.4%          0/84
-CONTINUOUS       63    227.4    127.7     42%       0.5%          0/63
-────────────────────────────────────────────────────────────────────────
-OVERALL         213    120.0     76.0      4%       2.5%          0/213
-GT-in-pool: 213/213 (100%)  |  Fallback: 0/213 (0%)
+NEXT_TO          25     33.0     12.7    +60%       3.1%          0/25   ← NEW, BEST SSR
+CONNECTS_TO     330    278.0    305.6    -34%       0.7%          0/330  ← NEW
+ADJACENT_TO      66    120.0    117.2    -24%       4.5%         66/66
+CONTINUOUS       63    227.4    381.0    -74%       0.5%         63/63
+──────────────────────────────────────────────────────────────────────────
+OVERALL         568    208.0    243.0    -35%       1.4%        129/568
+GT-in-pool: 567/568 (100%)  |  Fallback: 129/568 (23%)
 ```
 Note: FILLS SSR negative because storey siblings now return BOTH "Level X" + "X - Xth Floor"
 elements. The T1.1 target_name_keyword post-filter (already wired) will fix this.
+ADJACENT_TO + CONTINUOUS fallback because they use centroid-distance/property-based
+retrieval, not Neo4j edges — these will improve with NEXT_TO training data (LoRA_5).
 
 ### 1.5 Critical Findings That Shape This Plan
 
@@ -125,7 +130,8 @@ elements. The T1.1 target_name_keyword post-filter (already wired) will fix this
 | CONNECTS_TO predicate in schema | ✅ Done (03-14) | `types.py`, `constraints_to_query.py` (P0a handles it) |
 | LoRA_4 dataset (649 train, 4 pred, 110 2-hop) | ✅ Assembled (03-14) | `6_assemble_lora4.py` → `lora4_train.jsonl` |
 | 2-hop OPTIONAL MATCH | ✅ Done (03-14) | `retrieval_backend.py` — rank, don't filter |
-| Multi-triplet miner (389 FILLS+CONNECTS_TO) | ✅ Done (03-14) | `7_mine_multitriplet.py` |
+| Multi-triplet miner v1 (389 FILLS+CONNECTS_TO) | ✅ Done (03-14) | `7_mine_multitriplet.py` |
+| Multi-triplet miner v2 (173 records, 5 chain patterns, 3-hop) | ✅ Done (03-16) | `7b_mine_multitriplet_v2.py` |
 
 ### Sprint Checklist
 
@@ -1288,10 +1294,11 @@ NEXT STEPS (LoRA_5 — Neighborhood Fingerprinting, see §12):
 □  T9.2   Increase top-K from 10 to 50 (immediate +10pp GT-in-pool)
 □  T9.3   target_name_keyword post-filter before truncation
 □  T9.4   Adjacent-floor storey relaxation (±1 retry)
-□  T10.1  Graph enrichment: NEXT_TO edges in ifc_engine.py (§12.2.1)
-□  T10.2  NEXT_TO Cypher in retrieval_backend.py (§12.2)
-□  T11.1  Floorplan-focused training data (§12.3)
-□  T12.1  Train LoRA_5 + eval (§12.4)
+✅ T10.1  Graph enrichment: NEXT_TO edges in ifc_engine.py (§12.2.1)   Done 03-15
+✅ T10.2  NEXT_TO Cypher in retrieval_backend.py (§12.2)               Done 03-15
+✅ T11.0  Hint integration + Gemini rewrites (§12.4 Phase 2)           Done 03-15
+□  T11.1  NEXT_TO training data (§12.4 Phase 2b)
+□  T12.1  Train LoRA_5 + eval (§12.4 Phase 3)
 ```
 
 ---
@@ -1769,28 +1776,60 @@ Phase 2: Training Data — Hint Integration (data_curation)  Est. 1 day
           indirect descriptions, no canonical keyword in chat text
 ✅ T11.0c target_name_keyword set in labels via build_lora4_label()
           (lookup from element_index object_type + dimensions.Width)
-□  T11.0d Run with --gemini-hints for LLM-rewritten training text
-          (requires Gemini API key, ~225 calls, ~$0.50)
+✅ T11.0d Run with --gemini-hints for LLM-rewritten training text
+          38/39 Gemini rewrites (1 template fallback), 0 keyword leaks
+          Output: lora4_train.jsonl (560 records, 75% SR, 39 hints)
 
-Phase 2b: Training Data — NEXT_TO (data_curation)          Est. 1 day
+Phase 2b: Training Data — NEXT_TO + Floorplan Pivot        Est. 1 day
 ────────────────────────────────────────────────────────────────────
-□  T11.1  Update skeleton miner to emit NEXT_TO skeletons
-          - For each FILLS skeleton, find NEXT_TO neighbor → 2-hop skeleton
-          - PRIORITY: heterogeneous pairs (Door↔Window) over same-type
-          - Include wall_child_count as skeleton field
-□  T11.2  Generate floorplan-only training images (crop floorplan around
-          target element, annotate with arrow/highlight)
-□  T11.3  Update skin generator for NEXT_TO text descriptions
-          "This window is next to a door on the same wall"
-□  T11.4  Assemble LoRA_5 dataset: ~800 train, 81% SR, 40%+ multi-hop
-□  T11.5  Update system prompt: "When a floorplan is provided, identify
-          what elements are on the same wall as the target"
+✅  T11.1  Updated skeleton miner: 57 NEXT_TO skeletons (storey-grouped
+          wall-axis projection), 45 CONNECTS_TO skeletons
+✅  T11.2  Floorplan renders: 282 AP + 25 BH + 39 DXA = 346 floorplans
+          Generated via _floorplan_renderer.py; 15 blank excluded
+✅  T11.3  Skin generator: 30 NEXT_TO KEEP + 16 CONNECTS_TO KEEP skins
+          Text chat aligned with wireframe scene descriptions
+✅  T11.4  Assembled LoRA_5 basic dataset (616 train, 57 test)     Done 03-16
+✅  T11.5  Updated system prompt: floorplan-first spatial extraction
+          Predicates: FILLS, ADJACENT_TO, CONTINUOUS, NEXT_TO, CONNECTS_TO
+
+Phase 2c: Multi-Hop Chain Mining + LoRA_5 Complex           Done 03-16
+────────────────────────────────────────────────────────────────────
+✅  T11.6  7b_mine_multitriplet_v2.py: 5 diverse chain patterns mined
+          A: FILLS+CONNECTS_TO (80), B: NEXT_TO hetero (29),
+          C: 3-hop NEXT_TO+FILLS+CONN (36), D: Cross-wall (28),
+          E: FILLS+NEXT_TO (absorbed by dedup) → 173 total records
+✅  T11.7  Rendered 131 floorplans for multi-triplet targets (0 fail)
+✅  T11.8  Updated 6_assemble_lora5.py: multi-triplet standalone records
+          added (not just enrichment of existing skins)
+✅  T11.9  Assembled LoRA_5 complex dataset: 1064 train / 76 test
+
+LoRA_5 Dataset Summary (6_assemble_lora5.py --augment):
+────────────────────────────────────────────────────────────────────
+  Version:   lora5_basic (616)  →  lora5_complex (1064)
+  Sources:   v0.4 enriched (903) + v0.5 skins (211 KEEP) + multi-triplet v2 (173)
+  Train:     1064 records (798 with SR = 75%, 266 attr-only)
+  Test:       76 records (46 with SR)
+  Modality:  679 fp_only / 165 fp+site / 220 attr-only(v0.4)
+  IFC models: AP=820 / BH=84 / DXA=160
+  Predicates: FILLS=507, CONNECTS_TO=411, NEXT_TO=153,
+              ADJACENT_TO=138, CONTINUOUS=39
+  Multi-hop:  ~150 records with 2+ triplets, 36 genuine 3-hop chains
+  Hints:     186/1064 (17.5%) have target_name_keyword
+  Chain patterns (new in v2):
+    - FILLS→CONNECTS_TO (2-hop, 80 records)
+    - NEXT_TO hetero Door↔Window (29 records)
+    - NEXT_TO→FILLS→CONNECTS_TO (3-hop, 36 records)
+    - Cross-wall FILLS→CONN→FILLS (28 records)
+  Key change: Floorplan replaces synthetic site photo as PRIMARY modality
+              (LoRA_4 site photos caused data pollution on spatial learning)
 
 Phase 3: Training + Eval                                    Est. 1 day
 ────────────────────────────────────────────────────────────────────
-□  T12.1  Train LoRA_5 on Modal A100 (same hyperparams as LoRA_4)
-□  T12.2  Run 3-condition eval (75 cases)
-□  T12.3  Compare: LoRA_5 vs LoRA_4 vs LoRA_3
+⏳ T12.1a Train LoRA_5 basic (616) on Modal A100              Running (03-16)
+□  T12.1b Train LoRA_5 complex (1064) on Modal A100
+□  T12.2  Run 3-condition eval + modality ablation:
+          Eval-A (fp_only), Eval-B (fp+site), Eval-C (site_only)
+□  T12.3  Compare: LoRA_5basic vs LoRA_5complex vs LoRA_4 vs LoRA_3
 □  T12.4  Thesis write-up: enrichment method + results
 ```
 
@@ -1800,7 +1839,7 @@ Phase 3: Training + Eval                                    Est. 1 day
 Metric                    LoRA_4 (actual)  LoRA_5 (target)  Rationale
 ────────────────────────────────────────────────────────────────────────
 SR extraction (MC)        75%              80%+             Floorplan-only = cleaner
-Multi-hop extraction      0/75             30%+             NEXT_TO training data
+Multi-hop extraction      0/75             30%+             36 genuine 3-hop chains in training
 Storey accuracy           41.3%            65%+             Read from floorplan legend
 GT-in-pool (MC)           26.7%            45%+             Enriched graph × better storey
 Top-1 (MC)                0%               10%+             NEXT_TO + visual subtype
@@ -1853,7 +1892,7 @@ CONNECTS_TO pool too large          Medium      CONNECTS_TO returns ~306 walls a
 
 ---
 
-*Last updated: 2026-03-15.*
+*Last updated: 2026-03-16.*
 *Data-grounded against: AdvancedProject.ifc (1233 elements, 686 ConnectsPathElements),
 H2 eval (567/568 GT-in-pool, 23% fallback), 5 edge types: FILLS=84, NEXT_TO=25, CONNECTS_TO=330,
 ADJACENT_TO=66, CONTINUOUS=63. Neo4j graph: 389 FILLS + 526 NEXT_TO + 1362 CONNECTS_TO edges.
@@ -1866,3 +1905,4 @@ LoRA_4 live VLM eval (75 cases, MA/MB/MC: SR=35%/16%/75%, GT-in-pool=32%/28%/27%
 *Shell script fix 03-15: `ls -t || true` in eval_lora4.sh (set -e killed on no-match glob).*
 *Neighborhood Fingerprinting plan added 03-15: Graph enrichment (NEXT_TO) + floorplan-focused LoRA_5.*
 *IFC Data Reality Check added 03-15: 23,254 rels, 291 NEXT_TO potential, 16 hetero, oracle Window 3%→100%, visual subtype insight (14 IfcWindowStyle).*
+*LoRA_5 dataset assembled 03-16: 616 train/57 test, 5 predicates (FILLS/ADJACENT_TO/NEXT_TO/CONNECTS_TO/CONTINUOUS), 3 IFC models (AP/BH/DXA), floorplan-primary modality pivot.*
