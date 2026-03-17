@@ -640,7 +640,7 @@ def run_eval(
                     text=[text],
                     images=image_inputs,
                     videos=video_inputs,
-                    padding=True,
+                    add_special_tokens=False,
                     return_tensors="pt",
                 ).to(model.device)
             else:
