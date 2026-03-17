@@ -1892,17 +1892,165 @@ CONNECTS_TO pool too large          Medium      CONNECTS_TO returns ~306 walls a
 
 ---
 
-*Last updated: 2026-03-16.*
+## 13. LoRA_5 Floorplan Pivot — Training, Evaluation & Diagnosis (2026-03-17)
+
+### 13.1 LoRA_5 Training Summary (DONE)
+
+**Motivation**: Synthetic site photos had 50% DISCARD rate (hallucination, unrealistic renders).
+Pivoted to **floorplan as primary visual modality** — VLM reads door arcs, wall double-lines,
+opening symbols, room labels for topology extraction. Site photos become supplementary context only.
+
+**Dataset**: 1064 train / 92 test (expanded from 616/57 with multi-hop chains)
+- 70% floorplan-only, 30% floorplan+site
+- 5 predicates: FILLS(420), ADJACENT_TO(138), NEXT_TO(153), CONNECTS_TO(48), CONTINUOUS(39), empty(266)
+- Multi-hop: 363 records with 2+ spatial_relations (5 chain patterns incl. 36 genuine 3-hop)
+- 3 IFC models: AP, BH, DXA
+- Base: Qwen2.5-VL-7B 4-bit, LoRA r=16 α=32, 5 epochs
+
+**Training results** (from output.log, on training test split):
+```
+JSON parse rate:      76/76 (100%)
+Class accuracy:       73/76 (96%)
+Storey accuracy:      72/76 (95%)
+Spatial hop-1 acc:    38/46 (83%)
+Spatial hop-2 acc:    23/23 (100%)
+False positive rate:  0/30 (0%)
+Per-predicate hop-1:
+  FILLS              24/25 (96%)
+  NEXT_TO             9/12 (75%)
+  ADJACENT_TO         5/7  (71%)
+  CONTINUOUS          0/2  (0%)
+  CONNECTS_TO_hop2   17/17 (100%)
+  FILLS_hop2          6/6  (100%)
+```
+
+### 13.2 LoRA_5 Evaluation Status — BROKEN (Input Format Mismatch)
+
+**Symptom**: Massive accuracy drop from training (83% pred) to eval (30% pred MC condition).
+Model mode-collapses to ADJACENT_TO (87% of predictions in MC) and never outputs empty SR.
+
+**5-condition Modal eval completed** (MA/MB/MC/FP/SITE × 70 cases each):
+```
+Condition  Pred Distribution                    Multi-hop  Empty SR
+MA         FILLS=45 ADJACENT_TO=25              0/70       0/70
+MC         ADJACENT_TO=61 FILLS=7 CONTINUOUS=2  0/70       0/70
+FP         ADJACENT_TO=64 FILLS=3 CONTINUOUS=3  0/70       0/70
+SITE       FILLS=51 ADJACENT_TO=19              0/70       0/70
+MB         FILLS=51 ADJACENT_TO=19              0/70       0/70
+```
+
+**Per-category accuracy (MC condition)**:
+```
+Category (n)          class   storey  pred_hop1  Notes
+L0_attr_only (30)     10/30   5/30    N/A        halluc_SR=30/30 (should be [])
+L1_ADJACENT_TO (10)    5/10   3/10   10/10       Only predicate that "works"
+L1_FILLS (8)           5/8    3/8     1/8        Collapsed to ADJACENT_TO
+L1_NEXT_TO (10)        5/10   2/10    0/10       Never predicted
+L1_CONNECTS_TO (5)     3/5    2/5     0/5        Never predicted
+L1_CONTINUOUS (5)      3/5    2/5     0/5        Never predicted
+L2_multihop (2)        2/2    0/2     1/2        Never outputs 2+ SR
+```
+
+### 13.3 Root Cause Analysis
+
+**RC-1: System Prompt Mismatch (CRITICAL)**
+- Training: 511-char prompt — mentions "floorplan is PRIMARY source", lists all 5 predicates
+- Eval: 1727-char LoRA_3-era prompt from `constraints_extraction.yaml` (`lora_system` key)
+- Model trained to respond to specific instruction; eval gives completely different instruction
+
+**RC-2: User Text Format Mismatch**
+- Training format includes `[Location] 2 - Second Floor` field (critical storey hint)
+- Eval `_build_user_text()` in `eval_lora5.py` NEVER emits `[Location]` field
+- Chat format also differs (training: no role prefix; eval: `Role: text` with prefix)
+
+**RC-3: Model never outputs empty spatial_relations**
+- Training has 25% empty SR cases → model saw them
+- But prompt mismatch makes model ignore the "if no floorplan, SR=[]" training instruction
+- Result: 100% false positive SR on attr-only cases
+
+### 13.4 Shortcut Learning Verification Diagnostics
+
+To determine whether the model actually learned visual-spatial reasoning vs just memorized
+class→predicate shortcuts, we ran 7 diagnostic tests:
+
+**Test 1: MA vs MC (does model ignore images?)**
+- MA vs MC only 19% identical → images DO change output
+- MA vs SITE 60% identical → removing floorplan makes predictions converge
+- MC vs FP 76% identical → floorplan dominates (expected in FP-primary design)
+- **Verdict**: Model uses images, especially floorplan. NOT pure text shortcut.
+
+**Test 2: Predicted predicate distribution (mode-collapse?)**
+- MC: ADJACENT_TO=87%, FILLS=10%, CONTINUOUS=3%, NEXT_TO=0%, CONNECTS_TO=0%
+- MA: FILLS=64%, ADJACENT_TO=36%
+- Modality switches the mode-collapse target: FP→ADJACENT_TO, no-FP→FILLS
+- **Verdict**: Different modality = different default. Not random, but not discriminative.
+
+**Test 3: Storey distribution (prior memorization?)**
+- MA: "-1 Garage"=67% of predictions (47/70) — massive mode-collapse
+- MC: "-1 Garage"=39% + "1 - First Floor"=36%
+- Training set has garage/floor-1 as most frequent storeys
+- **Verdict**: Strong prior memorization, especially without images.
+
+**Test 4: TEST_DISCARD cases (no site photos, floorplan only)**
+- All 16 cases: MA=FILLS, MC=ADJACENT_TO, FP=ADJACENT_TO, SITE=FILLS
+- Perfectly deterministic per-condition, regardless of GT predicate
+- GT includes CONTINUOUS(3), NEXT_TO(5), ADJACENT_TO(3), CONNECTS_TO(5)
+- **Verdict**: Without site photos, floorplan-only → always ADJACENT_TO. Shortcut.
+
+**Test 5: Same-class different-predicate litmus test**
+- IfcWall cases with GT=NEXT_TO vs CONTINUOUS vs ADJACENT_TO
+- Model predicts ADJACENT_TO for ALL of them in MC/FP conditions
+- **Verdict**: Cannot distinguish topology type for same element class. Shortcut confirmed.
+
+**Test 6: Multi-hop output**
+- Training: 34% multi-hop records (363/1064)
+- Eval: 0% multi-hop output across ALL conditions
+- **Verdict**: Multi-hop capability completely lost at eval time.
+
+**Test 7: Cross-condition agreement pattern**
+```
+Pair       Identical  Same Pred  Interpretation
+MA vs MC     19%        34%      Images change output significantly
+MA vs SITE   60%        69%      Without FP, both default similarly
+FP vs SITE   11%        26%      FP vs SITE = very different outputs
+MC vs FP     76%        86%      FP dominates MC (expected)
+```
+
+### 13.5 Conclusion: NOT Pure Shortcut, But Prompt Mismatch Triggers Shallow Defaults
+
+The model learned real signal during training (83% hop-1, 0% FP, modality-dependent output).
+But the system prompt + text format mismatch at eval time causes it to fall back to
+shallow class/modality-based defaults rather than using learned spatial reasoning.
+
+**Evidence for real learning** (during training):
+- 96% FILLS accuracy, 75% NEXT_TO, 71% ADJACENT_TO
+- 0% false positive on empty SR cases
+- 100% multi-hop accuracy (hop-2)
+- Modality-dependent outputs (FP vs SITE produce different predictions)
+
+**Evidence for eval-time degradation** (NOT intrinsic shortcut):
+- System prompt 511→1727 chars mismatch
+- Missing `[Location]` field in eval text
+- 0% multi-hop despite 34% in training data
+
+### 13.6 Next Steps
+
+1. **FIX eval_lora5.py**: Use exact 511-char training system prompt + add `[Location]` field
+2. **Re-run Modal eval** with corrected prompts (5 conditions × 70 cases)
+3. **Re-run local pipeline** with Neo4j connected
+4. **Re-run shortcut diagnostics** to confirm fix
+5. If still degraded → investigate tokenizer/chat template differences (Unsloth train vs eval)
+6. Generate thesis plots after confirmed working eval
+
+---
+
+*Last updated: 2026-03-17.*
 *Data-grounded against: AdvancedProject.ifc (1233 elements, 686 ConnectsPathElements),
 H2 eval (567/568 GT-in-pool, 23% fallback), 5 edge types: FILLS=84, NEXT_TO=25, CONNECTS_TO=330,
 ADJACENT_TO=66, CONTINUOUS=63. Neo4j graph: 389 FILLS + 526 NEXT_TO + 1362 CONNECTS_TO edges.
 3-way precomputed eval (69 cases, AP-only: 100% GT-in-pool),
 LoRA_3 live VLM eval (69 cases, MB: 20.6% GT-in-pool, MC: 33.8% GT-in-pool, spatial_relations: 1/69),
 LoRA_4 live VLM eval (75 cases, MA/MB/MC: SR=35%/16%/75%, GT-in-pool=32%/28%/27%).*
-*Consolidates: 0307_post_mid_plan.md + new_retrieve.md + 0313_final_todo.md.*
-*Critical bugs fixed 03-14: Neo4j conn in run.py, CONTINUOUS Cypher, storey resolver generalized.*
-*LoRA_4 trained 03-15: 649 train, 75% SR, 4 predicates, 110 2-hop.*
-*Shell script fix 03-15: `ls -t || true` in eval_lora4.sh (set -e killed on no-match glob).*
-*Neighborhood Fingerprinting plan added 03-15: Graph enrichment (NEXT_TO) + floorplan-focused LoRA_5.*
-*IFC Data Reality Check added 03-15: 23,254 rels, 291 NEXT_TO potential, 16 hetero, oracle Window 3%→100%, visual subtype insight (14 IfcWindowStyle).*
-*LoRA_5 dataset assembled 03-16: 616 train/57 test, 5 predicates (FILLS/ADJACENT_TO/NEXT_TO/CONNECTS_TO/CONTINUOUS), 3 IFC models (AP/BH/DXA), floorplan-primary modality pivot.*
+*LoRA_5 trained 03-16: 1064 train/92 test, 5 predicates, 363 multi-hop, floorplan-primary modality pivot.*
+*LoRA_5 eval 03-17: BROKEN — system prompt mismatch (511 vs 1727 chars) + missing [Location] field.*
+*Shortcut learning diagnosis 03-17: 7 diagnostic tests — model uses images (not pure shortcut) but prompt mismatch triggers shallow defaults.*

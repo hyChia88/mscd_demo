@@ -314,11 +314,21 @@ def _load_condition_configs() -> Dict[str, Dict]:
 
 
 def _load_system_prompt() -> str:
-    """Load LoRA system prompt from /app/constraints_extraction.yaml."""
-    import yaml
-    with open("/app/constraints_extraction.yaml", "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
-    return data.get("lora_system", data.get("system", ""))
+    """Return the exact system prompt used during LoRA_5 training.
+
+    Must match ``6_assemble_lora5.py::_SYSTEM_PROMPT`` character-for-character.
+    The old path (constraints_extraction.yaml ``lora_system``) was a 1727-char
+    LoRA_3-era prompt that caused mode-collapse at eval time.
+    """
+    return (
+        "You are a construction site assistant that extracts IFC element search constraints "
+        "from multimodal inputs (floorplans, site photos, chat messages, 4D metadata). "
+        "The floorplan is your PRIMARY source for spatial reasoning — analyze door arcs, "
+        "wall outlines, opening breaks, and element positions to extract spatial relationships "
+        "(FILLS, ADJACENT_TO, CONTINUOUS, NEXT_TO, CONNECTS_TO). "
+        "Site photos provide supplementary context for element condition and state. "
+        "Output valid JSON only — no markdown, no explanation."
+    )
 
 
 def _load_condition_mask():
@@ -392,31 +402,53 @@ def _remap_to_modal(path: str, case_id: str = "") -> str:
 # ── Build inference messages (mirrors constraints_extractor_lora.py) ─────────
 
 def _build_user_text(case: dict) -> str:
-    """Build user text — must match 7_prepare_lora_data.py exactly."""
+    """Build user text — must match 6_assemble_lora5.py training format exactly.
+
+    Training format (from ``generate_4d_metadata`` + ``format_skin``):
+        [4D Task Status] TASK_XXXX: ... — STATUS
+        [Project Phase] Phase
+        [Location] Storey Name
+        [Chat Log]
+        Raw chat text here (no role prefix, no indentation)
+
+    The old version (forked from eval_lora4.py / 7_prepare_lora_data.py) was
+    missing [Location], had ``  Role: text`` chat format, and appended
+    ``Extract the search constraints as JSON.`` — none of which the model
+    was trained on.
+    """
     parts = []
     ctx = case.get("inputs", {}).get("project_context", {})
 
     task_status = ctx.get("4d_task_status", "")
     if task_status:
         parts.append(f"[4D Task Status] {task_status}")
+    else:
+        parts.append("[4D Task Status] N/A")
 
     project_phase = ctx.get("project_phase", "")
     if project_phase:
         parts.append(f"[Project Phase] {project_phase}")
+    else:
+        parts.append("[Project Phase] N/A")
 
+    # [Location] — critical storey hint the model was trained to read.
+    # Try project_context.location first, fall back to labels.constraints.storey_name.
+    location = ctx.get("location", "")
+    if not location:
+        location = (case.get("labels", {}).get("constraints", {})
+                    .get("storey_name", ""))
+    parts.append(f"[Location] {location or 'N/A'}")
+
+    # Chat — raw text after [Chat Log], no role prefix (matches training format)
     chat = case.get("inputs", {}).get("chat_history", [])
     if chat:
-        parts.append("[Chat Log]")
-        for msg in chat:
-            role = msg.get("role", "User")
-            text = msg.get("text", "")
-            parts.append(f"  {role}: {text}")
+        chat_lines = [msg.get("text", "") for msg in chat]
+        parts.append(f"[Chat Log]\n{' '.join(chat_lines)}")
+    else:
+        query = case.get("query_text", "")
+        if query:
+            parts.append(f"[Chat Log]\n{query}")
 
-    query = case.get("query_text", "")
-    if query:
-        parts.append(f"\n[Query] {query}")
-
-    parts.append("\nExtract the search constraints as JSON.")
     return "\n".join(parts)
 
 
