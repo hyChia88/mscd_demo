@@ -21,7 +21,8 @@ class RetrievalBackend:
         engine: Any,  # IFCEngine from v1
         retrieval_mode: str,  # "memory" or "neo4j"
         visual_aligner: Optional[Any] = None,  # VisualAligner from v1
-        use_clip: bool = False
+        use_clip: bool = False,
+        p0_strategy: str = "p0_intersect_p1",  # retrieval strategy for P0
     ):
         """
         Initialize retrieval backend.
@@ -31,11 +32,17 @@ class RetrievalBackend:
             retrieval_mode: "memory" or "neo4j"
             visual_aligner: VisualAligner instance (optional)
             use_clip: Whether to enable CLIP reranking
+            p0_strategy: How to handle P0 spatial queries:
+                "p0_only"          — P0 fires alone, no safety net (original)
+                "p1_only"          — Skip P0, always use storey+type
+                "p0_intersect_p1"  — P0 ∩ P1 intersection (default, defensive)
+                "p0_union_p1"      — P0 ∪ P1 union (max recall)
         """
         self.engine = engine
         self.retrieval_mode = retrieval_mode
         self.visual_aligner = visual_aligner
         self.use_clip = use_clip and (visual_aligner is not None)
+        self.p0_strategy = p0_strategy
 
     async def execute_plan(
         self,
@@ -61,6 +68,45 @@ class RetrievalBackend:
             candidates = self._execute_neo4j(plan)
         else:
             candidates = self._execute_memory(plan)
+
+        # Step 1b: P0 strategy — controls how spatial queries interact with P1
+        #   p0_only:          keep P0 result as-is (original behavior)
+        #   p1_only:          discard P0, use storey+type instead
+        #   p0_intersect_p1:  P0 ∩ P1 (defensive, default)
+        #   p0_union_p1:      P0 ∪ P1 (max recall)
+        if plan.strategy in ("spatial_triplet", "continuous_span"):
+            if self.p0_strategy == "p1_only":
+                # Skip P0 entirely — use storey+type
+                p1_candidates = self._get_storey_type_pool(plan.params)
+                if p1_candidates:
+                    candidates = p1_candidates
+                    self._fallback_triggered = True
+                    self._strategy_actually_used = "storey+type"
+
+            elif self.p0_strategy == "p0_intersect_p1":
+                p0_guids = {c["guid"] for c in candidates}
+                p1_candidates = self._get_storey_type_pool(plan.params)
+                if p1_candidates:
+                    p1_guids = {c["guid"] for c in p1_candidates}
+                    intersection = [c for c in candidates if c["guid"] in p1_guids]
+                    if intersection:
+                        candidates = intersection
+                        self._strategy_actually_used = f"{plan.strategy}∩storey+type"
+                    elif not p0_guids:
+                        candidates = p1_candidates
+                        self._fallback_triggered = True
+                        self._strategy_actually_used = "storey+type"
+
+            elif self.p0_strategy == "p0_union_p1":
+                p0_guids = {c["guid"] for c in candidates}
+                p1_candidates = self._get_storey_type_pool(plan.params)
+                if p1_candidates:
+                    # Union: P0 first (topology-boosted), then P1-only elements
+                    p1_only = [c for c in p1_candidates if c["guid"] not in p0_guids]
+                    candidates = candidates + p1_only
+                    self._strategy_actually_used = f"{plan.strategy}∪storey+type"
+
+            # else: p0_only — keep P0 result as-is (no modification)
 
         # Step 2: Apply CLIP reranking if enabled and images available
         rerank_applied = False
@@ -515,6 +561,26 @@ class RetrievalBackend:
         ]
         # Graceful: don't filter to empty
         return filtered if filtered else candidates
+
+    def _get_storey_type_pool(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Run a storey+type query using the same params as the P0 plan.
+        Used by the P0 ∩ P1 defensive intersection.
+        Returns [] if storey or subject_type is missing.
+        """
+        storey = params.get("storey", "")
+        subject_type = params.get("subject_type", "")
+        if not storey or not subject_type:
+            return []
+        p1_plan = QueryPlan(
+            priority=4,
+            strategy="storey+type",
+            params={"storey": storey, "type": subject_type},
+            expected_pool_size=50,
+        )
+        if self.retrieval_mode == "neo4j":
+            return self._execute_neo4j(p1_plan)
+        return self._execute_memory(p1_plan)
 
     def _resolve_storey_siblings(self, storey_query: str) -> list:
         """

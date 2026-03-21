@@ -272,7 +272,7 @@ def _compute_thesis_metrics(traces: list) -> dict:
 
     Metrics:
         gt_in_pool:  GT GUID in first retrieval attempt's candidates (rr[0])
-        top1/top5:   GT in reranked interpreter_output.candidates positions 0 / 0-4
+        top1/top5/top10: GT in reranked interpreter_output.candidates positions 0 / 0-4 / 0-9
         mrr:         Mean reciprocal rank (from interpreter_output.candidates)
         p0_fired:    Any rr entry used spatial_triplet or continuous_span with pool>0
         sr_extracted: constraints.spatial_relations is non-empty
@@ -282,11 +282,12 @@ def _compute_thesis_metrics(traces: list) -> dict:
     if n == 0:
         return {k: 0 for k in [
             "n", "gt_in_pool", "gt_in_pct", "top1", "top1_pct", "top5", "top5_pct",
+            "top10", "top10_pct",
             "mrr", "avg_pool", "ssr_pct", "p0_fired", "p0_pct", "sr_extracted",
             "sr_pct", "over_reduction_rate",
         ]}
 
-    gt_in_pool = top1 = top5 = p0_fired = sr_extracted = 0
+    gt_in_pool = top1 = top5 = top10 = p0_fired = sr_extracted = 0
     rrs = []
     pools = []
 
@@ -305,7 +306,7 @@ def _compute_thesis_metrics(traces: list) -> dict:
             if gt_guid in rr0_guids:
                 gt_in_pool += 1
 
-        # Top-1 / Top-5 / MRR from reranked output
+        # Top-1 / Top-5 / Top-10 / MRR from reranked output
         if gt_guid in io_cands:
             rank = io_cands.index(gt_guid) + 1
             rrs.append(1.0 / rank)
@@ -313,6 +314,8 @@ def _compute_thesis_metrics(traces: list) -> dict:
                 top1 += 1
             if rank <= 5:
                 top5 += 1
+            if rank <= 10:
+                top10 += 1
         else:
             rrs.append(0.0)
 
@@ -342,6 +345,8 @@ def _compute_thesis_metrics(traces: list) -> dict:
         "top1_pct": round(top1 / n * 100, 1),
         "top5": top5,
         "top5_pct": round(top5 / n * 100, 1),
+        "top10": top10,
+        "top10_pct": round(top10 / n * 100, 1),
         "mrr": round(mrr, 4),
         "avg_pool": round(avg_pool, 1),
         "ssr_pct": round((1 - avg_pool / TOTAL_ELEMENTS) * 100, 1),
@@ -527,7 +532,7 @@ def _extract_condition(trace: dict) -> str:
 def _plot_overall_metrics(
     experiments: dict, output_path: str, title: str = ""
 ) -> None:
-    """Bar chart comparing Top-1, Name Match, Storey Match, Valid SSR, and Over-Reduction.
+    """Bar chart comparing Top-1, Top-10, Name Match, Storey Match, Valid SSR, and Over-Reduction.
 
     SSR is only computed on cases where guid_match=True (GT survived the reduction).
     Over-Reduction shows the fraction of cases where the pipeline pruned the GT away.
@@ -544,15 +549,26 @@ def _plot_overall_metrics(
         total = len(traces)
         if total == 0:
             metrics[label] = {
-                "Top-1": 0, "Name": 0, "Storey": 0, "Valid SSR": 0, "OverRed": 0,
+                "Top-1": 0, "Top-10": 0, "Name": 0, "Storey": 0,
+                "Valid SSR": 0, "OverRed": 0,
             }
             continue
         guid_hits = sum(1 for t in traces if t.get("guid_match", False))
         name_hits = sum(1 for t in traces if t.get("name_match", False))
         storey_hits = sum(1 for t in traces if t.get("storey_match", False))
         ssr = _compute_ssr(traces)
+
+        # Top-10: GT in first 10 candidates of interpreter_output
+        top10_hits = 0
+        for t in traces:
+            gt_guid = t.get("scenario", {}).get("ground_truth", {}).get("target_guid", "")
+            io_cands = [c.get("guid", "") for c in t.get("interpreter_output", {}).get("candidates", [])]
+            if gt_guid in io_cands and io_cands.index(gt_guid) < 10:
+                top10_hits += 1
+
         metrics[label] = {
             "Top-1": guid_hits / total * 100,
+            "Top-10": top10_hits / total * 100,
             "Name": name_hits / total * 100,
             "Storey": storey_hits / total * 100,
             "Valid SSR": (ssr["valid_ssr"] * 100) if ssr["valid_ssr"] is not None else 0,
@@ -560,7 +576,7 @@ def _plot_overall_metrics(
                        if ssr["over_reduction_rate"] is not None else 0,
         }
 
-    metric_names = ["Top-1", "Name", "Storey", "Valid SSR", "OverRed"]
+    metric_names = ["Top-1", "Top-10", "Name", "Storey", "Valid SSR", "OverRed"]
     x = np.arange(len(metric_names))
     width = 0.8 / n
     colors = ["#3498db", "#2ecc71", "#e74c3c", "#f39c12", "#9b59b6", "#1abc9c"]
@@ -588,7 +604,7 @@ def _plot_overall_metrics(
                  fontsize=14, fontweight="bold")
     ax.set_xticks(x)
     ax.set_xticklabels([
-        "Top-1\nAccuracy", "Name\nMatch", "Storey\nMatch",
+        "Top-1\nAccuracy", "Top-10\nAccuracy", "Name\nMatch", "Storey\nMatch",
         "Valid SSR\n(GT retained)", "Over-Reduction\n(GT lost)",
     ], fontsize=10)
     ax.set_ylim(0, 110)
@@ -2179,6 +2195,7 @@ def print_comparison_table(results: list) -> None:
         ("Top-1", "top1", ".3f", 7),
         ("Top-3", "top3", ".3f", 7),
         ("Top-5", "top5", ".3f", 7),
+        ("Top-10", "top10", ".3f", 7),
         ("P@1", "precision_1", ".3f", 7),
         ("Recall", "recall", ".3f", 7),
         ("F1", "f1", ".3f", 7),
@@ -2283,7 +2300,7 @@ def export_csv(results: list, path: Path) -> None:
 def _plot_thesis_system_comparison(
     all_metrics: dict, output_path: str
 ) -> None:
-    """Plot T1: GT-in-pool / Top-5 / MRR bar chart across 5 key systems."""
+    """Plot T1: GT-in-pool / Top-5 / Top-10 / MRR bar chart across 5 key systems."""
     import matplotlib.pyplot as plt
     import numpy as np
 
@@ -2293,10 +2310,11 @@ def _plot_thesis_system_comparison(
     labels = [THESIS_LABELS[k] for k in keys]
     colors = [THESIS_COLORS[k] for k in keys]
 
-    fig, axes = plt.subplots(1, 3, figsize=(14, 5))
+    fig, axes = plt.subplots(1, 4, figsize=(18, 5))
     metric_defs = [
         ("gt_in_pct", "GT-in-Pool (%)"),
         ("top5_pct", "Top-5 Accuracy (%)"),
+        ("top10_pct", "Top-10 Accuracy (%)"),
         ("mrr", "MRR"),
     ]
 
@@ -2544,8 +2562,8 @@ def _export_thesis_csv(
     """Export thesis metrics as CSV."""
     fieldnames = [
         "system", "label", "n", "gt_in_pool", "gt_in_pct",
-        "top1", "top1_pct", "top5", "top5_pct", "mrr",
-        "avg_pool", "ssr_pct", "p0_fired", "p0_pct",
+        "top1", "top1_pct", "top5", "top5_pct", "top10", "top10_pct",
+        "mrr", "avg_pool", "ssr_pct", "p0_fired", "p0_pct",
         "sr_extracted", "sr_pct", "over_reduction_rate",
     ]
 
@@ -2579,7 +2597,7 @@ def _run_thesis_mode(project_root: Path, output_dir: str) -> None:
         all_metrics[key] = _compute_thesis_metrics(traces)
 
     # Print summary table
-    header = f"{'System':<28} {'n':>3} {'GT-in%':>7} {'Top1%':>6} {'Top5%':>6} {'MRR':>6} {'SSR%':>6} {'P0%':>5} {'SR':>3}"
+    header = f"{'System':<28} {'n':>3} {'GT-in%':>7} {'Top1%':>6} {'Top5%':>6} {'Top10%':>7} {'MRR':>6} {'SSR%':>6} {'P0%':>5} {'SR':>3}"
     print(f"\n{header}")
     print("-" * len(header))
     for key in THESIS_ORDER:
@@ -2589,7 +2607,7 @@ def _run_thesis_mode(project_root: Path, output_dir: str) -> None:
         label = THESIS_LABELS[key]
         print(
             f"{label:<28} {m['n']:>3} {m['gt_in_pct']:>6.1f}% {m['top1_pct']:>5.1f}% "
-            f"{m['top5_pct']:>5.1f}% {m['mrr']:>5.4f} {m['ssr_pct']:>5.1f}% "
+            f"{m['top5_pct']:>5.1f}% {m['top10_pct']:>6.1f}% {m['mrr']:>5.4f} {m['ssr_pct']:>5.1f}% "
             f"{m['p0_pct']:>4.1f}% {m['sr_extracted']:>3}"
         )
 

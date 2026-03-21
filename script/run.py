@@ -318,6 +318,10 @@ async def main(args: argparse.Namespace) -> None:
 
     visual_aligner = init_visual_aligner(profile.get("use_clip", False))
 
+    # ── 3.5. inject p0_strategy into config ─────────────────────────────
+    config["p0_strategy"] = args.p0_strategy
+    print(f"P0 strategy: {args.p0_strategy}")
+
     # ── 4. build pipeline ──────────────────────────────────────────────────
     pipeline_type = profile.get("pipeline", "v1")
 
@@ -526,6 +530,8 @@ async def main(args: argparse.Namespace) -> None:
     tag = f"{ts}_{profile_name}"
     if args.condition_override:
         tag += f"_{args.condition_override}"
+    # Always include p0_strategy in filename for traceability
+    tag += f"_{args.p0_strategy}"
 
     traces_file = output_dir / f"traces_{tag}.jsonl"
     summary_file = output_dir / f"summary_{tag}.csv"
@@ -607,6 +613,13 @@ def cli() -> argparse.Namespace:
     p.add_argument(
         "--percent", type=float, default=None,
         help="Run on X%% of dataset (e.g., --percent 40 for 40%%). Overrides --limit.",
+    )
+    p.add_argument(
+        "--p0-strategy", default="p0_intersect_p1",
+        choices=["p0_only", "p1_only", "p0_intersect_p1", "p0_union_p1"],
+        dest="p0_strategy",
+        help="P0 spatial retrieval strategy: p0_only (original), p1_only (skip P0), "
+             "p0_intersect_p1 (defensive default), p0_union_p1 (max recall)",
     )
     return p.parse_args()
 

@@ -132,6 +132,15 @@ retrieval, not Neo4j edges — these will improve with NEXT_TO training data (Lo
 | 2-hop OPTIONAL MATCH | ✅ Done (03-14) | `retrieval_backend.py` — rank, don't filter |
 | Multi-triplet miner v1 (389 FILLS+CONNECTS_TO) | ✅ Done (03-14) | `7_mine_multitriplet.py` |
 | Multi-triplet miner v2 (173 records, 5 chain patterns, 3-hop) | ✅ Done (03-16) | `7b_mine_multitriplet_v2.py` |
+| **LoRA_4 trained** | ✅ Done (03-15) | Modal A100, Qwen2.5-VL-7B + LoRA |
+| **LoRA_5 trained** | ✅ Done (03-17) | Modal A100, multi-triplet + CONNECTS_TO/NEXT_TO |
+| **LoRA_5 full eval (MA/MB/MC/FP/SITE)** | ✅ Done (03-18) | `logs/evaluations/synth_v05_lora5/` |
+| **P0∩P1 strategy + ablation** | ✅ Done (03-17) | `strategy_ablation/` (P0-only/P1-only/P0∩P1/P0∪P1) |
+| **4-way comparison (Gemini/L3/L4/L5)** | ✅ Done (03-17) | `logs/comparisons/0317_4way_ap_only/` |
+| **Gemini zero-shot baseline** | ✅ Done (03-18) | `logs/evaluations/gemini_baseline/` |
+| **analyze_traces.py deep-dive** | ✅ Done (03-18) | Valid SSR, RQS, hop accuracy, confusion matrices |
+| **Multi-model Neo4j (AP+DXA+BH)** | ✅ Scripted (03-18) | `script/neo4j_init.sh` + `ifc_export_cli.py --no-clear` |
+| **RESULTS.md Exp 4 analysis** | ✅ Done (03-20) | Root cause analysis: class confusion, invalid predicates |
 
 ### Sprint Checklist
 
@@ -181,9 +190,9 @@ SPRINT 4: LoRA_4 TRAINING (Days 15-20)
 ✅ T8.1  Generate CONNECTS_TO skins (45 generated, 18 KEEP)               Done 03-14
 ✅ T8.2  Assemble LoRA_4 dataset (297 train, 75.1% SR, 0 noFP+SR)        Done 03-14
          Predicates: ADJACENT_TO=108, FILLS=73, CONTINUOUS=27, CONNECTS_TO=15
-□ T8.3  Train LoRA_4 on Modal A100 (Qwen2.5-VL-7B, 5ep, lr=2e-4)
-□ T8.4  Run MC eval on LoRA_4 adapter
-□ T8.5  Compare LoRA_4 vs LoRA_3 (target: >50% P0 fire, >55% GT-in-pool)
+✅ T8.3  Train LoRA_4 on Modal A100 (Qwen2.5-VL-7B, 5ep, lr=2e-4)       Done 03-15
+✅ T8.4  Run MC eval on LoRA_4 adapter                                    Done 03-17
+✅ T8.5  Compare LoRA_4 vs LoRA_3 (4-way comparison generated)            Done 03-17
 
 SPRINT 4B: 2-HOP OPTIONAL MATCH (Days 20-22)
 ─────────────────────────────────────────────
@@ -193,6 +202,32 @@ SPRINT 4B: 2-HOP OPTIONAL MATCH (Days 20-22)
 ✅ T8.9  Update 6_assemble_lora4.py for multi-triplet records             Done 03-14
 ✅ T8.10 Re-assemble LoRA_4 (649 train, 110 2-hop, 75% SR)               Done 03-14
 □ T8.11 Eval 2-hop: GT-in-pool improvement (target: 71.5% ceiling)
+
+SPRINT 5: LoRA_5 + FULL EVAL (Days 22-25)
+──────────────────────────────────────────
+✅ T9.1  Train LoRA_5 (multi-triplet + CONNECTS_TO/NEXT_TO)               Done 03-17
+✅ T9.2  Run LoRA_5 full eval (MA/MB/MC/FP/SITE conditions)               Done 03-18
+✅ T9.3  P0∩P1 strategy + ablation (4 strategies)                         Done 03-17
+         Results: logs/evaluations/synth_v05_lora5/strategy_ablation/
+✅ T9.4  Gemini zero-shot baseline on same test set                        Done 03-18
+         Results: logs/evaluations/gemini_baseline/
+✅ T9.5  4-way comparison: Gemini vs LoRA_3 vs LoRA_4 vs LoRA_5           Done 03-17
+         Results: logs/comparisons/0317_4way_ap_only/ (AP-only filtered)
+✅ T9.6  Deep-dive analysis (hop accuracy, confusion, RQS, per-floor)     Done 03-18
+         Results: logs/evaluations/synth_v05_lora5/plots/
+✅ T9.7  analyze_traces.py: Valid SSR, RQS F1, hop waterfall              Done 03-18
+✅ T9.8  RESULTS.md Exp 4 writeup + root cause analysis                   Done 03-20
+         Root causes: 49% ifc_class wrong, 32.6% invalid predicates
+
+SPRINT 5B: INFRASTRUCTURE FIXES (Identified 03-18-20)
+──────────────────────────────────────────────────────
+✅ T10.1 Script multi-model Neo4j loading (AP+DXA+BH)                     Done 03-18
+         neo4j_init.sh + ifc_export_cli.py --no-clear
+□ T10.2 Run neo4j_init.sh --reload (load DXA+BH into Neo4j)
+□ T10.3 Re-run all evals after Neo4j reload (27 cases currently 0% GT)
+□ T10.4 Fix storey_match eval bug (pipeline.py:211, candidate.storey=null)
+□ T10.5 Filter invalid predicates (CONNECTS_TO→valid, NEXT_TO→ADJACENT_TO)
+□ T10.6 Add Top-10 metric to compare_results.py
 ```
 
 ### 2-Hop OPTIONAL MATCH Architecture
@@ -863,6 +898,33 @@ LoRA₃ site MC                 68   33.8%   1.5%   8.8% 0.039   92.9%  0.0%   0
 LoRA₃ fires P0 0% → 20-34% GT-in-pool. The retrieval pipeline works;
 the VLM extraction doesn't. This is the core motivation for LoRA_4.
 
+### 5.10 4-Way Comparison: Gemini vs LoRA_3 vs LoRA_4 vs LoRA_5 (Done 03-17/20)
+
+**Full analysis**: See `RESULTS.md` Exp 4.
+**Traces**: `logs/comparisons/0317_4way_ap_only/`
+**Charts**: `logs/comparisons/0317_4way_ap_only/charts/`
+
+| Metric | Gemini (n=59) | LoRA_3 (n=20) | LoRA_4 (n=58) | LoRA_5 (n=59) |
+|--------|--------------|---------------|---------------|---------------|
+| **Top-1** | 1 (1.7%) | 3 (15.0%) | 4 (6.9%) | 3 (5.1%) |
+| **GT-in-pool** | 7 (11.9%) | 12 (60.0%) | 20 (34.5%) | 17 (28.8%) |
+| **ifc_class** | 33 (55.9%) | 19 (95.0%) | 37 (63.8%) | 29 (49.2%) |
+| **storey_num** | 30 (50.8%) | 16 (80.0%) | 29 (50.0%) | 39 (66.1%) |
+| **P0 used** | 55+3 | 0 (all P1) | 41+1 | 57+2 |
+
+**Root causes of LoRA_5 regression** (vs LoRA_3/4):
+1. **49% ifc_class wrong**: Wall GT misclassified as Window/Door (13/59 cases). FILLS-dominant training biases toward subject elements.
+2. **32.6% invalid predicates**: CONNECTS_TO (38) + NEXT_TO (8) not in Neo4j schema → empty Cypher results.
+3. **Non-comparable test sets**: LoRA_3 has only 20 AP cases (easy, v3 skeletons) vs LoRA_5's 59 (harder augmented v5 cases). Zero ID overlap.
+4. **storey_match = 0% universally**: Eval bug — `pipeline.py:211` reads `c.get("storey")` but candidates lack this key.
+
+**LoRA_5 deep-dive plots**: `logs/evaluations/synth_v05_lora5/plots/`
+- Hop accuracy, predicate confusion matrix, subject confusion matrix, per-floor GT-in-pool, RQS overview, hop waterfall
+
+**Strategy ablation** (LoRA_5 MC condition):
+- Traces: `logs/evaluations/synth_v05_lora5/strategy_ablation/`
+- 4 strategies: P0-only, P1-only, P0∩P1, P0∪P1
+
 **Code & file locations**:
 ```
 Thesis mode CLI:    script/compare_results.py --thesis
@@ -977,7 +1039,7 @@ Each space has 9-19 boundary elements.
 |---|---|---|
 | **Full SGG schema** (new.md) | Invalidates all 1,377 training samples + entire pipeline. 3-week rewrite. | Appendix A.1 |
 | **Dual-track bbox** (new.md) | Each sub-component is a standalone project. | Appendix A.2 |
-| **LoRA_4 training** (new.md) | **RE-SCOPED**: LoRA_3 eval proves extraction is bottleneck (1/69 spatial). LoRA_4 with floorplan-first strategy is now PLANNED. See §5.7. | §5.7 + Appendix A.3 |
+| **LoRA_4 training** (new.md) | ✅ **COMPLETED** 03-15. LoRA_5 also trained 03-17. 4-way eval done. Key finding: 49% ifc_class wrong, 32.6% invalid predicates. See RESULTS.md Exp 4. | §5.7 + RESULTS.md |
 | **P6: 2-hop implementation** | High value but >1 week. Present simulated ceiling (71.5%) instead. | Section 7, 8.2 |
 | **P7.2-7.3: bbox overlay** | Needs new training data. Zero-shot alternative in T7.2. | Appendix A.4 |
 | **P8: dataset expansion** | 213 H2 + 69 test = sufficient evidence for thesis. | Appendix A.5 |

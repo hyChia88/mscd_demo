@@ -49,7 +49,7 @@ GT_LABELS="$DATA_ROOT/datasets/synth_v0.5/train/lora5_test.jsonl"
 
 # Output dirs
 EVAL_DIR="$PROJECT_DIR/logs/evaluations/synth_v05_lora5"
-PLOTS_DIR="$PROJECT_DIR/logs/comparisons/lora5_vs_lora4_vs_lora3"
+PLOTS_DIR="$PROJECT_DIR/logs/comparisons/$(date +%Y%m%d)_plots"
 
 # Prior eval dirs (for comparison)
 LORA4_EVAL_DIR="$PROJECT_DIR/logs/evaluations/synth_v05_lora4"
@@ -94,6 +94,7 @@ while [[ $# -gt 0 ]]; do
             echo "  h2                 H2 hard-negative evaluation (568 cases)"
             echo "  compare            3-way comparison (LoRA_5 vs LoRA_4 vs LoRA_3)"
             echo "  modality-ablation  Modality ablation (FP vs MC vs SITE vs MA)"
+            echo "  strategy-ablation  Retrieval strategy ablation (P0 vs P1 vs P0∩P1 vs P0∪P1)"
             echo "  quick              Quick test (5 cases, MC condition)"
             echo ""
             echo "Options:"
@@ -287,19 +288,20 @@ run_local_pipeline() {
 
         # Check if traces already exist
         local existing_trace
-        existing_trace=$(ls -t "$EVAL_DIR"/traces_*_v2_lora_${cond}.jsonl 2>/dev/null | head -1 || true)
+        existing_trace=$(ls -t "$EVAL_DIR"/traces_*_v2_lora_${cond}_*.jsonl 2>/dev/null | head -1 || true)
         if [[ -n "$existing_trace" ]]; then
             ok "Traces exist for $cond: $(basename "$existing_trace") — skipping"
             continue
         fi
 
-        info "Running local pipeline: condition=$cond"
+        info "Running local pipeline: condition=$cond (p0_strategy=p0_intersect_p1)"
         conda run -n "$CONDA_ENV" python -u script/run.py \
             --profile v2_lora \
             --cases "$CASES_FILE" \
             --precomputed "$precomputed_file" \
             --output_dir "$EVAL_DIR" \
             --condition-override "$cond" \
+            --p0-strategy p0_intersect_p1 \
             $LIMIT_ARG
 
         ok "Local pipeline complete for $cond"
@@ -418,6 +420,7 @@ run_analyze() {
         --traces-dir "$EVAL_DIR" \
         --precomputed-dir "$EVAL_DIR" \
         --cases "$V05_CASES" \
+        --conditions "MA,MB,MC,FP,SITE" \
         $gt_labels_arg \
         --output "$output_csv"
 
@@ -467,6 +470,97 @@ run_modality_ablation() {
         --title "Modality Ablation — LoRA_5 (92 cases)"
 
     ok "Modality ablation charts saved to: $PLOTS_DIR"
+}
+
+# ═════════════════════════════════════════════════════════════════════════════
+# STEP 7: Retrieval Strategy Ablation (P0-only vs P1-only vs P0∩P1 vs P0∪P1)
+# Uses MC precomputed constraints, varies only the retrieval strategy.
+# ═════════════════════════════════════════════════════════════════════════════
+
+run_strategy_ablation() {
+    section "Step 7: Retrieval Strategy Ablation (MC condition)"
+
+    cd "$PROJECT_DIR"
+
+    local precomputed_file="$EVAL_DIR/eval_constraints_final_MC.jsonl"
+    local CASES_FILE="$V05_CASES"
+    local STRAT_DIR="$EVAL_DIR/strategy_ablation"
+    mkdir -p "$STRAT_DIR"
+
+    if [[ ! -f "$precomputed_file" ]]; then
+        warn "MC precomputed constraints missing — run --step modal first"
+        return
+    fi
+
+    local STRATEGIES=("p0_only" "p1_only" "p0_intersect_p1" "p0_union_p1")
+
+    for strat in "${STRATEGIES[@]}"; do
+        local existing_trace
+        existing_trace=$(ls -t "$STRAT_DIR"/traces_*_MC_${strat}.jsonl 2>/dev/null | head -1 || true)
+        if [[ -n "$existing_trace" ]]; then
+            ok "Traces exist for $strat: $(basename "$existing_trace") — skipping"
+            continue
+        fi
+
+        info "Running retrieval with strategy: $strat"
+        conda run -n "$CONDA_ENV" python -u script/run.py \
+            --profile v2_lora \
+            --cases "$CASES_FILE" \
+            --precomputed "$precomputed_file" \
+            --output_dir "$STRAT_DIR" \
+            --condition-override "MC" \
+            --p0-strategy "$strat" \
+            $LIMIT_ARG
+
+        ok "Strategy $strat complete"
+    done
+
+    # Summarize results
+    info "Strategy ablation summary:"
+    for strat in "${STRATEGIES[@]}"; do
+        local trace
+        trace=$(ls -t "$STRAT_DIR"/traces_*_MC_${strat}.jsonl 2>/dev/null | head -1 || true)
+        if [[ -n "$trace" ]]; then
+            python3 -c "
+import json
+traces = [json.loads(l) for l in open('$trace') if l.strip()]
+gt_in = sum(1 for t in traces if t.get('gt_in_pool'))
+top1 = sum(1 for t in traces if t.get('top1_correct'))
+n = len(traces)
+avg_pool = sum(t.get('pool_size',0) for t in traces) / max(n,1)
+print(f'  $strat: GT-in-pool={gt_in}/{n} ({100*gt_in/max(n,1):.1f}%) Top-1={top1}/{n} ({100*top1/max(n,1):.1f}%) Avg-pool={avg_pool:.0f}')
+"
+        fi
+    done
+
+    # Generate comparison chart
+    local plot_args=()
+    for strat in "${STRATEGIES[@]}"; do
+        local trace
+        trace=$(ls -t "$STRAT_DIR"/traces_*_MC_${strat}.jsonl 2>/dev/null | head -1 || true)
+        if [[ -n "$trace" ]]; then
+            local label
+            case "$strat" in
+                p0_only)          label="P0 only" ;;
+                p1_only)          label="P1 only (skip P0)" ;;
+                p0_intersect_p1)  label="P0 ∩ P1 (defensive)" ;;
+                p0_union_p1)      label="P0 ∪ P1 (max recall)" ;;
+            esac
+            plot_args+=(--traces "$trace" --label "$label")
+        fi
+    done
+
+    if [[ ${#plot_args[@]} -ge 4 ]]; then
+        info "Generating strategy ablation charts..."
+        conda run -n "$CONDA_ENV" python -u script/compare_results.py \
+            "${plot_args[@]}" \
+            --cases "$V05_CASES" \
+            --plots \
+            --output "$PLOTS_DIR" \
+            --title "Retrieval Strategy Ablation — LoRA_5 MC"
+
+        ok "Strategy ablation charts saved to: $PLOTS_DIR"
+    fi
 }
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -526,6 +620,7 @@ case "$STEP" in
         run_h2_eval
         run_comparison
         run_modality_ablation
+        run_strategy_ablation
         ;;
     modal)
         run_modal_extraction
@@ -546,11 +641,14 @@ case "$STEP" in
     modality-ablation)
         run_modality_ablation
         ;;
+    strategy-ablation)
+        run_strategy_ablation
+        ;;
     quick)
         run_quick_test
         ;;
     *)
-        fail "Unknown step: $STEP (use: full, modal, local, analyze, h2, compare, modality-ablation, quick)"
+        fail "Unknown step: $STEP (use: full, modal, local, analyze, h2, compare, modality-ablation, strategy-ablation, quick)"
         ;;
 esac
 

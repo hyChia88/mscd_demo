@@ -130,6 +130,7 @@ class V2Pipeline(PipelineBase):
             retrieval_mode=profile.get("retrieval", "memory"),
             visual_aligner=visual_aligner,
             use_clip=profile.get("use_clip", False),
+            p0_strategy=config.get("p0_strategy", "p0_intersect_p1"),
         )
 
         # Build centralized image parser (VLM-based)

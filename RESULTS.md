@@ -14,6 +14,7 @@
 | neo4j+clip | 0.256 | 0.279 | 0.267 | 12 |
 
 Memory mode is best. Adding Neo4j/CLIP hurts — Neo4j fallback adds noise, CLIP reranking finds the right type but wrong instance.
+However I suppose sample too small to judge.
 
 ---
 
@@ -332,3 +333,163 @@ for t in 0.3 0.5 0.7 0.9; do
     --output logs/evaluations/h2_t${t}.jsonl
 done
 ```
+
+---
+
+## Exp 4: 4-Way Comparison — Gemini vs LoRA_3 vs LoRA_4 vs LoRA_5 (AP-only)
+
+**Date:** 2026-03-17/18 | **Test set:** `eval/cases_v3_test.jsonl` (69 cases, AP-only subset)
+
+**Trace files:**
+| Label | Trace File | Cases |
+|-------|-----------|-------|
+| Gemini | [`traces_gemini_MC_ap_only.jsonl`](logs/comparisons/0317_4way_ap_only/traces_gemini_MC_ap_only.jsonl) | 59 |
+| LoRA_3 | [`traces_lora3_MC_ap_only.jsonl`](logs/comparisons/0317_4way_ap_only/traces_lora3_MC_ap_only.jsonl) | 20 |
+| LoRA_4 | [`traces_lora4_MC_ap_only.jsonl`](logs/comparisons/0317_4way_ap_only/traces_lora4_MC_ap_only.jsonl) | 58 |
+| LoRA_5 | [`traces_lora5_MC_ap_only.jsonl`](logs/comparisons/0317_4way_ap_only/traces_lora5_MC_ap_only.jsonl) | 59 |
+
+**Charts (AP-only filtered):** [`logs/comparisons/0317_4way_ap_only/charts/`](logs/comparisons/0317_4way_ap_only/charts/)
+| Chart | File | What It Shows |
+|-------|------|---------------|
+| Overall Metrics | [`1_overall_metrics.png`](logs/comparisons/0317_4way_ap_only/charts/1_overall_metrics.png) | Top-1, Name Match, Storey Match, Valid SSR, Over-Reduction |
+| Condition Comparison | [`2_condition_comparison.png`](logs/comparisons/0317_4way_ap_only/charts/2_condition_comparison.png) | Per-condition (MA/MB/MC) accuracy bars |
+| Search Space Reduction | [`3_search_space_reduction.png`](logs/comparisons/0317_4way_ap_only/charts/3_search_space_reduction.png) | Pool size box plots (valid vs over-reduced) |
+| Efficiency | [`4_efficiency_comparison.png`](logs/comparisons/0317_4way_ap_only/charts/4_efficiency_comparison.png) | Latency and cost per model |
+| Accuracy Heatmap | [`5_accuracy_heatmap.png`](logs/comparisons/0317_4way_ap_only/charts/5_accuracy_heatmap.png) | Model × condition accuracy grid |
+| Accuracy Heatmap (detail) | [`6_accuracy_heatmap_details.png`](logs/comparisons/0317_4way_ap_only/charts/6_accuracy_heatmap_details.png) | Detailed per-case breakdown |
+| Full Condition Heatmap | [`6b_full_condition_heatmap.png`](logs/comparisons/0317_4way_ap_only/charts/6b_full_condition_heatmap.png) | All conditions expanded |
+| Modality Gain | [`7_modality_gain.png`](logs/comparisons/0317_4way_ap_only/charts/7_modality_gain.png) | MA vs MB vs MC paired delta |
+| Difficulty Degradation | [`8_difficulty_degradation.png`](logs/comparisons/0317_4way_ap_only/charts/8_difficulty_degradation.png) | Accuracy by difficulty tier |
+| Query Plan Distribution | [`13_query_plan_distribution.png`](logs/comparisons/0317_4way_ap_only/charts/13_query_plan_distribution.png) | P0–P8 strategy usage per model |
+
+**Charts (all cases, unfiltered):** [`logs/comparisons/0317_4way_comparison/`](logs/comparisons/0317_4way_comparison/)
+
+**LoRA_5 deep-dive plots:** [`logs/evaluations/synth_v05_lora5/plots/`](logs/evaluations/synth_v05_lora5/plots/)
+| Chart | File | What It Shows |
+|-------|------|---------------|
+| Per-Floor GT-in-Pool (MC) | [`per_floor_gt_in_pool_MC.png`](logs/evaluations/synth_v05_lora5/plots/per_floor_gt_in_pool_MC.png) | GT-in-pool rate per storey |
+| Per-Floor Retrieval (MC) | [`per_floor_retrieval_MC.png`](logs/evaluations/synth_v05_lora5/plots/per_floor_retrieval_MC.png) | Pool size per storey |
+| Multi-Condition Floor | [`per_floor_multi_condition.png`](logs/evaluations/synth_v05_lora5/plots/per_floor_multi_condition.png) | MA/MB/MC per-floor comparison |
+| RQS Overview | [`rqs_overview.png`](logs/evaluations/synth_v05_lora5/plots/rqs_overview.png) | GT-recall × Valid SSR (F1-style) |
+| Hop Accuracy (MC) | [`hop_accuracy_MC.png`](logs/evaluations/synth_v05_lora5/plots/hop_accuracy_MC.png) | Per-hop field accuracy (subject/predicate/object) |
+| Predicate Confusion (MC) | [`predicate_confusion_MC.png`](logs/evaluations/synth_v05_lora5/plots/predicate_confusion_MC.png) | Predicted vs GT predicate heatmap |
+| Subject Confusion (MC) | [`subject_confusion_MC.png`](logs/evaluations/synth_v05_lora5/plots/subject_confusion_MC.png) | Predicted vs GT subject type heatmap |
+| Hop Waterfall (MC) | [`hop_waterfall_MC.png`](logs/evaluations/synth_v05_lora5/plots/hop_waterfall_MC.png) | Per-case hop-by-hop correctness |
+
+**Strategy ablation traces:** [`logs/evaluations/synth_v05_lora5/strategy_ablation/`](logs/evaluations/synth_v05_lora5/strategy_ablation/)
+| Strategy | Trace File |
+|----------|-----------|
+| P0-only | [`traces_..._MC_p0_only.jsonl`](logs/evaluations/synth_v05_lora5/strategy_ablation/traces_20260317_222542_v2_lora_MC_p0_only.jsonl) |
+| P1-only | [`traces_..._MC_p1_only.jsonl`](logs/evaluations/synth_v05_lora5/strategy_ablation/traces_20260317_222632_v2_lora_MC_p1_only.jsonl) |
+| P0∩P1 | [`traces_..._MC_p0_intersect_p1.jsonl`](logs/evaluations/synth_v05_lora5/strategy_ablation/traces_20260317_222717_v2_lora_MC_p0_intersect_p1.jsonl) |
+| P0∪P1 | [`traces_..._MC_p0_union_p1.jsonl`](logs/evaluations/synth_v05_lora5/strategy_ablation/traces_20260317_222758_v2_lora_MC_p0_union_p1.jsonl) |
+
+**LoRA_5 evaluation logs:** [`logs/evaluations/synth_v05_lora5/`](logs/evaluations/synth_v05_lora5/)
+| File | Description |
+|------|-------------|
+| [`eval_lora5_20260318_010906.log`](logs/evaluations/synth_v05_lora5/eval_lora5_20260318_010906.log) | Latest full eval run log |
+| [`lora5_metrics_latest.csv`](logs/evaluations/synth_v05_lora5/lora5_metrics_latest.csv) | Summary metrics CSV |
+| [`eval_constraints_final_MC.jsonl`](logs/evaluations/synth_v05_lora5/eval_constraints_final_MC.jsonl) | Precomputed constraints (MC condition) |
+
+### 4.1 Overall Metrics
+
+| Metric | Gemini (n=59) | LoRA_3 (n=20) | LoRA_4 (n=58) | LoRA_5 (n=59) |
+|--------|--------------|---------------|---------------|---------------|
+| **Top-1** | 1 (1.7%) | 3 (15.0%) | 4 (6.9%) | 3 (5.1%) |
+| **GT-in-pool** | 7 (11.9%) | 12 (60.0%) | 20 (34.5%) | 17 (28.8%) |
+| **name_match** | 26 (44.1%) | 17 (85.0%) | 37 (63.8%) | 31 (52.5%) |
+| **storey_match** | 0 (0%) | 0 (0%) | 0 (0%) | 0 (0%) |
+| **ifc_class correct** | 33 (55.9%) | 19 (95.0%) | 37 (63.8%) | 29 (49.2%) |
+| **storey_num correct** | 30 (50.8%) | 16 (80.0%) | 29 (50.0%) | 39 (66.1%) |
+| **SR extracted** | 58/59 | 0/20 | 42/58 | 59/59 |
+| **P0 strategy used** | 55+3 | 0 (all storey+type) | 41+1 | 57+2 |
+
+### 4.2 Why LoRA_3 Appears Better (15.0% vs 5.1%)
+
+**Root cause: Non-comparable test sets + different retrieval strategies.**
+
+1. **Different test sets**: LoRA_3 runs on only 20 AP cases (v3 skeletons), while LoRA_5 runs on 59 AP cases (v5 skeletons including harder augmented cases). There is **zero overlap** in scenario IDs — the LoRA_3 IDs follow `SYNTH_V3_XXX_AP_SK_XXX` while LoRA_5 uses `_augB`/`_augC`/`V05_AP_SK_*` variants.
+
+2. **LoRA_3 has no spatial_relations**: It uses the simpler `storey+type` strategy (Priority 1) for all 20 cases. With 95% ifc_class accuracy and 80% storey accuracy, the simple `WHERE storey = X AND type = Y` Cypher works reliably.
+
+3. **LoRA_5 uses P0 spatial_triplet for 57/59 cases**: This is more powerful in theory but introduces 3 additional failure modes:
+   - **Invalid predicates**: LoRA_5 generates `CONNECTS_TO` (38 occurrences) and `NEXT_TO` (8 occurrences) which are NOT in the Neo4j schema (`FILLS`, `CONTINUOUS`, `ADJACENT_TO` only). These produce empty Cypher results.
+   - **Subject/object type errors**: With only 49.2% ifc_class accuracy, the Cypher `WHERE node.ifc_type = $wrong_type` filters out the GT element.
+   - **P0∩P1 intersection**: When P0 returns wrong elements and P1 returns correct elements, the intersection can be empty or miss GT.
+
+4. **LoRA_3's 3 Top-1 wins** are structurally easy: 2 are singletons (pool=1, only 1 slab on that floor) and 1 is a small pool with lucky ranking.
+
+**Conclusion**: LoRA_3's higher Top-1% is an artifact of a smaller, easier test set and a simpler retrieval strategy, not better extraction quality. A fair comparison would require running all models on the same test set with the same retrieval strategy.
+
+### 4.3 Why storey_match = 0% Universally
+
+**Root cause: Eval pipeline bug — candidate storey field is always null.**
+
+The storey_match metric checks whether the GT storey string appears among the top-10 candidates' storey values (see `src/common/evaluation.py:259-261`). However, the pipeline constructs candidates at `src/v2/pipeline.py:211` using `c.get("storey")` — but the retrieval result dicts from `retrieval_backend.execute_plan()` do not include a `"storey"` key. They include `ref_storey` (the reference element's storey in spatial queries) but not the target element's own storey. This means `candidate.storey = null` for every candidate, causing storey_match to always be False.
+
+**Actual storey prediction accuracy** (comparing floor numbers from constraints vs GT):
+
+| Model | Storey Correct | Rate | Common Errors |
+|-------|---------------|------|---------------|
+| Gemini | 30/59 | 50.8% | Predicts "Floor 5"/"Floor 6" for lower floors |
+| LoRA_3 | 16/20 | 80.0% | 3× predicts "Garage" for non-garage elements |
+| LoRA_4 | 29/58 | 50.0% | 7× predicts "-1" for Level 1 elements |
+| LoRA_5 | 39/59 | 66.1% | 3× predicts "1" for Garage elements, 2× "5" for Floor 2 |
+
+LoRA_5 actually has the best absolute storey count (39 correct) but the wrong storey still cascades into P0 Cypher failures because `_resolve_storey()` converts the number to a canonical name used in the WHERE clause.
+
+### 4.4 LoRA_5 Failure Taxonomy (59 AP-only cases)
+
+| Category | Count | Description |
+|----------|-------|-------------|
+| **A: Top-1 success** | 3 (5.1%) | GT is rank-1 candidate |
+| **B: GT in pool, not Top-1** | 14 (23.7%) | Retrieval works, reranking absent |
+| **C: ifc_class wrong** | 23 (39.0%) | Cypher filters by wrong element type |
+| **D: Storey wrong** | 13 (22.0%) | Floor number wrong → wrong storey candidates |
+| **E: Invalid predicate** | 6 (10.2%) | CONNECTS_TO/NEXT_TO not in Neo4j schema |
+
+**Predicate distribution (LoRA_5 vs schema)**:
+
+| Predicate | LoRA_5 count | In Neo4j? | Impact |
+|-----------|-------------|-----------|--------|
+| FILLS | 36 | Yes | Core predicate, works when class is correct |
+| ADJACENT_TO | 16 | Yes | Works but often wrong subject/object types |
+| CONTINUOUS | 2 | Yes | Rare, usually correct |
+| CONNECTS_TO | 38 | **No** | Invalid — Cypher returns empty or unpredictable |
+| NEXT_TO | 8 | **No** | Invalid — not in schema |
+
+> **Key finding**: 46/141 total predicate instances (32.6%) use invalid predicates. `CONNECTS_TO` is the dominant hallucination — LoRA_5 was not trained with this predicate but generates it frequently, likely from the Qwen base model's general knowledge.
+
+**ifc_class confusion matrix (LoRA_5, 59 cases)**:
+
+| GT → Pred | IfcWindow | IfcDoor | IfcWallStdCase | IfcStair | Other |
+|-----------|-----------|---------|----------------|----------|-------|
+| IfcWindow | **correct** | 2 | 3 | — | — |
+| IfcDoor | 2 | **correct** | 7 | 1 | — |
+| IfcWallStdCase | 6 | 7 | **correct** | — | — |
+| IfcSlab | 1 | — | — | — | — |
+| IfcRailing | — | 1 | — | — | — |
+
+Walls are the biggest victim — 13/59 cases where a Wall GT is misclassified as Window or Door. This is because LoRA_5 was trained with FILLS-dominant data (windows/doors fill walls), so it biases toward predicting the subject of a FILLS relation rather than the GT target.
+
+### 4.5 Key Insights
+
+1. **LoRA_5's P0 spatial strategy is more ambitious but less reliable than LoRA_3's simpler P1 storey+type**. The spatial triplet approach has higher theoretical ceiling (can disambiguate within type+storey groups) but currently suffers from 32.6% invalid predicates and 51% wrong ifc_class, making the simpler approach win on this test set.
+
+2. **The critical bottleneck is ifc_class accuracy, not storey accuracy**. LoRA_5's storey accuracy (66.1%) is actually reasonable, but ifc_class accuracy (49.2%) means half the Cypher queries filter by the wrong element type — guaranteed GT miss.
+
+3. **CONNECTS_TO hallucination is a training gap**. The valid predicate vocabulary is {FILLS, CONTINUOUS, ADJACENT_TO}, but LoRA_5 generates CONNECTS_TO 38 times — more than any valid predicate except FILLS. This suggests the training data didn't include enough negative examples for invalid predicates, or the base model's prior is too strong.
+
+4. **storey_match=0% is an eval harness bug, not a model bug**. Candidate dicts from `retrieval_backend` lack the `"storey"` key. Fix: populate `storey` from `engine.get_element_storey(guid)` in the candidate construction step, or use `ref_storey` as a proxy.
+
+5. **LoRA_3 vs LoRA_5 is not a fair comparison** due to different test sets (20 vs 59 cases, zero ID overlap) and different retrieval strategies (storey+type vs spatial_triplet). Future work should run all models on the same test set with the same strategy for a controlled comparison.
+
+### 4.6 Actionable Next Steps
+
+| Priority | Action | Expected Impact |
+|----------|--------|-----------------|
+| **P0** | Filter out invalid predicates (CONNECTS_TO, NEXT_TO) before Cypher execution(I dont suggest this, neo4j should hv this relationship, see how we can make this predicates correct) | Eliminates 32.6% of predicate failures |
+| **P1** | Fix storey field in candidate dict (`pipeline.py:211`) | Unblocks storey_match metric |
+| **P2** | Add ifc_class confusion-aware fallback: if P0 returns 0 candidates, retry with broader type match | Recovers some of the 39% class-wrong cases |
+| **P3** | Retrain LoRA with explicit invalid-predicate negative examples | Reduces CONNECTS_TO hallucination |
+| **P4** | Run LoRA_3 adapter on the same v5 test set (59 cases) for fair comparison | Establishes true baseline |
