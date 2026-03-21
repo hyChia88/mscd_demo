@@ -5,10 +5,10 @@ Generate evaluation plots from trace files.
 Usage:
   # Standard mode — from JSONL trace files
   python script/generate_plots.py --latest
-  python script/generate_plots.py --traces logs/evaluations/traces_*.jsonl
+  python script/generate_plots.py --traces logs/evaluation_output/traces_*.jsonl
   python script/generate_plots.py \\
-    --traces logs/evaluations/new_pipeline/traces_*.jsonl \\
-    --before logs/evaluations/old_pipeline/traces_*.jsonl \\
+    --traces logs/evaluation_output/new_pipeline/traces_*.jsonl \\
+    --before logs/evaluation_output/old_pipeline/traces_*.jsonl \\
     --output logs/plots/comparison
 
   # Modality analysis mode — loads *.trace.json files directly
@@ -27,10 +27,10 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from src.eval.visualizations import generate_all_plots, generate_modality_plots
+from src.evaluation_infra.visualizations import generate_all_plots, generate_modality_plots
 
 
-def find_latest_traces(base_dir: str = "logs/evaluations") -> str:
+def find_latest_traces(base_dir: str = "logs/evaluation_output") -> str:
     """Find the most recent traces file."""
     pattern = f"{base_dir}/**/traces_*.jsonl"
     files = sorted(glob(pattern, recursive=True), reverse=True)
@@ -61,7 +61,7 @@ def main():
     parser.add_argument(
         "--latest",
         action="store_true",
-        help="Use the latest traces file from logs/evaluations"
+        help="Use the latest traces file from logs/evaluation_output"
     )
     parser.add_argument(
         "--modality",

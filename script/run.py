@@ -40,8 +40,8 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 # Load .env from project root (for GOOGLE_API_KEY etc.)
 load_dotenv(PROJECT_ROOT / ".env")
 
-from src.eval.contracts import EvalTrace
-from src.eval.metrics import compute_summary
+from src.evaluation_infra.contracts import EvalTrace
+from src.evaluation_infra.metrics import compute_summary
 from src.v2.metrics_v2 import compute_v2_metrics, compute_v2_summary
 from src.v2.types import Constraints, SpatialTriplet, V2Trace
 from src.common.trace_io import write_trace
@@ -595,7 +595,7 @@ def cli() -> argparse.Namespace:
              "Skips LoRA extraction, uses pre-extracted constraints instead.",
     )
     p.add_argument(
-        "--output_dir", default="logs/evaluations",
+        "--output_dir", default="logs/evaluation_output",
         help="Output directory for traces + summary",
     )
     p.add_argument(

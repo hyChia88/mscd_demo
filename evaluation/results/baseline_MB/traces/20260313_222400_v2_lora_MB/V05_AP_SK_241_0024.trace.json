@@ -1,0 +1,741 @@
+{
+  "scenario_id": "V05_AP_SK_241_0024",
+  "run_id": "20260313_222400_v2_lora_MB",
+  "timestamp": "2026-03-13T22:24:00.986822",
+  "scenario": {
+    "id": "V05_AP_SK_241_0024",
+    "image_files": [
+      "datasets/synth_v0.5/renders/wireframes/SK_241_wireframe.png"
+    ],
+    "context_meta": {
+      "timestamp": "",
+      "sender_id": null,
+      "sender_role": "",
+      "project_phase": "Interior Fit-out",
+      "task_status": "TASK_1086: Wall inspection — ON_HOLD"
+    },
+    "chat_history": [],
+    "query_text": "",
+    "ground_truth": {
+      "target_guid": "3GzoWuxxn4WO8bCtw8H3AT",
+      "target_name": "Basic Wall:MockUp Elavator:696920",
+      "target_storey": "-1 - Garage",
+      "expected_reasoning": null,
+      "action_required": null,
+      "rq_category": "Unknown"
+    },
+    "formatted_input": null,
+    "image_paths": [
+      "../data_curation/datasets/synth_v0.5/renders/wireframes/SK_241_wireframe.png"
+    ]
+  },
+  "tool_steps": [],
+  "interpreter_output": {
+    "raw_response": "V2 pipeline: 84 candidates via lora",
+    "mentioned_guids": [
+      "0MOEoDTm9EnO9yKsXjjlkV",
+      "0MOEoDTm9EnO9yKsXjjlj9",
+      "1KGNuJkf5FjQZDFQ6We96A",
+      "3GzoWuxxn4WO8bCtw8H3AT",
+      "3GzoWuxxn4WO8bCtw8H3AS",
+      "3GzoWuxxn4WO8bCtw8H3I4",
+      "3naw$9in55$v8L5CpxnK31",
+      "3naw$9in55$v8L5CpxnK36",
+      "3naw$9in55$v8L5CpxnKAh",
+      "2v8sGyGFXDsRc80mj95kV8"
+    ],
+    "mentioned_names": [
+      "Basic Wall:MockUp Elavator:585548",
+      "Basic Wall:MockUp Elavator:585626",
+      "Basic Wall:MockUp Elavator:671215",
+      "Basic Wall:MockUp Elavator:696920",
+      "Basic Wall:MockUp Elavator:696921",
+      "Basic Wall:MockUp Elavator:697409",
+      "Basic Wall:MockUp Elavator:712947",
+      "Basic Wall:MockUp Elavator:712948",
+      "Basic Wall:MockUp Elavator:713369",
+      "Basic Wall:MockUp Elavator:722908"
+    ],
+    "candidates": [
+      {
+        "guid": "0MOEoDTm9EnO9yKsXjjlkV",
+        "name": "Basic Wall:MockUp Elavator:585548",
+        "element_type": "IfcWallStandardCase",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "0MOEoDTm9EnO9yKsXjjlj9",
+        "name": "Basic Wall:MockUp Elavator:585626",
+        "element_type": "IfcWallStandardCase",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "1KGNuJkf5FjQZDFQ6We96A",
+        "name": "Basic Wall:MockUp Elavator:671215",
+        "element_type": "IfcWallStandardCase",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "3GzoWuxxn4WO8bCtw8H3AT",
+        "name": "Basic Wall:MockUp Elavator:696920",
+        "element_type": "IfcWallStandardCase",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "3GzoWuxxn4WO8bCtw8H3AS",
+        "name": "Basic Wall:MockUp Elavator:696921",
+        "element_type": "IfcWallStandardCase",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "3GzoWuxxn4WO8bCtw8H3I4",
+        "name": "Basic Wall:MockUp Elavator:697409",
+        "element_type": "IfcWallStandardCase",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "3naw$9in55$v8L5CpxnK31",
+        "name": "Basic Wall:MockUp Elavator:712947",
+        "element_type": "IfcWallStandardCase",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "3naw$9in55$v8L5CpxnK36",
+        "name": "Basic Wall:MockUp Elavator:712948",
+        "element_type": "IfcWallStandardCase",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "3naw$9in55$v8L5CpxnKAh",
+        "name": "Basic Wall:MockUp Elavator:713369",
+        "element_type": "IfcWallStandardCase",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "2v8sGyGFXDsRc80mj95kV8",
+        "name": "Basic Wall:MockUp Elavator:722908",
+        "element_type": "IfcWallStandardCase",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      }
+    ],
+    "is_clarification_request": false,
+    "is_escalation": false,
+    "escalation_reason": null,
+    "fields_populated": {}
+  },
+  "total_latency_ms": 0.5916999980399851,
+  "api_calls_count": 1,
+  "api_cost_estimate": 7.5e-05,
+  "pipeline_type": "v2",
+  "bench": {
+    "group": "M",
+    "condition": "MB"
+  },
+  "guid_match": true,
+  "name_match": true,
+  "storey_match": false,
+  "initial_pool_size": 1666,
+  "final_pool_size": 84,
+  "rq2_result": null,
+  "internals": {
+    "constraints": {
+      "storey_name": "-1 - Garage",
+      "ifc_class": "IfcWallStandardCase",
+      "near_keywords": [],
+      "relations": [],
+      "space_name": null,
+      "target_name_keyword": null,
+      "neighbor_type": null,
+      "spatial_relations": [],
+      "confidence": 0.85,
+      "source": "lora_precomputed"
+    },
+    "query_plans": [
+      {
+        "priority": 4,
+        "strategy": "storey+type",
+        "params": {
+          "storey": "-1 - Garage",
+          "type": "IfcWallStandardCase"
+        },
+        "expected_pool_size": 50
+      },
+      {
+        "priority": 5,
+        "strategy": "storey_only",
+        "params": {
+          "storey": "-1 - Garage"
+        },
+        "expected_pool_size": 200
+      },
+      {
+        "priority": 6,
+        "strategy": "type_only",
+        "params": {
+          "type": "IfcWallStandardCase"
+        },
+        "expected_pool_size": 150
+      },
+      {
+        "priority": 8,
+        "strategy": "fallback",
+        "params": {},
+        "expected_pool_size": 100
+      }
+    ],
+    "retrieval_results": [
+      {
+        "candidates": [
+          {
+            "guid": "0MOEoDTm9EnO9yKsXjjlkV",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Elavator:585548",
+            "description": null
+          },
+          {
+            "guid": "0MOEoDTm9EnO9yKsXjjlj9",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Elavator:585626",
+            "description": null
+          },
+          {
+            "guid": "1KGNuJkf5FjQZDFQ6We96A",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Elavator:671215",
+            "description": null
+          },
+          {
+            "guid": "3GzoWuxxn4WO8bCtw8H3AT",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Elavator:696920",
+            "description": null
+          },
+          {
+            "guid": "3GzoWuxxn4WO8bCtw8H3AS",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Elavator:696921",
+            "description": null
+          },
+          {
+            "guid": "3GzoWuxxn4WO8bCtw8H3I4",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Elavator:697409",
+            "description": null
+          },
+          {
+            "guid": "3naw$9in55$v8L5CpxnK31",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Elavator:712947",
+            "description": null
+          },
+          {
+            "guid": "3naw$9in55$v8L5CpxnK36",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Elavator:712948",
+            "description": null
+          },
+          {
+            "guid": "3naw$9in55$v8L5CpxnKAh",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Elavator:713369",
+            "description": null
+          },
+          {
+            "guid": "2v8sGyGFXDsRc80mj95kV8",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Elavator:722908",
+            "description": null
+          },
+          {
+            "guid": "3p6DR19bjD_PWb8lZMRTT8",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Elavator:734443",
+            "description": null
+          },
+          {
+            "guid": "3p6DR19bjD_PWb8lZMRTOE",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Elavator:734637",
+            "description": null
+          },
+          {
+            "guid": "3p6DR19bjD_PWb8lZMRTPc",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Elavator:734661",
+            "description": null
+          },
+          {
+            "guid": "3p6DR19bjD_PWb8lZMRTML",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Elavator:734774",
+            "description": null
+          },
+          {
+            "guid": "1KMtYLyv9CyfGv8UjnMBCI",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Exterior Garage:794609",
+            "description": null
+          },
+          {
+            "guid": "1KMtYLyv9CyfGv8UjnMBCH",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Exterior Garage:794610",
+            "description": null
+          },
+          {
+            "guid": "1KMtYLyv9CyfGv8UjnMBCG",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Exterior Garage:794611",
+            "description": null
+          },
+          {
+            "guid": "1KMtYLyv9CyfGv8UjnMBCN",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Exterior Garage:794612",
+            "description": null
+          },
+          {
+            "guid": "1KMtYLyv9CyfGv8UjnMBCM",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Exterior Garage:794613",
+            "description": null
+          },
+          {
+            "guid": "1KMtYLyv9CyfGv8UjnMBCL",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Exterior Garage:794614",
+            "description": null
+          },
+          {
+            "guid": "1KMtYLyv9CyfGv8UjnMBCK",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Exterior Garage:794615",
+            "description": null
+          },
+          {
+            "guid": "1KMtYLyv9CyfGv8UjnMBCR",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Exterior Garage:794616",
+            "description": null
+          },
+          {
+            "guid": "1KMtYLyv9CyfGv8UjnM8_h",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:795464",
+            "description": null
+          },
+          {
+            "guid": "1KMtYLyv9CyfGv8UjnM8y$",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:795612",
+            "description": null
+          },
+          {
+            "guid": "3GdhC2lQD5ifjmLdQ3yo2f",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:797057",
+            "description": null
+          },
+          {
+            "guid": "3GdhC2lQD5ifjmLdQ3yo9v",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:797521",
+            "description": null
+          },
+          {
+            "guid": "3GdhC2lQD5ifjmLdQ3yoB_",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:797654",
+            "description": null
+          },
+          {
+            "guid": "3GdhC2lQD5ifjmLdQ3yoT7",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:798319",
+            "description": null
+          },
+          {
+            "guid": "3GdhC2lQD5ifjmLdQ3ype4",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:799532",
+            "description": null
+          },
+          {
+            "guid": "2dAxltRn524vY2d5KNMrWy",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:807795",
+            "description": null
+          },
+          {
+            "guid": "2dAxltRn524vY2d5KNMrzR",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:807956",
+            "description": null
+          },
+          {
+            "guid": "2dAxltRn524vY2d5KNMr$K",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:808091",
+            "description": null
+          },
+          {
+            "guid": "2dAxltRn524vY2d5KNMrvW",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:808239",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_An5M",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:810932",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_An4w",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:810968",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_AoiZ",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:812481",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_AoFF",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:814381",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_Ao2N",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:814709",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_Apug",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:815304",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_Apqc",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:816068",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_ApY4",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:816742",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_ApdW",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:816898",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_Apb_",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:817052",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_ApRW",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:817154",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_ApO1",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:817379",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_ApV0",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:817442",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_ApBx",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:818201",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_ApAd",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:818245",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdM0J",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:818985",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdM1i",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:819030",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdP_b",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:819359",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdP$n",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:819403",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPiu",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:820226",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPdI",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:820968",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPSm",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:821258",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPUw",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:821376",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPMt",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:821901",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPNY",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:821976",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPJh",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:822225",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPDs",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:822348",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPEJ",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:822441",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdP9Z",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:822617",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdP1J",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:823145",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdOtF",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:824053",
+            "description": null
+          },
+          {
+            "guid": "34Ni6yH0HDjQqrjEsXb0TF",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Elavator:865746",
+            "description": null
+          },
+          {
+            "guid": "34Ni6yH0HDjQqrjEsXb0JF",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Elavator:865874",
+            "description": null
+          },
+          {
+            "guid": "3U8bdGexDEOw9DXBmULq6a",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:868399",
+            "description": null
+          },
+          {
+            "guid": "3U8bdGexDEOw9DXBmULrCi",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Elavator:873127",
+            "description": null
+          },
+          {
+            "guid": "3U8bdGexDEOw9DXBmULrD3",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Elavator:873160",
+            "description": null
+          },
+          {
+            "guid": "1q9pLykVT2tOtz_4XjbvWj",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:877288",
+            "description": null
+          },
+          {
+            "guid": "1q9pLykVT2tOtz_4Xjbv_z",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:877944",
+            "description": null
+          },
+          {
+            "guid": "1q9pLykVT2tOtz_4XjbvqA",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:878543",
+            "description": null
+          },
+          {
+            "guid": "1q9pLykVT2tOtz_4XjbvDJ",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:878998",
+            "description": null
+          },
+          {
+            "guid": "1q9pLykVT2tOtz_4XjbvVT",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:879896",
+            "description": null
+          },
+          {
+            "guid": "1q9pLykVT2tOtz_4XjbueK",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:880849",
+            "description": null
+          },
+          {
+            "guid": "1q9pLykVT2tOtz_4Xjbudy",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:881465",
+            "description": null
+          },
+          {
+            "guid": "1q9pLykVT2tOtz_4Xjbucy",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:881529",
+            "description": null
+          },
+          {
+            "guid": "1q9pLykVT2tOtz_4XjbuaX",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:881636",
+            "description": null
+          },
+          {
+            "guid": "1q9pLykVT2tOtz_4XjbuwS",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:881753",
+            "description": null
+          },
+          {
+            "guid": "1q9pLykVT2tOtz_4XjbuzE",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:882059",
+            "description": null
+          },
+          {
+            "guid": "1q9pLykVT2tOtz_4Xjbupo",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:882231",
+            "description": null
+          },
+          {
+            "guid": "3pFbansyD0KOHFtJHrTu9y",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:882507",
+            "description": null
+          },
+          {
+            "guid": "3pFbansyD0KOHFtJHrTuq$",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Interior between App:882696",
+            "description": null
+          },
+          {
+            "guid": "3pFbansyD0KOHFtJHrTuoC",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:MockUp Storage Wall:883131",
+            "description": null
+          }
+        ],
+        "pool_size": 84,
+        "query_plan_used": {
+          "priority": 4,
+          "strategy": "storey+type",
+          "params": {
+            "storey": "-1 - Garage",
+            "type": "IfcWallStandardCase"
+          },
+          "expected_pool_size": 50
+        },
+        "backend": "neo4j",
+        "rerank_applied": false,
+        "strategy_actually_used": "storey+type",
+        "fallback_triggered": false
+      }
+    ],
+    "constraints_parse_success": true,
+    "constraints_parse_error": null,
+    "rerank_gain": null,
+    "image_parse_result": null,
+    "image_parse_ms": 0.0,
+    "constraints_extraction_ms": 0.0024999972083605826,
+    "query_planning_ms": 0.05740000051446259,
+    "retrieval_ms": 0.15449999773409218
+  },
+  "error": null,
+  "success": true
+}

@@ -1,0 +1,513 @@
+{
+  "scenario_id": "V05_AP_SK_052_0019",
+  "run_id": "20260314_112442_v2_lora_MB",
+  "timestamp": "2026-03-14T11:24:42.632425",
+  "scenario": {
+    "id": "V05_AP_SK_052_0019",
+    "image_files": [
+      "datasets/synth_v0.5_dxa/imgs/SK_052_site.png"
+    ],
+    "context_meta": {
+      "timestamp": "",
+      "sender_id": null,
+      "sender_role": "",
+      "project_phase": "Interior Fit-out",
+      "task_status": "TASK_1081: Window inspection — ON_HOLD"
+    },
+    "chat_history": [],
+    "query_text": "",
+    "ground_truth": {
+      "target_guid": "3ktY1kg3rAwgNBX_XWRV0G",
+      "target_name": "BALANS Fixed Single Window:BALANS 30M FLOOR (SH = 0):940700",
+      "target_storey": "3 - Third Floor",
+      "expected_reasoning": null,
+      "action_required": null,
+      "rq_category": "Unknown"
+    },
+    "formatted_input": null,
+    "image_paths": [
+      "../data_curation/datasets/synth_v0.5_dxa/imgs/SK_052_site.png"
+    ]
+  },
+  "tool_steps": [],
+  "interpreter_output": {
+    "raw_response": "V2 pipeline: 46 candidates via lora",
+    "mentioned_guids": [
+      "3ktY1kg3rAwgNBX_XWRV0C",
+      "3ktY1kg3rAwgNBX_XWRV0D",
+      "3ktY1kg3rAwgNBX_XWRV0E",
+      "3ktY1kg3rAwgNBX_XWRV0F",
+      "3ktY1kg3rAwgNBX_XWRV08",
+      "3ktY1kg3rAwgNBX_XWRV09",
+      "3ktY1kg3rAwgNBX_XWRV0A",
+      "3ktY1kg3rAwgNBX_XWRV0B",
+      "3ktY1kg3rAwgNBX_XWRV04",
+      "3ktY1kg3rAwgNBX_XWRV05"
+    ],
+    "mentioned_names": [
+      "BALANS Fixed Single Window:BALANS 20M PRIVATE:940672",
+      "BALANS Fixed Single Window:BALANS 20M PRIVATE:940673",
+      "BALANS Fixed Single Window:BALANS 10M PRIVATE:940674",
+      "BALANS Fixed Single Window:BALANS 15M PRIVATE:940675",
+      "BALANS Fixed Single Window:BALANS 15M PRIVATE:940676",
+      "BALANS Fixed Single Window:BALANS 20M PRIVATE:940677",
+      "BALANS Fixed Single Window:BALANS 15M PRIVATE:940678",
+      "BALANS Fixed Single Window:BALANS 10M PRIVATE:940679",
+      "BALANS Fixed Single Window:BALANS 15M PRIVATE:940680",
+      "BALANS Fixed Single Window:BALANS TRAPPHUS:940681"
+    ],
+    "candidates": [
+      {
+        "guid": "3ktY1kg3rAwgNBX_XWRV0C",
+        "name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:940672",
+        "element_type": "IfcWindow",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "3ktY1kg3rAwgNBX_XWRV0D",
+        "name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:940673",
+        "element_type": "IfcWindow",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "3ktY1kg3rAwgNBX_XWRV0E",
+        "name": "BALANS Fixed Single Window:BALANS 10M PRIVATE:940674",
+        "element_type": "IfcWindow",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "3ktY1kg3rAwgNBX_XWRV0F",
+        "name": "BALANS Fixed Single Window:BALANS 15M PRIVATE:940675",
+        "element_type": "IfcWindow",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "3ktY1kg3rAwgNBX_XWRV08",
+        "name": "BALANS Fixed Single Window:BALANS 15M PRIVATE:940676",
+        "element_type": "IfcWindow",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "3ktY1kg3rAwgNBX_XWRV09",
+        "name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:940677",
+        "element_type": "IfcWindow",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "3ktY1kg3rAwgNBX_XWRV0A",
+        "name": "BALANS Fixed Single Window:BALANS 15M PRIVATE:940678",
+        "element_type": "IfcWindow",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "3ktY1kg3rAwgNBX_XWRV0B",
+        "name": "BALANS Fixed Single Window:BALANS 10M PRIVATE:940679",
+        "element_type": "IfcWindow",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "3ktY1kg3rAwgNBX_XWRV04",
+        "name": "BALANS Fixed Single Window:BALANS 15M PRIVATE:940680",
+        "element_type": "IfcWindow",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "3ktY1kg3rAwgNBX_XWRV05",
+        "name": "BALANS Fixed Single Window:BALANS TRAPPHUS:940681",
+        "element_type": "IfcWindow",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      }
+    ],
+    "is_clarification_request": false,
+    "is_escalation": false,
+    "escalation_reason": null,
+    "fields_populated": {}
+  },
+  "total_latency_ms": 0.7827100016584154,
+  "api_calls_count": 1,
+  "api_cost_estimate": 7.5e-05,
+  "pipeline_type": "v2",
+  "bench": {
+    "group": "M",
+    "condition": "MB"
+  },
+  "guid_match": false,
+  "name_match": true,
+  "storey_match": false,
+  "initial_pool_size": 1666,
+  "final_pool_size": 46,
+  "rq2_result": null,
+  "internals": {
+    "constraints": {
+      "storey_name": "3 - Third Floor",
+      "ifc_class": "IfcWindow",
+      "near_keywords": [],
+      "relations": [],
+      "space_name": null,
+      "target_name_keyword": null,
+      "neighbor_type": null,
+      "spatial_relations": [],
+      "confidence": 0.85,
+      "source": "lora_precomputed"
+    },
+    "query_plans": [
+      {
+        "priority": 4,
+        "strategy": "storey+type",
+        "params": {
+          "storey": "3 - Third Floor",
+          "type": "IfcWindow"
+        },
+        "expected_pool_size": 50
+      },
+      {
+        "priority": 5,
+        "strategy": "storey_only",
+        "params": {
+          "storey": "3 - Third Floor"
+        },
+        "expected_pool_size": 200
+      },
+      {
+        "priority": 6,
+        "strategy": "type_only",
+        "params": {
+          "type": "IfcWindow"
+        },
+        "expected_pool_size": 150
+      },
+      {
+        "priority": 8,
+        "strategy": "fallback",
+        "params": {},
+        "expected_pool_size": 100
+      }
+    ],
+    "retrieval_results": [
+      {
+        "candidates": [
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0C",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:940672",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0D",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:940673",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0E",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 10M PRIVATE:940674",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0F",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 15M PRIVATE:940675",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV08",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 15M PRIVATE:940676",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV09",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:940677",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0A",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 15M PRIVATE:940678",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0B",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 10M PRIVATE:940679",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV04",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 15M PRIVATE:940680",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV05",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS TRAPPHUS:940681",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV06",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 15M PRIVATE:940682",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV07",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 10M PRIVATE:940683",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV00",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS TRAPPHUS:940684",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV01",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:940685",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV02",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 20M FLOOR (SH = 0):940686",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV03",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS TRAPPHUS:940687",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0S",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 15M PRIVATE:940688",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0T",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 15M PRIVATE:940689",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0U",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 15M FLOOR (SH = 0):940690",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0V",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 15M PRIVATE:940691",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0O",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:940692",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0P",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 10M BATHROOM:940693",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0Q",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 10M PRIVATE:940694",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0R",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 15M PRIVATE:940695",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0K",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:940696",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0L",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 15M PRIVATE:940697",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0M",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 10M PRIVATE:940698",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0N",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 10M PRIVATE:940699",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0G",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 30M FLOOR (SH = 0):940700",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0H",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 30M FLOOR (SH = 0):940701",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0I",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 10M PRIVATE:940702",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0J",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 10M BATHROOM:940703",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0i",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 25M FLOOR (SH = 0):940704",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0j",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 10M PRIVATE:940705",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0k",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 15M PRIVATE:940706",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0l",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 10M PRIVATE:940707",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0e",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 15M PRIVATE:940708",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0f",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 20M PRIVATE:940709",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0g",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 10M PRIVATE:940710",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0h",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 10M PRIVATE:940711",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0a",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 10M BATHROOM:940712",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0b",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 30M FLOOR (SH = 0):940713",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0c",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 15M FLOOR (SH = 0):940714",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0d",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 10M PRIVATE:940715",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0W",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 15M PRIVATE:940716",
+            "description": null
+          },
+          {
+            "guid": "3ktY1kg3rAwgNBX_XWRV0X",
+            "type": "IfcWindow",
+            "name": "BALANS Fixed Single Window:BALANS 10M FLOOR (SH = 0):940717",
+            "description": null
+          }
+        ],
+        "pool_size": 46,
+        "query_plan_used": {
+          "priority": 4,
+          "strategy": "storey+type",
+          "params": {
+            "storey": "3 - Third Floor",
+            "type": "IfcWindow"
+          },
+          "expected_pool_size": 50
+        },
+        "backend": "neo4j",
+        "rerank_applied": false,
+        "strategy_actually_used": "storey+type",
+        "fallback_triggered": false
+      }
+    ],
+    "constraints_parse_success": true,
+    "constraints_parse_error": null,
+    "rerank_gain": null,
+    "image_parse_result": null,
+    "image_parse_ms": 0.0,
+    "constraints_extraction_ms": 0.0030330011213663965,
+    "query_planning_ms": 0.07930000356282108,
+    "retrieval_ms": 0.11613400056376122
+  },
+  "error": null,
+  "success": true
+}

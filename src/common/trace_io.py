@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.eval.contracts import EvalTrace
+    from src.evaluation_infra.contracts import EvalTrace
 
 
 def write_trace(trace: "EvalTrace", out_dir: str = "outputs/traces") -> str:
@@ -40,7 +40,7 @@ def read_trace(path: str) -> "EvalTrace":
     """
     Load EvalTrace from a .trace.json file.
     """
-    from src.eval.contracts import EvalTrace
+    from src.evaluation_infra.contracts import EvalTrace
 
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     return EvalTrace.model_validate(data)

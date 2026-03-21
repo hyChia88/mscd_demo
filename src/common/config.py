@@ -44,7 +44,7 @@ def load_config(config_file: str = "config.yaml") -> Dict[str, Any]:
             },
             "llm": {"model": "gemini-2.5-flash", "temperature": 0, "max_retries": 2},
             "agent": {"delay_between_tests": 7, "system_prompt_file": "prompts/system_prompt.yaml"},
-            "output": {"evaluations_dir": "logs/evaluations", "logs_dir": "logs"}
+            "output": {"evaluations_dir": "logs/evaluation_output", "logs_dir": "logs"}
         }
 
     with open(config_path, "r", encoding="utf-8") as f:

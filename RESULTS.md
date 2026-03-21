@@ -446,19 +446,30 @@ LoRA_5 actually has the best absolute storey count (39 correct) but the wrong st
 | **B: GT in pool, not Top-1** | 14 (23.7%) | Retrieval works, reranking absent |
 | **C: ifc_class wrong** | 23 (39.0%) | Cypher filters by wrong element type |
 | **D: Storey wrong** | 13 (22.0%) | Floor number wrong → wrong storey candidates |
-| **E: Invalid predicate** | 6 (10.2%) | CONNECTS_TO/NEXT_TO not in Neo4j schema |
+| **E: Other (large pool, no discrimination)** | 6 (10.2%) | Correct predicate but pool too large for ranking |
 
-**Predicate distribution (LoRA_5 vs schema)**:
+**Predicate distribution by hop position (LoRA_5, 59 AP-only cases)**:
 
-| Predicate | LoRA_5 count | In Neo4j? | Impact |
-|-----------|-------------|-----------|--------|
-| FILLS | 36 | Yes | Core predicate, works when class is correct |
-| ADJACENT_TO | 16 | Yes | Works but often wrong subject/object types |
-| CONTINUOUS | 2 | Yes | Rare, usually correct |
-| CONNECTS_TO | 38 | **No** | Invalid — Cypher returns empty or unpredictable |
-| NEXT_TO | 8 | **No** | Invalid — not in schema |
+All 5 predicates (FILLS, ADJACENT_TO, CONTINUOUS, CONNECTS_TO, NEXT_TO) are valid Neo4j edge types, loaded in Sprint 4B from `IfcRelConnectsPathElements` (1362 CONNECTS_TO edges) and filler ordering (~200 NEXT_TO edges).
 
-> **Key finding**: 46/141 total predicate instances (32.6%) use invalid predicates. `CONNECTS_TO` is the dominant hallucination — LoRA_5 was not trained with this predicate but generates it frequently, likely from the Qwen base model's general knowledge.
+**Hop-1** (determines Cypher edge traversal):
+
+| Predicate | Count | Subject→Object | Semantically correct? |
+|-----------|-------|----------------|----------------------|
+| FILLS | 31 | Window→Wall (27), Door→Wall (4) | Yes — matches Neo4j FILLS edges |
+| ADJACENT_TO | 16 | Wall→ (9), Door→ (4), Window→ (2), Stair→ (1) | Mostly yes |
+| NEXT_TO | 8 | Door→Door/Window (6), Window→Window (2) | Yes — consecutive fillers |
+| CONNECTS_TO | 2 | Wall→Wall (2) | Yes — wall path connections |
+| CONTINUOUS | 2 | Wall→ (2) | Yes — multi-storey span |
+
+**Hop-2** (soft re-rank via OPTIONAL MATCH, does not filter):
+
+| Predicate | Count | Semantics |
+|-----------|-------|-----------|
+| CONNECTS_TO | 36 | 2-hop: e.g., Window→FILLS→Wall→CONNECTS_TO→Wall2 |
+| FILLS | 5 | Reverse hop |
+
+> **Key finding**: Hop-1 predicates are largely correct — FILLS with Window/Door subjects dominates (31/59). The 36 hop-2 CONNECTS_TO form valid 2-hop chains where the CONNECTS_TO hop itself is Wall→Wall (correct Neo4j semantics). **The dominant failure mode is ifc_class confusion (49.2% wrong), not predicate selection.** Fixing type extraction would have the largest single impact.
 
 **ifc_class confusion matrix (LoRA_5, 59 cases)**:
 
@@ -474,11 +485,11 @@ Walls are the biggest victim — 13/59 cases where a Wall GT is misclassified as
 
 ### 4.5 Key Insights
 
-1. **LoRA_5's P0 spatial strategy is more ambitious but less reliable than LoRA_3's simpler P1 storey+type**. The spatial triplet approach has higher theoretical ceiling (can disambiguate within type+storey groups) but currently suffers from 32.6% invalid predicates and 51% wrong ifc_class, making the simpler approach win on this test set.
+1. **LoRA_5's P0 spatial strategy is more ambitious but less reliable than LoRA_3's simpler P1 storey+type**. The spatial triplet approach has higher theoretical ceiling (can disambiguate within type+storey groups) but currently suffers from 51% wrong ifc_class, making the simpler approach win on this test set.
 
-2. **The critical bottleneck is ifc_class accuracy, not storey accuracy**. LoRA_5's storey accuracy (66.1%) is actually reasonable, but ifc_class accuracy (49.2%) means half the Cypher queries filter by the wrong element type — guaranteed GT miss.
+2. **The critical bottleneck is ifc_class accuracy, not storey or predicate accuracy**. LoRA_5's storey accuracy (66.1%) is reasonable, and hop-1 predicates are largely correct (FILLS=31, ADJACENT_TO=16, with correct subject types). But ifc_class accuracy (49.2%) means half the Cypher queries filter by the wrong element type — guaranteed GT miss. Wall↔Door confusion accounts for 13/59 cases.
 
-3. **CONNECTS_TO hallucination is a training gap**. The valid predicate vocabulary is {FILLS, CONTINUOUS, ADJACENT_TO}, but LoRA_5 generates CONNECTS_TO 38 times — more than any valid predicate except FILLS. This suggests the training data didn't include enough negative examples for invalid predicates, or the base model's prior is too strong.
+3. **Hop-1 predicates are mostly correct; hop-2 CONNECTS_TO is valid 2-hop**. All 5 predicates (FILLS, ADJACENT_TO, CONTINUOUS, CONNECTS_TO, NEXT_TO) are valid Neo4j edge types (loaded from `IfcRelConnectsPathElements` + filler ordering). The 36 hop-2 CONNECTS_TO instances form correct 2-hop chains (`Window→FILLS→Wall→CONNECTS_TO→Wall2`). The model has learned the predicate vocabulary — the primary failure mode is ifc_class confusion, not predicate selection.
 
 4. **storey_match=0% is an eval harness bug, not a model bug**. Candidate dicts from `retrieval_backend` lack the `"storey"` key. Fix: populate `storey` from `engine.get_element_storey(guid)` in the candidate construction step, or use `ref_storey` as a proxy.
 
@@ -488,8 +499,8 @@ Walls are the biggest victim — 13/59 cases where a Wall GT is misclassified as
 
 | Priority | Action | Expected Impact |
 |----------|--------|-----------------|
-| **P0** | Filter out invalid predicates (CONNECTS_TO, NEXT_TO) before Cypher execution(I dont suggest this, neo4j should hv this relationship, see how we can make this predicates correct) | Eliminates 32.6% of predicate failures |
+| **P0** | Fix ifc_class extraction: add more Wall/Door/Window disambiguation examples in training data (currently 13/59 Wall GTs misclassified as Door/Window). ifc_class is the dominant failure mode at 49.2% error rate | Largest single improvement — fixes 39% of failures |
 | **P1** | Fix storey field in candidate dict (`pipeline.py:211`) | Unblocks storey_match metric |
 | **P2** | Add ifc_class confusion-aware fallback: if P0 returns 0 candidates, retry with broader type match | Recovers some of the 39% class-wrong cases |
-| **P3** | Retrain LoRA with explicit invalid-predicate negative examples | Reduces CONNECTS_TO hallucination |
+| **P3** | Leverage 2-hop chains for reranking: LoRA_5 already generates valid hop-2 CONNECTS_TO (36 cases). Verify that OPTIONAL MATCH reranking actually changes candidate order in practice | Potentially improves Top-1 for 14 GT-in-pool cases |
 | **P4** | Run LoRA_3 adapter on the same v5 test set (59 cases) for fair comparison | Establishes true baseline |

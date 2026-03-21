@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-from src.eval.contracts import (
+from src.evaluation_infra.contracts import (
     CandidateElement,
     ChatMessage,
     ContextMeta,
@@ -270,7 +270,7 @@ async def run_v2_case(
     if rq2_enabled and rq2_schema and tool_by_name:
         try:
             from src.rq2_schema.pipeline import run_rq2_postprocess
-            from src.eval.contracts import RQ2Result
+            from src.evaluation_infra.contracts import RQ2Result
 
             rq2_raw = await run_rq2_postprocess(
                 schema_id=rq2_schema_id or "corenetx_min_v0",

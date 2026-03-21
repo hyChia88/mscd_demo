@@ -71,6 +71,6 @@ rq2:
 # -----------------------------------------------------------------------------
 output:
   # Directory for evaluation results (relative to project root)
-  evaluations_dir: "logs/evaluations"
+  evaluations_dir: "logs/evaluation_output"
   # Directory for conversation logs (relative to project root)
   logs_dir: "logs"

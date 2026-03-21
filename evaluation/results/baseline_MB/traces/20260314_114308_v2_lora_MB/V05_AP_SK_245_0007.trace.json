@@ -1,0 +1,453 @@
+{
+  "scenario_id": "V05_AP_SK_245_0007",
+  "run_id": "20260314_114308_v2_lora_MB",
+  "timestamp": "2026-03-14T11:43:08.388423",
+  "scenario": {
+    "id": "V05_AP_SK_245_0007",
+    "image_files": [
+      "datasets/synth_v0.5/renders/wireframes/SK_245_wireframe.png"
+    ],
+    "context_meta": {
+      "timestamp": "",
+      "sender_id": null,
+      "sender_role": "",
+      "project_phase": "Facade & Cladding",
+      "task_status": "TASK_1069: Door inspection — REVIEW_REQUIRED"
+    },
+    "chat_history": [],
+    "query_text": "",
+    "ground_truth": {
+      "target_guid": "3pFbansyD0KOHFtJHrTtfJ",
+      "target_name": "M_Single-Flush:Generic Door:888676",
+      "target_storey": "Level 1",
+      "expected_reasoning": null,
+      "action_required": null,
+      "rq_category": "Unknown"
+    },
+    "formatted_input": null,
+    "image_paths": [
+      "../data_curation/datasets/synth_v0.5/renders/wireframes/SK_245_wireframe.png"
+    ]
+  },
+  "tool_steps": [],
+  "interpreter_output": {
+    "raw_response": "V2 pipeline: 36 candidates via lora",
+    "mentioned_guids": [
+      "1_jeQ1u6XFwed$AhVCoJi$",
+      "3p6DR19bjD_PWb8lZMRTIN",
+      "3p6DR19bjD_PWb8lZMRTlD",
+      "0Pw4h9cu11p8EzOFUdpSlP",
+      "0Pw4h9cu11p8EzOFUdpTBE",
+      "0xKelnDbLBsf$3TAffmU$u",
+      "0xKelnDbLBsf$3TAffmUXs",
+      "0xyFL4ySP5TexORi78qE5c",
+      "0ducQKkW5EGQM9rQ5zdOcN",
+      "2BLn4xX2vF_gM9G5wfbU4T"
+    ],
+    "mentioned_names": [
+      "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:473744",
+      "M_Single-Flush:Generic Door:735028",
+      "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Left-handed:735342",
+      "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:739599",
+      "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:741400",
+      "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:748148",
+      "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:749050",
+      "M_Door-Overhead-Sectional:2400 x 2000mm:776665",
+      "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:825005",
+      "M_Single-Flush:Generic Door:835121"
+    ],
+    "candidates": [
+      {
+        "guid": "1_jeQ1u6XFwed$AhVCoJi$",
+        "name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:473744",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "3p6DR19bjD_PWb8lZMRTIN",
+        "name": "M_Single-Flush:Generic Door:735028",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "3p6DR19bjD_PWb8lZMRTlD",
+        "name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Left-handed:735342",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "0Pw4h9cu11p8EzOFUdpSlP",
+        "name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:739599",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "0Pw4h9cu11p8EzOFUdpTBE",
+        "name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:741400",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "0xKelnDbLBsf$3TAffmU$u",
+        "name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:748148",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "0xKelnDbLBsf$3TAffmUXs",
+        "name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:749050",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "0xyFL4ySP5TexORi78qE5c",
+        "name": "M_Door-Overhead-Sectional:2400 x 2000mm:776665",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "0ducQKkW5EGQM9rQ5zdOcN",
+        "name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:825005",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "2BLn4xX2vF_gM9G5wfbU4T",
+        "name": "M_Single-Flush:Generic Door:835121",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      }
+    ],
+    "is_clarification_request": false,
+    "is_escalation": false,
+    "escalation_reason": null,
+    "fields_populated": {}
+  },
+  "total_latency_ms": 1.0104229986609425,
+  "api_calls_count": 1,
+  "api_cost_estimate": 7.5e-05,
+  "pipeline_type": "v2",
+  "bench": {
+    "group": "M",
+    "condition": "MB"
+  },
+  "guid_match": false,
+  "name_match": true,
+  "storey_match": false,
+  "initial_pool_size": 1666,
+  "final_pool_size": 36,
+  "rq2_result": null,
+  "internals": {
+    "constraints": {
+      "storey_name": "Level 1",
+      "ifc_class": "IfcDoor",
+      "near_keywords": [],
+      "relations": [],
+      "space_name": null,
+      "target_name_keyword": null,
+      "neighbor_type": null,
+      "spatial_relations": [],
+      "confidence": 0.85,
+      "source": "lora_precomputed"
+    },
+    "query_plans": [
+      {
+        "priority": 4,
+        "strategy": "storey+type",
+        "params": {
+          "storey": "Level 1",
+          "type": "IfcDoor"
+        },
+        "expected_pool_size": 50
+      },
+      {
+        "priority": 5,
+        "strategy": "storey_only",
+        "params": {
+          "storey": "Level 1"
+        },
+        "expected_pool_size": 200
+      },
+      {
+        "priority": 6,
+        "strategy": "type_only",
+        "params": {
+          "type": "IfcDoor"
+        },
+        "expected_pool_size": 150
+      },
+      {
+        "priority": 8,
+        "strategy": "fallback",
+        "params": {},
+        "expected_pool_size": 100
+      }
+    ],
+    "retrieval_results": [
+      {
+        "candidates": [
+          {
+            "guid": "1_jeQ1u6XFwed$AhVCoJi$",
+            "type": "IfcDoor",
+            "name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:473744",
+            "description": null
+          },
+          {
+            "guid": "3p6DR19bjD_PWb8lZMRTIN",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:735028",
+            "description": null
+          },
+          {
+            "guid": "3p6DR19bjD_PWb8lZMRTlD",
+            "type": "IfcDoor",
+            "name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Left-handed:735342",
+            "description": null
+          },
+          {
+            "guid": "0Pw4h9cu11p8EzOFUdpSlP",
+            "type": "IfcDoor",
+            "name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:739599",
+            "description": null
+          },
+          {
+            "guid": "0Pw4h9cu11p8EzOFUdpTBE",
+            "type": "IfcDoor",
+            "name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:741400",
+            "description": null
+          },
+          {
+            "guid": "0xKelnDbLBsf$3TAffmU$u",
+            "type": "IfcDoor",
+            "name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:748148",
+            "description": null
+          },
+          {
+            "guid": "0xKelnDbLBsf$3TAffmUXs",
+            "type": "IfcDoor",
+            "name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:749050",
+            "description": null
+          },
+          {
+            "guid": "0xyFL4ySP5TexORi78qE5c",
+            "type": "IfcDoor",
+            "name": "M_Door-Overhead-Sectional:2400 x 2000mm:776665",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdOcN",
+            "type": "IfcDoor",
+            "name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Right-handed:825005",
+            "description": null
+          },
+          {
+            "guid": "2BLn4xX2vF_gM9G5wfbU4T",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:835121",
+            "description": null
+          },
+          {
+            "guid": "2BLn4xX2vF_gM9G5wfbU5X",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:835149",
+            "description": null
+          },
+          {
+            "guid": "2BLn4xX2vF_gM9G5wfbPwA",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:836006",
+            "description": null
+          },
+          {
+            "guid": "2BLn4xX2vF_gM9G5wfbPiL",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:836665",
+            "description": null
+          },
+          {
+            "guid": "2BLn4xX2vF_gM9G5wfbPhn",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:837085",
+            "description": null
+          },
+          {
+            "guid": "2BLn4xX2vF_gM9G5wfbPd3",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:837359",
+            "description": null
+          },
+          {
+            "guid": "2BLn4xX2vF_gM9G5wfbPR8",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:838116",
+            "description": null
+          },
+          {
+            "guid": "2BLn4xX2vF_gM9G5wfbPB_",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:839122",
+            "description": null
+          },
+          {
+            "guid": "2BLn4xX2vF_gM9G5wfbP7V",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:839411",
+            "description": null
+          },
+          {
+            "guid": "2BLn4xX2vF_gM9G5wfbP3_",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:839634",
+            "description": null
+          },
+          {
+            "guid": "2BLn4xX2vF_gM9G5wfbP36",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:839658",
+            "description": null
+          },
+          {
+            "guid": "2BLn4xX2vF_gM9G5wfbOeO",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:841012",
+            "description": null
+          },
+          {
+            "guid": "34Ni6yH0HDjQqrjEsXbUMJ",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:841486",
+            "description": null
+          },
+          {
+            "guid": "3pFbansyD0KOHFtJHrTuxk",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:883673",
+            "description": null
+          },
+          {
+            "guid": "3pFbansyD0KOHFtJHrTulG",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:884455",
+            "description": null
+          },
+          {
+            "guid": "3pFbansyD0KOHFtJHrTuhb",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:884690",
+            "description": null
+          },
+          {
+            "guid": "3pFbansyD0KOHFtJHrTtO7",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:885552",
+            "description": null
+          },
+          {
+            "guid": "3pFbansyD0KOHFtJHrTt4G",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:885799",
+            "description": null
+          },
+          {
+            "guid": "3pFbansyD0KOHFtJHrTtDE",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:886393",
+            "description": null
+          },
+          {
+            "guid": "3pFbansyD0KOHFtJHrTtwA",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:887741",
+            "description": null
+          },
+          {
+            "guid": "3pFbansyD0KOHFtJHrTtde",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:888031",
+            "description": null
+          },
+          {
+            "guid": "3pFbansyD0KOHFtJHrTteh",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:888604",
+            "description": null
+          },
+          {
+            "guid": "3pFbansyD0KOHFtJHrTtfJ",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:888676",
+            "description": null
+          },
+          {
+            "guid": "0HFJ4FEcn5UhECI1IyBq10",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:918202",
+            "description": null
+          },
+          {
+            "guid": "0HFJ4FEcn5UhECI1IyBq0G",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:918250",
+            "description": null
+          },
+          {
+            "guid": "2fypDDb212M80XzLYYLlIb",
+            "type": "IfcDoor",
+            "name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Left-handed:965012",
+            "description": null
+          },
+          {
+            "guid": "2fypDDb212M80XzLYYLlJg",
+            "type": "IfcDoor",
+            "name": "Swedoor_Interior_Door_SD4220_P65_EI60_Single-LeftRightOver_1.0:1990 mm (M10) x 2390 mm (M21) - EI60 - Left-handed:965083",
+            "description": null
+          }
+        ],
+        "pool_size": 36,
+        "query_plan_used": {
+          "priority": 4,
+          "strategy": "storey+type",
+          "params": {
+            "storey": "Level 1",
+            "type": "IfcDoor"
+          },
+          "expected_pool_size": 50
+        },
+        "backend": "neo4j",
+        "rerank_applied": false,
+        "strategy_actually_used": "storey+type",
+        "fallback_triggered": false
+      }
+    ],
+    "constraints_parse_success": true,
+    "constraints_parse_error": null,
+    "rerank_gain": null,
+    "image_parse_result": null,
+    "image_parse_ms": 0.0,
+    "constraints_extraction_ms": 0.0025999979698099196,
+    "query_planning_ms": 0.061642000218853354,
+    "retrieval_ms": 0.23345700174104422
+  },
+  "error": null,
+  "success": true
+}

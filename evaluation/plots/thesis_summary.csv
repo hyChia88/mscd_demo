@@ -1,0 +1,8 @@
+system,label,n,gt_in_pool,gt_in_pct,top1,top1_pct,top5,top5_pct,mrr,avg_pool,ssr_pct,p0_fired,p0_pct,sr_extracted,sr_pct,over_reduction_rate
+baseline_MB,Baseline (GT labels),69,58,84.1,3,4.3,13,18.8,0.098,102.0,91.9,0,0.0,0,0.0,78.3
+lora_label_MB,LoRA-label (train),55,30,54.5,0,0.0,5,9.1,0.0354,75.1,94.0,29,52.7,29,52.7,89.1
+oracle_MB,Oracle (GT spatial),59,54,91.5,2,3.4,11,18.6,0.1,59.4,95.3,57,96.6,57,96.6,78.0
+lora3_MB,LoRA₃ wire MB,67,7,10.4,2,3.0,2,3.0,0.0299,77.4,93.8,0,0.0,0,0.0,97.0
+lora3_MC,LoRA₃ wire MC,66,11,16.7,2,3.0,2,3.0,0.0303,81.8,93.5,0,0.0,0,0.0,97.0
+lora3_site_MB,LoRA₃ site MB,68,14,20.6,0,0.0,6,8.8,0.0272,76.2,93.9,0,0.0,0,0.0,91.2
+lora3_site_MC,LoRA₃ site MC,68,23,33.8,1,1.5,6,8.8,0.039,88.9,92.9,0,0.0,0,0.0,91.2

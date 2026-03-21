@@ -204,7 +204,7 @@ cmd_mcp() {
     echo ""
     python script/compare_results.py --latest
     echo ""
-    echo "Done. Full results in logs/evaluations/"
+    echo "Done. Full results in logs/evaluation_output/"
 }
 
 # ── Subcommand: experiment ──────────────────────────────────────────────────

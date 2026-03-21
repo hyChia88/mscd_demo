@@ -134,7 +134,7 @@ async def main_async(args=None):
 
     # Output configuration from config
     output_config = config.get("output", {})
-    evaluations_dir = base_dir / output_config.get("evaluations_dir", "logs/evaluations")
+    evaluations_dir = base_dir / output_config.get("evaluations_dir", "logs/evaluation_output")
 
     # Delay between tests from config
     delay_between_tests = agent_config.get("delay_between_tests", 7)

@@ -1,0 +1,507 @@
+{
+  "scenario_id": "V05_AP_SK_081_0012",
+  "run_id": "20260313_222400_v2_lora_MB",
+  "timestamp": "2026-03-13T22:24:00.944406",
+  "scenario": {
+    "id": "V05_AP_SK_081_0012",
+    "image_files": [
+      "datasets/synth_v0.5/renders/wireframes/SK_081_wireframe.png"
+    ],
+    "context_meta": {
+      "timestamp": "",
+      "sender_id": null,
+      "sender_role": "",
+      "project_phase": "Interior Fit-out",
+      "task_status": "TASK_1074: Door inspection — ON_HOLD"
+    },
+    "chat_history": [],
+    "query_text": "",
+    "ground_truth": {
+      "target_guid": "0ducQKkW5EGQM9rQ5zdP8c",
+      "target_name": "M_Single-Flush:0762 x 2032mm:822556",
+      "target_storey": "-1 - Garage",
+      "expected_reasoning": null,
+      "action_required": null,
+      "rq_category": "Unknown"
+    },
+    "formatted_input": null,
+    "image_paths": [
+      "../data_curation/datasets/synth_v0.5/renders/wireframes/SK_081_wireframe.png"
+    ]
+  },
+  "tool_steps": [],
+  "interpreter_output": {
+    "raw_response": "V2 pipeline: 45 candidates via lora",
+    "mentioned_guids": [
+      "3GdhC2lQD5ifjmLdQ3yoHF",
+      "3GdhC2lQD5ifjmLdQ3yoHJ",
+      "1cFRppLhj948bTrzz_Ao_1",
+      "1cFRppLhj948bTrzz_AoiD",
+      "1cFRppLhj948bTrzz_Ao4n",
+      "1cFRppLhj948bTrzz_Apxb",
+      "1cFRppLhj948bTrzz_Apu2",
+      "1cFRppLhj948bTrzz_Apiw",
+      "1cFRppLhj948bTrzz_ApiD",
+      "1cFRppLhj948bTrzz_ApRD"
+    ],
+    "mentioned_names": [
+      "M_Single-Flush:Generic Door:798055",
+      "M_Single-Flush:Generic Door:798075",
+      "M_Single-Flush:0762 x 2032mm:811363",
+      "M_Single-Flush:0762 x 2032mm:812527",
+      "M_Single-Flush:0762 x 2032mm:815059",
+      "M_Single-Flush:0762 x 2032mm:815111",
+      "M_Single-Flush:0762 x 2032mm:815328",
+      "M_Single-Flush:0762 x 2032mm:816600",
+      "M_Single-Flush:0762 x 2032mm:816623",
+      "M_Single-Flush:0762 x 2032mm:817199"
+    ],
+    "candidates": [
+      {
+        "guid": "3GdhC2lQD5ifjmLdQ3yoHF",
+        "name": "M_Single-Flush:Generic Door:798055",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "3GdhC2lQD5ifjmLdQ3yoHJ",
+        "name": "M_Single-Flush:Generic Door:798075",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "1cFRppLhj948bTrzz_Ao_1",
+        "name": "M_Single-Flush:0762 x 2032mm:811363",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "1cFRppLhj948bTrzz_AoiD",
+        "name": "M_Single-Flush:0762 x 2032mm:812527",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "1cFRppLhj948bTrzz_Ao4n",
+        "name": "M_Single-Flush:0762 x 2032mm:815059",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "1cFRppLhj948bTrzz_Apxb",
+        "name": "M_Single-Flush:0762 x 2032mm:815111",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "1cFRppLhj948bTrzz_Apu2",
+        "name": "M_Single-Flush:0762 x 2032mm:815328",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "1cFRppLhj948bTrzz_Apiw",
+        "name": "M_Single-Flush:0762 x 2032mm:816600",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "1cFRppLhj948bTrzz_ApiD",
+        "name": "M_Single-Flush:0762 x 2032mm:816623",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "1cFRppLhj948bTrzz_ApRD",
+        "name": "M_Single-Flush:0762 x 2032mm:817199",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      }
+    ],
+    "is_clarification_request": false,
+    "is_escalation": false,
+    "escalation_reason": null,
+    "fields_populated": {}
+  },
+  "total_latency_ms": 0.5084000003989786,
+  "api_calls_count": 1,
+  "api_cost_estimate": 7.5e-05,
+  "pipeline_type": "v2",
+  "bench": {
+    "group": "M",
+    "condition": "MB"
+  },
+  "guid_match": false,
+  "name_match": true,
+  "storey_match": false,
+  "initial_pool_size": 1666,
+  "final_pool_size": 45,
+  "rq2_result": null,
+  "internals": {
+    "constraints": {
+      "storey_name": "-1 - Garage",
+      "ifc_class": "IfcDoor",
+      "near_keywords": [],
+      "relations": [],
+      "space_name": null,
+      "target_name_keyword": null,
+      "neighbor_type": null,
+      "spatial_relations": [],
+      "confidence": 0.85,
+      "source": "lora_precomputed"
+    },
+    "query_plans": [
+      {
+        "priority": 4,
+        "strategy": "storey+type",
+        "params": {
+          "storey": "-1 - Garage",
+          "type": "IfcDoor"
+        },
+        "expected_pool_size": 50
+      },
+      {
+        "priority": 5,
+        "strategy": "storey_only",
+        "params": {
+          "storey": "-1 - Garage"
+        },
+        "expected_pool_size": 200
+      },
+      {
+        "priority": 6,
+        "strategy": "type_only",
+        "params": {
+          "type": "IfcDoor"
+        },
+        "expected_pool_size": 150
+      },
+      {
+        "priority": 8,
+        "strategy": "fallback",
+        "params": {},
+        "expected_pool_size": 100
+      }
+    ],
+    "retrieval_results": [
+      {
+        "candidates": [
+          {
+            "guid": "3GdhC2lQD5ifjmLdQ3yoHF",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:798055",
+            "description": null
+          },
+          {
+            "guid": "3GdhC2lQD5ifjmLdQ3yoHJ",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:798075",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_Ao_1",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:811363",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_AoiD",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:812527",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_Ao4n",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:815059",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_Apxb",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:815111",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_Apu2",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:815328",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_Apiw",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:816600",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_ApiD",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:816623",
+            "description": null
+          },
+          {
+            "guid": "1cFRppLhj948bTrzz_ApRD",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:817199",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdM8G",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:818474",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdM1T",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:819047",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdM2q",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:819086",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdM3v",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:819139",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdM3l",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:819157",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPyj",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:819223",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdP$j",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:819415",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPvI",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:819560",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPwl",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:819605",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPqd",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:819741",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPrw",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:819776",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPrq",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:819790",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPrI",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:819816",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPsq",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:819854",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPsI",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:819880",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPm_",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:819972",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPmG",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:820010",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPnm",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:820042",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPaT",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:820775",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPbh",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:820817",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPNP",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:821987",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPFm",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:822474",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdPFU",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:822500",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdP8c",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:822556",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdP1L",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:823151",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdOvK",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:823662",
+            "description": null
+          },
+          {
+            "guid": "0ducQKkW5EGQM9rQ5zdOpb",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:824287",
+            "description": null
+          },
+          {
+            "guid": "1q9pLykVT2tOtz_4Xjbvw7",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:877634",
+            "description": null
+          },
+          {
+            "guid": "1q9pLykVT2tOtz_4XjbvqZ",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:878566",
+            "description": null
+          },
+          {
+            "guid": "1q9pLykVT2tOtz_4XjbvBZ",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:878630",
+            "description": null
+          },
+          {
+            "guid": "1q9pLykVT2tOtz_4XjbvA1",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:878660",
+            "description": null
+          },
+          {
+            "guid": "1q9pLykVT2tOtz_4Xjbup3",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:882182",
+            "description": null
+          },
+          {
+            "guid": "1q9pLykVT2tOtz_4XjbuoS",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:882265",
+            "description": null
+          },
+          {
+            "guid": "3pFbansyD0KOHFtJHrTutI",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:882917",
+            "description": null
+          },
+          {
+            "guid": "3pFbansyD0KOHFtJHrTupl",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:0762 x 2032mm:883160",
+            "description": null
+          }
+        ],
+        "pool_size": 45,
+        "query_plan_used": {
+          "priority": 4,
+          "strategy": "storey+type",
+          "params": {
+            "storey": "-1 - Garage",
+            "type": "IfcDoor"
+          },
+          "expected_pool_size": 50
+        },
+        "backend": "neo4j",
+        "rerank_applied": false,
+        "strategy_actually_used": "storey+type",
+        "fallback_triggered": false
+      }
+    ],
+    "constraints_parse_success": true,
+    "constraints_parse_error": null,
+    "rerank_gain": null,
+    "image_parse_result": null,
+    "image_parse_ms": 0.0,
+    "constraints_extraction_ms": 0.0021999985619913787,
+    "query_planning_ms": 0.04400000034365803,
+    "retrieval_ms": 0.12269999933778308
+  },
+  "error": null,
+  "success": true
+}

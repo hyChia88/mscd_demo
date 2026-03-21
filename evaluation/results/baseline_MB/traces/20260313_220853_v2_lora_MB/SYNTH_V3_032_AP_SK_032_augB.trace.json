@@ -1,0 +1,450 @@
+{
+  "scenario_id": "SYNTH_V3_032_AP_SK_032_augB",
+  "run_id": "20260313_220853_v2_lora_MB",
+  "timestamp": "2026-03-13T22:08:53.161785",
+  "scenario": {
+    "id": "SYNTH_V3_032_AP_SK_032_augB",
+    "image_files": [
+      "datasets/synth_v0.5_dxa/imgs/SK_032_site.png"
+    ],
+    "context_meta": {
+      "timestamp": "",
+      "sender_id": null,
+      "sender_role": "",
+      "project_phase": "Visual Mockup Unit Review",
+      "task_status": "TASK_636: Floor 3 Finishing Works - IN_PROGRESS"
+    },
+    "chat_history": [
+      {
+        "role": "Site Supervisor",
+        "text": "Sending the photo now."
+      },
+      {
+        "role": "Site Supervisor",
+        "text": "What do you think?"
+      }
+    ],
+    "query_text": "What do you think?",
+    "ground_truth": {
+      "target_guid": "0SYs3s__10NgRHjGtRj2X7",
+      "target_name": "Floor:Generic 150mm:316303",
+      "target_storey": "Level 1",
+      "expected_reasoning": null,
+      "action_required": null,
+      "rq_category": "Unknown"
+    },
+    "formatted_input": null,
+    "image_paths": [
+      "../data_curation/datasets/synth_v0.5_dxa/imgs/SK_032_site.png"
+    ]
+  },
+  "tool_steps": [],
+  "interpreter_output": {
+    "raw_response": "V2 pipeline: 34 candidates via lora",
+    "mentioned_guids": [
+      "0SYs3s__10NgRHjGtRj2X7",
+      "0SYs3s__10NgRHjGtRj2W7",
+      "0SYs3s__10NgRHjGtRj2WI",
+      "0SYs3s__10NgRHjGtRj2ub",
+      "0SYs3s__10NgRHjGtRj2u$",
+      "0SYs3s__10NgRHjGtRj2t6",
+      "0SYs3s__10NgRHjGtRj2sh",
+      "0o1QfH3m18FQ$FuQf8VgMN",
+      "0o1QfH3m18FQ$FuQf8VgL$",
+      "0o1QfH3m18FQ$FuQf8VgKi"
+    ],
+    "mentioned_names": [
+      "Floor:Generic 150mm:316303",
+      "Floor:Generic 150mm:316367",
+      "Floor:Generic 150mm:316378",
+      "Floor:Generic 150mm:316909",
+      "Floor:Generic 150mm:316919",
+      "Floor:Generic 150mm:316942",
+      "Floor:Generic 150mm:317027",
+      "Floor:Generic 150mm:317052",
+      "Floor:Generic 150mm:317076",
+      "Floor:Generic 150mm:317127"
+    ],
+    "candidates": [
+      {
+        "guid": "0SYs3s__10NgRHjGtRj2X7",
+        "name": "Floor:Generic 150mm:316303",
+        "element_type": "IfcSlab",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "0SYs3s__10NgRHjGtRj2W7",
+        "name": "Floor:Generic 150mm:316367",
+        "element_type": "IfcSlab",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "0SYs3s__10NgRHjGtRj2WI",
+        "name": "Floor:Generic 150mm:316378",
+        "element_type": "IfcSlab",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "0SYs3s__10NgRHjGtRj2ub",
+        "name": "Floor:Generic 150mm:316909",
+        "element_type": "IfcSlab",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "0SYs3s__10NgRHjGtRj2u$",
+        "name": "Floor:Generic 150mm:316919",
+        "element_type": "IfcSlab",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "0SYs3s__10NgRHjGtRj2t6",
+        "name": "Floor:Generic 150mm:316942",
+        "element_type": "IfcSlab",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "0SYs3s__10NgRHjGtRj2sh",
+        "name": "Floor:Generic 150mm:317027",
+        "element_type": "IfcSlab",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "0o1QfH3m18FQ$FuQf8VgMN",
+        "name": "Floor:Generic 150mm:317052",
+        "element_type": "IfcSlab",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "0o1QfH3m18FQ$FuQf8VgL$",
+        "name": "Floor:Generic 150mm:317076",
+        "element_type": "IfcSlab",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "0o1QfH3m18FQ$FuQf8VgKi",
+        "name": "Floor:Generic 150mm:317127",
+        "element_type": "IfcSlab",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      }
+    ],
+    "is_clarification_request": false,
+    "is_escalation": false,
+    "escalation_reason": null,
+    "fields_populated": {}
+  },
+  "total_latency_ms": 1.360399997793138,
+  "api_calls_count": 1,
+  "api_cost_estimate": 7.5e-05,
+  "pipeline_type": "v2",
+  "bench": {
+    "group": "M",
+    "condition": "MB"
+  },
+  "guid_match": true,
+  "name_match": true,
+  "storey_match": false,
+  "initial_pool_size": 1666,
+  "final_pool_size": 34,
+  "rq2_result": null,
+  "internals": {
+    "constraints": {
+      "storey_name": "Level 1",
+      "ifc_class": "IfcSlab",
+      "near_keywords": [],
+      "relations": [],
+      "space_name": null,
+      "target_name_keyword": null,
+      "neighbor_type": null,
+      "spatial_relations": [],
+      "confidence": 0.85,
+      "source": "lora_precomputed"
+    },
+    "query_plans": [
+      {
+        "priority": 4,
+        "strategy": "storey+type",
+        "params": {
+          "storey": "Level 1",
+          "type": "IfcSlab"
+        },
+        "expected_pool_size": 50
+      },
+      {
+        "priority": 5,
+        "strategy": "storey_only",
+        "params": {
+          "storey": "Level 1"
+        },
+        "expected_pool_size": 200
+      },
+      {
+        "priority": 6,
+        "strategy": "type_only",
+        "params": {
+          "type": "IfcSlab"
+        },
+        "expected_pool_size": 150
+      },
+      {
+        "priority": 8,
+        "strategy": "fallback",
+        "params": {},
+        "expected_pool_size": 100
+      }
+    ],
+    "retrieval_results": [
+      {
+        "candidates": [
+          {
+            "guid": "0SYs3s__10NgRHjGtRj2X7",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:316303",
+            "description": null
+          },
+          {
+            "guid": "0SYs3s__10NgRHjGtRj2W7",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:316367",
+            "description": null
+          },
+          {
+            "guid": "0SYs3s__10NgRHjGtRj2WI",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:316378",
+            "description": null
+          },
+          {
+            "guid": "0SYs3s__10NgRHjGtRj2ub",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:316909",
+            "description": null
+          },
+          {
+            "guid": "0SYs3s__10NgRHjGtRj2u$",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:316919",
+            "description": null
+          },
+          {
+            "guid": "0SYs3s__10NgRHjGtRj2t6",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:316942",
+            "description": null
+          },
+          {
+            "guid": "0SYs3s__10NgRHjGtRj2sh",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:317027",
+            "description": null
+          },
+          {
+            "guid": "0o1QfH3m18FQ$FuQf8VgMN",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:317052",
+            "description": null
+          },
+          {
+            "guid": "0o1QfH3m18FQ$FuQf8VgL$",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:317076",
+            "description": null
+          },
+          {
+            "guid": "0o1QfH3m18FQ$FuQf8VgKi",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:317127",
+            "description": null
+          },
+          {
+            "guid": "0o1QfH3m18FQ$FuQf8VgK2",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:317161",
+            "description": null
+          },
+          {
+            "guid": "0o1QfH3m18FQ$FuQf8VgJg",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:317185",
+            "description": null
+          },
+          {
+            "guid": "0o1QfH3m18FQ$FuQf8VgJQ",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:317233",
+            "description": null
+          },
+          {
+            "guid": "0o1QfH3m18FQ$FuQf8VgGm",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:317403",
+            "description": null
+          },
+          {
+            "guid": "0o1QfH3m18FQ$FuQf8Vgjk",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:317573",
+            "description": null
+          },
+          {
+            "guid": "0o1QfH3m18FQ$FuQf8Vgh_",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:317717",
+            "description": null
+          },
+          {
+            "guid": "0o1QfH3m18FQ$FuQf8VgfQ",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:317873",
+            "description": null
+          },
+          {
+            "guid": "0o1QfH3m18FQ$FuQf8VgdV",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:318004",
+            "description": null
+          },
+          {
+            "guid": "1p5u6RKD9AXOYfaTdtdJeQ",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:318052",
+            "description": null
+          },
+          {
+            "guid": "1p5u6RKD9AXOYfaTdtdJeC",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:318066",
+            "description": null
+          },
+          {
+            "guid": "1p5u6RKD9AXOYfaTdtdJe3",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:318077",
+            "description": null
+          },
+          {
+            "guid": "1p5u6RKD9AXOYfaTdtdJhr",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:318091",
+            "description": null
+          },
+          {
+            "guid": "1p5u6RKD9AXOYfaTdtdJhh",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:318101",
+            "description": null
+          },
+          {
+            "guid": "1p5u6RKD9AXOYfaTdtdJh7",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:318137",
+            "description": null
+          },
+          {
+            "guid": "1p5u6RKD9AXOYfaTdtdJgh",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:318165",
+            "description": null
+          },
+          {
+            "guid": "1p5u6RKD9AXOYfaTdtdJgC",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:318194",
+            "description": null
+          },
+          {
+            "guid": "1p5u6RKD9AXOYfaTdtdJiq",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:318282",
+            "description": null
+          },
+          {
+            "guid": "1p5u6RKD9AXOYfaTdtdJi4",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:318330",
+            "description": null
+          },
+          {
+            "guid": "1p5u6RKD9AXOYfaTdtdJlw",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:318340",
+            "description": null
+          },
+          {
+            "guid": "1p5u6RKD9AXOYfaTdtdJla",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:318362",
+            "description": null
+          },
+          {
+            "guid": "1p5u6RKD9AXOYfaTdtdJpe",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:318614",
+            "description": null
+          },
+          {
+            "guid": "1p5u6RKD9AXOYfaTdtdJp6",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:318648",
+            "description": null
+          },
+          {
+            "guid": "1p5u6RKD9AXOYfaTdtdJom",
+            "type": "IfcSlab",
+            "name": "Floor:Generic 150mm:318670",
+            "description": null
+          },
+          {
+            "guid": "0t7TVxPGL1fBrLXU9rUqSH",
+            "type": "IfcSlab",
+            "name": "Floor:MockUp 300mm:923894",
+            "description": null
+          }
+        ],
+        "pool_size": 34,
+        "query_plan_used": {
+          "priority": 4,
+          "strategy": "storey+type",
+          "params": {
+            "storey": "Level 1",
+            "type": "IfcSlab"
+          },
+          "expected_pool_size": 50
+        },
+        "backend": "neo4j",
+        "rerank_applied": false,
+        "strategy_actually_used": "storey+type",
+        "fallback_triggered": false
+      }
+    ],
+    "constraints_parse_success": true,
+    "constraints_parse_error": null,
+    "rerank_gain": null,
+    "image_parse_result": null,
+    "image_parse_ms": 0.0,
+    "constraints_extraction_ms": 0.0016000012692529708,
+    "query_planning_ms": 0.03810000271187164,
+    "retrieval_ms": 0.9754999991855584
+  },
+  "error": null,
+  "success": true
+}

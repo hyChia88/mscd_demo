@@ -1,0 +1,597 @@
+{
+  "scenario_id": "V05_BH_SK_016_0031",
+  "run_id": "20260313_222400_v2_lora_MB",
+  "timestamp": "2026-03-13T22:24:01.019037",
+  "scenario": {
+    "id": "V05_BH_SK_016_0031",
+    "image_files": [],
+    "context_meta": {
+      "timestamp": "",
+      "sender_id": null,
+      "sender_role": "",
+      "project_phase": "Commissioning",
+      "task_status": "TASK_1093: Door inspection — REVIEW_REQUIRED"
+    },
+    "chat_history": [],
+    "query_text": "",
+    "ground_truth": {
+      "target_guid": "0ikA9YOKrBaRArRnE24qDK",
+      "target_name": "Assembled Stair:Stair:939124",
+      "target_storey": "Level 1",
+      "expected_reasoning": null,
+      "action_required": null,
+      "rq_category": "Unknown"
+    },
+    "formatted_input": null,
+    "image_paths": []
+  },
+  "tool_steps": [],
+  "interpreter_output": {
+    "raw_response": "V2 pipeline: 53 candidates via lora",
+    "mentioned_guids": [
+      "2DedXznHnDaeAWsrTB_qBp",
+      "2DedXznHnDaeAWsrTB_qBo",
+      "2DedXznHnDaeAWsrTB_qBn",
+      "2DedXznHnDaeAWsrTB_qBm",
+      "2DedXznHnDaeAWsrTB_qBj",
+      "2DedXznHnDaeAWsrTB_qBh",
+      "2DedXznHnDaeAWsrTB_qBg",
+      "2DedXznHnDaeAWsrTB_qBf",
+      "2DedXznHnDaeAWsrTB_qBe",
+      "2DedXznHnDaeAWsrTB_qBd"
+    ],
+    "mentioned_names": [
+      "Basic Wall:Yttervägg Paroc:1298028",
+      "Basic Wall:Yttervägg Paroc:1298029",
+      "Basic Wall:Yttervägg Paroc:1298030",
+      "Basic Wall:Yttervägg Paroc:1298031",
+      "Basic Wall:Innervägg 170mm Paroc:1298034",
+      "Basic Wall:Innervägg 170mm Paroc:1298036",
+      "Basic Wall:Innervägg 170mm Paroc:1298037",
+      "Basic Wall:Innervägg 170mm Paroc:1298038",
+      "Basic Wall:Innervägg 170mm Paroc:1298039",
+      "Basic Wall:Innervägg 170mm Paroc:1298040"
+    ],
+    "candidates": [
+      {
+        "guid": "2DedXznHnDaeAWsrTB_qBp",
+        "name": "Basic Wall:Yttervägg Paroc:1298028",
+        "element_type": "IfcWallStandardCase",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "2DedXznHnDaeAWsrTB_qBo",
+        "name": "Basic Wall:Yttervägg Paroc:1298029",
+        "element_type": "IfcWallStandardCase",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "2DedXznHnDaeAWsrTB_qBn",
+        "name": "Basic Wall:Yttervägg Paroc:1298030",
+        "element_type": "IfcWallStandardCase",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "2DedXznHnDaeAWsrTB_qBm",
+        "name": "Basic Wall:Yttervägg Paroc:1298031",
+        "element_type": "IfcWallStandardCase",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "2DedXznHnDaeAWsrTB_qBj",
+        "name": "Basic Wall:Innervägg 170mm Paroc:1298034",
+        "element_type": "IfcWallStandardCase",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "2DedXznHnDaeAWsrTB_qBh",
+        "name": "Basic Wall:Innervägg 170mm Paroc:1298036",
+        "element_type": "IfcWallStandardCase",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "2DedXznHnDaeAWsrTB_qBg",
+        "name": "Basic Wall:Innervägg 170mm Paroc:1298037",
+        "element_type": "IfcWallStandardCase",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "2DedXznHnDaeAWsrTB_qBf",
+        "name": "Basic Wall:Innervägg 170mm Paroc:1298038",
+        "element_type": "IfcWallStandardCase",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "2DedXznHnDaeAWsrTB_qBe",
+        "name": "Basic Wall:Innervägg 170mm Paroc:1298039",
+        "element_type": "IfcWallStandardCase",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "2DedXznHnDaeAWsrTB_qBd",
+        "name": "Basic Wall:Innervägg 170mm Paroc:1298040",
+        "element_type": "IfcWallStandardCase",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      }
+    ],
+    "is_clarification_request": false,
+    "is_escalation": false,
+    "escalation_reason": null,
+    "fields_populated": {}
+  },
+  "total_latency_ms": 0.7024000005912967,
+  "api_calls_count": 1,
+  "api_cost_estimate": 7.5e-05,
+  "pipeline_type": "v2",
+  "bench": {
+    "group": "M",
+    "condition": "MB"
+  },
+  "guid_match": false,
+  "name_match": false,
+  "storey_match": false,
+  "initial_pool_size": 53,
+  "final_pool_size": 53,
+  "rq2_result": null,
+  "internals": {
+    "constraints": {
+      "storey_name": "Level 1",
+      "ifc_class": "IfcStair",
+      "near_keywords": [],
+      "relations": [],
+      "space_name": null,
+      "target_name_keyword": null,
+      "neighbor_type": null,
+      "spatial_relations": [],
+      "confidence": 0.85,
+      "source": "lora_precomputed"
+    },
+    "query_plans": [
+      {
+        "priority": 4,
+        "strategy": "storey+type",
+        "params": {
+          "storey": "Level 1",
+          "type": "IfcStair"
+        },
+        "expected_pool_size": 50
+      },
+      {
+        "priority": 5,
+        "strategy": "storey_only",
+        "params": {
+          "storey": "Level 1"
+        },
+        "expected_pool_size": 200
+      },
+      {
+        "priority": 6,
+        "strategy": "type_only",
+        "params": {
+          "type": "IfcStair"
+        },
+        "expected_pool_size": 150
+      },
+      {
+        "priority": 8,
+        "strategy": "fallback",
+        "params": {},
+        "expected_pool_size": 100
+      }
+    ],
+    "retrieval_results": [
+      {
+        "candidates": [],
+        "pool_size": 0,
+        "query_plan_used": {
+          "priority": 4,
+          "strategy": "storey+type",
+          "params": {
+            "storey": "Level 1",
+            "type": "IfcStair"
+          },
+          "expected_pool_size": 50
+        },
+        "backend": "neo4j",
+        "rerank_applied": false,
+        "strategy_actually_used": "storey+type",
+        "fallback_triggered": false
+      },
+      {
+        "candidates": [],
+        "pool_size": 0,
+        "query_plan_used": {
+          "priority": 5,
+          "strategy": "storey_only",
+          "params": {
+            "storey": "Level 1"
+          },
+          "expected_pool_size": 200
+        },
+        "backend": "neo4j",
+        "rerank_applied": false,
+        "strategy_actually_used": "storey_only",
+        "fallback_triggered": false
+      },
+      {
+        "candidates": [],
+        "pool_size": 0,
+        "query_plan_used": {
+          "priority": 6,
+          "strategy": "type_only",
+          "params": {
+            "type": "IfcStair"
+          },
+          "expected_pool_size": 150
+        },
+        "backend": "neo4j",
+        "rerank_applied": false,
+        "strategy_actually_used": "type_only",
+        "fallback_triggered": false
+      },
+      {
+        "candidates": [
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBp",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Yttervägg Paroc:1298028",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBo",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Yttervägg Paroc:1298029",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBn",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Yttervägg Paroc:1298030",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBm",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Yttervägg Paroc:1298031",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBj",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Innervägg 170mm Paroc:1298034",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBh",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Innervägg 170mm Paroc:1298036",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBg",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Innervägg 170mm Paroc:1298037",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBf",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Innervägg 170mm Paroc:1298038",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBe",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Innervägg 170mm Paroc:1298039",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBd",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Innervägg 170mm Paroc:1298040",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBc",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Innervägg 170mm Paroc:1298041",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_q9K",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Innervägg 170mm Paroc:1298123",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_rm$",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Innervägg 170mm Paroc:1298592",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBp",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Yttervägg Paroc:1298028",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBo",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Yttervägg Paroc:1298029",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBn",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Yttervägg Paroc:1298030",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBm",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Yttervägg Paroc:1298031",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBj",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Innervägg 170mm Paroc:1298034",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBh",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Innervägg 170mm Paroc:1298036",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBg",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Innervägg 170mm Paroc:1298037",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBf",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Innervägg 170mm Paroc:1298038",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBe",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Innervägg 170mm Paroc:1298039",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBd",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Innervägg 170mm Paroc:1298040",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBc",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Innervägg 170mm Paroc:1298041",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_q9K",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Innervägg 170mm Paroc:1298123",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_rm$",
+            "type": "IfcWallStandardCase",
+            "name": "Basic Wall:Innervägg 170mm Paroc:1298592",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBb",
+            "type": "IfcDoor",
+            "name": "Innerdörr - standard:D9:1298042",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBa",
+            "type": "IfcDoor",
+            "name": "Innerdörr - standard:D9:1298043",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBZ",
+            "type": "IfcDoor",
+            "name": "Innerdörr - standard:D9:1298044",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBY",
+            "type": "IfcDoor",
+            "name": "Innerdörr - standard:D9:1298045",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_qBX",
+            "type": "IfcDoor",
+            "name": "Innerdörr - standard:D9:1298046",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_q8y",
+            "type": "IfcDoor",
+            "name": "Ytterdörr - standard:D10:1298083",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_q8x",
+            "type": "IfcDoor",
+            "name": "Ytterdörr - standard:D10:1298084",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_q9D",
+            "type": "IfcDoor",
+            "name": "Innerdörr - standard:D9:1298130",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_q8F",
+            "type": "IfcWindow",
+            "name": "2-luft fast:10x10:1298064",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_q8E",
+            "type": "IfcWindow",
+            "name": "2-luft fast:10x10:1298065",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_q8D",
+            "type": "IfcWindow",
+            "name": "2-luft fast:10x10:1298066",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_q8C",
+            "type": "IfcWindow",
+            "name": "2-luft fast:10x10:1298067",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_q8B",
+            "type": "IfcWindow",
+            "name": "2-luft fast:10x10:1298068",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_q8A",
+            "type": "IfcWindow",
+            "name": "2-luft fast:10x10:1298069",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_q89",
+            "type": "IfcWindow",
+            "name": "2-luft fast:10x10:1298070",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_q84",
+            "type": "IfcWindow",
+            "name": "2-luft fast:10x10:1298075",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_q83",
+            "type": "IfcWindow",
+            "name": "2-luft fast:10x10:1298076",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_q82",
+            "type": "IfcWindow",
+            "name": "2-luft fast:10x10:1298077",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_q81",
+            "type": "IfcWindow",
+            "name": "2-luft fast:10x10:1298078",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_q8_",
+            "type": "IfcWindow",
+            "name": "Window-Fixed_Frame-Elitfonster-Single_Pane:Fönster 22x22:1298081",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_q8z",
+            "type": "IfcWindow",
+            "name": "Window-Fixed_Frame-Elitfonster-Single_Pane:Fönster 22x22:1298082",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_q8w",
+            "type": "IfcWindow",
+            "name": "Window-Fixed_Frame-Elitfonster-Single_Pane:Fönster 22x22:1298085",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_q8v",
+            "type": "IfcWindow",
+            "name": "Window-Fixed_Frame-Elitfonster-Single_Pane:Fönster 22x22:1298086",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_q8u",
+            "type": "IfcWindow",
+            "name": "Window-Fixed_Frame-Elitfonster-Single_Pane:Fönster 22x22:1298087",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_q9S",
+            "type": "IfcWindow",
+            "name": "Window-Fixed_Frame-Elitfonster-Single_Pane:Fönster Kök Avlångt:1298115",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_rra",
+            "type": "IfcWindow",
+            "name": "1-luft öppningsbart:10x10:1298939",
+            "description": null
+          },
+          {
+            "guid": "2DedXznHnDaeAWsrTB_rvg",
+            "type": "IfcWindow",
+            "name": "2-luft fast:10x10:1299189",
+            "description": null
+          }
+        ],
+        "pool_size": 53,
+        "query_plan_used": {
+          "priority": 8,
+          "strategy": "fallback",
+          "params": {},
+          "expected_pool_size": 100
+        },
+        "backend": "neo4j",
+        "rerank_applied": false,
+        "strategy_actually_used": "fallback",
+        "fallback_triggered": false
+      }
+    ],
+    "constraints_parse_success": true,
+    "constraints_parse_error": null,
+    "rerank_gain": null,
+    "image_parse_result": null,
+    "image_parse_ms": 0.0,
+    "constraints_extraction_ms": 0.0029000002541579306,
+    "query_planning_ms": 0.0608000009378884,
+    "retrieval_ms": 0.3184000015608035
+  },
+  "error": null,
+  "success": true
+}

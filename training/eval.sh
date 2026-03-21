@@ -22,7 +22,7 @@
 #   - synth_v0.3 dataset in ../data_curation/datasets/synth_v0.3/
 #
 # Output:
-#   logs/evaluations/
+#   logs/evaluation_output/
 #     eval_constraints_{adapter}.jsonl   # Pre-extracted constraints (from Modal)
 #     traces_{timestamp}_v2_lora.jsonl   # Full eval traces
 #     summary_{timestamp}_v2_lora.csv    # Summary metrics
@@ -39,12 +39,12 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 DATA_ROOT="$(dirname "$PROJECT_DIR")/data_curation"
 
 CASES="$DATA_ROOT/datasets/synth_v0.4_merged/train/test_holdout.jsonl"  # 50 holdout cases (AP=20, BH=20, DXA=10)
-EVAL_DIR="$PROJECT_DIR/logs/evaluations/synth_v04"   # new runs land here
+EVAL_DIR="$PROJECT_DIR/logs/evaluation_output/synth_v04"   # new runs land here
 PLOTS_DIR="$PROJECT_DIR/logs/comparisons/synth_v0.4_lora_2"
 
 # V2 prompt baseline from Exp 2 (synth_v0.3, 84 cases — for reference only)
-V2_PROMPT_TRACES="$PROJECT_DIR/logs/evaluations/synth_v03/traces/traces_20260214_210555_v2_prompt.jsonl"
-V2_PROMPT_SUMMARY="$PROJECT_DIR/logs/evaluations/synth_v03/summaries/summary_20260214_210555_v2_prompt.csv"
+V2_PROMPT_TRACES="$PROJECT_DIR/logs/evaluation_output/synth_v03/traces/traces_20260214_210555_v2_prompt.jsonl"
+V2_PROMPT_SUMMARY="$PROJECT_DIR/logs/evaluation_output/synth_v03/summaries/summary_20260214_210555_v2_prompt.csv"
 
 # ── Colors ───────────────────────────────────────────────────────────────────
 

@@ -1,0 +1,510 @@
+{
+  "scenario_id": "SYNTH_V3_090_AP_SK_090",
+  "run_id": "20260313_222400_v2_lora_MB",
+  "timestamp": "2026-03-13T22:24:00.898510",
+  "scenario": {
+    "id": "SYNTH_V3_090_AP_SK_090",
+    "image_files": [
+      "datasets/synth_v0.5/renders/wireframes/SK_090_wireframe.png"
+    ],
+    "context_meta": {
+      "timestamp": "",
+      "sender_id": null,
+      "sender_role": "",
+      "project_phase": "Facade Installation",
+      "task_status": "TASK_307: Basement Services Inspection - IN_PROGRESS"
+    },
+    "chat_history": [
+      {
+        "role": "Finishing Foreman",
+        "text": "Just arrived at the location."
+      },
+      {
+        "role": "Finishing Foreman",
+        "text": "Look at this."
+      },
+      {
+        "role": "Finishing Foreman",
+        "text": "The finish on this wall section is rough."
+      },
+      {
+        "role": "Finishing Foreman",
+        "text": "Let me take a closer look."
+      },
+      {
+        "role": "Finishing Foreman",
+        "text": "Wrapping up this section."
+      }
+    ],
+    "query_text": "Wrapping up this section.",
+    "ground_truth": {
+      "target_guid": "0qdpkovdH5RgxJU7gsxrtm",
+      "target_name": "M_Single-Flush:Generic Door:902775",
+      "target_storey": "1 - First Floor",
+      "expected_reasoning": null,
+      "action_required": null,
+      "rq_category": "Unknown"
+    },
+    "formatted_input": null,
+    "image_paths": [
+      "../data_curation/datasets/synth_v0.5/renders/wireframes/SK_090_wireframe.png"
+    ]
+  },
+  "tool_steps": [],
+  "interpreter_output": {
+    "raw_response": "V2 pipeline: 42 candidates via lora",
+    "mentioned_guids": [
+      "0MOEoDTm9EnO9yKsXjjkME",
+      "0MOEoDTm9EnO9yKsXjjk2Z",
+      "2sG0Vcmgb1Uverjtj49YTd",
+      "2sG0Vcmgb1Uverjtj49YtH",
+      "2sG0Vcmgb1Uverjtj49zXt",
+      "2sG0Vcmgb1Uverjtj49zdx",
+      "0Zs4aBjAr5AggJ3MVmSIQu",
+      "0Zs4aBjAr5AggJ3MVmSISH",
+      "28WUkjJ1r5wPzZDX9W1k71",
+      "1KGNuJkf5FjQZDFQ6WeEw3"
+    ],
+    "mentioned_names": [
+      "M_Single-Flush:Generic Door:586077",
+      "M_Single-Flush:Generic Door:586864",
+      "M_Single-Flush:Generic Door:587735",
+      "M_Single-Flush:Generic Door:589153",
+      "M_Single-Flush:Generic Door:592071",
+      "M_Single-Flush:Generic Door:592203",
+      "M_Single-Flush:Generic Door:598697",
+      "M_Single-Flush:Generic Door:598784",
+      "M_Single-Flush:Generic Door:661041",
+      "M_Single-Flush:Generic Door:672486"
+    ],
+    "candidates": [
+      {
+        "guid": "0MOEoDTm9EnO9yKsXjjkME",
+        "name": "M_Single-Flush:Generic Door:586077",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "0MOEoDTm9EnO9yKsXjjk2Z",
+        "name": "M_Single-Flush:Generic Door:586864",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "2sG0Vcmgb1Uverjtj49YTd",
+        "name": "M_Single-Flush:Generic Door:587735",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "2sG0Vcmgb1Uverjtj49YtH",
+        "name": "M_Single-Flush:Generic Door:589153",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "2sG0Vcmgb1Uverjtj49zXt",
+        "name": "M_Single-Flush:Generic Door:592071",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "2sG0Vcmgb1Uverjtj49zdx",
+        "name": "M_Single-Flush:Generic Door:592203",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "0Zs4aBjAr5AggJ3MVmSIQu",
+        "name": "M_Single-Flush:Generic Door:598697",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "0Zs4aBjAr5AggJ3MVmSISH",
+        "name": "M_Single-Flush:Generic Door:598784",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "28WUkjJ1r5wPzZDX9W1k71",
+        "name": "M_Single-Flush:Generic Door:661041",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      },
+      {
+        "guid": "1KGNuJkf5FjQZDFQ6WeEw3",
+        "name": "M_Single-Flush:Generic Door:672486",
+        "element_type": "IfcDoor",
+        "storey": null,
+        "confidence": null,
+        "source_step": 0
+      }
+    ],
+    "is_clarification_request": false,
+    "is_escalation": false,
+    "escalation_reason": null,
+    "fields_populated": {}
+  },
+  "total_latency_ms": 1.0952990014629904,
+  "api_calls_count": 1,
+  "api_cost_estimate": 7.5e-05,
+  "pipeline_type": "v2",
+  "bench": {
+    "group": "M",
+    "condition": "MB"
+  },
+  "guid_match": false,
+  "name_match": true,
+  "storey_match": false,
+  "initial_pool_size": 1666,
+  "final_pool_size": 42,
+  "rq2_result": null,
+  "internals": {
+    "constraints": {
+      "storey_name": "1 - First Floor",
+      "ifc_class": "IfcDoor",
+      "near_keywords": [],
+      "relations": [],
+      "space_name": null,
+      "target_name_keyword": null,
+      "neighbor_type": null,
+      "spatial_relations": [],
+      "confidence": 0.85,
+      "source": "lora_precomputed"
+    },
+    "query_plans": [
+      {
+        "priority": 4,
+        "strategy": "storey+type",
+        "params": {
+          "storey": "1 - First Floor",
+          "type": "IfcDoor"
+        },
+        "expected_pool_size": 50
+      },
+      {
+        "priority": 5,
+        "strategy": "storey_only",
+        "params": {
+          "storey": "1 - First Floor"
+        },
+        "expected_pool_size": 200
+      },
+      {
+        "priority": 6,
+        "strategy": "type_only",
+        "params": {
+          "type": "IfcDoor"
+        },
+        "expected_pool_size": 150
+      },
+      {
+        "priority": 8,
+        "strategy": "fallback",
+        "params": {},
+        "expected_pool_size": 100
+      }
+    ],
+    "retrieval_results": [
+      {
+        "candidates": [
+          {
+            "guid": "0MOEoDTm9EnO9yKsXjjkME",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:586077",
+            "description": null
+          },
+          {
+            "guid": "0MOEoDTm9EnO9yKsXjjk2Z",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:586864",
+            "description": null
+          },
+          {
+            "guid": "2sG0Vcmgb1Uverjtj49YTd",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:587735",
+            "description": null
+          },
+          {
+            "guid": "2sG0Vcmgb1Uverjtj49YtH",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:589153",
+            "description": null
+          },
+          {
+            "guid": "2sG0Vcmgb1Uverjtj49zXt",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:592071",
+            "description": null
+          },
+          {
+            "guid": "2sG0Vcmgb1Uverjtj49zdx",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:592203",
+            "description": null
+          },
+          {
+            "guid": "0Zs4aBjAr5AggJ3MVmSIQu",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:598697",
+            "description": null
+          },
+          {
+            "guid": "0Zs4aBjAr5AggJ3MVmSISH",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:598784",
+            "description": null
+          },
+          {
+            "guid": "28WUkjJ1r5wPzZDX9W1k71",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:661041",
+            "description": null
+          },
+          {
+            "guid": "1KGNuJkf5FjQZDFQ6WeEw3",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:672486",
+            "description": null
+          },
+          {
+            "guid": "1KGNuJkf5FjQZDFQ6WeEzz",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:672536",
+            "description": null
+          },
+          {
+            "guid": "0X2$ayW0v5dBNxK3e4nx7c",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:685911",
+            "description": null
+          },
+          {
+            "guid": "11MreptMzBDAizZWBG8_fj",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:687358",
+            "description": null
+          },
+          {
+            "guid": "11MreptMzBDAizZWBG8_Wt",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:687780",
+            "description": null
+          },
+          {
+            "guid": "11MreptMzBDAizZWBG8n79",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:690010",
+            "description": null
+          },
+          {
+            "guid": "11MreptMzBDAizZWBG8mFz",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:693614",
+            "description": null
+          },
+          {
+            "guid": "3GzoWuxxn4WO8bCtw8H3Ho",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:697527",
+            "description": null
+          },
+          {
+            "guid": "3GzoWuxxn4WO8bCtw8H3GX",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:697572",
+            "description": null
+          },
+          {
+            "guid": "3GzoWuxxn4WO8bCtw8H3GW",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:697573",
+            "description": null
+          },
+          {
+            "guid": "3GzoWuxxn4WO8bCtw8H3Pm",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:698037",
+            "description": null
+          },
+          {
+            "guid": "3GzoWuxxn4WO8bCtw8H3UC",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:698185",
+            "description": null
+          },
+          {
+            "guid": "2m6FhmO0r2OgRBRP7hD461",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:710764",
+            "description": null
+          },
+          {
+            "guid": "2m6FhmO0r2OgRBRP7hD456",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:710827",
+            "description": null
+          },
+          {
+            "guid": "2m6FhmO0r2OgRBRP7hD44Y",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:710863",
+            "description": null
+          },
+          {
+            "guid": "2m6FhmO0r2OgRBRP7hD4CZ",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:711374",
+            "description": null
+          },
+          {
+            "guid": "3naw$9in55$v8L5CpxnKbi",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:715102",
+            "description": null
+          },
+          {
+            "guid": "2v8sGyGFXDsRc80mj95lD8",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:725852",
+            "description": null
+          },
+          {
+            "guid": "2v8sGyGFXDsRc80mj95lE_",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:725930",
+            "description": null
+          },
+          {
+            "guid": "2v8sGyGFXDsRc80mj95lu5",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:728593",
+            "description": null
+          },
+          {
+            "guid": "2v8sGyGFXDsRc80mj95i76",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:729554",
+            "description": null
+          },
+          {
+            "guid": "3Icxn5iZD46RLnvfRjDRGg",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:731677",
+            "description": null
+          },
+          {
+            "guid": "3U8bdGexDEOw9DXBmULqba",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:870639",
+            "description": null
+          },
+          {
+            "guid": "3U8bdGexDEOw9DXBmULqkr",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:870974",
+            "description": null
+          },
+          {
+            "guid": "3U8bdGexDEOw9DXBmULrMs",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:873533",
+            "description": null
+          },
+          {
+            "guid": "3U8bdGexDEOw9DXBmULrGs",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:873917",
+            "description": null
+          },
+          {
+            "guid": "0qKJYWbnv5I8o6vyLfHj8U",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:897801",
+            "description": null
+          },
+          {
+            "guid": "0qKJYWbnv5I8o6vyLfHjJW",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:898551",
+            "description": null
+          },
+          {
+            "guid": "0qKJYWbnv5I8o6vyLfHjzs",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:900705",
+            "description": null
+          },
+          {
+            "guid": "0qKJYWbnv5I8o6vyLfHg6w",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:901293",
+            "description": null
+          },
+          {
+            "guid": "0qdpkovdH5RgxJU7gsxrtm",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:902775",
+            "description": null
+          },
+          {
+            "guid": "0qdpkovdH5RgxJU7gsxrD5",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:903362",
+            "description": null
+          },
+          {
+            "guid": "3XuKtrI0jD5PlAb3LVW6Sm",
+            "type": "IfcDoor",
+            "name": "M_Single-Flush:Generic Door:905566",
+            "description": null
+          }
+        ],
+        "pool_size": 42,
+        "query_plan_used": {
+          "priority": 4,
+          "strategy": "storey+type",
+          "params": {
+            "storey": "1 - First Floor",
+            "type": "IfcDoor"
+          },
+          "expected_pool_size": 50
+        },
+        "backend": "neo4j",
+        "rerank_applied": false,
+        "strategy_actually_used": "storey+type",
+        "fallback_triggered": false
+      }
+    ],
+    "constraints_parse_success": true,
+    "constraints_parse_error": null,
+    "rerank_gain": null,
+    "image_parse_result": null,
+    "image_parse_ms": 0.0,
+    "constraints_extraction_ms": 0.0032999996619764715,
+    "query_planning_ms": 0.158200000441866,
+    "retrieval_ms": 0.2953999974124599
+  },
+  "error": null,
+  "success": true
+}

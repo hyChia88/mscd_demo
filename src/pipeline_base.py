@@ -8,7 +8,7 @@ pipelines so the unified runner (script/run.py) can invoke either.
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 
-from src.eval.contracts import EvalTrace
+from src.evaluation_infra.contracts import EvalTrace
 
 
 class PipelineBase(ABC):
@@ -75,7 +75,7 @@ class V1Pipeline(PipelineBase):
         scenario = _build_scenario_input(masked, image_dir)
 
         # Delegate to v1 runner
-        from src.eval.runner import run_one_scenario
+        from src.evaluation_infra.runner import run_one_scenario
 
         trace = await run_one_scenario(
             scenario=scenario,
