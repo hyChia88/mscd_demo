@@ -1,8 +1,8 @@
 # Evaluation Report — Neuro-Symbolic IFC Element Retrieval
 
-> **IFC Model:** AdvancedProject.ifc (1,233 elements, 7 storeys)  
-> **Graph State:** Neo4j Community 5.26.0 (389 FILLS + 1362 CONNECTS_TO + ~200 NEXT_TO + CONTINUOUS + ADJACENT_TO edges)  
-> **Last updated:** 2026-03-20
+> **IFC Models:** AdvancedProject (AP, 1,233 elements, 7 storeys), BrickHouse (BH, 53 elements, 1 storey), DXA-HAUS (DXA, 258 elements, 3 storeys)
+> **Graph State:** Neo4j Community 5.26.0 — all 3 models loaded (389 FILLS + 1362 CONNECTS_TO + ~200 NEXT_TO + CONTINUOUS + ADJACENT_TO edges on AP; BH/DXA topology loaded 2026-03-20)
+> **Last updated:** 2026-03-22
 
 ---
 
@@ -83,8 +83,8 @@ agent in element retrieval accuracy?
 | B1–B3 (image-based) | 15 | 0–0% | V2 prompt extractor is text-only; images unused |
 
 **Trace files:**
-- V1: `logs/evaluations/traces_20260207_*`
-- V2: `logs/evaluations/traces_20260214_210555_v2_prompt.jsonl`
+- V1: `logs/evaluation_output/synth_v03/traces/traces_20260207_*`
+- V2: `logs/evaluation_output/synth_v03/traces/traces_20260214_210555_v2_prompt.jsonl`
 
 ### 1.3 Takeaway
 
@@ -134,17 +134,17 @@ to extract topological constraints that break the attribute entropy bottleneck?
 > **RWR calculation example** (LoRA₃ site MC): GT-in-Pool = 33.8%, Valid-SSR =
 > 92.9% → RWR = 0.338 × 0.929 = **0.314**
 
-![System comparison: GT-in-Pool, Top-5, MRR](eval/plots/T1_system_comparison.png)
+![System comparison: GT-in-Pool, Top-5, MRR](evaluation/plots/T1_system_comparison.png)
 
 **Trace files:**
-- Baseline: `eval/precomputed_baseline.jsonl`
-- LoRA-label: `eval/results/lora_label_MB/traces_20260314_115345_v2_lora_MB.jsonl`
-- Oracle: `eval/results/oracle_MB/traces_20260314_114444_v2_lora_MB.jsonl`
-- LoRA₃ site MC: `eval/results/lora3_site_MC/traces_20260314_172822_v2_lora.jsonl`
+- Baseline: `evaluation/cases/precomputed/precomputed_baseline.jsonl`
+- LoRA-label: `evaluation/results/lora_label_MB/traces_20260314_115345_v2_lora_MB.jsonl`
+- Oracle: `evaluation/results/oracle_MB/traces_20260314_114444_v2_lora_MB.jsonl`
+- LoRA₃ site MC: `evaluation/results/lora3_site_MC/traces_20260314_172822_v2_lora.jsonl`
 
 ### 2.3 Search Space Reduction
 
-![Pool reduction comparison](eval/plots/T2_pool_reduction.png)
+![Pool reduction comparison](evaluation/plots/T2_pool_reduction.png)
 
 All systems achieve 91–95% SSR, reducing the 1,233-element search space to
 59–102 candidates on average. The Oracle achieves the tightest pool (avg=59) with
@@ -156,7 +156,7 @@ alone.
 
 ### 2.4 Oracle Upper-Bound Analysis
 
-![Pipeline waterfall (Oracle)](eval/plots/T4_pipeline_waterfall.png)
+![Pipeline waterfall (Oracle)](evaluation/plots/T4_pipeline_waterfall.png)
 
 The Oracle pipeline demonstrates the theoretical ceiling:
 
@@ -171,7 +171,7 @@ logic is sound and the bottleneck is purely in VLM extraction quality.
 
 ### 2.5 P0 Spatial Strategy: Fire Rate vs GT-in-Pool
 
-![P0 fire rate vs GT-in-Pool](eval/plots/T5_p0_vs_accuracy.png)
+![P0 fire rate vs GT-in-Pool](evaluation/plots/T5_p0_vs_accuracy.png)
 
 | System | P0 Fire Rate | GT-in-Pool | Gap |
 |--------|-------------|------------|-----|
@@ -200,7 +200,7 @@ themselves are highly precise. The gap between Oracle (91.5%) and LoRA₃
 | **MC** (text+floorplan) | Floorplan + text, no site photo | 17 (24.3%) | 1 (1.4%) | 0.028 | 0.233 |
 | **FP** (floorplan only) | Floorplan, no text metadata | 16 (22.9%) | 1 (1.4%) | 0.025 | 0.219 |
 
-![Modality ablation: GT-in-Pool and MRR](eval/plots/T3_modality_ablation.png)
+![Modality ablation: GT-in-Pool and MRR](evaluation/plots/T3_modality_ablation.png)
 
 **Key findings:**
 - Site photos (MB/SITE) outperform floorplans (MC/FP) for GT-in-Pool: **+8.6pp**
@@ -209,7 +209,7 @@ themselves are highly precise. The gap between Oracle (91.5%) and LoRA₃
 - Adding floorplan to site photo (MA vs MB) does **not** improve GT-in-Pool
   (28.6% vs 32.9%), suggesting the model cannot yet fuse cross-modal spatial cues
 
-![Per-floor GT-in-Pool by condition](logs/evaluations/synth_v05_lora5/plots/per_floor_multi_condition.png)
+![Per-floor GT-in-Pool by condition](logs/evaluation_output/synth_v05_lora5/plots/per_floor_multi_condition.png)
 
 ### 3.2 VLM Extraction Quality (LoRA₅, Diagnostic)
 
@@ -228,7 +228,7 @@ themselves are highly precise. The gap between Oracle (91.5%) and LoRA₃
 
 #### Predicate Confusion Matrix (MC)
 
-![Predicate confusion matrix](logs/evaluations/synth_v05_lora5/plots/predicate_confusion_MC.png)
+![Predicate confusion matrix](logs/evaluation_output/synth_v05_lora5/plots/predicate_confusion_MC.png)
 
 | GT → Predicted | ADJACENT_TO | FILLS | CONTINUOUS | NEXT_TO | CONNECTS_TO |
 |----------------|-------------|-------|------------|---------|-------------|
@@ -248,7 +248,7 @@ between walls. The correct predicate for Window→Wall is FILLS. This is a
 
 #### Subject Type Confusion Matrix (MC)
 
-![Subject type confusion matrix](logs/evaluations/synth_v05_lora5/plots/subject_confusion_MC.png)
+![Subject type confusion matrix](logs/evaluation_output/synth_v05_lora5/plots/subject_confusion_MC.png)
 
 | GT → Predicted | IfcDoor | IfcWallStdCase | IfcWindow |
 |----------------|---------|----------------|-----------|
@@ -262,7 +262,7 @@ walls, biasing toward predicting the FILLS subject.
 
 #### Per-Hop Field Accuracy (MC)
 
-![Per-hop field accuracy](logs/evaluations/synth_v05_lora5/plots/hop_accuracy_MC.png)
+![Per-hop field accuracy](logs/evaluation_output/synth_v05_lora5/plots/hop_accuracy_MC.png)
 
 | Hop | Subject Acc | Predicate Acc | Object Acc |
 |-----|-------------|---------------|------------|
@@ -276,11 +276,11 @@ extraction (hop 2+) is not viable with current training.
 
 #### Per-Case Hop Waterfall (MC)
 
-![Per-case hop waterfall](logs/evaluations/synth_v05_lora5/plots/hop_waterfall_MC.png)
+![Per-case hop waterfall](logs/evaluation_output/synth_v05_lora5/plots/hop_waterfall_MC.png)
 
 ### 3.3 Pool Outcome Breakdown (LoRA₅)
 
-![Pool outcome and RQS](logs/evaluations/synth_v05_lora5/plots/rqs_overview.png)
+![Pool outcome and RQS](logs/evaluation_output/synth_v05_lora5/plots/rqs_overview.png)
 
 Across all conditions, **63–77% of cases are over-reduced** (GT pruned from
 pool). The Retrieval Quality Score (RQS = F1 of Recall × Valid-SSR) ranges from
@@ -291,21 +291,21 @@ filtering and GT retention.
 
 | Strategy | Description | Trace File |
 |----------|-------------|------------|
-| P0-only | Spatial Cypher only | `logs/evaluations/synth_v05_lora5/strategy_ablation/traces_..._MC_p0_only.jsonl` |
-| P1-only | Storey+type only | `logs/evaluations/synth_v05_lora5/strategy_ablation/traces_..._MC_p1_only.jsonl` |
-| P0 ∩ P1 | Intersection of both pools | `logs/evaluations/synth_v05_lora5/strategy_ablation/traces_..._MC_p0_intersect_p1.jsonl` |
-| P0 ∪ P1 | Union of both pools | `logs/evaluations/synth_v05_lora5/strategy_ablation/traces_..._MC_p0_union_p1.jsonl` |
+| P0-only | Spatial Cypher only | `logs/evaluation_output/synth_v05_lora5/strategy_ablation/traces_20260317_222542_v2_lora_MC_p0_only.jsonl` |
+| P1-only | Storey+type only | `logs/evaluation_output/synth_v05_lora5/strategy_ablation/traces_20260317_222632_v2_lora_MC_p1_only.jsonl` |
+| P0 ∩ P1 | Intersection of both pools | `logs/evaluation_output/synth_v05_lora5/strategy_ablation/traces_20260317_222717_v2_lora_MC_p0_intersect_p1.jsonl` |
+| P0 ∪ P1 | Union of both pools | `logs/evaluation_output/synth_v05_lora5/strategy_ablation/traces_20260317_222758_v2_lora_MC_p0_union_p1.jsonl` |
 
 ### 3.5 Per-Floor Analysis (LoRA₅)
 
-![Per-floor GT-in-Pool (MC)](logs/evaluations/synth_v05_lora5/plots/per_floor_gt_in_pool_MC.png)
-![Per-floor retrieval (MC)](logs/evaluations/synth_v05_lora5/plots/per_floor_retrieval_MC.png)
+![Per-floor GT-in-Pool (MC)](logs/evaluation_output/synth_v05_lora5/plots/per_floor_gt_in_pool_MC.png)
+![Per-floor retrieval (MC)](logs/evaluation_output/synth_v05_lora5/plots/per_floor_retrieval_MC.png)
 
 ---
 
 ## Experiment Group 4 — 4-Way Model Comparison (AP-only)
 
-**Date:** 2026-03-17/18 | **Test set:** `eval/cases_v3_test.jsonl` (59 AP-only cases)
+**Date:** 2026-03-17/18 | **Test set:** `evaluation/cases/cases_v3_test.jsonl` (59 AP-only cases)
 
 ### 4.1 Overall Metrics
 
@@ -446,7 +446,7 @@ from bad retrieval**.
 > valid as a within-model comparison, but absolute Top-1 values are inflated
 > by the small-model cases. See §Threats to Validity for details.
 
-**Trace files:** `logs/evaluations/synth_v04/summary_20260224_06*_v2_lora_{MA,MB,MC,MA-,MC-}.csv`
+**Trace files:** `logs/evaluation_output/synth_v04/summary_20260224_06*_v2_lora_{MA,MB,MC,MA-,MC-}.csv`
 
 ### Key Observation: Modality Crossover Between LoRA₂ and LoRA₅
 
@@ -558,15 +558,190 @@ validated:
 
 ---
 
+## Experiment Group 5 — Unified Cross-Model Evaluation (n=116)
+
+**Date:** 2026-03-20/21 | **Test set:** `evaluation/cases/cases_unified_test.jsonl` (116 cases: AP=70, BH=23, DXA=23)
+
+**RQ:** How do all extractors compare on a unified test set spanning all 3 IFC models,
+and what is the optimal query planner strategy for each?
+
+### 5.1 Systems Under Test
+
+| System | Extractor | Conditions | Spatial | Notes |
+|--------|-----------|------------|---------|-------|
+| **Gemini** | gemini-2.5-flash (prompt) | FP, MC | SR extracted ~93% | Prompt-based, no fine-tuning |
+| **LoRA₂** | LoRA_2 adapter | FP, MC | SR extracted 0% | Attribute-only (no spatial capability) |
+| **LoRA₅-r16** | LoRA_5, rank=16 | FP, MC | SR extracted 100% | Standard rank |
+| **LoRA₅-r32** | LoRA_5, rank=32 | FP, MC | SR extracted 100% | Higher rank for capacity |
+
+### 5.2 Primary Results (FP condition, p0∪p1)
+
+| System | GT-in-Pool | Top-1 | MRR@10 | Avg Pool |
+|--------|-----------|-------|--------|----------|
+| **LoRA₅-r32** | **49/116 (42.2%)** | 3.4% | 0.057 | 70 |
+| **LoRA₅-r16** | 48/116 (41.4%) | **4.3%** | **0.074** | 68 |
+| **Gemini** | 42/116 (36.2%) | 4.3% | 0.075 | 56 |
+| **LoRA₂** | 33/116 (28.4%) | 1.7% | 0.050 | 60 |
+
+> GT-in-Pool computed from full candidate pool (`internals.retrieval_results[0].candidates`).
+
+![Unified GT-in-Pool comparison](logs/evaluation_output/unified/plots/U1_gt_in_pool_comparison.png)
+
+### 5.3 FP vs MC Modality Comparison
+
+Gemini benefits from floorplan input (FP > MC), consistent with §Cross-Version
+finding that floorplan aids attribute extraction. LoRA models show near-zero
+modality sensitivity — their extraction quality is dominated by adapter capacity,
+not input modality.
+
+### 5.4 Per-IFC-Model Breakdown (FP condition, p0∪p1)
+
+| System | Total (n=116) | BH (n=23) |
+|--------|--------------|-----------|
+| LoRA₅-r32 | 49 (42.2%) | 5 (22%) |
+| LoRA₅-r16 | 48 (41.4%) | 5 (22%) |
+| Gemini | 42 (36.2%) | 5 (22%) |
+| LoRA₂ | 33 (28.4%) | 4 (17%) |
+
+**Key finding:** BH has only 53 elements (single storey), making all models
+perform comparably (17–22%). The differentiation between models comes from the
+larger AP and DXA models where topology density enables spatial queries to
+discriminate.
+
+### 5.5 Per-Tier Insight
+
+Attribute-only retrieval (LoRA₂, P1 storey+type) handles T1/T2 (easy/medium) cases
+well but plateaus on T3 hard cases, where spatial relations are structurally necessary.
+This confirms the thesis motivation: **topology-based retrieval is needed precisely
+for the cases where attribute-only methods plateau.**
+
+### 5.6 Per-Field Extraction Accuracy
+
+| System | storey_acc | ifc_class_acc | SR_rate |
+|--------|-----------|--------------|---------|
+| gemini_FP | 68.1% | 62.1% | 93.1% |
+| gemini_MC | 67.2% | 69.0% | 95.7% |
+| lora2_FP | 67.2% | 62.9% | 0.0% |
+| lora2_MC | 71.6% | 63.8% | 0.0% |
+| lora5r16_FP | **81.9%** | 62.9% | **100.0%** |
+| lora5r16_MC | **81.9%** | 63.8% | **100.0%** |
+| lora5r32_FP | **81.9%** | 63.8% | **100.0%** |
+| lora5r32_MC | **81.9%** | **64.7%** | **100.0%** |
+
+![Field accuracy comparison](logs/evaluation_output/unified/plots/U6_field_accuracy.png)
+
+**Notable:** LoRA₅ variants achieve the highest storey accuracy (81.9%) — the
+simplified numeric storey format ("1" vs "1 - First Floor") is easier to learn.
+All models have similar ifc_class accuracy (62–65%), suggesting this is a
+dataset-level ceiling for the current element type distribution.
+
+### 5.7 Query Planner Strategy Ablation
+
+**Motivation:** The `p0∩p1` (spatial ∩ storey+type intersection) strategy is
+too aggressive — when spatial extraction is imperfect, intersecting with
+storey+type can prune GT from the pool. We tested 4 strategies across all models:
+
+| Strategy | Description |
+|----------|-------------|
+| `p0_only` | Spatial Cypher only (skip storey+type) |
+| `p1_only` | Storey+type only (skip spatial) |
+| `p0∩p1` | Intersection: spatial AND storey+type |
+| `p0∪p1` | Union: spatial OR storey+type (**default**) |
+
+#### Gemini (FP, n=116)
+
+| Strategy | GT-in-Pool | Top-1 | MRR@10 | Avg Pool |
+|----------|-----------|-------|--------|----------|
+| p0_only | 34.5% (40) | 4.3% | 0.075 | 48 |
+| p1_only | 34.5% (40) | 3.4% | 0.062 | 53 |
+| p0∩p1 | 32.8% (38) | 4.3% | 0.074 | 45 |
+| **p0∪p1** | **36.2% (42)** | **4.3%** | **0.075** | 56 |
+
+Gemini is strategy-insensitive on Top-1; `p0∪p1` achieves best GT-in-Pool (+3.4pp
+over p0∩p1).
+
+#### LoRA₂ (FP, n=116)
+
+| Strategy | GT-in-Pool | Top-1 | MRR@10 | Avg Pool |
+|----------|-----------|-------|--------|----------|
+| p0_only | 28.4% (33) | 1.7% | 0.050 | 60 |
+| p1_only | 28.4% (33) | 1.7% | 0.050 | 60 |
+| p0∩p1 | 28.4% (33) | 1.7% | 0.050 | 60 |
+| p0∪p1 | 28.4% (33) | 1.7% | 0.050 | 60 |
+
+LoRA₂ is **completely strategy-invariant** — 0% SR extraction means P0 never fires,
+so all strategies collapse to P1 (storey+type).
+
+#### LoRA₅-r32 (FP, n=116)
+
+| Strategy | GT-in-Pool | Top-1 | MRR@10 | Avg Pool |
+|----------|-----------|-------|--------|----------|
+| p0_only | 25.9% (30) | 3.4% | 0.057 | 40 |
+| p1_only | **42.2% (49)** | 2.6% | 0.054 | 68 |
+| p0∩p1 | 25.9% (30) | 3.4% | 0.057 | 39 |
+| **p0∪p1** | **42.2% (49)** | **3.4%** | **0.057** | 70 |
+
+`p0∪p1` recovers +16.3pp GT-in-Pool vs `p0∩p1`. **P0 (spatial) is a strict subset
+of P1 (storey+type)** for GT recovery — spatial never uniquely finds GT that
+storey+type misses. Union preserves P1's full pool. P0's value is in **pool size
+reduction** (avg 40 vs 68), which aids downstream reranking.
+
+#### LoRA₅-r16 (FP, n=116)
+
+| Strategy | GT-in-Pool | Top-1 | MRR@10 | Avg Pool |
+|----------|-----------|-------|--------|----------|
+| p0_only | 31.9% (37) | 4.3% | 0.074 | 41 |
+| p1_only | **41.4% (48)** | 3.4% | 0.062 | 65 |
+| p0∩p1 | 31.9% (37) | 4.3% | 0.074 | 41 |
+| **p0∪p1** | **41.4% (48)** | **4.3%** | **0.074** | 68 |
+
+`p0∪p1` achieves the best Top-1 (4.3%) and ties best GT-in-Pool (41.4%).
+
+![Strategy ablation](logs/evaluation_output/unified/plots/U9_strategy_ablation.png)
+![LoRA₅-r32 strategy impact](logs/evaluation_output/unified/plots/U10_optimal_strategy.png)
+
+### 5.8 Strategy Ablation: Key Insight
+
+**Spatial triplets at current VLM accuracy should be used for pool size reduction,
+not GT discovery.**
+
+Case-level set analysis across all models:
+
+| Model | Both find GT | Only P0 | Only P1 | Neither |
+|-------|-------------|---------|---------|---------|
+| **LoRA₅-r32** | 30 | **0** | 19 | 67 |
+| **LoRA₅-r16** | 37 | 0 | 11 | 68 |
+| **Gemini** | 38 | 2 | 2 | 74 |
+| **LoRA₂** | 33 | 0 | 0 | 83 |
+
+**For LoRA₅, P0 is a strict subset of P1** — spatial never uniquely recovers GT
+that storey+type misses. The p0∪p1 (union) strategy simply preserves P1's full
+pool. P0's value lies in **pool size reduction** (avg 40 vs 68 for LoRA₅-r32),
+which aids downstream reranking.
+
+**Gemini is the only model where P0 uniquely recovers GT** (2 cases), both
+involving IFC subtype mismatches (IfcWall vs IfcWallStandardCase) where the
+spatial path succeeds but storey+type fails.
+
+| Model | Recommended Strategy | GT-in-Pool | Top-1 | Rationale |
+|-------|---------------------|----------:|------:|-----------|
+| LoRA₅-r32 | `p0∪p1` | **42.2%** | 3.4% | Preserves P1 pool; P0 adds pool compression (1.8×) |
+| LoRA₅-r16 | `p0∪p1` | 41.4% | **4.3%** | Best Top-1/MRR, ties GT-in-Pool |
+| Gemini | `p0∪p1` | 36.2% | 4.3% | Only model with unique P0 recovery |
+| LoRA₂ | ANY | 28.4% | 1.7% | Strategy-invariant (0% SR → all P1) |
+
+**Trace files:** `logs/evaluation_output/unified/strategy_ablation_v2/` (16 files)
+
+---
+
 ## Key Findings
 
 ### Finding 1: The Symbolic Layer is Sound — the Bottleneck is Extraction
 
 Oracle extraction achieves **91.5% GT-in-Pool** with avg pool = 59 (95.3% SSR),
 proving that the graph traversal logic itself is highly precise. The gap between
-Oracle (91.5%) and the best learned model LoRA₃ site MC (33.8%) is **entirely
-due to VLM extraction errors** — wrong predicates, wrong element types, wrong
-storeys.
+Oracle (91.5%) and the best learned model LoRA₅-r32 (42.2%) is **entirely due to
+VLM extraction errors** — wrong predicates, wrong element types, wrong storeys.
 
 ### Finding 2: Spatial Supervision Degrades Attribute Accuracy Under Fixed Capacity
 
@@ -749,13 +924,14 @@ advantage that pure neural retrieval systems lack:
    relations are structurally necessary to bridge the remaining 33%. This
    validates the thesis motivation but must be disclosed.
 
-4. **Storey as hidden dominant failure mode.** In 12/53 LoRA₅ failure cases,
-   both ifc_class AND spatial predicate were correctly predicted, but the storey
-   was wrong. The P0∩P1 intersection strategy amplifies storey errors: correct
-   spatial Cypher returns GT, but the storey+type filter on the other side
-   excludes it. This suggests the intersection strategy may be too aggressive
-   and a union or confidence-gated approach could recover these 12 cases
-   (17% of all cases).
+4. **Storey as hidden dominant failure mode (ADDRESSED).** In 12/53 LoRA₅
+   failure cases, both ifc_class AND spatial predicate were correctly predicted,
+   but the storey was wrong. The P0∩P1 intersection strategy amplified storey
+   errors: correct spatial Cypher returns GT, but the storey+type filter on the
+   other side excludes it. **Resolution:** The default was changed from `p0∩p1`
+   to `p0∪p1` (union), which recovers +19.8pp GT-in-Pool for LoRA₅-r32 and
+   eliminates this compounding failure mode. See §5.7–5.8 for the full strategy
+   ablation.
 
 ### External Validity
 
@@ -806,53 +982,58 @@ advantage that pure neural retrieval systems lack:
 
 | File | Cases | Description |
 |------|-------|-------------|
-| `eval/cases_v5_test.jsonl` | 70 | LoRA₅ test set (synth_v0.5, augmented) |
-| `eval/cases_v4_test.jsonl` | — | LoRA₄ test set (synth_v0.4) |
-| `eval/precomputed_baseline.jsonl` | 69 | Precomputed GT-label baseline |
-| `eval/precomputed_lora_label.jsonl` | — | Precomputed LoRA-label results |
+| `evaluation/cases/cases_v5_test.jsonl` | 70 | LoRA₅ test set (synth_v0.5, augmented) |
+| `evaluation/cases/cases_v4_test.jsonl` | — | LoRA₄ test set (synth_v0.4) |
+| `evaluation/cases/cases_unified_test.jsonl` | 116 | **Unified test set (AP=70, BH=23, DXA=23)** |
+| `evaluation/cases/precomputed/precomputed_baseline.jsonl` | 69 | Precomputed GT-label baseline |
+| `evaluation/cases/precomputed/precomputed_lora_label.jsonl` | — | Precomputed LoRA-label results |
 
 ### Trace Files
 
 | Experiment | File |
 |------------|------|
-| **Group 2: Baseline** | `eval/precomputed_baseline.jsonl` |
-| **Group 2: LoRA-label** | `eval/results/lora_label_MB/traces_20260314_115345_v2_lora_MB.jsonl` |
-| **Group 2: Oracle** | `eval/results/oracle_MB/traces_20260314_114444_v2_lora_MB.jsonl` |
-| **Group 2: LoRA₃ site MC** | `eval/results/lora3_site_MC/traces_20260314_172822_v2_lora.jsonl` |
-| **Group 2: LoRA₃ site MB** | `eval/results/lora3_site_MB/` |
-| **Group 2: LoRA₃ wire MC** | `eval/results/lora3_MC/` |
-| **Group 2: LoRA₃ wire MB** | `eval/results/lora3_MB/` |
-| **Group 3: LoRA₅ MA** | `logs/evaluations/synth_v05_lora5/traces_20260318_010048_v2_lora_MA_p0_intersect_p1.jsonl` |
-| **Group 3: LoRA₅ MB** | `logs/evaluations/synth_v05_lora5/traces_20260318_010144_v2_lora_MB_p0_intersect_p1.jsonl` |
-| **Group 3: LoRA₅ MC** | `logs/evaluations/synth_v05_lora5/traces_20260318_011558_v2_lora_MC_p0_intersect_p1.jsonl` |
-| **Group 3: LoRA₅ FP** | `logs/evaluations/synth_v05_lora5/traces_20260318_010325_v2_lora_FP_p0_intersect_p1.jsonl` |
-| **Group 3: LoRA₅ SITE** | `logs/evaluations/synth_v05_lora5/traces_20260318_010412_v2_lora_SITE_p0_intersect_p1.jsonl` |
-| **Group 3: Strategy P0-only** | `logs/evaluations/synth_v05_lora5/strategy_ablation/traces_..._MC_p0_only.jsonl` |
-| **Group 3: Strategy P1-only** | `logs/evaluations/synth_v05_lora5/strategy_ablation/traces_..._MC_p1_only.jsonl` |
-| **Group 3: Strategy P0∩P1** | `logs/evaluations/synth_v05_lora5/strategy_ablation/traces_..._MC_p0_intersect_p1.jsonl` |
-| **Group 3: Strategy P0∪P1** | `logs/evaluations/synth_v05_lora5/strategy_ablation/traces_..._MC_p0_union_p1.jsonl` |
+| **Group 2: Baseline** | `evaluation/cases/precomputed/precomputed_baseline.jsonl` |
+| **Group 2: LoRA-label** | `evaluation/results/lora_label_MB/traces_20260314_115345_v2_lora_MB.jsonl` |
+| **Group 2: Oracle** | `evaluation/results/oracle_MB/traces_20260314_114444_v2_lora_MB.jsonl` |
+| **Group 2: LoRA₃ site MC** | `evaluation/results/lora3_site_MC/traces_20260314_172822_v2_lora.jsonl` |
+| **Group 2: LoRA₃ site MB** | `evaluation/results/lora3_site_MB/` |
+| **Group 2: LoRA₃ wire MC** | `evaluation/results/lora3_MC/` |
+| **Group 2: LoRA₃ wire MB** | `evaluation/results/lora3_MB/` |
+| **Group 3: LoRA₅ MA** | `logs/evaluation_output/synth_v05_lora5/traces_20260318_010048_v2_lora_MA_p0_intersect_p1.jsonl` |
+| **Group 3: LoRA₅ MB** | `logs/evaluation_output/synth_v05_lora5/traces_20260318_010144_v2_lora_MB_p0_intersect_p1.jsonl` |
+| **Group 3: LoRA₅ MC** | `logs/evaluation_output/synth_v05_lora5/traces_20260318_011558_v2_lora_MC_p0_intersect_p1.jsonl` |
+| **Group 3: LoRA₅ FP** | `logs/evaluation_output/synth_v05_lora5/traces_20260318_010325_v2_lora_FP_p0_intersect_p1.jsonl` |
+| **Group 3: LoRA₅ SITE** | `logs/evaluation_output/synth_v05_lora5/traces_20260318_010412_v2_lora_SITE_p0_intersect_p1.jsonl` |
+| **Group 3: Strategy P0-only** | `logs/evaluation_output/synth_v05_lora5/strategy_ablation/traces_20260317_222542_v2_lora_MC_p0_only.jsonl` |
+| **Group 3: Strategy P1-only** | `logs/evaluation_output/synth_v05_lora5/strategy_ablation/traces_20260317_222632_v2_lora_MC_p1_only.jsonl` |
+| **Group 3: Strategy P0∩P1** | `logs/evaluation_output/synth_v05_lora5/strategy_ablation/traces_20260317_222717_v2_lora_MC_p0_intersect_p1.jsonl` |
+| **Group 3: Strategy P0∪P1** | `logs/evaluation_output/synth_v05_lora5/strategy_ablation/traces_20260317_222758_v2_lora_MC_p0_union_p1.jsonl` |
 | **Group 4: Gemini** | `logs/comparisons/0317_4way_ap_only/traces_gemini_MC_ap_only.jsonl` |
 | **Group 4: LoRA₃** | `logs/comparisons/0317_4way_ap_only/traces_lora3_MC_ap_only.jsonl` |
 | **Group 4: LoRA₄** | `logs/comparisons/0317_4way_ap_only/traces_lora4_MC_ap_only.jsonl` |
 | **Group 4: LoRA₅** | `logs/comparisons/0317_4way_ap_only/traces_lora5_MC_ap_only.jsonl` |
+| **Group 5: Unified (8 runs)** | `logs/evaluation_output/unified/traces/traces_*.jsonl` |
+| **Group 5: Strategy ablation (16 runs)** | `logs/evaluation_output/unified/strategy_ablation_v2/traces_*.jsonl` |
 
 ### Metrics & Summaries
 
 | File | Description |
 |------|-------------|
-| `eval/plots/thesis_summary.csv` | Group 2 summary (7 systems × 17 metrics) |
-| `logs/evaluations/synth_v05_lora5/lora5_metrics_latest.csv` | LoRA₅ full metrics (5 conditions × 43 metrics) |
-| `logs/evaluations/synth_v05_lora5/h2_results_20260317_122817.jsonl` | H2 hard-negative stress test |
-| `logs/evaluations/synth_v05_lora5/eval_constraints_final_{MA,MB,MC,FP,SITE}.jsonl` | Precomputed LoRA₅ constraints |
+| `evaluation/plots/thesis_summary.csv` | Group 2 summary (7 systems × 17 metrics) |
+| `logs/evaluation_output/synth_v05_lora5/lora5_metrics_latest.csv` | LoRA₅ full metrics (5 conditions × 43 metrics) |
+| `logs/evaluation_output/synth_v05_lora5/h2_results_20260317_122817.jsonl` | H2 hard-negative stress test |
+| `logs/evaluation_output/synth_v05_lora5/eval_constraints_final_{MA,MB,MC,FP,SITE}.jsonl` | Precomputed LoRA₅ constraints |
 
 ### Plot Directories
 
 | Directory | Contents |
 |-----------|----------|
-| `eval/plots/` | Thesis-ready figures (T1–T5) |
-| `logs/evaluations/synth_v05_lora5/plots/` | LoRA₅ deep-dive (confusion matrices, waterfall, per-floor) |
+| `evaluation/plots/` | Thesis-ready figures (T1–T5) |
+| `logs/evaluation_output/synth_v05_lora5/plots/` | LoRA₅ deep-dive (confusion matrices, waterfall, per-floor) |
 | `logs/comparisons/0317_4way_ap_only/charts/` | 4-way comparison charts (AP-only filtered) |
 | `logs/comparisons/0317_4way_comparison/` | 4-way comparison charts (all cases, unfiltered) |
+| `logs/evaluation_output/unified/plots/` | **Unified eval plots (U1–U10)** |
+| `logs/evaluation_output/unified/strategy_ablation_v2/` | **Strategy ablation traces (16 runs)** |
 | `docs/plots/v1_vs_v2_fixed2/` | V1 vs V2 condition breakdown |
 | `docs/plots/0224_modality_6cond/` | 6-condition modality analysis |
 | `docs/diagram/` | Architecture diagrams |

@@ -32,6 +32,7 @@ class QueryPlanner:
                 MATCH (target:IFCElement)-[:{predicate}]->(ref:IFCElement)
                 WHERE target.ifc_type = $subject_type
                   AND ref.ifc_type = $object_type
+                  AND target.ifc_model = $model
                   AND toLower(ref.storey) CONTAINS toLower($storey)
                 RETURN target.guid as guid, target.name as name, target.ifc_type as type,
                        ref.ifc_type as ref_type, ref.storey as ref_storey
@@ -50,6 +51,7 @@ class QueryPlanner:
                 MATCH (target:IFCElement)
                 WHERE target.ifc_type = $subject_type
                   AND target.is_continuous = true
+                  AND target.ifc_model = $model
                   AND toLower(target.top_constraint) CONTAINS toLower($top_storey)
                 RETURN target.guid as guid, target.name as name, target.ifc_type as type,
                        target.base_constraint as ref_storey,
@@ -66,7 +68,8 @@ class QueryPlanner:
             "template_cypher": """
                 MATCH (sp:IFCSpace)-[:CONTAINS]->(e:IFCElement)
                 WHERE toLower(sp.name) CONTAINS toLower($space_name)
-                  AND e.ifc_type = $type
+                  AND (e.ifc_type = $type OR e.ifc_type STARTS WITH $type)
+                  AND e.ifc_model = $model
                 RETURN e.guid as guid, e.name as name, e.ifc_type as type,
                        sp.name as space
             """
@@ -80,6 +83,7 @@ class QueryPlanner:
             "template_cypher": """
                 MATCH (e:IFCElement)
                 WHERE toLower(e.name) CONTAINS toLower($name_keyword)
+                  AND e.ifc_model = $model
                 RETURN e.guid as guid, e.name as name, e.ifc_type as type
                 LIMIT 20
             """
@@ -92,8 +96,9 @@ class QueryPlanner:
             "template_memory": "filter_by_neighbor_type",
             "template_cypher": """
                 MATCH (e:IFCElement)-[:HAS_OPENING|FILLS]-(nb:IFCElement)
-                WHERE e.ifc_type = $type
+                WHERE (e.ifc_type = $type OR e.ifc_type STARTS WITH $type)
                   AND nb.ifc_type = $neighbor_type
+                  AND e.ifc_model = $model
                 RETURN DISTINCT e.guid as guid, e.name as name, e.ifc_type as type
             """
         },
@@ -107,7 +112,8 @@ class QueryPlanner:
             "template_cypher": """
                 MATCH (s:IFCStorey)-[:CONTAINS]->(e:IFCElement)
                 WHERE toLower(s.name) CONTAINS toLower($storey)
-                  AND e.ifc_type = $type
+                  AND (e.ifc_type = $type OR e.ifc_type STARTS WITH $type)
+                  AND e.ifc_model = $model
                 RETURN e.guid as guid, e.name as name, e.ifc_type as type,
                        s.name as storey
             """
@@ -121,6 +127,7 @@ class QueryPlanner:
             "template_cypher": """
                 MATCH (s:IFCStorey)-[:CONTAINS]->(e:IFCElement)
                 WHERE toLower(s.name) CONTAINS toLower($storey)
+                  AND e.ifc_model = $model
                 RETURN e.guid as guid, e.name as name, e.ifc_type as type,
                        s.name as storey
             """
@@ -133,7 +140,8 @@ class QueryPlanner:
             "template_memory": "filter_by_type",
             "template_cypher": """
                 MATCH (e:IFCElement)
-                WHERE e.ifc_type = $type
+                WHERE (e.ifc_type = $type OR e.ifc_type STARTS WITH $type)
+                  AND e.ifc_model = $model
                 RETURN e.guid as guid, e.name as name, e.ifc_type as type
             """
         },
@@ -145,8 +153,9 @@ class QueryPlanner:
             "template_memory": "search_by_keywords",
             "template_cypher": """
                 MATCH (e:IFCElement)
-                WHERE toLower(e.name) CONTAINS toLower($keyword)
-                   OR toLower(e.description) CONTAINS toLower($keyword)
+                WHERE e.ifc_model = $model
+                  AND (toLower(e.name) CONTAINS toLower($keyword)
+                       OR toLower(e.description) CONTAINS toLower($keyword))
                 RETURN e.guid as guid, e.name as name, e.ifc_type as type
             """
         },
@@ -158,6 +167,7 @@ class QueryPlanner:
             "template_memory": "get_all_elements",
             "template_cypher": """
                 MATCH (e:IFCElement)
+                WHERE e.ifc_model = $model
                 RETURN e.guid as guid, e.name as name, e.ifc_type as type
                 LIMIT 100
             """

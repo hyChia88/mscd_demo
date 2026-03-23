@@ -16,7 +16,7 @@ Based on Unsloth's official Qwen2.5-VL vision fine-tuning notebook:
 
 Usage:
     modal run training/train_lora5.py
-    modal run training/train_lora5.py --epochs 5 --lr 2e-4 --lora-r 16
+    modal run training/train_lora5.py --epochs 5 --lr 2e-4 --lora-r 32
 
     # Download trained adapter after training:
     modal volume get mscd-checkpoints /mscd-lora-v5/final ./models/adapters/v5_lora_qwen
@@ -117,8 +117,8 @@ class TrainConfig:
     model_name: str = "unsloth/Qwen2.5-VL-7B-Instruct-bnb-4bit"
 
     # LoRA
-    lora_r: int = 16
-    lora_alpha: int = 32
+    lora_r: int = 32
+    lora_alpha: int = 64
     lora_dropout: float = 0.1
 
     # Training — 5 epochs default (616 samples, similar to LoRA_4's 553)
@@ -136,7 +136,7 @@ class TrainConfig:
 
     # Wandb
     wandb_project: str = "mscd-vlm-lora"
-    wandb_run: str = "qwen25vl-7b-r16-lora5-fp-pivot"
+    wandb_run: str = "qwen25vl-7b-r32-lora5-fp-pivot"
 
     # Paths (inside Modal container)
     train_file: str = "/data/train/lora5_train.jsonl"
@@ -217,8 +217,8 @@ def load_and_remap(jsonl_path: str, config: TrainConfig) -> list:
 def train(
     epochs: int = 5,
     lr: float = 2e-4,
-    lora_r: int = 16,
-    lora_alpha: int = 32,
+    lora_r: int = 32,
+    lora_alpha: int = 64,
     batch_size: int = 2,
     grad_accum: int = 8,
     wandb_run: str = "",
@@ -711,8 +711,8 @@ def _run_inference_check(model, tokenizer, test_samples, step=0, epoch=None):
 def main(
     epochs: int = 5,
     lr: float = 2e-4,
-    lora_r: int = 16,
-    lora_alpha: int = 32,
+    lora_r: int = 32,
+    lora_alpha: int = 64,
     batch_size: int = 2,
     grad_accum: int = 8,
     wandb_run: str = "",

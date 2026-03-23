@@ -37,10 +37,29 @@ class IFCEngine:
         print(f"🏗️  Loading IFC Model: {os.path.basename(file_path)}...")
         self.file = ifcopenshell.open(file_path)
         self.file_path = file_path
+        # Derive model key from filename for multi-model Neo4j isolation.
+        # e.g. "AdvancedProject.ifc" → "AP", "BH_Office.ifc" → "BH"
+        self.model_key = self._derive_model_key(file_path)
         self.spatial_index = {}
         self.neo4j_conn = neo4j_conn
         self._llm_client = llm_client  # set before _build_spatial_graph so registries use it
         self._build_spatial_graph()
+
+    @staticmethod
+    def _derive_model_key(file_path: str) -> str:
+        """Derive a short model key from IFC filename for Neo4j node tagging.
+
+        Known models: AdvancedProject → AP, BH* → BH, DXA* → DXA.
+        Falls back to uppercase first two chars of the stem.
+        """
+        stem = os.path.splitext(os.path.basename(file_path))[0].upper()
+        if "ADVANCEDPROJECT" in stem or stem.startswith("AP"):
+            return "AP"
+        if "BASICHOUSE" in stem or stem.startswith("BH"):
+            return "BH"
+        if "DUPLEX" in stem or stem.startswith("DXA"):
+            return "DXA"
+        return stem[:2]
 
     def _build_spatial_graph(self):
         """
@@ -623,7 +642,8 @@ class IFCEngine:
             self._create_node("IFCStorey", {
                 "guid": storey.GlobalId,
                 "name": storey.Name,
-                "elevation": getattr(storey, "Elevation", 0)
+                "elevation": getattr(storey, "Elevation", 0),
+                "ifc_model": self.model_key,
             })
             count += 1
 
@@ -632,7 +652,8 @@ class IFCEngine:
             self._create_node("IFCSpace", {
                 "guid": space.GlobalId,
                 "name": space.Name or space.LongName,
-                "long_name": space.LongName
+                "long_name": space.LongName,
+                "ifc_model": self.model_key,
             })
             count += 1
 
@@ -652,10 +673,9 @@ class IFCEngine:
         ]
 
         # Build element_guid -> storey_name mapping for the storey property.
-        # Uses ifcopenshell.util.element.get_container() which traverses
-        # IfcRelAggregates as well as IfcRelContainedInSpatialStructure,
-        # so aggregated elements (e.g. railings inside stair assemblies) are
-        # resolved correctly.
+        # Primary: ifcopenshell.util.element.get_container() which traverses
+        # IfcRelAggregates as well as IfcRelContainedInSpatialStructure.
+        # Fallback: elevation-based assignment for minimal IFC files (BH).
         import ifcopenshell.util.element as _ifc_util
         storey_map: Dict[str, str] = {}
         for ifc_type_pre in element_types:
@@ -666,6 +686,33 @@ class IFCEngine:
                         storey_map[element.GlobalId] = container.Name or "Unknown"
             except RuntimeError:
                 continue
+
+        # Fallback: if get_container found nothing, assign by elevation
+        if not storey_map:
+            storeys = self.file.by_type("IfcBuildingStorey")
+            if storeys:
+                storey_elev = sorted(
+                    [(s.Name, getattr(s, "Elevation", 0) or 0) for s in storeys],
+                    key=lambda x: x[1],
+                )
+                for ifc_type_pre in element_types:
+                    try:
+                        for element in self.file.by_type(ifc_type_pre):
+                            z = self._get_element_z(element)
+                            if z is None:
+                                continue
+                            best_name = storey_elev[0][0]
+                            for sn, se in storey_elev:
+                                if se <= z + 100:
+                                    best_name = sn
+                                else:
+                                    break
+                            storey_map[element.GlobalId] = best_name
+                    except RuntimeError:
+                        continue
+                if storey_map:
+                    print(f"   ⚠️  storey_map built by elevation fallback "
+                          f"({len(storey_map)} elements)")
 
         for ifc_type in element_types:
             try:
@@ -684,6 +731,7 @@ class IFCEngine:
                     "ifc_type": element.is_a(),
                     "object_type": getattr(element, "ObjectType", None),
                     "storey": storey_map.get(element.GlobalId),
+                    "ifc_model": self.model_key,
                 }
 
                 # T1.3: Extract material via IfcRelAssociatesMaterial
@@ -738,7 +786,13 @@ class IFCEngine:
         return None
 
     def _create_spatial_relationships(self) -> int:
-        """Create CONTAINS_IN relationships between spaces and elements"""
+        """Create CONTAINS relationships between spaces/storeys and elements.
+
+        Primary path: IfcRelContainedInSpatialStructure (standard IFC).
+        Fallback: if no containment rels exist (e.g. minimal BH export),
+        assign elements to the nearest storey by Z-elevation of their
+        ObjectPlacement, so storey+type queries still work.
+        """
         count = 0
 
         for rel in self.file.by_type("IfcRelContainedInSpatialStructure"):
@@ -755,7 +809,87 @@ class IFCEngine:
                 )
                 count += 1
 
+        # Fallback: elevation-based storey assignment for IFC files that lack
+        # IfcRelContainedInSpatialStructure (e.g. BasicHouse / minimal exports).
+        if count == 0 and self.neo4j_conn:
+            count += self._assign_elements_to_storeys_by_elevation()
+
         return count
+
+    def _assign_elements_to_storeys_by_elevation(self) -> int:
+        """Assign elements to storeys by comparing element Z vs storey elevations.
+
+        For each element, pick the storey whose elevation is ≤ element Z and
+        closest (i.e. the floor the element sits on). Also sets the element
+        node's ``storey`` property so it matches the canonical name.
+        """
+        storeys = self.file.by_type("IfcBuildingStorey")
+        if not storeys:
+            return 0
+
+        # Sort storeys ascending by elevation
+        storey_list = sorted(
+            [(s.GlobalId, s.Name, getattr(s, "Elevation", 0) or 0) for s in storeys],
+            key=lambda x: x[2],
+        )
+
+        element_types = [
+            "IfcWall", "IfcWallStandardCase", "IfcDoor", "IfcWindow",
+            "IfcSlab", "IfcColumn", "IfcBeam", "IfcRailing", "IfcStair",
+            "IfcFurnishingElement", "IfcFurniture",
+        ]
+
+        count = 0
+        assigned = 0
+        for ifc_type in element_types:
+            try:
+                elements = self.file.by_type(ifc_type)
+            except RuntimeError:
+                continue
+            for element in elements:
+                z = self._get_element_z(element)
+                if z is None:
+                    continue
+                # Find the storey with highest elevation ≤ element Z
+                best_storey = storey_list[0]  # default to lowest
+                for sg, sn, se in storey_list:
+                    if se <= z + 100:  # 100mm tolerance
+                        best_storey = (sg, sn, se)
+                    else:
+                        break
+                sg, sn, se = best_storey
+                self._create_relationship(
+                    "IFCStorey", sg, "CONTAINS", "IFCElement", element.GlobalId
+                )
+                # Also update the element node's storey property
+                if self.neo4j_conn:
+                    self.neo4j_conn.run(
+                        "MATCH (e:IFCElement {guid: $guid}) SET e.storey = $storey",
+                        guid=element.GlobalId, storey=sn,
+                    )
+                count += 1
+                assigned += 1
+
+        if assigned > 0:
+            print(f"   ⚠️  No IfcRelContainedInSpatialStructure — assigned "
+                  f"{assigned} elements to storeys by elevation")
+        return count
+
+    @staticmethod
+    def _get_element_z(element) -> Optional[float]:
+        """Extract the Z coordinate from an element's ObjectPlacement."""
+        try:
+            placement = element.ObjectPlacement
+            if placement and placement.is_a("IfcLocalPlacement"):
+                rp = placement.RelativePlacement
+                if rp and rp.is_a("IfcAxis2Placement3D"):
+                    loc = rp.Location
+                    if loc:
+                        coords = loc.Coordinates
+                        return float(coords[2]) if len(coords) >= 3 else None
+        except (AttributeError, IndexError, TypeError):
+            pass
+        return None
 
     def _create_element_relationships(self) -> int:
         """Create relationships between elements (voids, fills, connections, NEXT_TO)"""
@@ -1029,10 +1163,11 @@ class IFCEngine:
         query = """
         MATCH (s:IFCStorey)-[:CONTAINS]->(e:IFCElement)
         WHERE ANY(c IN $level_names WHERE toLower(s.name) CONTAINS c)
+          AND e.ifc_model = $model
         RETURN e.guid as guid, e.name as name, e.ifc_type as type,
                e.FireRating as fire_rating, e.LoadBearing as load_bearing
         """
-        result = self.neo4j_conn.run(query, level_names=canonicals)
+        result = self.neo4j_conn.run(query, level_names=canonicals, model=self.model_key)
         return [dict(record) for record in result]
 
     def query_elements_by_property(self, property_name: str, property_value: Any) -> List[Dict]:
@@ -1047,9 +1182,10 @@ class IFCEngine:
         query = f"""
         MATCH (e:IFCElement)
         WHERE e.{property_name} = $value
+          AND e.ifc_model = $model
         RETURN e.guid as guid, e.name as name, e.ifc_type as type
         """
-        result = self.neo4j_conn.run(query, value=property_value)
+        result = self.neo4j_conn.run(query, value=property_value, model=self.model_key)
         return [dict(record) for record in result]
 
     def query_adjacent_elements(self, guid: str) -> List[Dict]:
@@ -1063,9 +1199,10 @@ class IFCEngine:
 
         query = """
         MATCH (e:IFCElement {guid: $guid})-[:HAS_OPENING|FILLS|CONTAINS*1..2]-(related:IFCElement)
+        WHERE related.ifc_model = $model
         RETURN DISTINCT related.guid as guid, related.name as name, related.ifc_type as type
         """
-        result = self.neo4j_conn.run(query, guid=guid)
+        result = self.neo4j_conn.run(query, guid=guid, model=self.model_key)
         return [dict(record) for record in result]
 
     # =========================================================================
@@ -1089,16 +1226,17 @@ class IFCEngine:
                 results = [r for r in results if r.get("type") == ifc_type]
             return results
 
-        type_clause = "AND e.ifc_type = $ifc_type" if ifc_type else ""
+        type_clause = "AND (e.ifc_type = $ifc_type OR e.ifc_type STARTS WITH $ifc_type)" if ifc_type else ""
         query = f"""
         MATCH (sp:IFCSpace)-[:CONTAINS]->(e:IFCElement)
         WHERE toLower(sp.name) CONTAINS toLower($space_name)
+          AND e.ifc_model = $model
         {type_clause}
         RETURN e.guid as guid, e.name as name, e.ifc_type as type,
                sp.name as space
         """
         result = self.neo4j_conn.run(query, space_name=space_name.lower(),
-                                     ifc_type=ifc_type)
+                                     ifc_type=ifc_type, model=self.model_key)
         return [dict(r) for r in result]
 
     def query_elements_by_name_keyword(self, keyword: str) -> List[Dict]:
@@ -1125,10 +1263,11 @@ class IFCEngine:
         query = """
         MATCH (e:IFCElement)
         WHERE toLower(e.name) CONTAINS toLower($keyword)
+          AND e.ifc_model = $model
         RETURN e.guid as guid, e.name as name, e.ifc_type as type
         LIMIT 20
         """
-        result = self.neo4j_conn.run(query, keyword=keyword)
+        result = self.neo4j_conn.run(query, keyword=keyword, model=self.model_key)
         return [dict(r) for r in result]
 
     def query_elements_by_neighbor(self, ifc_type: str, neighbor_type: str) -> List[Dict]:
@@ -1150,10 +1289,12 @@ class IFCEngine:
 
         query = """
         MATCH (e:IFCElement)-[:HAS_OPENING|FILLS]-(nb:IFCElement)
-        WHERE e.ifc_type = $type
+        WHERE (e.ifc_type = $type OR e.ifc_type STARTS WITH $type)
           AND nb.ifc_type = $neighbor_type
+          AND e.ifc_model = $model
         RETURN DISTINCT e.guid as guid, e.name as name, e.ifc_type as type
         """
         result = self.neo4j_conn.run(query, type=ifc_type,
-                                     neighbor_type=neighbor_type)
+                                     neighbor_type=neighbor_type,
+                                     model=self.model_key)
         return [dict(r) for r in result]

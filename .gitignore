@@ -32,6 +32,9 @@ outputs/
 logs/
 eval/
 
+# Evaluation trace results (large JSON per-case traces)
+evaluation/results/
+
 
 # Large model / weight files
 models/

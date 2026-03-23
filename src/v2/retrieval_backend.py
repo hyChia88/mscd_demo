@@ -22,7 +22,7 @@ class RetrievalBackend:
         retrieval_mode: str,  # "memory" or "neo4j"
         visual_aligner: Optional[Any] = None,  # VisualAligner from v1
         use_clip: bool = False,
-        p0_strategy: str = "p0_intersect_p1",  # retrieval strategy for P0
+        p0_strategy: str = "p0_union_p1",  # retrieval strategy for P0
     ):
         """
         Initialize retrieval backend.
@@ -35,8 +35,8 @@ class RetrievalBackend:
             p0_strategy: How to handle P0 spatial queries:
                 "p0_only"          — P0 fires alone, no safety net (original)
                 "p1_only"          — Skip P0, always use storey+type
-                "p0_intersect_p1"  — P0 ∩ P1 intersection (default, defensive)
-                "p0_union_p1"      — P0 ∪ P1 union (max recall)
+                "p0_intersect_p1"  — P0 ∩ P1 intersection (aggressive)
+                "p0_union_p1"      — P0 ∪ P1 union (default — best recall+ranking)
         """
         self.engine = engine
         self.retrieval_mode = retrieval_mode
@@ -321,6 +321,7 @@ class RetrievalBackend:
 
             # IFC subtype-aware match: IfcWall matches IfcWallStandardCase etc.
             # T1.3: Added graceful material filter on ref element.
+            model_key = self.engine.model_key
             if has_hop2 and predicate2:
                 # 2-hop Cypher: hard filter on hop 1, soft re-rank on hop 2
                 cypher = f"""
@@ -329,6 +330,7 @@ class RetrievalBackend:
                            OR target.ifc_type STARTS WITH $subject_type)
                       AND (ref.ifc_type = $object_type
                            OR ref.ifc_type STARTS WITH $object_type)
+                      AND target.ifc_model = $model
                       AND (size($storey_list) = 0
                            OR ANY(s IN $storey_list WHERE toLower(target.storey) CONTAINS s))
                       AND ($object_material = ''
@@ -349,6 +351,7 @@ class RetrievalBackend:
                     storey_list=storey_siblings,
                     object_material=object_material,
                     object_type2=object_type2,
+                    model=model_key,
                 )
             else:
                 # Single-hop Cypher (original behavior)
@@ -358,6 +361,7 @@ class RetrievalBackend:
                            OR target.ifc_type STARTS WITH $subject_type)
                       AND (ref.ifc_type = $object_type
                            OR ref.ifc_type STARTS WITH $object_type)
+                      AND target.ifc_model = $model
                       AND (size($storey_list) = 0
                            OR ANY(s IN $storey_list WHERE toLower(target.storey) CONTAINS s))
                       AND ($object_material = ''
@@ -371,7 +375,8 @@ class RetrievalBackend:
                     subject_type=subject_type,
                     object_type=object_type,
                     storey_list=storey_siblings,
-                    object_material=object_material
+                    object_material=object_material,
+                    model=model_key,
                 )
             candidates = [dict(r) for r in result]
 
@@ -385,6 +390,7 @@ class RetrievalBackend:
                                OR target.ifc_type STARTS WITH $subject_type)
                           AND (ref.ifc_type = $object_type
                                OR ref.ifc_type STARTS WITH $object_type)
+                          AND target.ifc_model = $model
                           AND ($object_material = ''
                                OR toLower(ref.material) CONTAINS toLower($object_material))
                         OPTIONAL MATCH (ref)-[:{predicate2}]->(ref2:IFCElement)
@@ -402,6 +408,7 @@ class RetrievalBackend:
                         object_type=object_type,
                         object_material=object_material,
                         object_type2=object_type2,
+                        model=model_key,
                     )
                 else:
                     cypher_no_storey = f"""
@@ -410,6 +417,7 @@ class RetrievalBackend:
                                OR target.ifc_type STARTS WITH $subject_type)
                           AND (ref.ifc_type = $object_type
                                OR ref.ifc_type STARTS WITH $object_type)
+                          AND target.ifc_model = $model
                           AND ($object_material = ''
                                OR toLower(ref.material) CONTAINS toLower($object_material))
                         RETURN DISTINCT target.guid as guid, target.name as name,
@@ -421,6 +429,7 @@ class RetrievalBackend:
                         subject_type=subject_type,
                         object_type=object_type,
                         object_material=object_material,
+                        model=model_key,
                     )
                 candidates = [dict(r) for r in result2]
             # Predicate relaxation step 2: no topology edges at all → storey+type
@@ -458,6 +467,7 @@ class RetrievalBackend:
                 MATCH (target:IFCElement)
                 WHERE target.ifc_type = $subject_type
                   AND target.is_continuous = true
+                  AND target.ifc_model = $model
                   AND (
                        (size($top_list) = 0 AND size($storey_list) = 0)
                     OR ANY(s IN $top_list WHERE toLower(target.top_constraint) CONTAINS s)
@@ -472,7 +482,8 @@ class RetrievalBackend:
                 cypher,
                 subject_type=subject_type,
                 top_list=top_siblings,
-                storey_list=storey_siblings
+                storey_list=storey_siblings,
+                model=self.engine.model_key,
             )
             candidates = [dict(r) for r in result]
             # Predicate relaxation: 0 results → fall back to type_only

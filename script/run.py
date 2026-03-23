@@ -615,11 +615,11 @@ def cli() -> argparse.Namespace:
         help="Run on X%% of dataset (e.g., --percent 40 for 40%%). Overrides --limit.",
     )
     p.add_argument(
-        "--p0-strategy", default="p0_intersect_p1",
+        "--p0-strategy", default="p0_union_p1",
         choices=["p0_only", "p1_only", "p0_intersect_p1", "p0_union_p1"],
         dest="p0_strategy",
         help="P0 spatial retrieval strategy: p0_only (original), p1_only (skip P0), "
-             "p0_intersect_p1 (defensive default), p0_union_p1 (max recall)",
+             "p0_intersect_p1 (intersection), p0_union_p1 (union, default — best recall+ranking)",
     )
     return p.parse_args()
 
