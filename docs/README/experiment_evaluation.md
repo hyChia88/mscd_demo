@@ -405,7 +405,7 @@ cd mscd_demo
 ./training/eval_lora4.sh --step h2
 
 # Step 4: Generate LoRA_4 vs LoRA_3 comparison charts
-# Output: logs/comparisons/lora4_vs_lora3/*.png
+# Output: plots/comparisons/lora4_vs_lora3/*.png
 ./training/eval_lora4.sh --step compare
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -416,19 +416,19 @@ cd mscd_demo
 # Exp 1: Attribute entropy quantification
 # Counts duplicate (storey, type) buckets. Shows 46 identical IfcWindows.
 conda run -n mscd_demo python eval/experiments/exp1_attribute_entropy.py \
-    --plot docs/plots/exp1_entropy.png \
+    --plot plots/archive/exp1_entropy.png \
     --h2 ../data_curation/datasets/synth_v0.5/eval/h2_hard_negatives.jsonl
 
 # Exp 3: Hop uniqueness L-curve ("Why 2-hop?")
 # Runs 0/1/2/3-hop progressive Cypher on 28 FILLS cases.
 # Shows L-shaped pool size: 43 -> 4 -> 1-2 -> 1-2
 conda run -n mscd_demo python eval/experiments/exp3_hop_uniqueness.py \
-    --plot docs/plots/exp3_lcurve.png
+    --plot plots/archive/exp3_lcurve.png
 
 # Exp 5: Fallback stress test (OPTIONAL MATCH robustness)
 # Injects wrong object_type into hop-2, compares OPTIONAL vs HARD MATCH.
 conda run -n mscd_demo python eval/experiments/exp5_fallback_stress.py \
-    --plot docs/plots/exp5_fallback.png
+    --plot plots/archive/exp5_fallback.png
 
 # ═══════════════════════════════════════════════════════════════════════
 # Phase 3 — Baselines for 5-way system comparison
@@ -471,7 +471,7 @@ conda run -n mscd_demo python eval/baselines/vector_rag_eval.py \
     --cases eval/cases_v4_test.jsonl \
     --top-k 10 \
     --output logs/evaluations/vector_rag_results.jsonl \
-    --plot docs/plots/vector_rag_baseline.png
+    --plot plots/archive/vector_rag_baseline.png
 
 # Optional: also run on H2 hard-negative cases for tougher benchmark
 conda run -n mscd_demo python eval/baselines/vector_rag_eval.py \
@@ -499,7 +499,7 @@ conda run -n mscd_demo python eval/analyze_traces.py \
 ls -lt logs/evaluations/synth_v05_lora4/traces_*.jsonl | head -10
 
 # View generated plots
-ls docs/plots/exp*.png docs/plots/vector_rag*.png
+ls plots/archive/exp*.png plots/archive/vector_rag*.png
 ```
 
 ---
@@ -591,6 +591,6 @@ bridges the gap between extracted constraints and graph traversal.
 | Directory | Contents |
 |-----------|---------|
 | `logs/evaluations/synth_v05_lora4/` | LoRA_4 precomputed constraints + trace files |
-| `logs/comparisons/lora4_vs_lora3/` | Comparison charts (LoRA_4 vs LoRA_3) |
+| `plots/comparisons/lora4_vs_lora3/` | Comparison charts (LoRA_4 vs LoRA_3) |
 | `eval/baselines/faiss_index/` | FAISS index + metadata for Vector RAG |
-| `docs/plots/` | Thesis figures (exp1, exp3, exp5, vector_rag) |
+| `plots/archive/` | Thesis figures (exp1, exp3, exp5, vector_rag) |

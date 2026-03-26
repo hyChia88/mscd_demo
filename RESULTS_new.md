@@ -73,7 +73,7 @@ agent in element retrieval accuracy?
 
 ### 1.2 Per-Condition Breakdown (V2 Structured)
 
-![V2 accuracy by condition](docs/plots/v1_vs_v2_fixed2/1_accuracy_by_condition.png)
+![V2 accuracy by condition](plots/archive/v1_vs_v2_fixed2/1_accuracy_by_condition.png)
 
 | Condition | n | Top-1 | Key Finding |
 |-----------|---|-------|-------------|
@@ -83,8 +83,8 @@ agent in element retrieval accuracy?
 | B1–B3 (image-based) | 15 | 0–0% | V2 prompt extractor is text-only; images unused |
 
 **Trace files:**
-- V1: `logs/evaluation_output/synth_v03/traces/traces_20260207_*`
-- V2: `logs/evaluation_output/synth_v03/traces/traces_20260214_210555_v2_prompt.jsonl`
+- V1: `output/synth_v03/traces/traces_20260207_*`
+- V2: `output/synth_v03/traces/traces_20260214_210555_v2_prompt.jsonl`
 
 ### 1.3 Takeaway
 
@@ -259,7 +259,7 @@ themselves are highly precise. The gap between Oracle (91.5%) and LoRA₃
 - Adding floorplan to site photo (MA vs MB) does **not** improve GT-in-Pool
   (28.6% vs 32.9%), suggesting the model cannot yet fuse cross-modal spatial cues
 
-![Per-floor GT-in-Pool by condition](logs/evaluation_output/synth_v05_lora5/plots/per_floor_multi_condition.png)
+![Per-floor GT-in-Pool by condition](output/synth_v05_lora5/plots/per_floor_multi_condition.png)
 
 ### 3.2 VLM Extraction Quality (LoRA₅, Diagnostic)
 
@@ -278,7 +278,7 @@ themselves are highly precise. The gap between Oracle (91.5%) and LoRA₃
 
 #### Predicate Confusion Matrix (MC)
 
-![Predicate confusion matrix](logs/evaluation_output/synth_v05_lora5/plots/predicate_confusion_MC.png)
+![Predicate confusion matrix](output/synth_v05_lora5/plots/predicate_confusion_MC.png)
 
 | GT → Predicted | ADJACENT_TO | FILLS | CONTINUOUS | NEXT_TO | CONNECTS_TO |
 |----------------|-------------|-------|------------|---------|-------------|
@@ -298,7 +298,7 @@ between walls. The correct predicate for Window→Wall is FILLS. This is a
 
 #### Subject Type Confusion Matrix (MC)
 
-![Subject type confusion matrix](logs/evaluation_output/synth_v05_lora5/plots/subject_confusion_MC.png)
+![Subject type confusion matrix](output/synth_v05_lora5/plots/subject_confusion_MC.png)
 
 | GT → Predicted | IfcDoor | IfcWallStdCase | IfcWindow |
 |----------------|---------|----------------|-----------|
@@ -312,7 +312,7 @@ walls, biasing toward predicting the FILLS subject.
 
 #### Per-Hop Field Accuracy (MC)
 
-![Per-hop field accuracy](logs/evaluation_output/synth_v05_lora5/plots/hop_accuracy_MC.png)
+![Per-hop field accuracy](output/synth_v05_lora5/plots/hop_accuracy_MC.png)
 
 | Hop | Subject Acc | Predicate Acc | Object Acc |
 |-----|-------------|---------------|------------|
@@ -326,11 +326,11 @@ extraction (hop 2+) is not viable with current training.
 
 #### Per-Case Hop Waterfall (MC)
 
-![Per-case hop waterfall](logs/evaluation_output/synth_v05_lora5/plots/hop_waterfall_MC.png)
+![Per-case hop waterfall](output/synth_v05_lora5/plots/hop_waterfall_MC.png)
 
 ### 3.3 Pool Outcome Breakdown (LoRA₅)
 
-![Pool outcome and RQS](logs/evaluation_output/synth_v05_lora5/plots/rqs_overview.png)
+![Pool outcome and RQS](output/synth_v05_lora5/plots/rqs_overview.png)
 
 Across all conditions, **63–77% of cases are over-reduced** (GT pruned from
 pool). The Retrieval Quality Score (RQS = F1 of Recall × Valid-SSR) ranges from
@@ -341,15 +341,15 @@ filtering and GT retention.
 
 | Strategy | Description | Trace File |
 |----------|-------------|------------|
-| P0-only | Spatial Cypher only | `logs/evaluation_output/synth_v05_lora5/strategy_ablation/traces_20260317_222542_v2_lora_MC_p0_only.jsonl` |
-| P1-only | Storey+type only | `logs/evaluation_output/synth_v05_lora5/strategy_ablation/traces_20260317_222632_v2_lora_MC_p1_only.jsonl` |
-| P0 ∩ P1 | Intersection of both pools | `logs/evaluation_output/synth_v05_lora5/strategy_ablation/traces_20260317_222717_v2_lora_MC_p0_intersect_p1.jsonl` |
-| P0 ∪ P1 | Union of both pools | `logs/evaluation_output/synth_v05_lora5/strategy_ablation/traces_20260317_222758_v2_lora_MC_p0_union_p1.jsonl` |
+| P0-only | Spatial Cypher only | `output/synth_v05_lora5/strategy_ablation/traces_20260317_222542_v2_lora_MC_p0_only.jsonl` |
+| P1-only | Storey+type only | `output/synth_v05_lora5/strategy_ablation/traces_20260317_222632_v2_lora_MC_p1_only.jsonl` |
+| P0 ∩ P1 | Intersection of both pools | `output/synth_v05_lora5/strategy_ablation/traces_20260317_222717_v2_lora_MC_p0_intersect_p1.jsonl` |
+| P0 ∪ P1 | Union of both pools | `output/synth_v05_lora5/strategy_ablation/traces_20260317_222758_v2_lora_MC_p0_union_p1.jsonl` |
 
 ### 3.5 Per-Floor Analysis (LoRA₅)
 
-![Per-floor GT-in-Pool (MC)](logs/evaluation_output/synth_v05_lora5/plots/per_floor_gt_in_pool_MC.png)
-![Per-floor retrieval (MC)](logs/evaluation_output/synth_v05_lora5/plots/per_floor_retrieval_MC.png)
+![Per-floor GT-in-Pool (MC)](output/synth_v05_lora5/plots/per_floor_gt_in_pool_MC.png)
+![Per-floor retrieval (MC)](output/synth_v05_lora5/plots/per_floor_retrieval_MC.png)
 
 ---
 
@@ -359,7 +359,7 @@ filtering and GT retention.
 
 ### 4.1 Overall Metrics
 
-![4-way overall metrics](logs/comparisons/0317_4way_ap_only/charts/1_overall_metrics.png)
+![4-way overall metrics](plots/comparisons/0317_4way_ap_only/charts/1_overall_metrics.png)
 
 | Metric | Gemini (n=59) | LoRA₃ (n=20) | LoRA₄ (n=58) | LoRA₅ (n=59) |
 |--------|--------------|---------------|---------------|---------------|
@@ -376,7 +376,7 @@ filtering and GT retention.
 
 ### 4.2 Search Space Reduction
 
-![SSR: Valid vs Over-Reduced](logs/comparisons/0317_4way_ap_only/charts/3_search_space_reduction.png)
+![SSR: Valid vs Over-Reduced](plots/comparisons/0317_4way_ap_only/charts/3_search_space_reduction.png)
 
 All models achieve ~95–99% Valid-SSR when GT is retained. The critical difference
 is **how often GT survives** — LoRA₃ retains GT in 3/20 valid cases vs LoRA₅
@@ -386,7 +386,7 @@ from bad retrieval**.
 
 ### 4.3 Query Plan Distribution
 
-![Query plan distribution](logs/comparisons/0317_4way_ap_only/charts/13_query_plan_distribution.png)
+![Query plan distribution](plots/comparisons/0317_4way_ap_only/charts/13_query_plan_distribution.png)
 
 - **Gemini**: 93% P0 spatial (extracts spatial relations from prompt, but with
   wrong predicates)
@@ -429,19 +429,19 @@ from bad retrieval**.
 > predicate selection.
 
 **Trace files:**
-- Gemini: `logs/comparisons/0317_4way_ap_only/traces_gemini_MC_ap_only.jsonl`
-- LoRA₃: `logs/comparisons/0317_4way_ap_only/traces_lora3_MC_ap_only.jsonl`
-- LoRA₄: `logs/comparisons/0317_4way_ap_only/traces_lora4_MC_ap_only.jsonl`
-- LoRA₅: `logs/comparisons/0317_4way_ap_only/traces_lora5_MC_ap_only.jsonl`
+- Gemini: `plots/comparisons/0317_4way_ap_only/traces_gemini_MC_ap_only.jsonl`
+- LoRA₃: `plots/comparisons/0317_4way_ap_only/traces_lora3_MC_ap_only.jsonl`
+- LoRA₄: `plots/comparisons/0317_4way_ap_only/traces_lora4_MC_ap_only.jsonl`
+- LoRA₅: `plots/comparisons/0317_4way_ap_only/traces_lora5_MC_ap_only.jsonl`
 
 **Additional charts:**
-- [Condition comparison](logs/comparisons/0317_4way_ap_only/charts/2_condition_comparison.png)
-- [Efficiency comparison](logs/comparisons/0317_4way_ap_only/charts/4_efficiency_comparison.png)
-- [Accuracy heatmap](logs/comparisons/0317_4way_ap_only/charts/5_accuracy_heatmap.png)
-- [Accuracy heatmap (detail)](logs/comparisons/0317_4way_ap_only/charts/6_accuracy_heatmap_details.png)
-- [Full condition heatmap](logs/comparisons/0317_4way_ap_only/charts/6b_full_condition_heatmap.png)
-- [Modality gain](logs/comparisons/0317_4way_ap_only/charts/7_modality_gain.png)
-- [Difficulty degradation](logs/comparisons/0317_4way_ap_only/charts/8_difficulty_degradation.png)
+- [Condition comparison](plots/comparisons/0317_4way_ap_only/charts/2_condition_comparison.png)
+- [Efficiency comparison](plots/comparisons/0317_4way_ap_only/charts/4_efficiency_comparison.png)
+- [Accuracy heatmap](plots/comparisons/0317_4way_ap_only/charts/5_accuracy_heatmap.png)
+- [Accuracy heatmap (detail)](plots/comparisons/0317_4way_ap_only/charts/6_accuracy_heatmap_details.png)
+- [Full condition heatmap](plots/comparisons/0317_4way_ap_only/charts/6b_full_condition_heatmap.png)
+- [Modality gain](plots/comparisons/0317_4way_ap_only/charts/7_modality_gain.png)
+- [Difficulty degradation](plots/comparisons/0317_4way_ap_only/charts/8_difficulty_degradation.png)
 
 ---
 
@@ -496,7 +496,7 @@ from bad retrieval**.
 > valid as a within-model comparison, but absolute Top-1 values are inflated
 > by the small-model cases. See §Threats to Validity for details.
 
-**Trace files:** `logs/evaluation_output/synth_v04/summary_20260224_06*_v2_lora_{MA,MB,MC,MA-,MC-}.csv`
+**Trace files:** `output/synth_v04/summary_20260224_06*_v2_lora_{MA,MB,MC,MA-,MC-}.csv`
 
 ### Key Observation: Modality Crossover Between LoRA₂ and LoRA₅
 
@@ -635,7 +635,7 @@ and what is the optimal query planner strategy for each?
 
 > GT-in-Pool computed from full candidate pool (`internals.retrieval_results[0].candidates`).
 
-![Unified GT-in-Pool comparison](logs/evaluation_output/unified/plots/U1_overall_metrics.png)
+![Unified GT-in-Pool comparison](output/unified/plots/U1_overall_metrics.png)
 
 ### 5.3 FP vs MC Modality Comparison
 
@@ -682,7 +682,7 @@ for the cases where attribute-only methods plateau.**
 | lora5r32_FP | **81.9%** | 63.8% | **100.0%** |
 | lora5r32_MC | **81.9%** | **64.7%** | **100.0%** |
 
-![Field accuracy comparison](logs/evaluation_output/unified/plots/U6_field_accuracy_heatmap.png)
+![Field accuracy comparison](output/unified/plots/U6_field_accuracy_heatmap.png)
 
 **Notable:** LoRA₅ variants achieve the highest storey accuracy (81.9%) — the
 simplified numeric storey format ("1" vs "1 - First Floor") is easier to learn.
@@ -768,8 +768,8 @@ reduction** (avg 40 vs 68), which aids downstream reranking.
 
 `p0∪p1` achieves the best Top-1 (4.3%) and ties best GT-in-Pool (41.4%).
 
-![Strategy ablation](logs/evaluation_output/unified/plots/U9_strategy_ablation.png)
-![LoRA₅-r32 strategy impact](logs/evaluation_output/unified/plots/U10_optimal_strategy.png)
+![Strategy ablation](output/unified/plots/U9_strategy_ablation.png)
+![LoRA₅-r32 strategy impact](output/unified/plots/U10_optimal_strategy.png)
 
 ### 5.8 Strategy Ablation: Key Insight
 
@@ -801,7 +801,7 @@ spatial path succeeds but storey+type fails.
 | Gemini | `p0∪p1` | 50.9% | 25.9% | Only model with unique P0 recovery |
 | LoRA₂ | ANY | 36.2% | 21.6% | Strategy-invariant (0% SR → all P1) |
 
-**Trace files:** `logs/evaluation_output/unified/strategy_ablation_v3/` (post BH-fix, 4 runs p0∪p1)
+**Trace files:** `output/unified/strategy_ablation_v3/` (post BH-fix, 4 runs p0∪p1)
 
 ---
 
@@ -1086,41 +1086,41 @@ Increase negative examples in training — LoRA5 needs more attribute-only cases
 | **Group 2: LoRA₃ site MB** | `evaluation/results/lora3_site_MB/` |
 | **Group 2: LoRA₃ wire MC** | `evaluation/results/lora3_MC/` |
 | **Group 2: LoRA₃ wire MB** | `evaluation/results/lora3_MB/` |
-| **Group 3: LoRA₅ MA** | `logs/evaluation_output/synth_v05_lora5/traces_20260318_010048_v2_lora_MA_p0_intersect_p1.jsonl` |
-| **Group 3: LoRA₅ MB** | `logs/evaluation_output/synth_v05_lora5/traces_20260318_010144_v2_lora_MB_p0_intersect_p1.jsonl` |
-| **Group 3: LoRA₅ MC** | `logs/evaluation_output/synth_v05_lora5/traces_20260318_011558_v2_lora_MC_p0_intersect_p1.jsonl` |
-| **Group 3: LoRA₅ FP** | `logs/evaluation_output/synth_v05_lora5/traces_20260318_010325_v2_lora_FP_p0_intersect_p1.jsonl` |
-| **Group 3: LoRA₅ SITE** | `logs/evaluation_output/synth_v05_lora5/traces_20260318_010412_v2_lora_SITE_p0_intersect_p1.jsonl` |
-| **Group 3: Strategy P0-only** | `logs/evaluation_output/synth_v05_lora5/strategy_ablation/traces_20260317_222542_v2_lora_MC_p0_only.jsonl` |
-| **Group 3: Strategy P1-only** | `logs/evaluation_output/synth_v05_lora5/strategy_ablation/traces_20260317_222632_v2_lora_MC_p1_only.jsonl` |
-| **Group 3: Strategy P0∩P1** | `logs/evaluation_output/synth_v05_lora5/strategy_ablation/traces_20260317_222717_v2_lora_MC_p0_intersect_p1.jsonl` |
-| **Group 3: Strategy P0∪P1** | `logs/evaluation_output/synth_v05_lora5/strategy_ablation/traces_20260317_222758_v2_lora_MC_p0_union_p1.jsonl` |
-| **Group 4: Gemini** | `logs/comparisons/0317_4way_ap_only/traces_gemini_MC_ap_only.jsonl` |
-| **Group 4: LoRA₃** | `logs/comparisons/0317_4way_ap_only/traces_lora3_MC_ap_only.jsonl` |
-| **Group 4: LoRA₄** | `logs/comparisons/0317_4way_ap_only/traces_lora4_MC_ap_only.jsonl` |
-| **Group 4: LoRA₅** | `logs/comparisons/0317_4way_ap_only/traces_lora5_MC_ap_only.jsonl` |
-| **Group 5: Unified (8 runs)** | `logs/evaluation_output/unified/traces/traces_*.jsonl` |
-| **Group 5: Strategy ablation (16 runs)** | `logs/evaluation_output/unified/strategy_ablation_v2/traces_*.jsonl` |
+| **Group 3: LoRA₅ MA** | `output/synth_v05_lora5/traces_20260318_010048_v2_lora_MA_p0_intersect_p1.jsonl` |
+| **Group 3: LoRA₅ MB** | `output/synth_v05_lora5/traces_20260318_010144_v2_lora_MB_p0_intersect_p1.jsonl` |
+| **Group 3: LoRA₅ MC** | `output/synth_v05_lora5/traces_20260318_011558_v2_lora_MC_p0_intersect_p1.jsonl` |
+| **Group 3: LoRA₅ FP** | `output/synth_v05_lora5/traces_20260318_010325_v2_lora_FP_p0_intersect_p1.jsonl` |
+| **Group 3: LoRA₅ SITE** | `output/synth_v05_lora5/traces_20260318_010412_v2_lora_SITE_p0_intersect_p1.jsonl` |
+| **Group 3: Strategy P0-only** | `output/synth_v05_lora5/strategy_ablation/traces_20260317_222542_v2_lora_MC_p0_only.jsonl` |
+| **Group 3: Strategy P1-only** | `output/synth_v05_lora5/strategy_ablation/traces_20260317_222632_v2_lora_MC_p1_only.jsonl` |
+| **Group 3: Strategy P0∩P1** | `output/synth_v05_lora5/strategy_ablation/traces_20260317_222717_v2_lora_MC_p0_intersect_p1.jsonl` |
+| **Group 3: Strategy P0∪P1** | `output/synth_v05_lora5/strategy_ablation/traces_20260317_222758_v2_lora_MC_p0_union_p1.jsonl` |
+| **Group 4: Gemini** | `plots/comparisons/0317_4way_ap_only/traces_gemini_MC_ap_only.jsonl` |
+| **Group 4: LoRA₃** | `plots/comparisons/0317_4way_ap_only/traces_lora3_MC_ap_only.jsonl` |
+| **Group 4: LoRA₄** | `plots/comparisons/0317_4way_ap_only/traces_lora4_MC_ap_only.jsonl` |
+| **Group 4: LoRA₅** | `plots/comparisons/0317_4way_ap_only/traces_lora5_MC_ap_only.jsonl` |
+| **Group 5: Unified (8 runs)** | `output/unified/traces/traces_*.jsonl` |
+| **Group 5: Strategy ablation (16 runs)** | `output/unified/strategy_ablation_v2/traces_*.jsonl` |
 
 ### Metrics & Summaries
 
 | File | Description |
 |------|-------------|
 | `evaluation/plots/thesis_summary.csv` | Group 2 summary (7 systems × 17 metrics) |
-| `logs/evaluation_output/synth_v05_lora5/lora5_metrics_latest.csv` | LoRA₅ full metrics (5 conditions × 43 metrics) |
-| `logs/evaluation_output/synth_v05_lora5/h2_results_20260317_122817.jsonl` | H2 hard-negative stress test |
-| `logs/evaluation_output/synth_v05_lora5/eval_constraints_final_{MA,MB,MC,FP,SITE}.jsonl` | Precomputed LoRA₅ constraints |
+| `output/synth_v05_lora5/lora5_metrics_latest.csv` | LoRA₅ full metrics (5 conditions × 43 metrics) |
+| `output/synth_v05_lora5/h2_results_20260317_122817.jsonl` | H2 hard-negative stress test |
+| `output/synth_v05_lora5/eval_constraints_final_{MA,MB,MC,FP,SITE}.jsonl` | Precomputed LoRA₅ constraints |
 
 ### Plot Directories
 
 | Directory | Contents |
 |-----------|----------|
 | `evaluation/plots/` | Thesis-ready figures (T1–T5) |
-| `logs/evaluation_output/synth_v05_lora5/plots/` | LoRA₅ deep-dive (confusion matrices, waterfall, per-floor) |
-| `logs/comparisons/0317_4way_ap_only/charts/` | 4-way comparison charts (AP-only filtered) |
-| `logs/comparisons/0317_4way_comparison/` | 4-way comparison charts (all cases, unfiltered) |
-| `logs/evaluation_output/unified/plots/` | **Unified eval plots (U1–U10)** |
-| `logs/evaluation_output/unified/strategy_ablation_v2/` | **Strategy ablation traces (16 runs)** |
-| `docs/plots/v1_vs_v2_fixed2/` | V1 vs V2 condition breakdown |
-| `docs/plots/0224_modality_6cond/` | 6-condition modality analysis |
+| `output/synth_v05_lora5/plots/` | LoRA₅ deep-dive (confusion matrices, waterfall, per-floor) |
+| `plots/comparisons/0317_4way_ap_only/charts/` | 4-way comparison charts (AP-only filtered) |
+| `plots/comparisons/0317_4way_comparison/` | 4-way comparison charts (all cases, unfiltered) |
+| `output/unified/plots/` | **Unified eval plots (U1–U10)** |
+| `output/unified/strategy_ablation_v2/` | **Strategy ablation traces (16 runs)** |
+| `plots/archive/v1_vs_v2_fixed2/` | V1 vs V2 condition breakdown |
+| `plots/archive/0224_modality_6cond/` | 6-condition modality analysis |
 | `docs/diagram/` | Architecture diagrams |

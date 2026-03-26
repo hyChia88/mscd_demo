@@ -102,7 +102,7 @@ experiments:
     profile: v1_baseline
     conditions: []  # All conditions (no filter)
     cases: ../data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl
-    output_dir: logs/evaluation_output
+    output_dir: output
     tags: [v1, baseline, synth_v0.3]
 
   # V2 prompt baseline on synth_v0.3 (already run — Exp 3)
@@ -111,9 +111,9 @@ experiments:
     profile: v2_prompt
     conditions: []  # All conditions
     cases: ../data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl
-    output_dir: logs/evaluation_output
+    output_dir: output
     tags: [v2, prompt, synth_v0.3]
-    existing_traces: logs/evaluation_output/traces_20260214_210555_v2_prompt.jsonl
+    existing_traces: output/traces_20260214_210555_v2_prompt.jsonl
 
   # V2 LoRA (final adapter) on synth_v0.3
   v2_lora_final_v03:
@@ -121,8 +121,8 @@ experiments:
     profile: v2_lora
     conditions: []
     cases: ../data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl
-    output_dir: logs/evaluation_output
-    precomputed: logs/evaluation_output/eval_constraints_final.jsonl
+    output_dir: output
+    precomputed: output/eval_constraints_final.jsonl
     tags: [v2, lora, final, synth_v0.3]
 
   # V2 LoRA (checkpoint-180) on synth_v0.3
@@ -131,8 +131,8 @@ experiments:
     profile: v2_lora
     conditions: []
     cases: ../data_curation/datasets/synth_v0.3/cases_v3_filtered.jsonl
-    output_dir: logs/evaluation_output
-    precomputed: logs/evaluation_output/eval_constraints_checkpoint-180.jsonl
+    output_dir: output
+    precomputed: output/eval_constraints_checkpoint-180.jsonl
     tags: [v2, lora, ckpt180, synth_v0.3]
 
   # ===========================================================================
@@ -150,7 +150,7 @@ experiments:
     # This is required for MA/MB/MC-style runs where cases lack those bench.condition labels.
     condition_overrides: [MA, MB, MC, "MA-", "MB-", "MC-"]
     cases: ../data_curation/datasets/synth_v0.4_merged/train/test_holdout.jsonl
-    output_dir: logs/evaluation_output/synth_v04
+    output_dir: output/synth_v04
     tags: [modality, 4d-ablation, v2, lora, synth_v0.4_merged]
 
   modality_4d_ablation_prompt:
@@ -158,7 +158,7 @@ experiments:
     profile: v2_prompt
     condition_overrides: [MA, MB, MC, "MA-", "MB-", "MC-"]
     cases: ../data_curation/datasets/synth_v0.4_merged/train/test_holdout.jsonl
-    output_dir: logs/evaluation_output/synth_v04
+    output_dir: output/synth_v04
     tags: [modality, 4d-ablation, v2, prompt, synth_v0.4_merged]
 
   # ===========================================================================
@@ -174,19 +174,19 @@ experiments:
     adapter_path: models/adapters/v2_lora_qwen/final
     condition_overrides: [MA, MB, MC, "MA-", "MB-", "MC-"]
     cases: ../data_curation/datasets/synth_v0.4_merged/train/test_holdout_with_images.jsonl
-    output_dir: logs/evaluation_output/synth_v04
+    output_dir: output/synth_v04
     # Per-condition precomputed files from Modal LoRA inference.
     # Run on Modal:  modal run training/eval.py --condition-override <COND>
     # Download:      modal volume get mscd-checkpoints \
     #                  /mscd-lora/eval_constraints_final_<COND>.jsonl \
-    #                  logs/evaluation_output/synth_v04/precomputed/
+    #                  output/synth_v04/precomputed/
     precomputed_map:
-      MA:   logs/evaluation_output/synth_v04/precomputed/eval_constraints_final_MA.jsonl
-      MB:   logs/evaluation_output/synth_v04/precomputed/eval_constraints_final_MB.jsonl
-      MC:   logs/evaluation_output/synth_v04/precomputed/eval_constraints_final_MC.jsonl
-      "MA-": logs/evaluation_output/synth_v04/precomputed/eval_constraints_final_MA-.jsonl
-      "MB-": logs/evaluation_output/synth_v04/precomputed/eval_constraints_final_MB-.jsonl
-      "MC-": logs/evaluation_output/synth_v04/precomputed/eval_constraints_final_MC-.jsonl
+      MA:   output/synth_v04/precomputed/eval_constraints_final_MA.jsonl
+      MB:   output/synth_v04/precomputed/eval_constraints_final_MB.jsonl
+      MC:   output/synth_v04/precomputed/eval_constraints_final_MC.jsonl
+      "MA-": output/synth_v04/precomputed/eval_constraints_final_MA-.jsonl
+      "MB-": output/synth_v04/precomputed/eval_constraints_final_MB-.jsonl
+      "MC-": output/synth_v04/precomputed/eval_constraints_final_MC-.jsonl
     tags: [modality, 6cond, v2, lora, synth_v0.4_merged]
 
   modality_6cond_prompt:
@@ -194,7 +194,7 @@ experiments:
     profile: v2_prompt
     condition_overrides: [MA, MB, MC, "MA-", "MB-", "MC-"]
     cases: ../data_curation/datasets/synth_v0.4_merged/train/test_holdout_with_images.jsonl
-    output_dir: logs/evaluation_output/synth_v04
+    output_dir: output/synth_v04
     tags: [modality, 6cond, v2, prompt, synth_v0.4_merged]
 
 # Comparison groups - define which experiments to compare
@@ -203,24 +203,24 @@ comparisons:
     description: "Before/After VLM Integration"
     before: baseline_v2
     after: vlm_integration
-    output_dir: logs/comparisons/vlm_impact
+    output_dir: plots/comparisons/vlm_impact
 
   ablation_study:
     description: "Images vs Floorplan VLM effectiveness"
     experiments: [ablation_images_only, ablation_floorplan_only]
-    output_dir: logs/comparisons/ablation
+    output_dir: plots/comparisons/ablation
 
   v1_vs_v2:
     description: "V1 Agent-Driven vs V2 Constraints-Driven Pipeline Comparison"
     before: v1_baseline_test
     after: v2_prompt_test
-    output_dir: logs/comparisons/v1_vs_v2
+    output_dir: plots/comparisons/v1_vs_v2
 
   # synth_v0.3: V1 vs V2-prompt vs V2-LoRA (4-way comparison)
   v03_full_comparison:
     description: "V1 vs V2-Prompt vs V2-LoRA-Final vs V2-LoRA-Ckpt180 on synth_v0.3"
     experiments: [v1_baseline_v03, v2_prompt_v03, v2_lora_final_v03, v2_lora_ckpt180_v03]
-    output_dir: logs/comparisons/v03_full
+    output_dir: plots/comparisons/v03_full
 
 # Metadata tracking
 tracking:

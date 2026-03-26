@@ -13,7 +13,7 @@ Requires: Neo4j running with AdvancedProject.ifc loaded.
 
 Usage:
     conda run -n mscd_demo python evaluation/experiments/exp1_attribute_entropy.py
-    conda run -n mscd_demo python evaluation/experiments/exp1_attribute_entropy.py --plot docs/plots/exp1_entropy.png
+    conda run -n mscd_demo python evaluation/experiments/exp1_attribute_entropy.py --plot plots/archive/exp1_entropy.png
 """
 
 import argparse

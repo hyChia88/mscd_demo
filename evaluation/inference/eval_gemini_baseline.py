@@ -27,7 +27,7 @@ Usage:
     done
 
 After running, feed results into the same local pipeline:
-    python script/run.py --profile v2_lora --precomputed logs/evaluation_output/gemini_baseline/eval_constraints_final_MC.jsonl ...
+    python script/run.py --profile v2_lora --precomputed output/gemini_baseline/eval_constraints_final_MC.jsonl ...
 """
 
 import argparse

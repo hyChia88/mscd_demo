@@ -10,7 +10,7 @@
 #   ./training/eval.sh --step modal                 # Step 1-2: Modal extraction + download
 #   ./training/eval.sh --step local                 # Step 3: Local pipeline (needs precomputed)
 #   ./training/eval.sh --step plots                 # Step 4: Comparison charts only
-#   ./training/eval.sh --step update-plots          # Regenerate docs/plots from latest traces
+#   ./training/eval.sh --step update-plots          # Regenerate plots/archive from latest traces
 #   ./training/eval.sh --step update-plots --experiment modality_6cond_lora
 #   ./training/eval.sh --adapter final              # Single adapter only
 #   ./training/eval.sh --skip-v2-prompt             # Skip V2 prompt baseline (already done)
@@ -22,11 +22,11 @@
 #   - synth_v0.3 dataset in ../data_curation/datasets/synth_v0.3/
 #
 # Output:
-#   logs/evaluation_output/
+#   output/
 #     eval_constraints_{adapter}.jsonl   # Pre-extracted constraints (from Modal)
 #     traces_{timestamp}_v2_lora.jsonl   # Full eval traces
 #     summary_{timestamp}_v2_lora.csv    # Summary metrics
-#   logs/comparisons/v03_full/
+#   plots/comparisons/v03_full/
 #     *.png                              # Comparison charts
 # ============================================================================
 
@@ -39,12 +39,12 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 DATA_ROOT="$(dirname "$PROJECT_DIR")/data_curation"
 
 CASES="$DATA_ROOT/datasets/synth_v0.4_merged/train/test_holdout.jsonl"  # 50 holdout cases (AP=20, BH=20, DXA=10)
-EVAL_DIR="$PROJECT_DIR/logs/evaluation_output/synth_v04"   # new runs land here
-PLOTS_DIR="$PROJECT_DIR/logs/comparisons/synth_v0.4_lora_2"
+EVAL_DIR="$PROJECT_DIR/output/synth_v04"   # new runs land here
+PLOTS_DIR="$PROJECT_DIR/plots/comparisons/synth_v0.4_lora_2"
 
 # V2 prompt baseline from Exp 2 (synth_v0.3, 84 cases — for reference only)
-V2_PROMPT_TRACES="$PROJECT_DIR/logs/evaluation_output/synth_v03/traces/traces_20260214_210555_v2_prompt.jsonl"
-V2_PROMPT_SUMMARY="$PROJECT_DIR/logs/evaluation_output/synth_v03/summaries/summary_20260214_210555_v2_prompt.csv"
+V2_PROMPT_TRACES="$PROJECT_DIR/output/synth_v03/traces/traces_20260214_210555_v2_prompt.jsonl"
+V2_PROMPT_SUMMARY="$PROJECT_DIR/output/synth_v03/summaries/summary_20260214_210555_v2_prompt.csv"
 
 # ── Colors ───────────────────────────────────────────────────────────────────
 
@@ -91,7 +91,7 @@ while [[ $# -gt 0 ]]; do
             echo "  paired-ablation   LoRA+Prompt MA/MB/MC ablation + overall comparison"
             echo "  overall           Overall comparison only (LoRA final vs Prompt v2, per-case)"
             echo "  modality-6cond    Full 6-condition ablation (MA/MB/MC/MA-/MB-/MC- × LoRA+Prompt)"
-            echo "  update-plots      Regenerate docs/plots from latest traces (never overwrites)"
+            echo "  update-plots      Regenerate plots/archive from latest traces (never overwrites)"
             echo ""
             echo "Options:"
             echo "  --adapter NAME              Adapter name (default: final + checkpoint-180)"
@@ -555,16 +555,16 @@ run_modality_6cond() {
     conda run -n "$CONDA_ENV" python -u script/experiment.py run modality_6cond_prompt
     ok "modality_6cond_prompt complete"
 
-    # ── 4. Generate docs/plots for this run ───────────────────────────────────
+    # ── 4. Generate plots/archive for this run ───────────────────────────────────
     run_update_plots "modality_6cond"
 }
 
 # ═════════════════════════════════════════════════════════════════════════════
-# STEP: Update Plots — regenerate docs/plots from latest traces
+# STEP: Update Plots — regenerate plots/archive from latest traces
 #
 # Never overwrites existing directories.  Naming convention:
-#   docs/plots/MMDD_<experiment>           (first run on that date)
-#   docs/plots/MMDD_<experiment>_v2        (second run, etc.)
+#   plots/archive/MMDD_<experiment>           (first run on that date)
+#   plots/archive/MMDD_<experiment>_v2        (second run, etc.)
 #
 # Usage:
 #   ./training/eval.sh --step update-plots                          # modality_6cond (default)
@@ -627,7 +627,7 @@ run_update_plots() {
     # ── Determine output directory (never overwrite) ──────────────────────────
     local date_prefix out_dir
     date_prefix=$(date +%m%d)
-    out_dir="$PROJECT_DIR/docs/plots/${date_prefix}_${experiment}"
+    out_dir="$PROJECT_DIR/plots/archive/${date_prefix}_${experiment}"
 
     if [[ -d "$out_dir" ]]; then
         local n=2

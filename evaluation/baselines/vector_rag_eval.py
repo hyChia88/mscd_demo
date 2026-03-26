@@ -12,8 +12,8 @@ Usage:
     python evaluation/baselines/vector_rag_eval.py \
         --index evaluation/baselines/faiss_index/ \
         --cases evaluation/cases/cases_v3_test.jsonl \
-        --output logs/evaluation_output/vector_rag_results.jsonl \
-        --plot docs/plots/vector_rag_baseline.png
+        --output output/vector_rag_results.jsonl \
+        --plot plots/archive/vector_rag_baseline.png
 """
 
 import argparse

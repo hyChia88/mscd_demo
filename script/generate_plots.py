@@ -5,15 +5,15 @@ Generate evaluation plots from trace files.
 Usage:
   # Standard mode — from JSONL trace files
   python script/generate_plots.py --latest
-  python script/generate_plots.py --traces logs/evaluation_output/traces_*.jsonl
+  python script/generate_plots.py --traces output/traces_*.jsonl
   python script/generate_plots.py \\
-    --traces logs/evaluation_output/new_pipeline/traces_*.jsonl \\
-    --before logs/evaluation_output/old_pipeline/traces_*.jsonl \\
+    --traces output/new_pipeline/traces_*.jsonl \\
+    --before output/old_pipeline/traces_*.jsonl \\
     --output logs/plots/comparison
 
   # Modality analysis mode — loads *.trace.json files directly
   python script/generate_plots.py --modality
-  python script/generate_plots.py --modality --output docs/plots/modality
+  python script/generate_plots.py --modality --output plots/archive/modality
   python script/generate_plots.py --modality --run-filter lora
 """
 
@@ -30,7 +30,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 from src.evaluation_infra.visualizations import generate_all_plots, generate_modality_plots
 
 
-def find_latest_traces(base_dir: str = "logs/evaluation_output") -> str:
+def find_latest_traces(base_dir: str = "output") -> str:
     """Find the most recent traces file."""
     pattern = f"{base_dir}/**/traces_*.jsonl"
     files = sorted(glob(pattern, recursive=True), reverse=True)
@@ -61,7 +61,7 @@ def main():
     parser.add_argument(
         "--latest",
         action="store_true",
-        help="Use the latest traces file from logs/evaluation_output"
+        help="Use the latest traces file from output"
     )
     parser.add_argument(
         "--modality",
@@ -86,7 +86,7 @@ def main():
 
     # ── Modality analysis mode ────────────────────────────────────────────────
     if args.modality:
-        output_dir = args.output or "docs/plots/modality"
+        output_dir = args.output or "plots/archive/modality"
         traces_jsonl = None
         if args.traces:
             matches = expand_patterns(args.traces)

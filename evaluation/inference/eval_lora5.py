@@ -780,11 +780,11 @@ def run_eval(
     print(f"\nDownload with:")
     print(f"  modal volume get mscd-checkpoints "
           f"/mscd-lora-v5/eval_constraints_{tag}.jsonl "
-          f"./logs/evaluation_output/")
+          f"./output/")
     print(f"\nRun local pipeline with pre-computed constraints:")
     print(f"  python script/run.py --profile v2_lora \\")
     print(f"    --cases eval/cases_v3_test.jsonl \\")
-    print(f"    --precomputed logs/evaluation_output/eval_constraints_{tag}.jsonl")
+    print(f"    --precomputed output/eval_constraints_{tag}.jsonl")
 
     return {
         "total": len(cases),
@@ -893,9 +893,9 @@ def main(
     print(f"\nDownload results:")
     print(f"  modal volume get mscd-checkpoints "
           f"/mscd-lora-v5/eval_constraints_{tag}.jsonl "
-          f"./logs/evaluation_output/")
+          f"./output/")
     cases_hint = cases if cases else "evaluation/cases/cases_v3_test.jsonl"
     print(f"\nRun local pipeline:")
     print(f"  python script/run.py --profile v2_lora \\")
     print(f"    --cases {cases_hint} \\")
-    print(f"    --precomputed logs/evaluation_output/eval_constraints_{tag}.jsonl")
+    print(f"    --precomputed output/eval_constraints_{tag}.jsonl")

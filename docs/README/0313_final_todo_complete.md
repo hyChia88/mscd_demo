@@ -136,7 +136,7 @@ retrieval, not Neo4j edges — these will improve with NEXT_TO training data (Lo
 | **LoRA_5 trained** | ✅ Done (03-17) | Modal A100, multi-triplet + CONNECTS_TO/NEXT_TO |
 | **LoRA_5 full eval (MA/MB/MC/FP/SITE)** | ✅ Done (03-18) | `logs/evaluations/synth_v05_lora5/` |
 | **P0∩P1 strategy + ablation** | ✅ Done (03-17) | `strategy_ablation/` (P0-only/P1-only/P0∩P1/P0∪P1) |
-| **4-way comparison (Gemini/L3/L4/L5)** | ✅ Done (03-17) | `logs/comparisons/0317_4way_ap_only/` |
+| **4-way comparison (Gemini/L3/L4/L5)** | ✅ Done (03-17) | `plots/comparisons/0317_4way_ap_only/` |
 | **Gemini zero-shot baseline** | ✅ Done (03-18) | `logs/evaluations/gemini_baseline/` |
 | **analyze_traces.py deep-dive** | ✅ Done (03-18) | Valid SSR, RQS, hop accuracy, confusion matrices |
 | **Multi-model Neo4j (AP+DXA+BH)** | ✅ Scripted (03-18) | `script/neo4j_init.sh` + `ifc_export_cli.py --no-clear` |
@@ -212,7 +212,7 @@ SPRINT 5: LoRA_5 + FULL EVAL (Days 22-25)
 ✅ T9.4  Gemini zero-shot baseline on same test set                        Done 03-18
          Results: logs/evaluations/gemini_baseline/
 ✅ T9.5  4-way comparison: Gemini vs LoRA_3 vs LoRA_4 vs LoRA_5           Done 03-17
-         Results: logs/comparisons/0317_4way_ap_only/ (AP-only filtered)
+         Results: plots/comparisons/0317_4way_ap_only/ (AP-only filtered)
 ✅ T9.6  Deep-dive analysis (hop accuracy, confusion, RQS, per-floor)     Done 03-18
          Results: logs/evaluations/synth_v05_lora5/plots/
 ✅ T9.7  analyze_traces.py: Valid SSR, RQS F1, hop waterfall              Done 03-18
@@ -901,8 +901,8 @@ the VLM extraction doesn't. This is the core motivation for LoRA_4.
 ### 5.10 4-Way Comparison: Gemini vs LoRA_3 vs LoRA_4 vs LoRA_5 (Done 03-17/20)
 
 **Full analysis**: See `RESULTS.md` Exp 4.
-**Traces**: `logs/comparisons/0317_4way_ap_only/`
-**Charts**: `logs/comparisons/0317_4way_ap_only/charts/`
+**Traces**: `plots/comparisons/0317_4way_ap_only/`
+**Charts**: `plots/comparisons/0317_4way_ap_only/charts/`
 
 | Metric | Gemini (n=59) | LoRA_3 (n=20) | LoRA_4 (n=58) | LoRA_5 (n=59) |
 |--------|--------------|---------------|---------------|---------------|

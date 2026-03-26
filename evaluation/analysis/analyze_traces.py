@@ -11,8 +11,8 @@ Usage:
 
   # Full multi-condition analysis (LoRA_4 style):
   python evaluation/analyze_traces.py --full \\
-    --traces-dir logs/evaluation_output/synth_v05_lora4 \\
-    --precomputed-dir logs/evaluation_output/synth_v05_lora4 \\
+    --traces-dir output/synth_v05_lora4 \\
+    --precomputed-dir output/synth_v05_lora4 \\
     --cases evaluation/cases/cases_v4_test.jsonl \\
     --gt-labels ../data_curation/datasets/synth_v0.5/train/lora4_test.jsonl \\
     --output evaluation/analysis/lora4_metrics.csv

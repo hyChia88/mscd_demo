@@ -321,7 +321,7 @@ python script/compare_results.py \
   --traces <gemini>.jsonl  --label "Baseline (Gemini)" \
   --traces <lora2>.jsonl   --label "LoRA_2" \
   --traces <lora3>.jsonl   --label "LoRA_3" \
-  --plots --output logs/comparisons/3way
+  --plots --output plots/comparisons/3way
 
 # H2 stress test
 python eval/h2_eval.py --adapter_path models/adapters/v3_lora_qwen_20260310_5ep/final/
@@ -343,26 +343,26 @@ done
 **Trace files:**
 | Label | Trace File | Cases |
 |-------|-----------|-------|
-| Gemini | [`traces_gemini_MC_ap_only.jsonl`](logs/comparisons/0317_4way_ap_only/traces_gemini_MC_ap_only.jsonl) | 59 |
-| LoRA_3 | [`traces_lora3_MC_ap_only.jsonl`](logs/comparisons/0317_4way_ap_only/traces_lora3_MC_ap_only.jsonl) | 20 |
-| LoRA_4 | [`traces_lora4_MC_ap_only.jsonl`](logs/comparisons/0317_4way_ap_only/traces_lora4_MC_ap_only.jsonl) | 58 |
-| LoRA_5 | [`traces_lora5_MC_ap_only.jsonl`](logs/comparisons/0317_4way_ap_only/traces_lora5_MC_ap_only.jsonl) | 59 |
+| Gemini | [`traces_gemini_MC_ap_only.jsonl`](plots/comparisons/0317_4way_ap_only/traces_gemini_MC_ap_only.jsonl) | 59 |
+| LoRA_3 | [`traces_lora3_MC_ap_only.jsonl`](plots/comparisons/0317_4way_ap_only/traces_lora3_MC_ap_only.jsonl) | 20 |
+| LoRA_4 | [`traces_lora4_MC_ap_only.jsonl`](plots/comparisons/0317_4way_ap_only/traces_lora4_MC_ap_only.jsonl) | 58 |
+| LoRA_5 | [`traces_lora5_MC_ap_only.jsonl`](plots/comparisons/0317_4way_ap_only/traces_lora5_MC_ap_only.jsonl) | 59 |
 
-**Charts (AP-only filtered):** [`logs/comparisons/0317_4way_ap_only/charts/`](logs/comparisons/0317_4way_ap_only/charts/)
+**Charts (AP-only filtered):** [`plots/comparisons/0317_4way_ap_only/charts/`](plots/comparisons/0317_4way_ap_only/charts/)
 | Chart | File | What It Shows |
 |-------|------|---------------|
-| Overall Metrics | [`1_overall_metrics.png`](logs/comparisons/0317_4way_ap_only/charts/1_overall_metrics.png) | Top-1, Name Match, Storey Match, Valid SSR, Over-Reduction |
-| Condition Comparison | [`2_condition_comparison.png`](logs/comparisons/0317_4way_ap_only/charts/2_condition_comparison.png) | Per-condition (MA/MB/MC) accuracy bars |
-| Search Space Reduction | [`3_search_space_reduction.png`](logs/comparisons/0317_4way_ap_only/charts/3_search_space_reduction.png) | Pool size box plots (valid vs over-reduced) |
-| Efficiency | [`4_efficiency_comparison.png`](logs/comparisons/0317_4way_ap_only/charts/4_efficiency_comparison.png) | Latency and cost per model |
-| Accuracy Heatmap | [`5_accuracy_heatmap.png`](logs/comparisons/0317_4way_ap_only/charts/5_accuracy_heatmap.png) | Model × condition accuracy grid |
-| Accuracy Heatmap (detail) | [`6_accuracy_heatmap_details.png`](logs/comparisons/0317_4way_ap_only/charts/6_accuracy_heatmap_details.png) | Detailed per-case breakdown |
-| Full Condition Heatmap | [`6b_full_condition_heatmap.png`](logs/comparisons/0317_4way_ap_only/charts/6b_full_condition_heatmap.png) | All conditions expanded |
-| Modality Gain | [`7_modality_gain.png`](logs/comparisons/0317_4way_ap_only/charts/7_modality_gain.png) | MA vs MB vs MC paired delta |
-| Difficulty Degradation | [`8_difficulty_degradation.png`](logs/comparisons/0317_4way_ap_only/charts/8_difficulty_degradation.png) | Accuracy by difficulty tier |
-| Query Plan Distribution | [`13_query_plan_distribution.png`](logs/comparisons/0317_4way_ap_only/charts/13_query_plan_distribution.png) | P0–P8 strategy usage per model |
+| Overall Metrics | [`1_overall_metrics.png`](plots/comparisons/0317_4way_ap_only/charts/1_overall_metrics.png) | Top-1, Name Match, Storey Match, Valid SSR, Over-Reduction |
+| Condition Comparison | [`2_condition_comparison.png`](plots/comparisons/0317_4way_ap_only/charts/2_condition_comparison.png) | Per-condition (MA/MB/MC) accuracy bars |
+| Search Space Reduction | [`3_search_space_reduction.png`](plots/comparisons/0317_4way_ap_only/charts/3_search_space_reduction.png) | Pool size box plots (valid vs over-reduced) |
+| Efficiency | [`4_efficiency_comparison.png`](plots/comparisons/0317_4way_ap_only/charts/4_efficiency_comparison.png) | Latency and cost per model |
+| Accuracy Heatmap | [`5_accuracy_heatmap.png`](plots/comparisons/0317_4way_ap_only/charts/5_accuracy_heatmap.png) | Model × condition accuracy grid |
+| Accuracy Heatmap (detail) | [`6_accuracy_heatmap_details.png`](plots/comparisons/0317_4way_ap_only/charts/6_accuracy_heatmap_details.png) | Detailed per-case breakdown |
+| Full Condition Heatmap | [`6b_full_condition_heatmap.png`](plots/comparisons/0317_4way_ap_only/charts/6b_full_condition_heatmap.png) | All conditions expanded |
+| Modality Gain | [`7_modality_gain.png`](plots/comparisons/0317_4way_ap_only/charts/7_modality_gain.png) | MA vs MB vs MC paired delta |
+| Difficulty Degradation | [`8_difficulty_degradation.png`](plots/comparisons/0317_4way_ap_only/charts/8_difficulty_degradation.png) | Accuracy by difficulty tier |
+| Query Plan Distribution | [`13_query_plan_distribution.png`](plots/comparisons/0317_4way_ap_only/charts/13_query_plan_distribution.png) | P0–P8 strategy usage per model |
 
-**Charts (all cases, unfiltered):** [`logs/comparisons/0317_4way_comparison/`](logs/comparisons/0317_4way_comparison/)
+**Charts (all cases, unfiltered):** [`plots/comparisons/0317_4way_comparison/`](plots/comparisons/0317_4way_comparison/)
 
 **LoRA_5 deep-dive plots:** [`logs/evaluations/synth_v05_lora5/plots/`](logs/evaluations/synth_v05_lora5/plots/)
 | Chart | File | What It Shows |

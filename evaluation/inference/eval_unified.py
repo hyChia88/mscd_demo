@@ -541,7 +541,7 @@ def run_eval(
     print(f"\nDownload:")
     print(f"  modal volume get mscd-checkpoints "
           f"/mscd-unified-eval/eval_constraints_{tag}.jsonl "
-          f"./logs/evaluation_output/unified/")
+          f"./output/unified/")
 
     return {
         "total": len(cases),
@@ -623,4 +623,4 @@ def main(
     print(f"\nDownload:")
     print(f"  modal volume get mscd-checkpoints "
           f"/mscd-unified-eval/eval_constraints_{tag}.jsonl "
-          f"./logs/evaluation_output/unified/")
+          f"./output/unified/")

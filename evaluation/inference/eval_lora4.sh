@@ -13,7 +13,7 @@
 # Changes from eval.sh (LoRA_3):
 #   - Adapter path: /mscd-lora-v4/final (was /mscd-lora/final)
 #   - Uses eval_lora4.py (max_new_tokens=512 for multi-triplet JSON)
-#   - Output dir: logs/evaluation_output/synth_v05_lora4
+#   - Output dir: output/synth_v05_lora4
 #   - Adds H2 eval step (213 hard-negative topology cases)
 #   - Adds LoRA_3 vs LoRA_4 comparison step
 #
@@ -42,11 +42,11 @@ V05_CASES="$PROJECT_DIR/eval/cases_v4_test.jsonl"
 H2_CASES="$DATA_ROOT/datasets/synth_v0.5/eval/h2_hard_negatives.jsonl"
 
 # Output dirs
-EVAL_DIR="$PROJECT_DIR/logs/evaluation_output/synth_v05_lora4"
-PLOTS_DIR="$PROJECT_DIR/logs/comparisons/lora4_vs_lora3"
+EVAL_DIR="$PROJECT_DIR/output/synth_v05_lora4"
+PLOTS_DIR="$PROJECT_DIR/plots/comparisons/lora4_vs_lora3"
 
 # LoRA_3 traces (for comparison)
-LORA3_EVAL_DIR="$PROJECT_DIR/logs/evaluation_output/synth_v04"
+LORA3_EVAL_DIR="$PROJECT_DIR/output/synth_v04"
 
 # ── Colors ───────────────────────────────────────────────────────────────────
 

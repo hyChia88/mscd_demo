@@ -204,7 +204,7 @@ cmd_mcp() {
     echo ""
     python script/compare_results.py --latest
     echo ""
-    echo "Done. Full results in logs/evaluation_output/"
+    echo "Done. Full results in output/"
 }
 
 # ── Subcommand: experiment ──────────────────────────────────────────────────
@@ -265,9 +265,9 @@ cmd_vlm_compare() {
     echo "Results saved to:"
     echo "  - Baseline:   logs/experiments/baseline_v2/"
     echo "  - VLM:        logs/experiments/vlm_integration/"
-    echo "  - Comparison:  logs/comparisons/vlm_impact/"
+    echo "  - Comparison:  plots/comparisons/vlm_impact/"
     echo ""
-    echo "Key chart: logs/comparisons/vlm_impact/5_vision_impact.png"
+    echo "Key chart: plots/comparisons/vlm_impact/5_vision_impact.png"
 }
 
 # ── Subcommand: paired-ablation ────────────────────────────────────────────
@@ -289,7 +289,7 @@ cmd_paired_ablation() {
     # This ensures MB/MC conditions have real visual evidence (not silent fallback).
     local CASES="../data_curation/datasets/synth_v0.3/cases_v3_with_images.jsonl"
     local OUTPUT_DIR="logs/ablation"
-    local CHART_DIR="logs/comparisons/v03_full"
+    local CHART_DIR="plots/comparisons/v03_full"
     local DELAY=5
     local LIMIT_ARGS=()
     local ADAPTER_PATH=""

@@ -12,10 +12,10 @@
 #      bash evaluation/inference/eval_unified.sh
 #
 #   3. Download results:
-#      mkdir -p logs/evaluation_output/unified
-#      modal volume get mscd-checkpoints /mscd-unified-eval/ logs/evaluation_output/unified/
+#      mkdir -p output/unified
+#      modal volume get mscd-checkpoints /mscd-unified-eval/ output/unified/
 #
-# Output: logs/evaluation_output/unified/eval_constraints_{tag}.jsonl
+# Output: output/unified/eval_constraints_{tag}.jsonl
 # ──────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
@@ -93,14 +93,14 @@ echo "[7/8] Gemini — FP"
 conda run -n mscd_demo python evaluation/inference/eval_gemini_baseline.py \
     --cases evaluation/cases/cases_unified_test.jsonl \
     --modality FP \
-    --output-dir logs/evaluation_output/unified
+    --output-dir output/unified
 
 echo ""
 echo "[8/8] Gemini — MC"
 conda run -n mscd_demo python evaluation/inference/eval_gemini_baseline.py \
     --cases evaluation/cases/cases_unified_test.jsonl \
     --modality MC \
-    --output-dir logs/evaluation_output/unified
+    --output-dir output/unified
 
 # ── Done ─────────────────────────────────────────────────────────────────────
 echo ""
@@ -109,10 +109,10 @@ echo "  ALL 8 RUNS COMPLETE (6 Modal + 2 Gemini)"
 echo "============================================================"
 echo ""
 echo "Download all results:"
-echo "  mkdir -p logs/evaluation_output/unified"
-echo "  modal volume get mscd-checkpoints /mscd-unified-eval/ logs/evaluation_output/unified/"
+echo "  mkdir -p output/unified"
+echo "  modal volume get mscd-checkpoints /mscd-unified-eval/ output/unified/"
 echo ""
-echo "Expected files in logs/evaluation_output/unified/:"
+echo "Expected files in output/unified/:"
 echo "  eval_constraints_lora2_FP.jsonl      (Modal)"
 echo "  eval_constraints_lora2_MC.jsonl      (Modal)"
 echo "  eval_constraints_lora5r16_FP.jsonl   (Modal)"
@@ -125,4 +125,4 @@ echo ""
 echo "Then run retrieval pipeline:"
 echo "  python script/run_evaluation.py --profile v2_lora \\"
 echo "    --cases evaluation/cases/cases_unified_test.jsonl \\"
-echo "    --precomputed logs/evaluation_output/unified/eval_constraints_lora5r32_FP.jsonl"
+echo "    --precomputed output/unified/eval_constraints_lora5r32_FP.jsonl"

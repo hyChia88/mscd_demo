@@ -19,7 +19,7 @@ Requires: Neo4j running with AdvancedProject.ifc loaded.
 
 Usage:
     conda run -n mscd_demo python evaluation/experiments/exp5_fallback_stress.py
-    conda run -n mscd_demo python evaluation/experiments/exp5_fallback_stress.py --plot docs/plots/exp5_fallback.png
+    conda run -n mscd_demo python evaluation/experiments/exp5_fallback_stress.py --plot plots/archive/exp5_fallback.png
 """
 
 import argparse

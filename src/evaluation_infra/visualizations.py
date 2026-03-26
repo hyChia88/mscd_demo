@@ -967,7 +967,7 @@ def _load_traces_from_files(
     Load individual *.trace.json files from evaluation log directories.
 
     Args:
-        roots: Override list of root directories (default: logs/evaluation_output/synth_v*/traces)
+        roots: Override list of root directories (default: output/synth_v*/traces)
         run_filter: Only load from run dirs containing this substring (e.g. "lora")
     """
     import re as _re
@@ -1717,7 +1717,7 @@ def plot_modality_dual_profile(
 # ── Modality analysis entry point ────────────────────────────────────────────
 
 def generate_modality_plots(
-    output_dir: str = "docs/plots/modality",
+    output_dir: str = "plots/archive/modality",
     roots: Optional[List[str]] = None,
     run_filter: Optional[str] = None,
     traces_jsonl: Optional[List[str]] = None,

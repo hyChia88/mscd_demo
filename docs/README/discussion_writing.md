@@ -58,9 +58,9 @@ end-to-end retrieval. Optimisation effort should prioritise:
 ## 2  Shortcut Learning in LoRA₅ Spatial Extraction
 
 > **Plot: E1 — Shortcut Learning Evidence**
-> `evaluation/experiment_plots/E1_shortcut_learning_evidence.png`
+> `plots/experiments/E1_shortcut_learning_evidence.png`
 
-![E1 Shortcut Learning Evidence](../../evaluation/experiment_plots/E1_shortcut_learning_evidence.png)
+![E1 Shortcut Learning Evidence](../../plots/experiments/E1_shortcut_learning_evidence.png)
 
 ### 2.1  The "Image as Trigger" Effect
 
@@ -122,9 +122,9 @@ adjacency to the correct IFC graph predicate.
 ## 3  Multi-Hop Spatial Relations: Extraction & Impact
 
 > **Plot: E2 — Multi-Hop Analysis**
-> `evaluation/experiment_plots/E2_multihop_analysis.png`
+> `plots/experiments/E2_multihop_analysis.png`
 
-![E2 Multi-Hop Analysis](../../evaluation/experiment_plots/E2_multihop_analysis.png)
+![E2 Multi-Hop Analysis](../../plots/experiments/E2_multihop_analysis.png)
 
 ### 3.1  Can Multi-Hop Be Correctly Identified?
 
@@ -223,9 +223,9 @@ image content.
 ## 5  Input Pattern Analysis: What Users Should Provide
 
 > **Plot: E3 — Input Pattern Analysis & User Guidance**
-> `evaluation/experiment_plots/E3_input_analysis_user_guide.png`
+> `plots/experiments/E3_input_analysis_user_guide.png`
 
-![E3 Input Analysis](../../evaluation/experiment_plots/E3_input_analysis_user_guide.png)
+![E3 Input Analysis](../../plots/experiments/E3_input_analysis_user_guide.png)
 
 ### 5.1  Text Feature Prevalence in the Eval Set
 
@@ -328,15 +328,15 @@ Synthesising all findings into a single causal model:
 ```
 User Input  ──→  VLM Extraction  ──→  Query Planning  ──→  Graph Retrieval  ──→  Ranking
     │                  │                     │                    │                  │
-    │           ┌──────┴──────┐              │              ┌─────┴─────┐           │
-    │           │             │              │              │           │           │
-    │      ifc_class     spatial_rel         │         P0 (spatial)  P1 (attr)     │
-    │       ★★★            ★☆☆              │           ★★☆          ★★☆          │
-    │   (71% of flips)  (47% pred acc)       │                                     │
-    │                                        │                                     │
-    ▼                                        ▼                                     ▼
- Element type    ──────────────────→  Correct node-type  ──────────────→  GT in pool
- in text (+23pp)                      in Cypher WHERE                     (53% → 68%)
+    │           ┌──────┴──────┐              │              ┌─────┴─────┐            │
+    │           │             │              │              │           │            │
+    │      ifc_class     spatial_rel         │         P0 (spatial)  P1 (attr)       │
+    │       ★★★            ★☆☆            │           ★★☆          ★★☆         │
+    │   (71% of flips)  (47% pred acc)       │                                       │
+    │                                        │                                       │
+    ▼                                        ▼                                       ▼
+ Element type    ──────────────────→  Correct node-type  ────────────────────→  GT in pool
+ in text (+23pp)                      in Cypher WHERE                           (53% → 68%)
 ```
 
 **The single highest-ROI intervention is improving ifc_class extraction** —

@@ -13,7 +13,7 @@ Requires: Neo4j running with AdvancedProject.ifc loaded.
 
 Usage:
     conda run -n mscd_demo python evaluation/experiments/exp3_hop_uniqueness.py
-    conda run -n mscd_demo python evaluation/experiments/exp3_hop_uniqueness.py --plot docs/plots/exp3_lcurve.png
+    conda run -n mscd_demo python evaluation/experiments/exp3_hop_uniqueness.py --plot plots/archive/exp3_lcurve.png
 """
 
 import argparse

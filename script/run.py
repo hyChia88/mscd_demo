@@ -595,7 +595,7 @@ def cli() -> argparse.Namespace:
              "Skips LoRA extraction, uses pre-extracted constraints instead.",
     )
     p.add_argument(
-        "--output_dir", default="logs/evaluation_output",
+        "--output_dir", default="output",
         help="Output directory for traces + summary",
     )
     p.add_argument(

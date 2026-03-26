@@ -14,7 +14,7 @@
 # Changes from eval_lora4.sh:
 #   - Adapter path: /mscd-lora-v5/final
 #   - Uses eval_lora5.py (modality ablation support via --modality flag)
-#   - Output dir: logs/evaluation_output/synth_v05_lora5
+#   - Output dir: output/synth_v05_lora5
 #   - 92 test cases (was 75) with stratified coverage
 #   - H2 eval: 568 cases across 5 edge types (was 213)
 #   - 3-way comparison: LoRA_5 vs LoRA_4 vs LoRA_3
@@ -48,12 +48,12 @@ H2_CASES="$DATA_ROOT/datasets/synth_v0.5/eval/h2_hard_negatives.jsonl"
 GT_LABELS="$DATA_ROOT/datasets/synth_v0.5/train/lora5_test.jsonl"
 
 # Output dirs
-EVAL_DIR="$PROJECT_DIR/logs/evaluation_output/synth_v05_lora5"
-PLOTS_DIR="$PROJECT_DIR/logs/comparisons/$(date +%Y%m%d)_plots"
+EVAL_DIR="$PROJECT_DIR/output/synth_v05_lora5"
+PLOTS_DIR="$PROJECT_DIR/plots/comparisons/$(date +%Y%m%d)_plots"
 
 # Prior eval dirs (for comparison)
-LORA4_EVAL_DIR="$PROJECT_DIR/logs/evaluation_output/synth_v05_lora4"
-LORA3_EVAL_DIR="$PROJECT_DIR/logs/evaluation_output/synth_v04"
+LORA4_EVAL_DIR="$PROJECT_DIR/output/synth_v05_lora4"
+LORA3_EVAL_DIR="$PROJECT_DIR/output/synth_v04"
 
 # ── Colors ───────────────────────────────────────────────────────────────────
 

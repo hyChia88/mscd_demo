@@ -630,7 +630,7 @@ IFC Model (IfcOpenShell)
 
 ## APPENDIX D — Plot Index
 
-All plots: `mscd_demo/docs/plots/0224_modality_6cond/`
+All plots: `mscd_demo/plots/archive/0224_modality_6cond/`
 
 | File | Used in | Shows |
 |------|---------|-------|
