@@ -29,7 +29,9 @@ env/
 
 # Outputs and logs
 outputs/
+output/
 logs/
+plots/
 eval/
 
 # Evaluation trace results (large JSON per-case traces)
