@@ -526,8 +526,14 @@ class RetrievalBackend:
             # Call v1 IFCEngine method
             results = self.engine.query_elements_by_level(storey_name)
 
-            # Filter by type
-            return [r for r in results if r.get("type") == target_type or r.get("ifc_type") == target_type]
+            # Filter by type (with STARTS WITH for IFC subtypes,
+            # e.g. IfcWall matches IfcWallStandardCase)
+            def _type_match(r: dict) -> bool:
+                rt = r.get("type") or ""
+                ri = r.get("ifc_type") or ""
+                return (rt == target_type or ri == target_type
+                        or rt.startswith(target_type) or ri.startswith(target_type))
+            return [r for r in results if _type_match(r)]
 
         elif strategy == "storey_only":
             # Query all elements on storey

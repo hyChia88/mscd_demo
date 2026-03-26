@@ -789,12 +789,14 @@ class IFCEngine:
         """Create CONTAINS relationships between spaces/storeys and elements.
 
         Primary path: IfcRelContainedInSpatialStructure (standard IFC).
-        Fallback: if no containment rels exist (e.g. minimal BH export),
-        assign elements to the nearest storey by Z-elevation of their
-        ObjectPlacement, so storey+type queries still work.
+        Fallback: per-element elevation-based assignment for any element that
+        has an IFCElement node but did NOT get a CONTAINS edge from the
+        primary path (handles partial containment coverage).
         """
         count = 0
+        contained_guids: set = set()
 
+        type_counts: dict = {}  # diagnostic: per-type CONTAINS edge counts
         for rel in self.file.by_type("IfcRelContainedInSpatialStructure"):
             space = rel.RelatingStructure
             space_guid = space.GlobalId
@@ -807,25 +809,46 @@ class IFCEngine:
                     "IFCElement",
                     element.GlobalId
                 )
+                contained_guids.add(element.GlobalId)
+                t = element.is_a()
+                type_counts[t] = type_counts.get(t, 0) + 1
                 count += 1
 
-        # Fallback: elevation-based storey assignment for IFC files that lack
-        # IfcRelContainedInSpatialStructure (e.g. BasicHouse / minimal exports).
-        if count == 0 and self.neo4j_conn:
-            count += self._assign_elements_to_storeys_by_elevation()
+        if type_counts:
+            summary = ", ".join(f"{t}={n}" for t, n in sorted(type_counts.items()))
+            print(f"   CONTAINS primary: {count} edges ({summary})")
+
+        # Fallback: elevation-based storey assignment for orphaned elements
+        # (elements that have IFCElement nodes but no CONTAINS edge).
+        if self.neo4j_conn:
+            fallback_count = self._assign_elements_to_storeys_by_elevation(
+                exclude_guids=contained_guids
+            )
+            if fallback_count > 0:
+                print(f"   ⚠️  Elevation fallback assigned {fallback_count} orphaned "
+                      f"elements (primary path covered {count})")
+            count += fallback_count
 
         return count
 
-    def _assign_elements_to_storeys_by_elevation(self) -> int:
+    def _assign_elements_to_storeys_by_elevation(
+        self, exclude_guids: set = None
+    ) -> int:
         """Assign elements to storeys by comparing element Z vs storey elevations.
 
-        For each element, pick the storey whose elevation is ≤ element Z and
-        closest (i.e. the floor the element sits on). Also sets the element
-        node's ``storey`` property so it matches the canonical name.
+        For each element whose GlobalId is NOT in *exclude_guids*, pick the
+        storey whose elevation is ≤ element Z and closest (i.e. the floor the
+        element sits on).  Also sets the element node's ``storey`` property so
+        it matches the canonical name.
+
+        Args:
+            exclude_guids: GUIDs that already have CONTAINS edges (skip them).
         """
         storeys = self.file.by_type("IfcBuildingStorey")
         if not storeys:
             return 0
+
+        exclude = exclude_guids or set()
 
         # Sort storeys ascending by elevation
         storey_list = sorted(
@@ -840,23 +863,27 @@ class IFCEngine:
         ]
 
         count = 0
-        assigned = 0
         for ifc_type in element_types:
             try:
                 elements = self.file.by_type(ifc_type)
             except RuntimeError:
                 continue
             for element in elements:
-                z = self._get_element_z(element)
-                if z is None:
+                if element.GlobalId in exclude:
                     continue
-                # Find the storey with highest elevation ≤ element Z
-                best_storey = storey_list[0]  # default to lowest
-                for sg, sn, se in storey_list:
-                    if se <= z + 100:  # 100mm tolerance
-                        best_storey = (sg, sn, se)
-                    else:
-                        break
+                z = self._get_element_z(element)
+                # Find the storey with highest elevation ≤ element Z.
+                # If Z is unavailable (e.g. BH doors/windows with no
+                # ObjectPlacement), fall back to the lowest storey.
+                if z is None:
+                    best_storey = storey_list[0]  # lowest storey
+                else:
+                    best_storey = storey_list[0]  # default to lowest
+                    for sg, sn, se in storey_list:
+                        if se <= z + 100:  # 100mm tolerance
+                            best_storey = (sg, sn, se)
+                        else:
+                            break
                 sg, sn, se = best_storey
                 self._create_relationship(
                     "IFCStorey", sg, "CONTAINS", "IFCElement", element.GlobalId
@@ -868,11 +895,7 @@ class IFCEngine:
                         guid=element.GlobalId, storey=sn,
                     )
                 count += 1
-                assigned += 1
 
-        if assigned > 0:
-            print(f"   ⚠️  No IfcRelContainedInSpatialStructure — assigned "
-                  f"{assigned} elements to storeys by elevation")
         return count
 
     @staticmethod
