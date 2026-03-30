@@ -28,6 +28,7 @@ env/
 *.ipynb
 
 # Outputs and logs
+artifacts/
 outputs/
 output/
 logs/
