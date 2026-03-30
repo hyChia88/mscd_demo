@@ -47,7 +47,7 @@ def load_jsonl(path: Path) -> list:
 
 
 def load_skeletons() -> dict:
-    """Load all v0.4 skeletons, keyed by skeleton ID (e.g., AP_SK_084)."""
+    """Load v0.4 skeletons keyed by merged/export IDs such as AP_SK_084."""
     skeletons = {}
     for model, spath in SKELETON_PATHS.items():
         if not spath.exists():
