@@ -73,6 +73,95 @@ def write_jsonl(traces: List[EvalTrace], path: Path) -> None:
             f.write(t.to_jsonl_line() + "\n")
 
 
+def _normalize_precomputed_spatial_triplet(
+    sr: Dict[str, Any],
+    constraints: Dict[str, Any],
+) -> Optional[SpatialTriplet]:
+    """Best-effort adapter for mixed historical precomputed relation schemas."""
+    predicate = (
+        sr.get("predicate")
+        or sr.get("relation_type")
+        or sr.get("role")
+        or sr.get("side")
+    )
+    if isinstance(predicate, str):
+        predicate = predicate.upper().strip()
+    else:
+        predicate = "ADJACENT_TO"
+
+    predicate = {
+        "ABOVE": "ON_TOP_OF",
+    }.get(predicate, predicate)
+
+    allowed_predicates = {
+        "FILLS",
+        "CONTINUOUS",
+        "ADJACENT_TO",
+        "NEXT_TO",
+        "CONNECTS_TO",
+        "ON_TOP_OF",
+        "PERPENDICULAR_TO",
+        "PARALLEL_TO",
+    }
+    if predicate not in allowed_predicates:
+        return None
+
+    subject_type = (
+        sr.get("subject_type")
+        or sr.get("start_point_type")
+        or sr.get("subject_class")
+        or constraints.get("ifc_class")
+        or constraints.get("target_name_keyword")
+        or ""
+    )
+
+    object_type = (
+        sr.get("object_type")
+        or sr.get("neighbor_type")
+        or sr.get("end_point_type")
+        or sr.get("object_class")
+        or constraints.get("neighbor_type")
+    )
+
+    # Some legacy outputs only retain textual anchor hints such as
+    # "fire-rated wall". Recover a coarse IFC type when possible.
+    if not object_type:
+        text_hint = (
+            sr.get("end_point_name")
+            or sr.get("end_name_keyword")
+            or sr.get("object_name")
+            or ""
+        )
+        if isinstance(text_hint, str):
+            hint = text_hint.lower()
+            if "wall" in hint:
+                object_type = "IfcWall"
+            elif "door" in hint:
+                object_type = "IfcDoor"
+            elif "window" in hint:
+                object_type = "IfcWindow"
+            elif "column" in hint:
+                object_type = "IfcColumn"
+            elif "stair" in hint:
+                object_type = "IfcStair"
+            elif "railing" in hint:
+                object_type = "IfcRailing"
+            elif "slab" in hint:
+                object_type = "IfcSlab"
+
+    # Skip malformed relations instead of crashing the whole evaluation run.
+    if not object_type:
+        return None
+
+    return SpatialTriplet(
+        subject_type=str(subject_type),
+        predicate=predicate,
+        object_type=str(object_type),
+        object_material=sr.get("object_material"),
+        confidence=sr.get("confidence", 0.9),
+    )
+
+
 def write_csv_summary(
     v1_summary: Any,
     v2_summary: Optional[Dict[str, Any]],
@@ -252,6 +341,7 @@ async def main(args: argparse.Namespace) -> None:
     precomputed_constraints: Optional[Dict[str, Constraints]] = None
     if args.precomputed:
         precomputed_constraints = {}
+        skipped_spatial_relations = 0
         with open(args.precomputed, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
@@ -268,13 +358,11 @@ async def main(args: argparse.Namespace) -> None:
                         sr_raw = [r for r in rel_raw if isinstance(r, dict) and "predicate" in r]
                 spatial_rels = []
                 for sr in sr_raw:
-                    spatial_rels.append(SpatialTriplet(
-                        subject_type=sr.get("subject_type", c.get("ifc_class", "")),
-                        predicate=sr.get("predicate", "ADJACENT_TO").upper(),
-                        object_type=sr["object_type"],
-                        object_material=sr.get("object_material"),
-                        confidence=sr.get("confidence", 0.9),
-                    ))
+                    triplet = _normalize_precomputed_spatial_triplet(sr, c)
+                    if triplet is None:
+                        skipped_spatial_relations += 1
+                        continue
+                    spatial_rels.append(triplet)
                 precomputed_constraints[cid] = Constraints(
                     storey_name=c.get("storey_name"),
                     ifc_class=c.get("ifc_class"),
@@ -291,6 +379,9 @@ async def main(args: argparse.Namespace) -> None:
                 )
         print(f"Loaded {len(precomputed_constraints)} precomputed constraints "
               f"from {args.precomputed}")
+        if skipped_spatial_relations:
+            print(f"Skipped {skipped_spatial_relations} malformed spatial relations "
+                  f"while loading precomputed constraints")
 
     # ── 3. initialise shared components ────────────────────────────────────
     # Registry LLM must be created before engine (used during IFC load)

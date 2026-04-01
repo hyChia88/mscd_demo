@@ -10,12 +10,11 @@ scoring (local CPU), keeping eval methodologically clean — same hardware
 as training.
 
 Usage:
-    modal run training/eval.py
-    modal run training/eval.py --adapter-dir /mscd-lora/final
-    modal run training/eval.py --adapter-dir /mscd-lora/checkpoint-180
-    modal run training/eval.py --limit 5  # Quick test
+    modal run training/eval.py --adapter-dir /mscd-lora-v6-g1-fullaug/best --cases /data/ap_eval.jsonl
+    modal run training/eval.py --adapter-dir /mscd-lora-v6-g0-canonical/best --cases /data/ap_eval.jsonl
+    modal run training/eval.py --adapter-dir /mscd-lora-v6-g1-fullaug/best --cases /data/ap_eval.jsonl --limit 5
 
-    # v0.5 topology cases (69 cases with spatial relations)
+    # legacy v0.5 topology cases
     modal run training/eval.py --cases /data/v05_test.jsonl --condition-override MB
     modal run training/eval.py --cases /data/v05_test.jsonl --condition-override MC
 """
@@ -40,6 +39,7 @@ COND_MASK_PY  = PROJECT_ROOT / "src" / "v2" / "condition_mask.py"
 
 # Default cases file — override with --cases flag
 DEFAULT_CASES_FILE = DATA_ROOT / "datasets" / "synth_v0.4_merged" / "train" / "test_holdout_with_images.jsonl"
+AP_EVAL_CASES_FILE = DATA_ROOT / "datasets" / "synth_v0.5_ap" / "train" / "lora6_v2_ap_eval_canonical_m.jsonl"
 
 # ── v0.4 image dirs (legacy) ────────────────────────────────────────────────
 AP_IMGS_DIR   = DATA_ROOT / "datasets" / "synth_v0.4_ap"  / "cases" / "imgs"
@@ -54,6 +54,7 @@ V05_AP_IMGS_DIR   = DATA_ROOT / "datasets" / "synth_v0.5"     / "imgs"
 V05_AP_WIRE_DIR   = DATA_ROOT / "datasets" / "synth_v0.5"     / "renders" / "wireframes"
 V05_AP_PLANS_DIR  = DATA_ROOT / "datasets" / "synth_v0.5"     / "floorplans"
 V05_DXA_IMGS_DIR  = DATA_ROOT / "datasets" / "synth_v0.5_dxa" / "imgs"
+V05_AP_CURATED_ROOT = DATA_ROOT / "datasets" / "synth_v0.5_ap"
 
 # v0.5 test cases — 69 topology skeleton cases (file uses "v3" case schema format)
 V05_CASES_FILE = PROJECT_ROOT / "eval" / "cases_v3_test.jsonl"
@@ -64,48 +65,68 @@ V05_BH_IMGS_DIR   = DATA_ROOT / "datasets" / "synth_v0.5_bh"  / "imgs"
 
 app = modal.App("mscd-vlm-lora-eval")
 
+def _build_eval_image() -> modal.Image:
+    """Build the Modal image while tolerating legacy dataset directories missing.
+
+    The AP assembled eval path is the primary target now. Older v0.4/v0.5
+    assets are baked only when they still exist locally.
+    """
+    image = (
+        modal.Image.debian_slim(python_version="3.11")
+        .apt_install("git")
+        .pip_install(
+            "unsloth",
+            "qwen-vl-utils",
+            "datasets==4.3.0",
+            "hf-transfer",
+            "pyyaml",
+        )
+        .run_commands(
+            "pip install --no-deps --force-reinstall "
+            "'unsloth @ git+https://github.com/unslothai/unsloth.git'"
+        )
+        .pip_install("transformers==4.56.2")
+        .run_commands("pip install --no-deps trl==0.22.2")
+        .env({"HF_HOME": "/model_cache"})
+        .add_local_file(str(PROFILES_YAML), remote_path="/app/profiles.yaml")
+        .add_local_file(str(PROMPTS_YAML), remote_path="/app/constraints_extraction.yaml")
+        .add_local_file(str(COND_MASK_PY), remote_path="/app/condition_mask.py")
+    )
+
+    for local_file, remote_file in [
+        (DEFAULT_CASES_FILE, "/data/test_holdout.jsonl"),
+        (AP_EVAL_CASES_FILE, "/data/ap_eval.jsonl"),
+        (V05_CASES_FILE, "/data/v05_test.jsonl"),
+        (V05_CASES_SITE_FILE, "/data/v05_test_site.jsonl"),
+    ]:
+        if local_file.exists():
+            image = image.add_local_file(str(local_file), remote_path=remote_file)
+
+    for local_dir, remote_dir in [
+        (AP_IMGS_DIR, "/data/images/ap/imgs"),
+        (AP_PLANS_DIR, "/data/images/ap/plans"),
+        (BH_IMGS_DIR, "/data/images/bh/imgs"),
+        (BH_PLANS_DIR, "/data/images/bh/plans"),
+        (DXA_IMGS_DIR, "/data/images/dxa/imgs"),
+        (DXA_PLANS_DIR, "/data/images/dxa/plans"),
+        (V05_AP_IMGS_DIR, "/data/images/v05_ap/imgs"),
+        (V05_AP_WIRE_DIR, "/data/images/v05_ap/wireframes"),
+        (V05_AP_PLANS_DIR, "/data/images/v05_ap/plans"),
+        (V05_AP_CURATED_ROOT, "/data/images/synth_v0.5_ap"),
+        (V05_DXA_IMGS_DIR, "/data/images/v05_dxa/imgs"),
+        (V05_BH_IMGS_DIR, "/data/images/v05_bh/imgs"),
+    ]:
+        if local_dir.exists():
+            image = image.add_local_dir(str(local_dir), remote_path=remote_dir)
+
+    return image
+
+
 # Same image as training — ensures identical environment.
 # Config files (profiles.yaml, prompts yaml, condition_mask.py) are baked in
 # so that CONDITION_CONFIGS, SYSTEM_PROMPT, and blur logic are loaded at
 # runtime from the same sources as the local pipeline — no more duplication.
-eval_image = (
-    modal.Image.debian_slim(python_version="3.11")
-    .apt_install("git")
-    .pip_install(
-        "unsloth",
-        "qwen-vl-utils",
-        "datasets==4.3.0",
-        "hf-transfer",
-        "pyyaml",          # required to load profiles.yaml + prompts yaml
-    )
-    .run_commands(
-        "pip install --no-deps --force-reinstall "
-        "'unsloth @ git+https://github.com/unslothai/unsloth.git'"
-    )
-    .pip_install("transformers==4.56.2")
-    .run_commands("pip install --no-deps trl==0.22.2")
-    .env({"HF_HOME": "/model_cache"})
-    # ── Config: loaded at runtime to keep single source of truth ─────────────
-    .add_local_file(str(PROFILES_YAML), remote_path="/app/profiles.yaml")
-    .add_local_file(str(PROMPTS_YAML),  remote_path="/app/constraints_extraction.yaml")
-    .add_local_file(str(COND_MASK_PY),  remote_path="/app/condition_mask.py")
-    # ── Evaluation data — v0.4 (legacy) ────────────────────────────────────────
-    .add_local_file(str(DEFAULT_CASES_FILE), remote_path="/data/test_holdout.jsonl")
-    .add_local_dir(str(AP_IMGS_DIR),   remote_path="/data/images/ap/imgs")
-    .add_local_dir(str(AP_PLANS_DIR),  remote_path="/data/images/ap/plans")
-    .add_local_dir(str(BH_IMGS_DIR),   remote_path="/data/images/bh/imgs")
-    .add_local_dir(str(BH_PLANS_DIR),  remote_path="/data/images/bh/plans")
-    .add_local_dir(str(DXA_IMGS_DIR),  remote_path="/data/images/dxa/imgs")
-    .add_local_dir(str(DXA_PLANS_DIR), remote_path="/data/images/dxa/plans")
-    # ── Evaluation data — v0.5 topology cases (69 cases, "v3" schema) ──────
-    .add_local_file(str(V05_CASES_FILE), remote_path="/data/v05_test.jsonl")
-    .add_local_file(str(V05_CASES_SITE_FILE), remote_path="/data/v05_test_site.jsonl")
-    .add_local_dir(str(V05_AP_IMGS_DIR),  remote_path="/data/images/v05_ap/imgs")
-    .add_local_dir(str(V05_AP_WIRE_DIR),  remote_path="/data/images/v05_ap/wireframes")
-    .add_local_dir(str(V05_AP_PLANS_DIR), remote_path="/data/images/v05_ap/plans")
-    .add_local_dir(str(V05_DXA_IMGS_DIR), remote_path="/data/images/v05_dxa/imgs")
-    .add_local_dir(str(V05_BH_IMGS_DIR),  remote_path="/data/images/v05_bh/imgs")
-)
+eval_image = _build_eval_image()
 
 model_cache    = modal.Volume.from_name("mscd-model-cache",  create_if_missing=True)
 checkpoint_vol = modal.Volume.from_name("mscd-checkpoints",  create_if_missing=True)
@@ -152,6 +173,17 @@ _MODEL_IMAGE_ROOT = {
     "ap":  "/data/images/ap",
     "bh":  "/data/images/bh",
     "dxa": "/data/images/dxa",
+}
+_LOCAL_ROOT = "file:///root/cmu/master_thesis/data_curation/datasets/"
+_REMOTE_ROOT = "file:///data/images/"
+_DATASET_MAP = {
+    "synth_v0.5_ap/": "synth_v0.5_ap/",
+    "synth_v0.5/": "v05_ap/",
+    "synth_v0.5_bh/": "v05_bh/",
+    "synth_v0.5_dxa/": "v05_dxa/",
+    "synth_v0.4_ap/cases/": "ap/",
+    "synth_v0.4_bh/cases/": "bh/",
+    "synth_v0.4_dxa/cases/": "dxa/",
 }
 
 
@@ -257,6 +289,31 @@ def _build_messages(case: dict, system_prompt: str) -> list:
     ]
 
 
+def _remap_training_record_paths(case: dict) -> dict:
+    remapped = copy.deepcopy(case)
+    for msg in remapped.get("messages", []):
+        content = msg.get("content")
+        if isinstance(content, list):
+            for part in content:
+                if isinstance(part, dict) and part.get("type") == "image":
+                    path = part.get("image", "")
+                    if path.startswith(_LOCAL_ROOT):
+                        rel = path[len(_LOCAL_ROOT):]
+                        for ds_prefix, remote_prefix in _DATASET_MAP.items():
+                            if rel.startswith(ds_prefix):
+                                rel = remote_prefix + rel[len(ds_prefix):]
+                                break
+                        part["image"] = _REMOTE_ROOT + rel
+    return remapped
+
+
+def _build_messages_for_eval_case(case: dict, system_prompt: str) -> list:
+    if "messages" in case:
+        remapped = _remap_training_record_paths(case)
+        return [m for m in remapped["messages"] if m.get("role") != "assistant"]
+    return _build_messages(case, system_prompt)
+
+
 def _parse_json(text: str) -> Optional[dict]:
     """Parse JSON from model output (with fallbacks)."""
     # Direct parse
@@ -284,6 +341,17 @@ def _parse_json(text: str) -> Optional[dict]:
     return None
 
 
+def _adapter_tag(adapter_dir: str) -> str:
+    """Create a stable, non-colliding tag from adapter path.
+
+    Using only basename ('best') causes different adapters to overwrite each
+    other at /checkpoints/mscd-lora/eval_constraints_best.jsonl.
+    """
+    cleaned = adapter_dir.strip("/").replace("/", "__")
+    cleaned = re.sub(r"[^A-Za-z0-9_.-]+", "_", cleaned)
+    return cleaned or "adapter"
+
+
 # ── Modal GPU function ───────────────────────────────────────────────────────
 
 @app.function(
@@ -296,12 +364,17 @@ def _parse_json(text: str) -> Optional[dict]:
     timeout=2 * 60 * 60,  # 2 hours
 )
 def run_eval(
-    adapter_dir: str = "/mscd-lora/final",
+    adapter_dir: str = "/mscd-lora-v6-g1-fullaug/best",
     limit: int = 0,
     condition_override: str = "",
     cases_file: str = "",
 ):
-    """Run LoRA constraint extraction on all cases (Modal A100)."""
+    """Run LoRA constraint extraction on all cases (Modal A100).
+
+    Supported case formats:
+    - assembled AP ChatML records with ``messages`` (preferred)
+    - legacy retrieval cases with ``inputs`` / ``query_text`` / ``bench``
+    """
     import torch
     from unsloth import FastVisionModel
     from qwen_vl_utils import process_vision_info
@@ -344,7 +417,7 @@ def run_eval(
     print("Model ready.\n")
 
     # ── 3. Load cases ────────────────────────────────────────────────────
-    data_path = cases_file if cases_file else "/data/test_holdout.jsonl"
+    data_path = cases_file if cases_file else "/data/ap_eval.jsonl"
     print(f"Loading cases from: {data_path}")
     cases = []
     with open(data_path) as f:
@@ -365,14 +438,16 @@ def run_eval(
         print(f"Condition override: ALL cases will use condition={condition_override}")
 
     for idx, case in enumerate(cases, 1):
-        case_id = case.get("case_id", f"case_{idx}")
+        case_id = case.get("case_id") or case.get("id") or case.get("base_case_id") or f"case_{idx}"
         condition = condition_override if condition_override else case.get("bench", {}).get("condition", "")
+        if not condition and "messages" in case:
+            condition = "AP_EVAL"
 
         # Apply condition mask (same as local pipeline)
-        masked_case = apply_condition_mask(case, condition, condition_configs, ConditionMask)
+        masked_case = apply_condition_mask(case, condition, condition_configs, ConditionMask) if "inputs" in case else case
 
         # Build messages
-        messages = _build_messages(masked_case, system_prompt)
+        messages = _build_messages_for_eval_case(masked_case, system_prompt)
 
         # Count images for logging
         n_images = sum(
@@ -465,8 +540,9 @@ def run_eval(
               f"class={ifc}  storey={storey}")
 
     # ── 5. Save results to Modal volume ──────────────────────────────────
-    # Use adapter dir name as tag (e.g., "final" or "checkpoint-180")
-    tag = adapter_dir.rstrip("/").split("/")[-1]
+    # Use full adapter path as tag to avoid collisions between different
+    # adapters that all end in "/best".
+    tag = _adapter_tag(adapter_dir)
     if condition_override:
         tag = f"{tag}_{condition_override}"
     output_path = f"/checkpoints/mscd-lora/eval_constraints_{tag}.jsonl"
@@ -494,6 +570,7 @@ def run_eval(
           f"/mscd-lora/eval_constraints_{tag}.jsonl "
           f"./output/")
     print(f"\nRun local pipeline with pre-computed constraints:")
+    print(f"  # legacy retrieval cases example")
     print(f"  python script/run.py --profile v2_lora \\")
     print(f"    --cases eval/cases_v3_test.jsonl \\")
     print(f"    --precomputed output/eval_constraints_{tag}.jsonl")
@@ -538,7 +615,7 @@ def _is_transient_poll_error(exc: BaseException) -> bool:
 
 @app.local_entrypoint()
 def main(
-    adapter_dir: str = "/mscd-lora/final",
+    adapter_dir: str = "/mscd-lora-v6-g1-fullaug/best",
     limit: int = 0,
     condition_override: str = "",
     cases: str = "",
@@ -548,9 +625,10 @@ def main(
     Args:
         cases: Remote path to cases JSONL inside Modal container.
                Use "/data/v05_test.jsonl" for v0.5 topology cases (69 cases).
-               Default: "/data/test_holdout.jsonl" (v0.4 holdout, 50 cases).
+               Use "/data/ap_eval.jsonl" for assembled LoRA6-v2 AP eval cases.
+               Default: "/data/ap_eval.jsonl" (assembled LoRA6-v2 AP eval set).
     """
-    cases_label = cases if cases else str(DEFAULT_CASES_FILE)
+    cases_label = cases if cases else "/data/ap_eval.jsonl"
     print("Launching MSCD LoRA evaluation on Modal...")
     print(f"  Adapter:  {adapter_dir}")
     print(f"  Cases:    {cases_label}")
@@ -600,7 +678,7 @@ def main(
     print(f"  modal volume get mscd-checkpoints "
           f"/mscd-lora/eval_constraints_{tag}.jsonl "
           f"./output/")
-    cases_hint = cases if cases else "evaluation/cases/cases_v3_test.jsonl"
+    cases_hint = cases if cases else "/data/ap_eval.jsonl"
     print(f"\nRun local pipeline:")
     print(f"  python script/run.py --profile v2_lora \\")
     print(f"    --cases {cases_hint} \\")

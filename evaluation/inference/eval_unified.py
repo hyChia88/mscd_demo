@@ -112,45 +112,55 @@ SYSTEM_PROMPT_LORA2 = (
 
 app = modal.App("mscd-unified-eval")
 
-eval_image = (
-    modal.Image.debian_slim(python_version="3.11")
-    .apt_install("git")
-    .pip_install(
-        "unsloth",
-        "qwen-vl-utils",
-        "datasets==4.3.0",
-        "hf-transfer",
-        "pyyaml",
+def _build_eval_image() -> modal.Image:
+    """Build unified eval image while tolerating missing legacy dataset dirs."""
+    image = (
+        modal.Image.debian_slim(python_version="3.11")
+        .apt_install("git")
+        .pip_install(
+            "unsloth",
+            "qwen-vl-utils",
+            "datasets==4.3.0",
+            "hf-transfer",
+            "pyyaml",
+        )
+        .run_commands(
+            "pip install --no-deps --force-reinstall "
+            "'unsloth @ git+https://github.com/unslothai/unsloth.git'"
+        )
+        .pip_install("transformers==4.56.2")
+        .run_commands("pip install --no-deps trl==0.22.2")
+        .env({"HF_HOME": "/model_cache"})
+        .add_local_file(str(PROFILES_YAML), remote_path="/app/profiles.yaml")
+        .add_local_file(str(PROMPTS_YAML), remote_path="/app/constraints_extraction.yaml")
+        .add_local_file(str(COND_MASK_PY), remote_path="/app/condition_mask.py")
     )
-    .run_commands(
-        "pip install --no-deps --force-reinstall "
-        "'unsloth @ git+https://github.com/unslothai/unsloth.git'"
-    )
-    .pip_install("transformers==4.56.2")
-    .run_commands("pip install --no-deps trl==0.22.2")
-    .env({"HF_HOME": "/model_cache"})
-    # ── Config ────────────────────────────────────────────────────────────────
-    .add_local_file(str(PROFILES_YAML), remote_path="/app/profiles.yaml")
-    .add_local_file(str(PROMPTS_YAML),  remote_path="/app/constraints_extraction.yaml")
-    .add_local_file(str(COND_MASK_PY),  remote_path="/app/condition_mask.py")
-    # ── Unified cases ─────────────────────────────────────────────────────────
-    .add_local_file(str(UNIFIED_CASES), remote_path="/data/cases_unified_test.jsonl")
-    # ── v0.4 images ───────────────────────────────────────────────────────────
-    .add_local_dir(str(AP_IMGS_DIR),   remote_path="/data/images/ap/imgs")
-    .add_local_dir(str(AP_PLANS_DIR),  remote_path="/data/images/ap/plans")
-    .add_local_dir(str(BH_IMGS_DIR),   remote_path="/data/images/bh/imgs")
-    .add_local_dir(str(BH_PLANS_DIR),  remote_path="/data/images/bh/plans")
-    .add_local_dir(str(DXA_IMGS_DIR),  remote_path="/data/images/dxa/imgs")
-    .add_local_dir(str(DXA_PLANS_DIR), remote_path="/data/images/dxa/plans")
-    # ── v0.5 images ───────────────────────────────────────────────────────────
-    .add_local_dir(str(V05_AP_IMGS_DIR),  remote_path="/data/images/v05_ap/imgs")
-    .add_local_dir(str(V05_AP_WIRE_DIR),  remote_path="/data/images/v05_ap/wireframes")
-    .add_local_dir(str(V05_AP_PLANS_DIR), remote_path="/data/images/v05_ap/plans")
-    .add_local_dir(str(V05_BH_IMGS_DIR),  remote_path="/data/images/v05_bh/imgs")
-    .add_local_dir(str(V05_BH_PLANS_DIR), remote_path="/data/images/v05_bh/plans")
-    .add_local_dir(str(V05_DXA_IMGS_DIR), remote_path="/data/images/v05_dxa/imgs")
-    .add_local_dir(str(V05_DXA_PLANS_DIR), remote_path="/data/images/v05_dxa/plans")
-)
+
+    if UNIFIED_CASES.exists():
+        image = image.add_local_file(str(UNIFIED_CASES), remote_path="/data/cases_unified_test.jsonl")
+
+    for local_dir, remote_dir in [
+        (AP_IMGS_DIR, "/data/images/ap/imgs"),
+        (AP_PLANS_DIR, "/data/images/ap/plans"),
+        (BH_IMGS_DIR, "/data/images/bh/imgs"),
+        (BH_PLANS_DIR, "/data/images/bh/plans"),
+        (DXA_IMGS_DIR, "/data/images/dxa/imgs"),
+        (DXA_PLANS_DIR, "/data/images/dxa/plans"),
+        (V05_AP_IMGS_DIR, "/data/images/v05_ap/imgs"),
+        (V05_AP_WIRE_DIR, "/data/images/v05_ap/wireframes"),
+        (V05_AP_PLANS_DIR, "/data/images/v05_ap/plans"),
+        (V05_BH_IMGS_DIR, "/data/images/v05_bh/imgs"),
+        (V05_BH_PLANS_DIR, "/data/images/v05_bh/plans"),
+        (V05_DXA_IMGS_DIR, "/data/images/v05_dxa/imgs"),
+        (V05_DXA_PLANS_DIR, "/data/images/v05_dxa/plans"),
+    ]:
+        if local_dir.exists():
+            image = image.add_local_dir(str(local_dir), remote_path=remote_dir)
+
+    return image
+
+
+eval_image = _build_eval_image()
 
 model_cache    = modal.Volume.from_name("mscd-model-cache",  create_if_missing=True)
 checkpoint_vol = modal.Volume.from_name("mscd-checkpoints",  create_if_missing=True)
