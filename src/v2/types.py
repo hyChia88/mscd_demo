@@ -43,33 +43,20 @@ class Constraints(BaseModel):
     in terms of spatial and semantic filters.
     """
 
+    # ── LoRA6 active schema (matches 6_assemble_lora6.py training labels) ────
     storey_name: Optional[str] = None  # e.g., "6 - Sixth Floor", "Level 1"
     ifc_class: Optional[str] = None  # e.g., "IfcWindow", "IfcWall", "IfcDoor"
-    near_keywords: List[str] = Field(default_factory=list)  # e.g., ["north", "elevator"]
-    relations: List[str] = Field(default_factory=list)  # e.g., ["adjacent_to", "in_room"]
-
-    # ── NEW FIELDS (Phase 2 — Granularity Upgrade) ─────────────────────────
-    space_name: Optional[str] = None
-    # Specific room/space name, one level below storey.
-    # e.g. "Living Room", "Master Bedroom", "Corridor 6A"
-    # Source: LLM extraction from chat + floorplan.spatial_zone fallback (Phase 3)
-    # Enables: space+type query (Priority 0) → ~5 candidates
-
-    target_name_keyword: Optional[str] = None
-    # Equipment brand, ID, or unique element name fragment.
-    # e.g. "Daikin", "AHU-03", "Fire Pump FP-01"
-    # NOT for generic type words ("window", "wall") — those go to ifc_class.
-    # Enables: name_keyword query (Priority 1) → ~1-3 candidates
-
-    neighbor_type: Optional[str] = None
-    # IFC class of a nearby reference element for topological location.
-    # e.g. "IfcColumn", "IfcStair", "IfcDoor"
-    # Source: "next to the column", "beside the door", "near the staircase"
-    # Enables: neighbor+type query (Priority 3, Neo4j only, HAS_OPENING/FILLS)
-    # ───────────────────────────────────────────────────────────────────────
-
-    # ── V2.5 NEW FIELD (Phase 5 — Neuro-Symbolic) ───────────────────────────
+    space_name: Optional[str] = None  # room/space name (e.g. "Living Room"); NOT storey
+    target_name_keyword: Optional[str] = None  # equipment ID (e.g. "AHU-03"); null for generic types
     spatial_relations: List[SpatialTriplet] = Field(default_factory=list)
+    # Predicates: FILLS, ADJACENT_TO, CONTINUOUS, NEXT_TO, CONNECTS_TO
+
+    # ── LEGACY fields (LoRA2/LoRA3 era — kept for backward-compat with old traces) ─
+    # NOT produced by LoRA6 model; NOT used by Phase 3 planner.
+    # Retained so old JSONL traces can be deserialized without errors.
+    near_keywords: List[str] = Field(default_factory=list)
+    relations: List[str] = Field(default_factory=list)
+    neighbor_type: Optional[str] = None
     # Structured spatial predicates extracted by the Neuro layer (LoRA_3).
     # Each triplet encodes (subject_type, predicate, object_type) observed
     # in the site photo/relation-crop images.

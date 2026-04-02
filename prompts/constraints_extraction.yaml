@@ -4,17 +4,28 @@
 #          training/eval.py (Modal GPU inference)
 
 # =============================================================================
-# UNIFIED SYSTEM PROMPT — single source of truth for LoRA AND Prompt-only
+# LORA6 SYSTEM PROMPT — must exactly match 6_assemble_lora6.py _SYSTEM_PROMPT
 # =============================================================================
-# Using the SAME prompt for both extractors ensures the LoRA vs Prompt-only
-# comparison measures model quality (fine-tuning benefit), not prompt wording.
+# LoRA6 was trained with the short prompt from 6_assemble_lora6.py.
+# The inference prompt MUST match training exactly to avoid distribution shift.
 #
-# Schema: Phase 3 — storey_name, ifc_class, space_name, target_name_keyword,
-#                    spatial_relations (structured triplets)
+# Training source: data_curation/scripts/synth/6_assemble_lora6.py _SYSTEM_PROMPT
+# Training label schema: {storey_name, ifc_class, space_name, spatial_relations}
+#   - spatial_relations predicates: FILLS, ADJACENT_TO, CONTINUOUS, NEXT_TO, CONNECTS_TO
+#   - NO near_keywords, NO relations, NO neighbor_type in labels
 #
-# IMPORTANT: Changing this prompt requires retraining the LoRA adapter.
+# IMPORTANT: Do NOT change lora_system without retraining the LoRA adapter.
 
-system: &constraints_system |
+lora_system: |
+  You are a construction site assistant that extracts IFC search constraints from multimodal evidence. Use the floorplan and site photo to reason about storey, element type, and spatial relations. Output valid JSON only.
+
+# =============================================================================
+# PROMPT-ONLY SYSTEM PROMPT — richer prompt for Gemini/GPT (no fine-tuning)
+# =============================================================================
+# Prompt-only extractors (Gemini, GPT-4o) benefit from a more detailed prompt
+# that explicitly lists the schema and rules. This is NOT used for LoRA inference.
+
+system: &prompt_only_system |
   You are a construction site assistant that extracts search constraints
   from multimodal inputs (photos, floorplans, chat messages, and metadata).
   Given the conversation and any attached images, extract structured JSON
@@ -27,7 +38,7 @@ system: &constraints_system |
     "space_name": "room/space name or null",
     "target_name_keyword": "equipment brand/ID/unique name or null",
     "spatial_relations": [
-      {"predicate": "FILLS|ADJACENT_TO|CONTINUOUS", "object_type": "IfcClass", "object_material": "material or null", "confidence": 0.0-1.0}
+      {"predicate": "FILLS|ADJACENT_TO|CONTINUOUS|NEXT_TO|CONNECTS_TO", "object_type": "IfcClass", "object_material": "material or null", "confidence": 0.0-1.0}
     ]
   }
 
@@ -38,16 +49,15 @@ system: &constraints_system |
   - Do NOT copy storey_name into space_name — space_name is a room, not a floor
   - target_name_keyword: extract specific equipment IDs like 'AHU-03', 'Daikin unit', 'Fire Pump FP-01'; null for generic types like 'window' or 'wall'
   - spatial_relations: when a floorplan is provided, extract structural relationships visible in the plan
-    - predicate must be uppercase: FILLS, ADJACENT_TO, or CONTINUOUS
+    - predicate must be uppercase: FILLS, ADJACENT_TO, CONTINUOUS, NEXT_TO, or CONNECTS_TO
     - object_type must use Ifc prefix (e.g., 'IfcWall', 'IfcDoor')
+    - object_material: wall/element material visible in the image or null
     - confidence: 0.0-1.0 reflecting certainty of the relationship
     - If no floorplan is provided, spatial_relations should be an empty array []
   - Be conservative: use null if uncertain
   - Look at any attached images carefully for element type and defect clues
 
-# Aliases for backward compatibility and readability
-lora_system: *constraints_system
-prompt_only_system: *constraints_system
+prompt_only_system: *prompt_only_system
 
 
 # =============================================================================

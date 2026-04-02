@@ -45,21 +45,22 @@ Return exactly one JSON object with these exact keys:
 {
   "storey_name": string | null,
   "ifc_class": string | null,
-  "near_keywords": [string, ...],
-  "relations": [],
   "space_name": string | null,
   "target_name_keyword": string | null,
-  "neighbor_type": string | null,
   "spatial_relations": [
     {
-      "predicate": string,
-      "object_type": string | null,
-      "direction": string | null
+      "predicate": "FILLS" | "ADJACENT_TO" | "CONTINUOUS" | "NEXT_TO" | "CONNECTS_TO",
+      "object_type": "IfcWall" | "IfcWindow" | "IfcDoor" | "IfcSlab" | "IfcStair" | "IfcRailing" | "IfcColumn" | ...,
+      "object_material": string | null,
+      "confidence": number (0.0-1.0)
     }
   ]
 }
-Use the exact key names above: storey_name, ifc_class, spatial_relations, predicate, object_type, direction.
-If uncertain, use null or [] instead of renaming keys.
+Rules:
+- Use ONLY the predicate values listed above (FILLS, ADJACENT_TO, CONTINUOUS, NEXT_TO, CONNECTS_TO).
+- ifc_class must start with "Ifc" prefix.
+- spatial_relations: extract from floorplan/photo; use [] if no spatial relationship is visible.
+- If uncertain about any field, use null.
 """.strip()
 
 

@@ -558,7 +558,10 @@ class RetrievalBackend:
                 f" }}"
             )
 
-        # NEXT_TO: MATCH so we can access edge.wall_guid for same-wall constraint
+        # NEXT_TO: MATCH so we can access edge.wall_guid for same-wall constraint.
+        # Direction: target → neighbor (filter on target, neighbour is the type constraint).
+        # Note: reversing to nb→target does NOT reduce pool when only object_type is known
+        # (no specific anchor GUID) — true Phase 3B requires anchor GUID from model output.
         for i, sr in enumerate(next_to_rels):
             key = f"nt_obj_{i}"
             cypher_params[key] = sr.get("object_type", "")
