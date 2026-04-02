@@ -315,7 +315,7 @@ if [ "$RELOAD" = true ] || [ "$adj_count" -lt 100 ]; then
         fi
 
         info "Running topology enrichment for $model_label..."
-        conda run -n mscd_demo python ../legacy/script/add_topology_edges.py \
+        conda run -n mscd_demo python add_topology_edges.py \
             --index "$local_index" \
             --threshold 1500.0 \
             --ifc "$local_ifc" \

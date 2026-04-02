@@ -168,6 +168,11 @@ def write_csv_summary(
     v2_per_case: Optional[List[Dict[str, Any]]],
     path: Path,
     percent_used: float = 100.0,
+    *,
+    mrr: float = 0.0,
+    gt_in_pool: int = 0,
+    top10_hits: int = 0,
+    n: int = 0,
 ) -> None:
     """Write combined v1 + v2 metrics CSV."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -182,7 +187,9 @@ def write_csv_summary(
         w.writerow(["Total Scenarios", v1_summary.total_scenarios])
         w.writerow(["Successful Runs", v1_summary.successful_runs])
         w.writerow(["Top-1 Accuracy", f"{v1_summary.top1_accuracy:.4f}"])
-        w.writerow(["Top-K Accuracy", f"{v1_summary.topk_accuracy:.4f}"])
+        w.writerow(["Top-10 Accuracy", f"{top10_hits/n:.4f}" if n > 0 else "N/A"])
+        w.writerow(["MRR@10", f"{mrr:.4f}"])
+        w.writerow(["GT-in-Pool", f"{gt_in_pool}/{n} ({gt_in_pool/n:.1%})" if n > 0 else "N/A"])
         w.writerow(["Avg Search-Space Reduction", f"{v1_summary.avg_search_space_reduction:.4f}"])
         w.writerow(["Escalation Rate", f"{v1_summary.escalation_rate:.4f}"])
         w.writerow(["Avg Latency (ms)", f"{v1_summary.avg_latency_ms:.1f}"])
@@ -628,15 +635,46 @@ async def main(args: argparse.Namespace) -> None:
     summary_file = output_dir / f"summary_{tag}.csv"
 
     write_jsonl(valid_traces, traces_file)
-    write_csv_summary(v1_summary, v2_summary, v2_per_case_metrics or None, summary_file, percent_used)
 
-    # ── 8. print quick summary ─────────────────────────────────────────────
+    # ── 8. compute GT-in-Pool and MRR@10 directly from traces ─────────────
+    n = len(valid_traces)
+    gt_in_pool_count = 0
+    rrs = []
+    top10_hits = 0
+    for t in valid_traces:
+        gt_guid = (t.scenario.ground_truth.target_guid if t.scenario else "") or ""
+        # GT-in-Pool: check full retrieval pool via internals
+        internals = t.internals or {}
+        rr_results = internals.get("retrieval_results", [])
+        all_guids: set = set()
+        for r in rr_results:
+            for c in (r.get("candidates") or []):
+                all_guids.add(c.get("guid", ""))
+        if gt_guid and gt_guid in all_guids:
+            gt_in_pool_count += 1
+        # MRR@10: from interpreter_output candidates (top-10 list)
+        io = t.interpreter_output
+        cands = [c.guid for c in io.candidates] if io and io.candidates else []
+        if gt_guid and gt_guid in cands:
+            rank = cands.index(gt_guid) + 1
+            rrs.append(1.0 / rank)
+            top10_hits += 1
+    mrr = sum(rrs) / n if n > 0 else 0.0
+    gt_in_pool_pct = gt_in_pool_count / n if n > 0 else 0.0
+
+    write_csv_summary(
+        v1_summary, v2_summary, v2_per_case_metrics or None, summary_file, percent_used,
+        mrr=mrr, gt_in_pool=gt_in_pool_count, top10_hits=top10_hits, n=n,
+    )
+
     print()
     print("=" * 60)
     print(f"Profile        : {profile_name}")
     print(f"Cases          : {v1_summary.total_scenarios}")
     print(f"Top-1 Accuracy : {v1_summary.top1_accuracy:.4f}")
-    print(f"Top-K Accuracy : {v1_summary.topk_accuracy:.4f}")
+    print(f"Top-10 Accuracy: {top10_hits}/{n} ({top10_hits/n:.1%})" if n > 0 else "Top-10 Accuracy: N/A")
+    print(f"MRR@10         : {mrr:.4f}")
+    print(f"GT-in-Pool     : {gt_in_pool_count}/{n} ({gt_in_pool_pct:.1%})")
     print(f"Search Space   : {v1_summary.avg_search_space_reduction:.4f}")
     if v2_summary:
         print(f"Parse Rate     : {v2_summary.get('constraints_parse_rate', 0):.4f}")

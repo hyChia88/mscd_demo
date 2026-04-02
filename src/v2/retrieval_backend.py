@@ -303,58 +303,29 @@ class RetrievalBackend:
             # Elements are split across both → must match either.
             storey_siblings = self._resolve_storey_siblings(storey) if storey else []
 
-            # ── 2-hop OPTIONAL MATCH detection ───────────────────────────────
-            # If spatial_relations has 2+ triplets, triplet[0] is the hard
-            # filter (hop 1) and triplet[1] is the soft re-rank (hop 2).
-            # The OPTIONAL MATCH NEVER reduces the candidate pool vs single-hop
-            # — it only reorders (has_hop2=true ranked first).
+            # ── Phase 3: multi-anchor vs single-hop dispatch ──────────────────
+            # 2+ spatial_relations → AND hard-filter with same-wall constraint.
+            # 1 spatial_relation  → original single-hop Cypher (unchanged).
             spatial_rels = params.get("spatial_relations", [])
-            has_hop2 = len(spatial_rels) >= 2
-
-            if has_hop2:
-                hop2 = spatial_rels[1]
-                predicate2 = hop2.get("predicate", "")
-                object_type2 = hop2.get("object_type", "")
-            else:
-                predicate2 = ""
-                object_type2 = ""
-
-            # IFC subtype-aware match: IfcWall matches IfcWallStandardCase etc.
-            # T1.3: Added graceful material filter on ref element.
             model_key = self.engine.model_key
-            if has_hop2 and predicate2:
-                # 2-hop Cypher: hard filter on hop 1, soft re-rank on hop 2
-                cypher = f"""
-                    MATCH (target:IFCElement)-[:{predicate}]->(ref:IFCElement)
-                    WHERE (target.ifc_type = $subject_type
-                           OR target.ifc_type STARTS WITH $subject_type)
-                      AND (ref.ifc_type = $object_type
-                           OR ref.ifc_type STARTS WITH $object_type)
-                      AND target.ifc_model = $model
-                      AND (size($storey_list) = 0
-                           OR ANY(s IN $storey_list WHERE toLower(target.storey) CONTAINS s))
-                      AND ($object_material = ''
-                           OR toLower(ref.material) CONTAINS toLower($object_material))
-                    OPTIONAL MATCH (ref)-[:{predicate2}]->(ref2:IFCElement)
-                    WHERE (ref2.ifc_type = $object_type2
-                           OR ref2.ifc_type STARTS WITH $object_type2)
-                    RETURN DISTINCT target.guid AS guid, target.name AS name,
-                           target.ifc_type AS type,
-                           ref.ifc_type AS ref_type, ref.storey AS ref_storey,
-                           ref2 IS NOT NULL AS has_hop2
-                    ORDER BY has_hop2 DESC
-                """
-                result = self.engine.neo4j_conn.run(
-                    cypher,
-                    subject_type=subject_type,
-                    object_type=object_type,
-                    storey_list=storey_siblings,
-                    object_material=object_material,
-                    object_type2=object_type2,
-                    model=model_key,
+
+            if len(spatial_rels) >= 2:
+                # Multi-anchor: all SRs as hard AND filters
+                candidates = self._execute_multi_anchor(
+                    subject_type, spatial_rels, storey_siblings, object_material, params
                 )
+                # Storey relaxation: retry without storey filter
+                if not candidates and storey_siblings:
+                    candidates = self._execute_multi_anchor(
+                        subject_type, spatial_rels, [], object_material, params
+                    )
+                # Relation relaxation: drop weakest SR one at a time
+                if not candidates:
+                    candidates = self._relax_multi_anchor(
+                        subject_type, spatial_rels, storey_siblings, object_material, params
+                    )
             else:
-                # Single-hop Cypher (original behavior)
+                # Single-hop Cypher (original behavior, unchanged)
                 cypher = f"""
                     MATCH (target:IFCElement)-[:{predicate}]->(ref:IFCElement)
                     WHERE (target.ifc_type = $subject_type
@@ -378,39 +349,10 @@ class RetrievalBackend:
                     object_material=object_material,
                     model=model_key,
                 )
-            candidates = [dict(r) for r in result]
+                candidates = [dict(r) for r in result]
 
-            # Predicate relaxation step 1: if storey filter gives 0, retry without storey
-            # (stays Priority-0, avoids collapsing to storey+type prematurely)
-            if not candidates and storey_siblings:
-                if has_hop2 and predicate2:
-                    cypher_no_storey = f"""
-                        MATCH (target:IFCElement)-[:{predicate}]->(ref:IFCElement)
-                        WHERE (target.ifc_type = $subject_type
-                               OR target.ifc_type STARTS WITH $subject_type)
-                          AND (ref.ifc_type = $object_type
-                               OR ref.ifc_type STARTS WITH $object_type)
-                          AND target.ifc_model = $model
-                          AND ($object_material = ''
-                               OR toLower(ref.material) CONTAINS toLower($object_material))
-                        OPTIONAL MATCH (ref)-[:{predicate2}]->(ref2:IFCElement)
-                        WHERE (ref2.ifc_type = $object_type2
-                               OR ref2.ifc_type STARTS WITH $object_type2)
-                        RETURN DISTINCT target.guid AS guid, target.name AS name,
-                               target.ifc_type AS type,
-                               ref.ifc_type AS ref_type, ref.storey AS ref_storey,
-                               ref2 IS NOT NULL AS has_hop2
-                        ORDER BY has_hop2 DESC
-                    """
-                    result2 = self.engine.neo4j_conn.run(
-                        cypher_no_storey,
-                        subject_type=subject_type,
-                        object_type=object_type,
-                        object_material=object_material,
-                        object_type2=object_type2,
-                        model=model_key,
-                    )
-                else:
+                # Storey relaxation: no results → retry without storey
+                if not candidates and storey_siblings:
                     cypher_no_storey = f"""
                         MATCH (target:IFCElement)-[:{predicate}]->(ref:IFCElement)
                         WHERE (target.ifc_type = $subject_type
@@ -431,8 +373,9 @@ class RetrievalBackend:
                         object_material=object_material,
                         model=model_key,
                     )
-                candidates = [dict(r) for r in result2]
-            # Predicate relaxation step 2: no topology edges at all → storey+type
+                    candidates = [dict(r) for r in result2]
+
+            # Final fallback: no topology edges at all → storey+type
             if not candidates:
                 fallback_strategy = "storey+type" if storey else "type_only"
                 self._fallback_triggered = True
@@ -555,6 +498,189 @@ class RetrievalBackend:
             return self._execute_memory(plan)
 
         return []
+
+    def _execute_multi_anchor(
+        self,
+        subject_type: str,
+        spatial_rels: List[Dict[str, Any]],
+        storey_siblings: List[str],
+        object_material: str,
+        params: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
+        """
+        Phase 3: Multi-anchor AND-intersection Cypher.
+
+        All spatial_relations are hard filters (AND semantics).
+        NEXT_TO relations additionally get a same-wall constraint via
+        the wall_guid property on NEXT_TO edges, preventing false positives
+        where two neighbors happen to be on different walls.
+
+        Predicate routing:
+          FILLS       → WHERE EXISTS clause (no edge props needed)
+          NEXT_TO     → MATCH clause (accesses edge.wall_guid for same-wall)
+          others      → WHERE EXISTS clause
+        """
+        if not self.engine.neo4j_conn:
+            return []
+
+        model_key = self.engine.model_key
+        cypher_params: Dict[str, Any] = {
+            "subject_type": subject_type,
+            "model": model_key,
+            "storey_list": storey_siblings,
+        }
+
+        fills_rels = [sr for sr in spatial_rels if sr.get("predicate") == "FILLS"]
+        next_to_rels = [sr for sr in spatial_rels if sr.get("predicate") == "NEXT_TO"]
+        other_rels = [sr for sr in spatial_rels
+                      if sr.get("predicate") not in ("FILLS", "NEXT_TO", "CONTINUOUS")]
+
+        match_lines = ["MATCH (target:IFCElement)"]
+        where_parts = [
+            "(target.ifc_type = $subject_type OR target.ifc_type STARTS WITH $subject_type)",
+            "target.ifc_model = $model",
+            "(size($storey_list) = 0"
+            " OR ANY(s IN $storey_list WHERE toLower(target.storey) CONTAINS s))",
+        ]
+
+        # FILLS: WHERE EXISTS (simple edge traversal)
+        for i, sr in enumerate(fills_rels):
+            key = f"fills_obj_{i}"
+            mat_key = f"fills_mat_{i}"
+            cypher_params[key] = sr.get("object_type", "")
+            cypher_params[mat_key] = sr.get("object_material") or ""
+            where_parts.append(
+                f"EXISTS {{ "
+                f"(target)-[:FILLS]->(fi{i}:IFCElement) "
+                f"WHERE (fi{i}.ifc_type = ${key} OR fi{i}.ifc_type STARTS WITH ${key}) "
+                f"AND fi{i}.ifc_model = $model "
+                f"AND (${mat_key} = '' OR toLower(fi{i}.material) CONTAINS toLower(${mat_key}))"
+                f" }}"
+            )
+
+        # NEXT_TO: MATCH so we can access edge.wall_guid for same-wall constraint
+        for i, sr in enumerate(next_to_rels):
+            key = f"nt_obj_{i}"
+            cypher_params[key] = sr.get("object_type", "")
+            match_lines.append(
+                f"MATCH (target)-[nt_r{i}:NEXT_TO]->(nt_nb{i}:IFCElement)"
+            )
+            where_parts.append(
+                f"(nt_nb{i}.ifc_type = ${key} OR nt_nb{i}.ifc_type STARTS WITH ${key})"
+            )
+            where_parts.append(f"nt_nb{i}.ifc_model = $model")
+
+        # Same-wall constraint: all NEXT_TO edges must share the same wall
+        if len(next_to_rels) >= 2:
+            for i in range(len(next_to_rels) - 1):
+                where_parts.append(f"nt_r{i}.wall_guid = nt_r{i + 1}.wall_guid")
+            # All NEXT_TO neighbors must be distinct elements
+            for i in range(len(next_to_rels)):
+                for j in range(i + 1, len(next_to_rels)):
+                    where_parts.append(f"nt_nb{i} <> nt_nb{j}")
+
+        # Other predicates (ADJACENT_TO, CONNECTS_TO, etc.): WHERE EXISTS + material
+        for i, sr in enumerate(other_rels):
+            pred = sr.get("predicate", "")
+            key = f"other_obj_{i}"
+            mat_key = f"other_mat_{i}"
+            cypher_params[key] = sr.get("object_type", "")
+            cypher_params[mat_key] = sr.get("object_material") or ""
+            where_parts.append(
+                f"EXISTS {{ "
+                f"(target)-[:{pred}]->(ot{i}:IFCElement) "
+                f"WHERE (ot{i}.ifc_type = ${key} OR ot{i}.ifc_type STARTS WITH ${key}) "
+                f"AND ot{i}.ifc_model = $model "
+                f"AND (${mat_key} = '' OR toLower(ot{i}.material) CONTAINS toLower(${mat_key}))"
+                f" }}"
+            )
+
+        match_str = "\n    ".join(match_lines)
+        where_str = "\n      AND ".join(where_parts)
+        cypher = f"""
+        {match_str}
+        WHERE {where_str}
+        RETURN DISTINCT target.guid AS guid, target.name AS name,
+               target.ifc_type AS type,
+               target.wall_position_index AS pos
+        ORDER BY pos
+        """
+        try:
+            return [dict(r) for r in self.engine.neo4j_conn.run(cypher, **cypher_params)]
+        except Exception:
+            return []
+
+    def _relax_multi_anchor(
+        self,
+        subject_type: str,
+        spatial_rels: List[Dict[str, Any]],
+        storey_siblings: List[str],
+        object_material: str,
+        params: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
+        """
+        Relaxation ladder for multi-anchor: drop the lowest-confidence SR
+        one at a time until candidates are found.
+
+        Falls back to single-hop with the highest-confidence SR if all
+        subsets of size >= 2 return empty.
+        """
+        # Sort ascending by confidence — drop weakest first
+        ranked = sorted(spatial_rels, key=lambda x: x.get("confidence", 1.0))
+        remaining = list(ranked)
+
+        while len(remaining) > 1:
+            remaining = remaining[1:]  # drop weakest
+            if len(remaining) == 1:
+                break
+            candidates = self._execute_multi_anchor(
+                subject_type, remaining, storey_siblings, object_material, params
+            )
+            if candidates:
+                return candidates
+            # Also try without storey
+            if storey_siblings:
+                candidates = self._execute_multi_anchor(
+                    subject_type, remaining, [], object_material, params
+                )
+                if candidates:
+                    return candidates
+
+        # Single-SR fallback: use highest-confidence relation
+        best = max(spatial_rels, key=lambda x: x.get("confidence", 1.0))
+        pred = best.get("predicate", "")
+        obj_type = best.get("object_type", "")
+        mat = best.get("object_material") or ""
+        model_key = self.engine.model_key
+        if not pred:
+            return []
+        cypher = f"""
+            MATCH (target:IFCElement)-[:{pred}]->(ref:IFCElement)
+            WHERE (target.ifc_type = $subject_type
+                   OR target.ifc_type STARTS WITH $subject_type)
+              AND (ref.ifc_type = $object_type
+                   OR ref.ifc_type STARTS WITH $object_type)
+              AND target.ifc_model = $model
+              AND (size($storey_list) = 0
+                   OR ANY(s IN $storey_list WHERE toLower(target.storey) CONTAINS s))
+              AND ($object_material = ''
+                   OR toLower(ref.material) CONTAINS toLower($object_material))
+            RETURN DISTINCT target.guid AS guid, target.name AS name,
+                   target.ifc_type AS type,
+                   ref.ifc_type AS ref_type, ref.storey AS ref_storey
+        """
+        try:
+            result = self.engine.neo4j_conn.run(
+                cypher,
+                subject_type=subject_type,
+                object_type=obj_type,
+                storey_list=storey_siblings,
+                object_material=mat,
+                model=model_key,
+            )
+            return [dict(r) for r in result]
+        except Exception:
+            return []
 
     def _post_filter_by_name_keyword(
         self,
