@@ -25,7 +25,20 @@ from common.config import load_yaml_prompts
 # LoRA vs Prompt comparison measures model quality, not prompt wording.
 
 _PROMPTS_PATH = Path(__file__).parent.parent.parent / "prompts" / "constraints_extraction.yaml"
-SYSTEM_PROMPT: str = load_yaml_prompts(str(_PROMPTS_PATH)).get("lora_system", "")
+
+
+def _prompt_key_from_adapter(adapter_path: Optional[str], explicit_key: Optional[str]) -> str:
+    if explicit_key:
+        return explicit_key
+    adapter_lower = str(adapter_path or "").lower()
+    if "g7" in adapter_lower:
+        return "lora_system_g7"
+    return "lora_system"
+
+
+def _load_lora_system_prompt(prompt_key: str) -> str:
+    prompts = load_yaml_prompts(str(_PROMPTS_PATH))
+    return prompts.get(prompt_key, prompts.get("lora_system", prompts.get("system", "")))
 
 
 class LoRAConstraintsExtractor:
@@ -47,6 +60,7 @@ class LoRAConstraintsExtractor:
         self,
         adapter_path: Optional[str] = None,
         image_dir: str = "",
+        prompt_key: Optional[str] = None,
     ):
         """
         Initialize LoRA extractor.
@@ -61,6 +75,8 @@ class LoRAConstraintsExtractor:
         """
         self.adapter_path = adapter_path
         self.image_dir = image_dir
+        self.prompt_key = _prompt_key_from_adapter(adapter_path, prompt_key)
+        self.system_prompt = _load_lora_system_prompt(self.prompt_key)
         self.model = None
         self.processor = None
         self._loaded = False
@@ -174,10 +190,17 @@ class LoRAConstraintsExtractor:
 
             spatial_rels = []
             for rel in sr_raw:
+                direction = rel.get("direction")
+                if isinstance(direction, str):
+                    direction = direction.lower().strip()
+                if direction not in {"left", "right"}:
+                    direction = None
                 spatial_rels.append(SpatialTriplet(
                     subject_type=data.get("ifc_class", ""),
                     predicate=rel.get("predicate", "ADJACENT_TO").upper(),
                     object_type=rel.get("object_type", ""),
+                    object_subtype=rel.get("object_subtype"),
+                    direction=direction,
                     object_material=rel.get("object_material"),
                     confidence=rel.get("confidence", 0.0),
                 ))
@@ -190,9 +213,10 @@ class LoRAConstraintsExtractor:
                 ifc_class=data.get("ifc_class"),
                 space_name=data.get("space_name"),
                 target_name_keyword=data.get("target_name_keyword"),
+                position_context=data.get("position_context"),
                 spatial_relations=spatial_rels,
                 confidence=conf,
-                source="lora3",
+                source="lora",
             )
 
         print(f"  [LoRA] JSON parse failed. Raw output: {output_text[:200]}")
@@ -230,7 +254,7 @@ class LoRAConstraintsExtractor:
         })
 
         return [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": user_content},
         ]
 

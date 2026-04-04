@@ -31,6 +31,8 @@ class SpatialTriplet(BaseModel):
         "PARALLEL_TO",       # wall orientation vectors dot-product ≈ 1
     ]
     object_type: str  # e.g. "IfcRailing"
+    object_subtype: Optional[str] = None  # e.g. "BALANS 10M BATHROOM"
+    direction: Optional[Literal["left", "right"]] = None
     object_material: Optional[str] = None  # optional material filter on the ref element
     confidence: float = 0.0  # VLM extraction confidence [0, 1]
 
@@ -48,6 +50,7 @@ class Constraints(BaseModel):
     ifc_class: Optional[str] = None  # e.g., "IfcWindow", "IfcWall", "IfcDoor"
     space_name: Optional[str] = None  # room/space name (e.g. "Living Room"); NOT storey
     target_name_keyword: Optional[str] = None  # equipment ID (e.g. "AHU-03"); null for generic types
+    position_context: Optional[str] = None  # e.g. "3rd of 17 openings on the same wall"
     spatial_relations: List[SpatialTriplet] = Field(default_factory=list)
     # Predicates: FILLS, ADJACENT_TO, CONTINUOUS, NEXT_TO, CONNECTS_TO
 

@@ -142,12 +142,12 @@ def _load_condition_configs() -> Dict[str, Dict]:
     return data.get("conditions", {})
 
 
-def _load_system_prompt() -> str:
+def _load_system_prompt(prompt_key: str = "lora_system") -> str:
     """Load LoRA system prompt from /app/constraints_extraction.yaml."""
     import yaml
     with open("/app/constraints_extraction.yaml", "r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
-    return data.get("lora_system", data.get("system", ""))
+    return data.get(prompt_key, data.get("lora_system", data.get("system", "")))
 
 
 def _load_condition_mask():
@@ -368,6 +368,7 @@ def run_eval(
     limit: int = 0,
     condition_override: str = "",
     cases_file: str = "",
+    prompt_key: str = "",
 ):
     """Run LoRA constraint extraction on all cases (Modal A100).
 
@@ -381,10 +382,12 @@ def run_eval(
 
     # ── 0. Load config from baked-in files (single source of truth) ──────
     condition_configs = _load_condition_configs()   # from /app/profiles.yaml
-    system_prompt     = _load_system_prompt()       # from /app/constraints_extraction.yaml
+    if not prompt_key:
+        prompt_key = "lora_system_g7" if "g7" in adapter_dir.lower() else "lora_system"
+    system_prompt     = _load_system_prompt(prompt_key)       # from /app/constraints_extraction.yaml
     ConditionMask     = _load_condition_mask()      # from /app/condition_mask.py
     print(f"Loaded {len(condition_configs)} conditions from profiles.yaml")
-    print(f"System prompt: {len(system_prompt)} chars (lora_system)")
+    print(f"System prompt: {len(system_prompt)} chars ({prompt_key})")
 
     # ── 1. Locate adapter ────────────────────────────────────────────────
     adapter_path = f"/checkpoints{adapter_dir}"

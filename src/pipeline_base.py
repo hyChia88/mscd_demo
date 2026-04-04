@@ -106,6 +106,7 @@ class V2Pipeline(PipelineBase):
         profile: Dict[str, Any],
         config: Dict[str, Any],
         adapter_path: Optional[str] = None,
+        lora_prompt_key: Optional[str] = None,
         tool_by_name: Optional[Dict[str, Any]] = None,
         rq2_schema: Optional[Dict[str, Any]] = None,
         rq2_schema_id: Optional[str] = None,
@@ -117,6 +118,7 @@ class V2Pipeline(PipelineBase):
         self.profile = profile
         self.config = config
         self.adapter_path = adapter_path
+        self.lora_prompt_key = lora_prompt_key
         self.tool_by_name = tool_by_name
         self.rq2_schema = rq2_schema
         self.rq2_schema_id = rq2_schema_id
@@ -148,6 +150,7 @@ class V2Pipeline(PipelineBase):
             self.lora_extractor = LoRAConstraintsExtractor(
                 adapter_path=adapter_path,
                 image_dir=image_dir,
+                prompt_key=lora_prompt_key,
             )
 
     async def run_case(

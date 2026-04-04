@@ -5,6 +5,7 @@ Translates extracted constraints into deterministic, priority-ordered query plan
 No LLM generation - uses fixed templates for reproducibility.
 """
 
+import re
 from typing import List, Dict, Any
 from .types import Constraints, QueryPlan, SpatialTriplet
 
@@ -305,6 +306,10 @@ class QueryPlanner:
             params["spatial_relations"] = [t.model_dump() for t in constraints.spatial_relations]
             if triplet.object_material:
                 params["object_material"] = triplet.object_material
+            if any(t.direction for t in constraints.spatial_relations):
+                params["has_directional_fingerprint"] = True
+            if any(t.object_subtype for t in constraints.spatial_relations):
+                params["has_object_subtype_fingerprint"] = True
             # storey routing depends on context:
             # - H2 eval sets storey_name = top_constraint for CONTINUOUS
             # - LoRA sets storey_name = base storey (the floor the element is on)
@@ -313,6 +318,26 @@ class QueryPlanner:
             if "storey" not in params:
                 params["storey"] = constraints.storey_name or ""
             params["top_storey"] = constraints.storey_name or ""
+            params["chain_mode"] = (
+                "multi_chain_anchor"
+                if len(constraints.spatial_relations) >= 2
+                else "single_chain"
+            )
+
+        if constraints.position_context:
+            params["position_context"] = constraints.position_context
+            parsed_position = self._parse_position_context(constraints.position_context)
+            if parsed_position:
+                params.update(parsed_position)
+
+        if params.get("position_index") is not None:
+            params["fingerprint_level_requested"] = "exact_slot"
+        elif params.get("has_object_subtype_fingerprint") or params.get("has_directional_fingerprint"):
+            params["fingerprint_level_requested"] = "relation_fingerprint"
+        elif params.get("spatial_relations"):
+            params["fingerprint_level_requested"] = "topology_only"
+        else:
+            params["fingerprint_level_requested"] = "attribute_only"
 
         # T1.1: Always propagate target_name_keyword for post-filtering P0 results.
         # This applies AFTER Cypher returns candidates (Python-side filter).
@@ -320,6 +345,20 @@ class QueryPlanner:
             params["target_name_keyword"] = constraints.target_name_keyword
 
         return params
+
+    def _parse_position_context(self, value: str) -> Dict[str, int]:
+        """Parse human-readable slot text into planner-friendly integers."""
+        if not value:
+            return {}
+        match = self._POSITION_CONTEXT_RE.search(value.strip())
+        if not match:
+            return {}
+        index = int(match.group("index"))
+        total = int(match.group("total"))
+        return {
+            "position_index": index,
+            "position_total": total,
+        }
 
     def _estimate_pool_size(self, strategy: str, params: Dict[str, Any]) -> int:
         """
@@ -365,3 +404,7 @@ class QueryPlanner:
             if rule["priority"] == priority:
                 return rule.get("description", "")
         return "Unknown priority"
+    _POSITION_CONTEXT_RE = re.compile(
+        r"(?P<index>\d+)(?:st|nd|rd|th)\s+of\s+(?P<total>\d+)\s+openings",
+        flags=re.IGNORECASE,
+    )

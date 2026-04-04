@@ -153,10 +153,18 @@ def _normalize_precomputed_spatial_triplet(
     if not object_type:
         return None
 
+    direction = sr.get("direction")
+    if isinstance(direction, str):
+        direction = direction.lower().strip()
+    if direction not in {"left", "right"}:
+        direction = None
+
     return SpatialTriplet(
         subject_type=str(subject_type),
         predicate=predicate,
         object_type=str(object_type),
+        object_subtype=sr.get("object_subtype"),
+        direction=direction,
         object_material=sr.get("object_material"),
         confidence=sr.get("confidence", 0.9),
     )
@@ -378,6 +386,7 @@ async def main(args: argparse.Namespace) -> None:
                     # Phase 2 new fields
                     space_name=c.get("space_name"),
                     target_name_keyword=c.get("target_name_keyword"),
+                    position_context=c.get("position_context"),
                     neighbor_type=c.get("neighbor_type"),
                     # Phase 5 spatial relations
                     spatial_relations=spatial_rels,
@@ -433,6 +442,7 @@ async def main(args: argparse.Namespace) -> None:
             profile=profile,
             config=config,
             adapter_path=args.adapter_path,
+            lora_prompt_key=args.lora_prompt_key,
             precomputed_constraints=precomputed_constraints,
         )
     elif pipeline_type == "v1":
@@ -717,6 +727,11 @@ def cli() -> argparse.Namespace:
     p.add_argument(
         "--adapter_path", default=None,
         help="LoRA adapter checkpoint path (for v2 lora mode)",
+    )
+    p.add_argument(
+        "--lora-prompt-key", default=None,
+        dest="lora_prompt_key",
+        help="Prompt key from prompts/constraints_extraction.yaml, e.g. lora_system_g7",
     )
     p.add_argument(
         "--precomputed", default=None,

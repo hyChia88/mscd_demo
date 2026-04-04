@@ -7,7 +7,7 @@ with JSON-only output format. No model training required.
 
 from typing import Dict, Any, Optional
 import json
-from .types import Constraints, ImageParseResult
+from .types import Constraints, ImageParseResult, SpatialTriplet
 from .condition_mask import ConditionMask
 from common.config import load_yaml_prompts
 
@@ -81,6 +81,30 @@ class PromptConstraintsExtractor:
             data = self._parse_json_response(response_text)
 
             if data:
+                sr_raw = data.get("spatial_relations") or []
+                spatial_rels = []
+                for rel in sr_raw:
+                    predicate = str(rel.get("predicate") or "ADJACENT_TO").upper()
+                    object_type = rel.get("object_type")
+                    if not object_type:
+                        continue
+                    direction = rel.get("direction")
+                    if isinstance(direction, str):
+                        direction = direction.lower().strip()
+                    if direction not in {"left", "right"}:
+                        direction = None
+                    spatial_rels.append(
+                        SpatialTriplet(
+                            subject_type=data.get("ifc_class") or "",
+                            predicate=predicate,
+                            object_type=object_type,
+                            object_subtype=rel.get("object_subtype"),
+                            direction=direction,
+                            object_material=rel.get("object_material"),
+                            confidence=rel.get("confidence", 0.8),
+                        )
+                    )
+
                 constraints = Constraints(
                     storey_name=data.get("storey_name"),
                     ifc_class=data.get("ifc_class"),
@@ -89,7 +113,9 @@ class PromptConstraintsExtractor:
                     # Phase 2 new fields
                     space_name=data.get("space_name"),
                     target_name_keyword=data.get("target_name_keyword"),
+                    position_context=data.get("position_context"),
                     neighbor_type=data.get("neighbor_type"),
+                    spatial_relations=spatial_rels,
                     confidence=0.8,  # Reasonable confidence for successful parse
                     source="prompt"
                 )

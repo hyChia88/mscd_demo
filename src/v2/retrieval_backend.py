@@ -309,21 +309,79 @@ class RetrievalBackend:
             spatial_rels = params.get("spatial_relations", [])
             model_key = self.engine.model_key
 
-            if len(spatial_rels) >= 2:
-                # Multi-anchor: all SRs as hard AND filters
+            if self._requires_multi_chain(spatial_rels, params):
+                # Default planner path: full fingerprint first, then controlled fallbacks.
                 candidates = self._execute_multi_anchor(
-                    subject_type, spatial_rels, storey_siblings, object_material, params
+                    subject_type,
+                    spatial_rels,
+                    storey_siblings,
+                    object_material,
+                    params,
+                    include_relation_fingerprint=True,
+                    include_position=True,
                 )
+                if candidates and self._has_relation_fingerprint(spatial_rels, params):
+                    self._strategy_actually_used = f"{plan.strategy}[full_fingerprint]"
+
+                # Exact-slot relaxation
+                if not candidates and params.get("position_index") is not None:
+                    candidates = self._execute_multi_anchor(
+                        subject_type,
+                        spatial_rels,
+                        storey_siblings,
+                        object_material,
+                        params,
+                        include_relation_fingerprint=True,
+                        include_position=False,
+                    )
+                    if candidates:
+                        self._fallback_triggered = True
+                        self._strategy_actually_used = f"{plan.strategy}[no_position]"
+
+                # Relation fingerprint relaxation
+                if not candidates and self._has_relation_fingerprint(spatial_rels, params):
+                    candidates = self._execute_multi_anchor(
+                        subject_type,
+                        spatial_rels,
+                        storey_siblings,
+                        object_material,
+                        params,
+                        include_relation_fingerprint=False,
+                        include_position=False,
+                    )
+                    if candidates:
+                        self._fallback_triggered = True
+                        self._strategy_actually_used = f"{plan.strategy}[topology_only]"
+
                 # Storey relaxation: retry without storey filter
                 if not candidates and storey_siblings:
                     candidates = self._execute_multi_anchor(
-                        subject_type, spatial_rels, [], object_material, params
+                        subject_type,
+                        spatial_rels,
+                        [],
+                        object_material,
+                        params,
+                        include_relation_fingerprint=False,
+                        include_position=False,
                     )
+                    if candidates:
+                        self._fallback_triggered = True
+                        self._strategy_actually_used = f"{plan.strategy}[no_storey]"
+
                 # Relation relaxation: drop weakest SR one at a time
                 if not candidates:
                     candidates = self._relax_multi_anchor(
-                        subject_type, spatial_rels, storey_siblings, object_material, params
+                        subject_type,
+                        spatial_rels,
+                        storey_siblings,
+                        object_material,
+                        params,
+                        include_relation_fingerprint=False,
+                        include_position=False,
                     )
+                    if candidates:
+                        self._fallback_triggered = True
+                        self._strategy_actually_used = f"{plan.strategy}[relaxed]"
             else:
                 # Single-hop Cypher (original behavior, unchanged)
                 cypher = f"""
@@ -506,6 +564,9 @@ class RetrievalBackend:
         storey_siblings: List[str],
         object_material: str,
         params: Dict[str, Any],
+        *,
+        include_relation_fingerprint: bool = True,
+        include_position: bool = True,
     ) -> List[Dict[str, Any]]:
         """
         Phase 3: Multi-anchor AND-intersection Cypher.
@@ -548,7 +609,8 @@ class RetrievalBackend:
         # to a MATCH so we can tie nt_r{i}.wall_guid = fi0.guid.
         # Effect: pool drops from "all windows on storey NEXT_TO any door" (~43)
         # to "windows on the specific wall that also has a door" (~2-4).
-        fills_as_match = bool(fills_rels and next_to_rels)
+        needs_exact_slot = include_position and params.get("position_index") is not None
+        fills_as_match = bool(fills_rels and (next_to_rels or needs_exact_slot))
 
         # FILLS
         if fills_as_match:
@@ -609,6 +671,29 @@ class RetrievalBackend:
             # Phase 3B wall-pin: NEXT_TO edge must be on the same wall that target fills
             if fills_as_match:
                 where_parts.append(f"nt_r{i}.wall_guid = fi0.guid")
+            if include_relation_fingerprint:
+                direction = sr.get("direction")
+                if direction == "left":
+                    where_parts.append(
+                        f"coalesce(nt_nb{i}.wall_position_index, 999999) < "
+                        f"coalesce(target.wall_position_index, -1)"
+                    )
+                elif direction == "right":
+                    where_parts.append(
+                        f"coalesce(nt_nb{i}.wall_position_index, -1) > "
+                        f"coalesce(target.wall_position_index, 999999)"
+                    )
+
+                object_subtype = (sr.get("object_subtype") or "").strip().lower()
+                if object_subtype:
+                    subtype_key = f"nt_subtype_{i}"
+                    cypher_params[subtype_key] = object_subtype
+                    where_parts.append(
+                        f"("
+                        f"toLower(coalesce(nt_nb{i}.object_type, '')) CONTAINS ${subtype_key} "
+                        f"OR toLower(coalesce(nt_nb{i}.name, '')) CONTAINS ${subtype_key}"
+                        f")"
+                    )
 
         # Same-wall constraint: all NEXT_TO edges must share the same wall
         if len(next_to_rels) >= 2:
@@ -633,7 +718,14 @@ class RetrievalBackend:
                 f"AND ot{i}.ifc_model = $model "
                 f"AND (${mat_key} = '' OR toLower(ot{i}.material) CONTAINS toLower(${mat_key}))"
                 f" }}"
-            )
+                )
+
+        if needs_exact_slot:
+            cypher_params["target_wall_position_index"] = max(int(params["position_index"]) - 1, 0)
+            where_parts.append("coalesce(target.wall_position_index, -1) = $target_wall_position_index")
+            if params.get("position_total") is not None:
+                cypher_params["target_wall_child_total"] = int(params["position_total"])
+                where_parts.append("coalesce(target.wall_child_total, -1) = $target_wall_child_total")
 
         match_str = "\n    ".join(match_lines)
         where_str = "\n      AND ".join(where_parts)
@@ -642,6 +734,9 @@ class RetrievalBackend:
         WHERE {where_str}
         RETURN DISTINCT target.guid AS guid, target.name AS name,
                target.ifc_type AS type,
+               target.storey AS storey,
+               target.object_type AS object_type,
+               target.wall_child_total AS wall_child_total,
                target.wall_position_index AS pos
         ORDER BY pos
         """
@@ -657,6 +752,9 @@ class RetrievalBackend:
         storey_siblings: List[str],
         object_material: str,
         params: Dict[str, Any],
+        *,
+        include_relation_fingerprint: bool = True,
+        include_position: bool = True,
     ) -> List[Dict[str, Any]]:
         """
         Relaxation ladder for multi-anchor: drop the lowest-confidence SR
@@ -674,53 +772,61 @@ class RetrievalBackend:
             if len(remaining) == 1:
                 break
             candidates = self._execute_multi_anchor(
-                subject_type, remaining, storey_siblings, object_material, params
+                subject_type,
+                remaining,
+                storey_siblings,
+                object_material,
+                params,
+                include_relation_fingerprint=include_relation_fingerprint,
+                include_position=include_position,
             )
             if candidates:
                 return candidates
             # Also try without storey
             if storey_siblings:
                 candidates = self._execute_multi_anchor(
-                    subject_type, remaining, [], object_material, params
+                    subject_type,
+                    remaining,
+                    [],
+                    object_material,
+                    params,
+                    include_relation_fingerprint=include_relation_fingerprint,
+                    include_position=include_position,
                 )
                 if candidates:
                     return candidates
 
         # Single-SR fallback: use highest-confidence relation
         best = max(spatial_rels, key=lambda x: x.get("confidence", 1.0))
-        pred = best.get("predicate", "")
-        obj_type = best.get("object_type", "")
-        mat = best.get("object_material") or ""
-        model_key = self.engine.model_key
-        if not pred:
-            return []
-        cypher = f"""
-            MATCH (target:IFCElement)-[:{pred}]->(ref:IFCElement)
-            WHERE (target.ifc_type = $subject_type
-                   OR target.ifc_type STARTS WITH $subject_type)
-              AND (ref.ifc_type = $object_type
-                   OR ref.ifc_type STARTS WITH $object_type)
-              AND target.ifc_model = $model
-              AND (size($storey_list) = 0
-                   OR ANY(s IN $storey_list WHERE toLower(target.storey) CONTAINS s))
-              AND ($object_material = ''
-                   OR toLower(ref.material) CONTAINS toLower($object_material))
-            RETURN DISTINCT target.guid AS guid, target.name AS name,
-                   target.ifc_type AS type,
-                   ref.ifc_type AS ref_type, ref.storey AS ref_storey
-        """
-        try:
-            result = self.engine.neo4j_conn.run(
-                cypher,
-                subject_type=subject_type,
-                object_type=obj_type,
-                storey_list=storey_siblings,
-                object_material=mat,
-                model=model_key,
-            )
-            return [dict(r) for r in result]
-        except Exception:
-            return []
+        return self._execute_multi_anchor(
+            subject_type,
+            [best],
+            storey_siblings,
+            object_material,
+            params,
+            include_relation_fingerprint=include_relation_fingerprint,
+            include_position=include_position,
+        )
+
+    def _has_relation_fingerprint(
+        self,
+        spatial_rels: List[Dict[str, Any]],
+        params: Dict[str, Any],
+    ) -> bool:
+        if params.get("position_index") is not None:
+            return True
+        return any((sr.get("direction") or sr.get("object_subtype")) for sr in spatial_rels)
+
+    def _requires_multi_chain(
+        self,
+        spatial_rels: List[Dict[str, Any]],
+        params: Dict[str, Any],
+    ) -> bool:
+        if len(spatial_rels) >= 2:
+            return True
+        if self._has_relation_fingerprint(spatial_rels, params):
+            return True
+        return False
 
     def _post_filter_by_name_keyword(
         self,
