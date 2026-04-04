@@ -543,25 +543,59 @@ class RetrievalBackend:
             " OR ANY(s IN $storey_list WHERE toLower(target.storey) CONTAINS s))",
         ]
 
-        # FILLS: WHERE EXISTS (simple edge traversal)
-        for i, sr in enumerate(fills_rels):
-            key = f"fills_obj_{i}"
-            mat_key = f"fills_mat_{i}"
-            cypher_params[key] = sr.get("object_type", "")
-            cypher_params[mat_key] = sr.get("object_material") or ""
-            where_parts.append(
-                f"EXISTS {{ "
-                f"(target)-[:FILLS]->(fi{i}:IFCElement) "
-                f"WHERE (fi{i}.ifc_type = ${key} OR fi{i}.ifc_type STARTS WITH ${key}) "
-                f"AND fi{i}.ifc_model = $model "
-                f"AND (${mat_key} = '' OR toLower(fi{i}.material) CONTAINS toLower(${mat_key}))"
-                f" }}"
-            )
+        # ── Phase 3B: FILLS+NEXT_TO wall-pinning ────────────────────────────
+        # When FILLS and NEXT_TO co-occur, promote FILLS[0] from WHERE EXISTS
+        # to a MATCH so we can tie nt_r{i}.wall_guid = fi0.guid.
+        # Effect: pool drops from "all windows on storey NEXT_TO any door" (~43)
+        # to "windows on the specific wall that also has a door" (~2-4).
+        fills_as_match = bool(fills_rels and next_to_rels)
 
-        # NEXT_TO: MATCH so we can access edge.wall_guid for same-wall constraint.
-        # Direction: target → neighbor (filter on target, neighbour is the type constraint).
-        # Note: reversing to nb→target does NOT reduce pool when only object_type is known
-        # (no specific anchor GUID) — true Phase 3B requires anchor GUID from model output.
+        # FILLS
+        if fills_as_match:
+            # Promote first FILLS rel to MATCH for wall-pinning
+            sr0 = fills_rels[0]
+            cypher_params["fills_obj_0"] = sr0.get("object_type", "")
+            cypher_params["fills_mat_0"] = sr0.get("object_material") or ""
+            match_lines.append("MATCH (target)-[:FILLS]->(fi0:IFCElement)")
+            where_parts.append(
+                "(fi0.ifc_type = $fills_obj_0 OR fi0.ifc_type STARTS WITH $fills_obj_0)"
+            )
+            where_parts.append("fi0.ifc_model = $model")
+            where_parts.append(
+                "($fills_mat_0 = '' OR toLower(fi0.material) CONTAINS toLower($fills_mat_0))"
+            )
+            # Additional FILLS rels (rare) remain as WHERE EXISTS
+            for i, sr in enumerate(fills_rels[1:], start=1):
+                key = f"fills_obj_{i}"
+                mat_key = f"fills_mat_{i}"
+                cypher_params[key] = sr.get("object_type", "")
+                cypher_params[mat_key] = sr.get("object_material") or ""
+                where_parts.append(
+                    f"EXISTS {{ "
+                    f"(target)-[:FILLS]->(fi{i}:IFCElement) "
+                    f"WHERE (fi{i}.ifc_type = ${key} OR fi{i}.ifc_type STARTS WITH ${key}) "
+                    f"AND fi{i}.ifc_model = $model "
+                    f"AND (${mat_key} = '' OR toLower(fi{i}.material) CONTAINS toLower(${mat_key}))"
+                    f" }}"
+                )
+        else:
+            # FILLS only (no NEXT_TO): WHERE EXISTS (original behaviour)
+            for i, sr in enumerate(fills_rels):
+                key = f"fills_obj_{i}"
+                mat_key = f"fills_mat_{i}"
+                cypher_params[key] = sr.get("object_type", "")
+                cypher_params[mat_key] = sr.get("object_material") or ""
+                where_parts.append(
+                    f"EXISTS {{ "
+                    f"(target)-[:FILLS]->(fi{i}:IFCElement) "
+                    f"WHERE (fi{i}.ifc_type = ${key} OR fi{i}.ifc_type STARTS WITH ${key}) "
+                    f"AND fi{i}.ifc_model = $model "
+                    f"AND (${mat_key} = '' OR toLower(fi{i}.material) CONTAINS toLower(${mat_key}))"
+                    f" }}"
+                )
+
+        # NEXT_TO: MATCH clause to access edge.wall_guid.
+        # When fills_as_match, also pin to the specific FILLS wall (Phase 3B).
         for i, sr in enumerate(next_to_rels):
             key = f"nt_obj_{i}"
             cypher_params[key] = sr.get("object_type", "")
@@ -572,6 +606,9 @@ class RetrievalBackend:
                 f"(nt_nb{i}.ifc_type = ${key} OR nt_nb{i}.ifc_type STARTS WITH ${key})"
             )
             where_parts.append(f"nt_nb{i}.ifc_model = $model")
+            # Phase 3B wall-pin: NEXT_TO edge must be on the same wall that target fills
+            if fills_as_match:
+                where_parts.append(f"nt_r{i}.wall_guid = fi0.guid")
 
         # Same-wall constraint: all NEXT_TO edges must share the same wall
         if len(next_to_rels) >= 2:

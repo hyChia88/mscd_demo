@@ -535,9 +535,11 @@ def train(
         optim="adamw_8bit",
         fp16=not torch.cuda.is_bf16_supported(),
         bf16=torch.cuda.is_bf16_supported(),
-        eval_strategy="epoch",
+        eval_strategy="steps",     # <--- 改为按步数评估
+        eval_steps=20,             # <--- 每 20 步测一次 eval_loss
         per_device_eval_batch_size=1,
-        save_strategy="epoch",
+        save_strategy="steps",     # <--- 改为按步数保存
+        save_steps=20,             # <--- 与 eval_steps 保持一致
         save_total_limit=config.save_total_limit,
         load_best_model_at_end=True,
         metric_for_best_model="eval_loss",
