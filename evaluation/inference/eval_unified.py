@@ -41,8 +41,9 @@ PROFILES_YAML = PROJECT_ROOT / "profiles.yaml"
 PROMPTS_YAML  = PROJECT_ROOT / "prompts" / "constraints_extraction.yaml"
 COND_MASK_PY  = PROJECT_ROOT / "src" / "v2" / "condition_mask.py"
 
-# Unified test set
+# Unified / AP held-out test sets
 UNIFIED_CASES = PROJECT_ROOT / "evaluation" / "cases" / "cases_unified_test.jsonl"
+AP_HELDOUT_CASES = PROJECT_ROOT / "evaluation" / "cases" / "cases_ap_heldout_e2e.jsonl"
 
 # ── Adapter dirs (local paths — will be uploaded to Modal volume) ─────────────
 ADAPTERS_DIR = PROJECT_ROOT / "models" / "adapters"
@@ -64,6 +65,8 @@ DXA_PLANS_DIR = DATA_ROOT / "datasets" / "synth_v0.4_dxa" / "cases" / "plans"
 V05_AP_IMGS_DIR   = DATA_ROOT / "datasets" / "synth_v0.5"     / "imgs"
 V05_AP_WIRE_DIR   = DATA_ROOT / "datasets" / "synth_v0.5"     / "renders" / "wireframes"
 V05_AP_PLANS_DIR  = DATA_ROOT / "datasets" / "synth_v0.5"     / "floorplans"
+V05_AP_FORMAL_IMGS_DIR  = DATA_ROOT / "datasets" / "synth_v0.5_ap" / "imgs"
+V05_AP_FORMAL_PLANS_DIR = DATA_ROOT / "datasets" / "synth_v0.5_ap" / "floorplans"
 V05_BH_IMGS_DIR   = DATA_ROOT / "datasets" / "synth_v0.5_bh"  / "imgs"
 V05_BH_PLANS_DIR  = DATA_ROOT / "datasets" / "synth_v0.5_bh"  / "floorplans"
 V05_DXA_IMGS_DIR  = DATA_ROOT / "datasets" / "synth_v0.5_dxa" / "imgs"
@@ -138,6 +141,8 @@ def _build_eval_image() -> modal.Image:
 
     if UNIFIED_CASES.exists():
         image = image.add_local_file(str(UNIFIED_CASES), remote_path="/data/cases_unified_test.jsonl")
+    if AP_HELDOUT_CASES.exists():
+        image = image.add_local_file(str(AP_HELDOUT_CASES), remote_path="/data/cases_ap_heldout_e2e.jsonl")
 
     for local_dir, remote_dir in [
         (AP_IMGS_DIR, "/data/images/ap/imgs"),
@@ -149,6 +154,8 @@ def _build_eval_image() -> modal.Image:
         (V05_AP_IMGS_DIR, "/data/images/v05_ap/imgs"),
         (V05_AP_WIRE_DIR, "/data/images/v05_ap/wireframes"),
         (V05_AP_PLANS_DIR, "/data/images/v05_ap/plans"),
+        (V05_AP_FORMAL_IMGS_DIR, "/data/images/v05_ap_formal/imgs"),
+        (V05_AP_FORMAL_PLANS_DIR, "/data/images/v05_ap_formal/plans"),
         (V05_BH_IMGS_DIR, "/data/images/v05_bh/imgs"),
         (V05_BH_PLANS_DIR, "/data/images/v05_bh/plans"),
         (V05_DXA_IMGS_DIR, "/data/images/v05_dxa/imgs"),
@@ -186,6 +193,12 @@ def _remap_to_modal(path: str, case_id: str = "") -> str:
     path_str = str(path)
     p = Path(path_str)
     filename = p.name
+
+    # formal AP held-out paths
+    if "synth_v0.5_ap" in path_str:
+        if "floorplan" in path_str:
+            return f"/data/images/v05_ap_formal/plans/{filename}"
+        return f"/data/images/v05_ap_formal/imgs/{filename}"
 
     # v0.5 paths
     if "synth_v0.5" in path_str:
@@ -367,6 +380,7 @@ def run_eval(
     modality_mode: str = "FP",
     prompt_style: str = "lora5",
     limit: int = 0,
+    cases_file: str = "/data/cases_unified_test.jsonl",
 ):
     """Run constraint extraction on unified test set (Modal A100).
 
@@ -376,6 +390,7 @@ def run_eval(
         modality_mode: "FP" (floorplan only), "MC" (full), "SITE", "MA"
         prompt_style: "lora5" or "lora2" (controls system prompt + text format)
         limit: Max cases (0=all)
+        cases_file: Modal-visible JSONL path to the evaluation cases file
     """
     import torch
     from unsloth import FastVisionModel
@@ -408,6 +423,7 @@ def run_eval(
     print(f"  Tag:         {tag}")
     print(f"  Modality:    {modality_mode}")
     print(f"  Prompt:      {prompt_style}")
+    print(f"  Cases file:  {cases_file}")
     print(f"  GPU:         {torch.cuda.get_device_name(0)}")
 
     # ── 2. Load model ────────────────────────────────────────────────────
@@ -424,8 +440,7 @@ def run_eval(
     print("Model ready.\n")
 
     # ── 3. Load cases ────────────────────────────────────────────────────
-    cases_path = "/data/cases_unified_test.jsonl"
-    with open(cases_path) as f:
+    with open(cases_file) as f:
         cases = [json.loads(line) for line in f if line.strip()]
     if limit > 0:
         cases = cases[:limit]
@@ -586,6 +601,7 @@ def main(
     modality: str = "FP",
     prompt: str = "lora5",
     limit: int = 0,
+    cases: str = "/data/cases_unified_test.jsonl",
 ):
     """Launch unified evaluation on Modal GPU.
 
@@ -595,12 +611,14 @@ def main(
         modality: "FP" (floorplan only) or "MC" (floorplan + site photo).
         prompt:   "lora5" or "lora2" (system prompt + text format).
         limit:    Max cases (0=all).
+        cases:    Modal-visible JSONL path to evaluation cases.
     """
     print(f"Launching unified eval on Modal...")
     print(f"  Adapter:  {adapter}")
     print(f"  Tag:      {tag}")
     print(f"  Modality: {modality}")
     print(f"  Prompt:   {prompt}")
+    print(f"  Cases:    {cases}")
     if limit > 0:
         print(f"  Limit:    {limit}")
 
@@ -610,6 +628,7 @@ def main(
         modality_mode=modality,
         prompt_style=prompt,
         limit=limit,
+        cases_file=cases,
     )
 
     result = None

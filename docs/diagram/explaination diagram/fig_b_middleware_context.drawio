@@ -1,0 +1,154 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36" version="29.6.6">
+  <diagram name="Fig B: Interpreter Middleware in AEC Workflow" id="fig_b">
+    <mxGraphModel dx="1303" dy="703" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="200" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontStyle=1;fontSize=13;verticalAlign=top;spacingTop=5;align=center;strokeWidth=2;" value="Neuro-Symbolic Interpreter Middleware" vertex="1">
+          <mxGeometry height="269.5" width="560" x="440" y="160.5" as="geometry" />
+        </mxCell>
+        <mxCell id="410" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;align=center;fontColor=#333333;" value="Construction Managers&amp;nbsp;&lt;div&gt;/ QA Engineer&lt;/div&gt;" vertex="1">
+          <mxGeometry height="45" width="90" x="320" y="252" as="geometry" />
+        </mxCell>
+        <mxCell id="_4nA8ZKB_RkFSBY_uUWl-610" edge="1" parent="1" source="411" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.25;entryY=1;entryDx=0;entryDy=0;startArrow=classic;startFill=1;" target="300" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="_4nA8ZKB_RkFSBY_uUWl-612" connectable="0" parent="_4nA8ZKB_RkFSBY_uUWl-610" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&lt;font style=&quot;font-size: 8px;&quot;&gt;Progress Tracker via Microsoft &lt;br&gt;docs link to BIM Cloud&lt;/font&gt;" vertex="1">
+          <mxGeometry relative="1" x="-0.0061" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="411" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#666666;fontSize=10;align=center;" value="Developers / Consultants" vertex="1">
+          <mxGeometry height="45" width="100" x="530" y="490.67" as="geometry" />
+        </mxCell>
+        <mxCell id="412" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#666666;fontSize=10;align=center;" value="Design / BIM&#xa;Coordinator" vertex="1">
+          <mxGeometry height="45" width="130" x="755" y="490.67" as="geometry" />
+        </mxCell>
+        <mxCell id="413" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;align=center;fontColor=#333333;" value="Frontliner: Contractor /&lt;br&gt;Subcontractor" vertex="1">
+          <mxGeometry height="45" width="90" x="320" y="329" as="geometry" />
+        </mxCell>
+        <mxCell id="531" edge="1" parent="1" source="413" style="endArrow=block;endFill=1;strokeColor=#666666;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;fillColor=#f5f5f5;" target="410" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="533" edge="1" parent="1" source="412" style="endArrow=block;endFill=1;strokeColor=#000000;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.75;entryY=1;entryDx=0;entryDy=0;startArrow=block;startFill=1;" target="300" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="820" y="400.67" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="_4nA8ZKB_RkFSBY_uUWl-611" connectable="0" parent="533" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&lt;font style=&quot;color: rgb(0, 0, 0);&quot;&gt;&lt;span style=&quot;font-size: 8px;&quot;&gt;Issue tickets&lt;/span&gt;&lt;br style=&quot;padding: 0px; margin: 0px; font-size: 8px;&quot;&gt;&lt;span style=&quot;font-size: 8px;&quot;&gt;(feedback loop)&lt;/span&gt;&lt;/font&gt;" vertex="1">
+          <mxGeometry relative="1" x="-0.223" y="-2" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="600" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCCCC;strokeColor=#B85450;fontSize=8;align=center;dashed=1;dashPattern=8 8;" value="Physical / Site" vertex="1">
+          <mxGeometry height="20" width="90" x="980" y="318" as="geometry" />
+        </mxCell>
+        <mxCell id="601" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=8;align=center;" value="Interpreter Module" vertex="1">
+          <mxGeometry height="20" width="90" x="980" y="346" as="geometry" />
+        </mxCell>
+        <mxCell id="602" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=8;align=center;fillColor=#f5f5f5;fontColor=#333333;strokeColor=#666666;" value="Stakeholder" vertex="1">
+          <mxGeometry height="20" width="90" x="980" y="374" as="geometry" />
+        </mxCell>
+        <mxCell id="603" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=8;align=center;" value="File / data format / type" vertex="1">
+          <mxGeometry height="20" width="90" x="980" y="402" as="geometry" />
+        </mxCell>
+        <mxCell id="604" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=8;align=center;dashed=1;dashPattern=8 8;" value="Digital Model" vertex="1">
+          <mxGeometry height="20" width="90" x="980" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="_4nA8ZKB_RkFSBY_uUWl-615" edge="1" parent="1" source="100" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="413">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="100" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCCCC;strokeColor=#B85450;fontStyle=1;fontSize=12;verticalAlign=top;spacingTop=5;align=center;dashed=1;dashPattern=8 4;container=1;" value="Physical On-Site Zone" vertex="1">
+          <mxGeometry height="196" width="300" x="130" y="394" as="geometry" />
+        </mxCell>
+        <mxCell id="101" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B85450;fontSize=10;align=center;" value="Site Photo&#xa;(JPEG / PNG)" vertex="1">
+          <mxGeometry height="30.375" width="110" x="160" y="423.5" as="geometry" />
+        </mxCell>
+        <mxCell id="wlyi145DFvo2STitd3PY-611" edge="1" parent="1" source="102" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="103" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="102" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B85450;fontSize=10;align=center;" value="Floorplan&#xa;(annotated PDF)" vertex="1">
+          <mxGeometry height="30.375" width="120" x="285" y="423.5" as="geometry" />
+        </mxCell>
+        <mxCell id="103" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B85450;fontSize=10;align=center;" value="Chat / Voice Note (WhatsApp, Email)" vertex="1">
+          <mxGeometry height="23.625" width="245" x="160" y="461.5" as="geometry" />
+        </mxCell>
+        <mxCell id="104" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B85450;fontSize=10;align=center;" value="Verbal Observation (defect, progress)" vertex="1">
+          <mxGeometry height="23.625" width="245" x="160" y="491.875" as="geometry" />
+        </mxCell>
+        <mxCell id="105" parent="1" style="text;html=1;fontSize=10;fontStyle=5;fontColor=#B85450;align=left;verticalAlign=top;" value="Motivating Interpretation Questions:" vertex="1">
+          <mxGeometry height="13.5" width="260" x="150" y="525.625" as="geometry" />
+        </mxCell>
+        <mxCell id="106" parent="1" style="text;html=1;fontSize=9;fontColor=#666666;align=left;verticalAlign=top;" value="&lt;b&gt;&lt;font style=&quot;color: rgb(0, 0, 0);&quot;&gt;Q1: Where is the issue? (which BIM element)&amp;nbsp;&lt;/font&gt;&lt;/b&gt;&lt;span style=&quot;color: rgb(204, 0, 0); font-weight: 700; background-color: transparent;&quot;&gt;← Thesis focus&lt;/span&gt;&lt;div&gt;Q2: What happened? (classification)&lt;br&gt;Q3: How to respond? (action recommendation)&lt;/div&gt;" vertex="1">
+          <mxGeometry height="33.75" width="270" x="150" y="539.125" as="geometry" />
+        </mxCell>
+        <mxCell id="210" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fontStyle=1;align=center;" value="Neural Layer&#xa;(Constraint Extraction)" vertex="1">
+          <mxGeometry height="37.125" width="140" x="460" y="194.92" as="geometry" />
+        </mxCell>
+        <mxCell id="211" parent="1" style="text;html=1;fontSize=8;fontColor=#999999;align=center;verticalAlign=middle;" value="LoRA VLM or&#xa;Gemini 2.5 Flash" vertex="1">
+          <mxGeometry height="16.875" width="130" x="465" y="235.42" as="geometry" />
+        </mxCell>
+        <mxCell id="220" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fontStyle=1;align=center;" value="Symbolic Layer&#xa;(Query Planning +&#xa;Graph Retrieval)" vertex="1">
+          <mxGeometry height="37.125" width="140" x="640" y="194.92" as="geometry" />
+        </mxCell>
+        <mxCell id="221" parent="1" style="text;html=1;fontSize=8;fontColor=#999999;align=center;verticalAlign=middle;" value="Neo4j IFC Graph&#xa;+ Cypher P0–P8" vertex="1">
+          <mxGeometry height="16.875" width="130" x="645" y="235.42" as="geometry" />
+        </mxCell>
+        <mxCell id="230" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fontStyle=1;align=center;" value="Validation +&#xa;Handoff" vertex="1">
+          <mxGeometry height="37.125" width="110" x="820" y="194.92" as="geometry" />
+        </mxCell>
+        <mxCell id="231" parent="1" style="text;html=1;fontSize=8;fontColor=#999999;align=center;verticalAlign=middle;" value="Schema check,&#xa;BCF packaging" vertex="1">
+          <mxGeometry height="16.875" width="110" x="820" y="235.42" as="geometry" />
+        </mxCell>
+        <mxCell id="240" edge="1" parent="1" source="210" style="endArrow=block;endFill=1;strokeColor=#666666;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="220" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="241" edge="1" parent="1" source="220" style="endArrow=block;endFill=1;strokeColor=#666666;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="230" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="250" parent="1" style="text;html=1;fontSize=10;fontStyle=5;fontColor=#D6B656;align=left;verticalAlign=top;" value="What the middleware streamlines:" vertex="1">
+          <mxGeometry height="13.5" width="280" x="980" y="194.92000000000002" as="geometry" />
+        </mxCell>
+        <mxCell id="251" parent="1" style="text;html=1;fontSize=9;fontColor=#666666;align=left;verticalAlign=top;" value="1. Maps unstructured site evidence → BIM GUID" vertex="1">
+          <mxGeometry height="12.15" width="350" x="980" y="209.77000000000004" as="geometry" />
+        </mxCell>
+        <mxCell id="252" parent="1" style="text;html=1;fontSize=9;fontColor=#666666;align=left;verticalAlign=top;" value="2. Resolves spatial context (which element, which floor)" vertex="1">
+          <mxGeometry height="12.15" width="350" x="980" y="221.92000000000002" as="geometry" />
+        </mxCell>
+        <mxCell id="253" parent="1" style="text;html=1;fontSize=9;fontColor=#666666;align=left;verticalAlign=top;" value="3. Produces machine-readable output (JSON, BCF)" vertex="1">
+          <mxGeometry height="12.15" width="350" x="980" y="234.07" as="geometry" />
+        </mxCell>
+        <mxCell id="254" parent="1" style="text;html=1;fontSize=9;fontColor=#666666;align=left;verticalAlign=top;" value="4. Maintains traceability (site evidence → BIM reference)" vertex="1">
+          <mxGeometry height="12.15" width="350" x="980" y="246.22000000000003" as="geometry" />
+        </mxCell>
+        <mxCell id="260" parent="1" style="text;html=1;fontSize=8;fontColor=#999999;fontStyle=2;align=center;verticalAlign=middle;" value="Orchestration wrapper collects inputs, invokes pipeline, presents output" vertex="1">
+          <mxGeometry height="12.15" width="470" x="460" y="363.67" as="geometry" />
+        </mxCell>
+        <mxCell id="300" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=11;verticalAlign=top;spacingTop=5;align=center;dashed=1;dashPattern=8 8;" value="CDE / Digital Information Hub" vertex="1">
+          <mxGeometry height="70" width="480" x="460" y="330.67" as="geometry" />
+        </mxCell>
+        <mxCell id="301" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#999999;fontSize=10;" value="IFC Repository (BIM models)" vertex="1">
+          <mxGeometry height="20.25" width="140" x="470" y="357.67" as="geometry" />
+        </mxCell>
+        <mxCell id="302" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#999999;fontSize=10;" value="Submission Portal" vertex="1">
+          <mxGeometry height="20.25" width="140" x="625" y="357.67" as="geometry" />
+        </mxCell>
+        <mxCell id="303" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#999999;fontSize=10;" value="Issue Tracker (BCF, tickets)" vertex="1">
+          <mxGeometry height="20.25" width="140" x="780" y="357.67" as="geometry" />
+        </mxCell>
+        <mxCell id="500" edge="1" parent="1" source="410" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#B85450;strokeWidth=2;fontSize=9;fontColor=#B85450;startArrow=none;startFill=0;" target="210" value="Unstructured&#xa;evidence">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="510" edge="1" parent="1" source="230" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.85;entryY=0;entryDx=0;entryDy=0;strokeColor=#82B366;strokeWidth=2;fontSize=9;fontColor=#82B366;" target="300" value="GUID pool,&#xa;JSON record,&#xa;BCF package">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="520" edge="1" parent="1" source="301" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;strokeColor=#6C8EBF;strokeWidth=1;fontSize=9;fontColor=#6C8EBF;dashed=1;" target="220" value="IFC models&#xa;(graph source)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="610" parent="1" style="text;html=1;fontSize=9;fontColor=#999999;fontStyle=2;align=center;verticalAlign=middle;" value="Unstructured site evidence → Interpreter Middleware → Structured BIM-linked output" vertex="1">
+          <mxGeometry height="13.5" width="600" x="300" y="120" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
