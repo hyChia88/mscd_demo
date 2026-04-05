@@ -40,6 +40,7 @@ COND_MASK_PY  = PROJECT_ROOT / "src" / "v2" / "condition_mask.py"
 # Default cases file — override with --cases flag
 DEFAULT_CASES_FILE = DATA_ROOT / "datasets" / "synth_v0.4_merged" / "train" / "test_holdout_with_images.jsonl"
 AP_EVAL_CASES_FILE = DATA_ROOT / "datasets" / "synth_v0.5_ap" / "train" / "lora6_v2_ap_eval_canonical_m.jsonl"
+AP_EVAL_CASES_FILE_G7 = DATA_ROOT / "datasets" / "synth_v0.5_ap" / "train" / "lora6_v2_ap_eval_canonical_m_g7.jsonl"
 
 # ── v0.4 image dirs (legacy) ────────────────────────────────────────────────
 AP_IMGS_DIR   = DATA_ROOT / "datasets" / "synth_v0.4_ap"  / "cases" / "imgs"
@@ -96,6 +97,7 @@ def _build_eval_image() -> modal.Image:
     for local_file, remote_file in [
         (DEFAULT_CASES_FILE, "/data/test_holdout.jsonl"),
         (AP_EVAL_CASES_FILE, "/data/ap_eval.jsonl"),
+        (AP_EVAL_CASES_FILE_G7, "/data/ap_eval_g7.jsonl"),
         (V05_CASES_FILE, "/data/v05_test.jsonl"),
         (V05_CASES_SITE_FILE, "/data/v05_test_site.jsonl"),
     ]:
@@ -310,7 +312,17 @@ def _remap_training_record_paths(case: dict) -> dict:
 def _build_messages_for_eval_case(case: dict, system_prompt: str) -> list:
     if "messages" in case:
         remapped = _remap_training_record_paths(case)
-        return [m for m in remapped["messages"] if m.get("role") != "assistant"]
+        messages = [m for m in remapped["messages"] if m.get("role") != "assistant"]
+        # Keep assembled AP cases aligned with the runtime prompt selection.
+        # This avoids silently evaluating a G7 adapter against the legacy short
+        # prompt baked into older JSONL records.
+        for msg in messages:
+            if msg.get("role") == "system":
+                msg["content"] = system_prompt
+                break
+        else:
+            messages.insert(0, {"role": "system", "content": system_prompt})
+        return messages
     return _build_messages(case, system_prompt)
 
 
@@ -369,6 +381,7 @@ def run_eval(
     condition_override: str = "",
     cases_file: str = "",
     prompt_key: str = "",
+    tag_suffix: str = "",
 ):
     """Run LoRA constraint extraction on all cases (Modal A100).
 
@@ -420,7 +433,10 @@ def run_eval(
     print("Model ready.\n")
 
     # ── 3. Load cases ────────────────────────────────────────────────────
-    data_path = cases_file if cases_file else "/data/ap_eval.jsonl"
+    if cases_file:
+        data_path = cases_file
+    else:
+        data_path = "/data/ap_eval_g7.jsonl" if prompt_key == "lora_system_g7" else "/data/ap_eval.jsonl"
     print(f"Loading cases from: {data_path}")
     cases = []
     with open(data_path) as f:
@@ -548,6 +564,10 @@ def run_eval(
     tag = _adapter_tag(adapter_dir)
     if condition_override:
         tag = f"{tag}_{condition_override}"
+    if tag_suffix:
+        cleaned = re.sub(r"[^A-Za-z0-9_.-]+", "_", tag_suffix.strip())
+        if cleaned:
+            tag = f"{tag}_{cleaned}"
     output_path = f"/checkpoints/mscd-lora/eval_constraints_{tag}.jsonl"
 
     with open(output_path, "w") as f:
@@ -622,16 +642,21 @@ def main(
     limit: int = 0,
     condition_override: str = "",
     cases: str = "",
+    tag_suffix: str = "",
 ):
     """Launch LoRA evaluation on Modal GPU.
 
     Args:
         cases: Remote path to cases JSONL inside Modal container.
                Use "/data/v05_test.jsonl" for v0.5 topology cases (69 cases).
-               Use "/data/ap_eval.jsonl" for assembled LoRA6-v2 AP eval cases.
-               Default: "/data/ap_eval.jsonl" (assembled LoRA6-v2 AP eval set).
+               Use "/data/ap_eval.jsonl" for legacy LoRA6-v2 AP eval cases.
+               Use "/data/ap_eval_g7.jsonl" for G7 AP eval cases.
+               Default: G7 adapters use "/data/ap_eval_g7.jsonl"; others use "/data/ap_eval.jsonl".
     """
-    cases_label = cases if cases else "/data/ap_eval.jsonl"
+    if cases:
+        cases_label = cases
+    else:
+        cases_label = "/data/ap_eval_g7.jsonl" if "g7" in adapter_dir.lower() else "/data/ap_eval.jsonl"
     print("Launching MSCD LoRA evaluation on Modal...")
     print(f"  Adapter:  {adapter_dir}")
     print(f"  Cases:    {cases_label}")
@@ -639,6 +664,8 @@ def main(
         print(f"  Limit:    {limit} cases")
     if condition_override:
         print(f"  Condition override: {condition_override}")
+    if tag_suffix:
+        print(f"  Tag suffix: {tag_suffix}")
 
     # Spawn + poll loop: each .get() call opens a fresh gRPC connection with a
     # short window. If the connection drops (ConnectionError / Deadline exceeded)
@@ -649,6 +676,7 @@ def main(
         limit=limit,
         condition_override=condition_override,
         cases_file=cases,
+        tag_suffix=tag_suffix,
     )
     result = None
     poll_secs = 120  # re-open gRPC connection every 2 minutes
@@ -681,7 +709,10 @@ def main(
     print(f"  modal volume get mscd-checkpoints "
           f"/mscd-lora/eval_constraints_{tag}.jsonl "
           f"./output/")
-    cases_hint = cases if cases else "/data/ap_eval.jsonl"
+    if cases:
+        cases_hint = cases
+    else:
+        cases_hint = "/data/ap_eval_g7.jsonl" if "g7" in adapter_dir.lower() else "/data/ap_eval.jsonl"
     print(f"\nRun local pipeline:")
     print(f"  python script/run.py --profile v2_lora \\")
     print(f"    --cases {cases_hint} \\")

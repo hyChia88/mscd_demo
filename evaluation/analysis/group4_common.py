@@ -35,6 +35,7 @@ ORACLE_PHASE3_DIR = EXPERIMENT_ROOT / "oracle_phase3_fixed"
 
 G3_PRED_PATH = EXPERIMENT_ROOT / "g3_fullaug_r32__ap_eval.jsonl"
 G4_PRED_PATH = EXPERIMENT_ROOT / "g4_ultimate__ap_eval.jsonl"
+G7_PRED_PATH = EXPERIMENT_ROOT / "g7_position_context__ap_eval.jsonl"
 
 
 def ensure_dir(path: Path) -> Path:

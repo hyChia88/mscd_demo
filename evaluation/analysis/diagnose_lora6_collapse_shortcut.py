@@ -20,6 +20,7 @@ from evaluation.analysis.group4_common import (
     EXPERIMENT_ROOT,
     G3_PRED_PATH,
     G4_PRED_PATH,
+    G7_PRED_PATH,
     GT_EVAL_PATH,
     ensure_dir,
     label_signature,
@@ -166,17 +167,27 @@ def main() -> None:
     parser.add_argument("--gt-eval", type=Path, default=GT_EVAL_PATH)
     parser.add_argument("--g3-pred", type=Path, default=G3_PRED_PATH)
     parser.add_argument("--g4-pred", type=Path, default=G4_PRED_PATH)
+    parser.add_argument("--g7-pred", type=Path, default=G7_PRED_PATH)
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     args = parser.parse_args()
 
     out_dir = ensure_dir(args.out_dir)
     cases = load_cases_map(args.cases)
     gt_labels = load_gt_eval_labels(args.gt_eval)
-    g3_labels = load_prediction_constraints(args.g3_pred)
-    g4_labels = load_prediction_constraints(args.g4_pred)
+    model_inputs: List[Tuple[str, Path]] = [
+        ("G3", args.g3_pred),
+        ("G4", args.g4_pred),
+    ]
+    if args.g7_pred.exists():
+        model_inputs.append(("G7", args.g7_pred))
+
+    model_labels = {
+        model_name: load_prediction_constraints(path)
+        for model_name, path in model_inputs
+    }
 
     diversity_rows = []
-    for name, labels in [("GT", gt_labels), ("G3", g3_labels), ("G4", g4_labels)]:
+    for name, labels in [("GT", gt_labels), *model_labels.items()]:
         diversity_rows.append(
             {
                 "source": name,
@@ -190,17 +201,20 @@ def main() -> None:
         )
 
     field_usage_rows = [
-        _field_usage_stats(gt_labels, g3_labels, "G3"),
-        _field_usage_stats(gt_labels, g4_labels, "G4"),
+        _field_usage_stats(gt_labels, labels, model_name)
+        for model_name, labels in model_labels.items()
     ]
 
     pair_rows = []
-    pair_rows.extend(_pair_identity_rows(cases, gt_labels, g3_labels, "G3"))
-    pair_rows.extend(_pair_identity_rows(cases, gt_labels, g4_labels, "G4"))
+    for model_name, labels in model_labels.items():
+        pair_rows.extend(_pair_identity_rows(cases, gt_labels, labels, model_name))
 
     pair_summary_rows = [
-        _identity_summary([row for row in pair_rows if row["model"] == "G3"], "G3"),
-        _identity_summary([row for row in pair_rows if row["model"] == "G4"], "G4"),
+        _identity_summary(
+            [row for row in pair_rows if row["model"] == model_name],
+            model_name,
+        )
+        for model_name, _ in model_inputs
     ]
 
     write_csv(

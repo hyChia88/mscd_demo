@@ -206,14 +206,17 @@ def main() -> None:
     args = parser.parse_args()
 
     out_dir = ensure_dir(args.out_dir)
-    track_a = {
-        "G3": _load_metrics(METRICS_DIR / "g3_fullaug_r32__ap_metrics.json"),
-        "G4": _load_metrics(METRICS_DIR / "g4_ultimate__ap_metrics.json"),
-    }
-    track_b = {
-        "G3": _load_metrics(METRICS_DIR / "g3_fullaug_r32__ap_e2e_metrics.json"),
-        "G4": _load_metrics(METRICS_DIR / "g4_ultimate__ap_e2e_metrics.json"),
-    }
+    track_pairs = [
+        ("G3", METRICS_DIR / "g3_fullaug_r32__ap_metrics.json", METRICS_DIR / "g3_fullaug_r32__ap_e2e_metrics.json"),
+        ("G4", METRICS_DIR / "g4_ultimate__ap_metrics.json", METRICS_DIR / "g4_ultimate__ap_e2e_metrics.json"),
+    ]
+    g7_track_a = METRICS_DIR / "g7_position_context__ap_metrics.json"
+    g7_track_b = METRICS_DIR / "g7_position_context__ap_e2e_metrics.json"
+    if g7_track_a.exists() and g7_track_b.exists():
+        track_pairs.append(("G7", g7_track_a, g7_track_b))
+
+    track_a = {name: _load_metrics(track_a_path) for name, track_a_path, _ in track_pairs}
+    track_b = {name: _load_metrics(track_b_path) for name, _, track_b_path in track_pairs}
     oracle_b = _oracle_track_b_metrics(ORACLE_SUMMARY_CSV)
 
     tension_rows = [
@@ -227,7 +230,7 @@ def main() -> None:
             "mrr": oracle_b["mrr"],
         }
     ]
-    for model in ("G3", "G4"):
+    for model, _, _ in track_pairs:
         tension_rows.append(
             {
                 "system": model,
@@ -275,7 +278,7 @@ def main() -> None:
     )
 
     tension_md = [
-        "# G3 vs G4 Tension Summary",
+        "# Minimal Ablation Tension Summary",
         "",
         markdown_table(
             ["System", "Hop-1", "Pred R", "Dir", "Top-10", "Top-1", "MRR@10"],
@@ -295,6 +298,7 @@ def main() -> None:
         "",
         "Interpretation:",
         "- `G4` wins intermediate extraction metrics but still trails `G3` on downstream retrieval.",
+        "- If present, `G7` shows whether planner-aware richer fingerprint training closes that gap.",
         "- The oracle row provides the bug-fixed Track B-2 ceiling for the same AP held-out benchmark.",
         "",
     ]
@@ -338,10 +342,27 @@ def main() -> None:
         f"- Reason: `{gate['reason']}`",
         "",
     ]
-    if gate["gate_pass"]:
+    if gate["gate_pass"] and "G7" in track_a and "G7" in track_b:
+        g7_a = track_a["G7"]
+        g7_b = track_b["G7"]["overall"]
         minimal_md.extend(
             [
-                "A richer-label `G7_position_context` run is warranted, but this script only prepares the audit bundle and baseline summaries.",
+                "The richer-label `G7_position_context` run has been evaluated and added to the tension table.",
+                (
+                    "Current result: "
+                    f"`Hop-1 {g7_a['hop1_acc'] * 100:.1f}`, "
+                    f"`Pred R {g7_a['predicate_recall'] * 100:.1f}`, "
+                    f"`Dir {g7_a['direction_acc'] * 100:.1f}`, "
+                    f"`Top-10 {g7_b['top10_pct']:.1f}`, "
+                    f"`MRR@10 {g7_b['mrr']:.4f}`."
+                ),
+                "",
+            ]
+        )
+    elif gate["gate_pass"]:
+        minimal_md.extend(
+            [
+                "A richer-label `G7_position_context` run is warranted, but this script currently only prepares the audit bundle and baseline summaries.",
                 "",
             ]
         )

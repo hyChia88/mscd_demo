@@ -21,6 +21,7 @@ GROUP_DISPLAY = {
     "g2_fullaug_lowlr": "G2 FullAug LowLR",
     "g3_fullaug_r32": "G3 FullAug r32",
     "g4_ultimate": "G4 Ultimate",
+    "g7_position_context": "G7 Position Context",
     "g6_baseline": "G6 Baseline",
     "gemini_ap": "Gemini AP",
     "gemini_unified": "Gemini Unified",
@@ -35,6 +36,7 @@ TRACK_A_ORDER = [
     "g2_fullaug_lowlr",
     "g3_fullaug_r32",
     "g4_ultimate",
+    "g7_position_context",
     "g6_baseline",
     "gemini_ap",
 ]
@@ -54,6 +56,7 @@ TRACK_B2_ORDER = [
     "g2_fullaug_lowlr",
     "g3_fullaug_r32",
     "g4_ultimate",
+    "g7_position_context",
     "g6_baseline",
     "gemini_ap",
 ]
@@ -72,6 +75,7 @@ TRACK_A_ADAPTERS = {
     "g2_fullaug_lowlr": ADAPTER_ROOT / "g2_fullaug_lowlr" / "best",
     "g3_fullaug_r32": ADAPTER_ROOT / "g3_fullaug_r32" / "best",
     "g4_ultimate": ADAPTER_ROOT / "g4_ultimate" / "best",
+    "g7_position_context": ADAPTER_ROOT / "g7_position_context" / "best",
     "g6_baseline": ADAPTER_ROOT / "g6_baseline" / "checkpoint-20",
 }
 
@@ -83,6 +87,7 @@ UNIFIED_REMOTE_ADAPTERS = {
     "g2_fullaug_lowlr": "/mscd-lora-v6-g2-fullaug-lowlr/best",
     "g3_fullaug_r32": "/mscd-lora-v6-g3-fullaug-r32/best",
     "g4_ultimate": "/mscd-lora-v6-g4-ultimate/best",
+    "g7_position_context": "/mscd-lora-v6-g7-position-context/best",
     "g6_baseline": "/mscd-lora-v6-g6-baseline/checkpoint-20",
     "lora5_r16_unified": "/mscd-unified-eval/v5_complex_lora_qwen",
     "lora5_r32_unified": "/mscd-unified-eval/v5_lora_qwen_r32",

@@ -23,15 +23,22 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as pe
+from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 REPO_ROOT = PROJECT_ROOT.parent
 EXPERIMENT_ROOT = PROJECT_ROOT / "output" / "lora6_v2_ap_20260331"
 METRICS_DIR = EXPERIMENT_ROOT / "metrics"
-ORACLE_DIR = EXPERIMENT_ROOT / "oracle_ap_heldout"
+ORACLE_DIR_CANDIDATES = [
+    EXPERIMENT_ROOT / "oracle_ap_heldout",
+    EXPERIMENT_ROOT / "legacy" / "oracle_ap_heldout",
+    PROJECT_ROOT / "logs" / "evaluation_output" / "lora6_v2_ap_20260331" / "oracle_ap_heldout",
+    PROJECT_ROOT / "logs" / "evaluation_output" / "lora6_v2_ap_20260331" / "legacy" / "oracle_ap_heldout",
+]
 ORACLE_PHASE3_DIRS = [
     EXPERIMENT_ROOT / "oracle_phase3b",
+    EXPERIMENT_ROOT / "legacy" / "oracle_phase3b",
     EXPERIMENT_ROOT / "oracle_phase3_fixed",
 ]
 GT_PATH = (
@@ -51,6 +58,7 @@ MODEL_ORDER = [
     "g2_fullaug_lowlr",
     "g3_fullaug_r32",
     "g4_ultimate",
+    "g7_position_context",
     "g6_baseline",
     "gemini_ap_v2",
 ]
@@ -61,6 +69,7 @@ TRACK_A_FILES = {
     "g2_fullaug_lowlr": METRICS_DIR / "g2_fullaug_lowlr__ap_metrics.json",
     "g3_fullaug_r32": METRICS_DIR / "g3_fullaug_r32__ap_metrics.json",
     "g4_ultimate": METRICS_DIR / "g4_ultimate__ap_metrics.json",
+    "g7_position_context": METRICS_DIR / "g7_position_context__ap_metrics.json",
     "g6_baseline": METRICS_DIR / "g6_baseline__ap_metrics.json",
     "gemini_ap_v2": METRICS_DIR / "gemini_ap_v2__ap_metrics.json",
 }
@@ -71,6 +80,7 @@ TRACK_B2_FILES = {
     "g2_fullaug_lowlr": METRICS_DIR / "g2_fullaug_lowlr__ap_e2e_metrics.json",
     "g3_fullaug_r32": METRICS_DIR / "g3_fullaug_r32__ap_e2e_metrics.json",
     "g4_ultimate": METRICS_DIR / "g4_ultimate__ap_e2e_metrics.json",
+    "g7_position_context": METRICS_DIR / "g7_position_context__ap_e2e_metrics.json",
     "g6_baseline": METRICS_DIR / "g6_baseline__ap_e2e_metrics.json",
     "gemini_ap_v2": METRICS_DIR / "gemini_ap_v2__ap_e2e_phase3_fixed_metrics.json",
 }
@@ -81,6 +91,7 @@ DISPLAY = {
     "g2_fullaug_lowlr": "G2",
     "g3_fullaug_r32": "G3",
     "g4_ultimate": "G4",
+    "g7_position_context": "G7",
     "g6_baseline": "G6",
     "gemini_ap_v2": "Gemini v2",
     "oracle_phase3": "Oracle P3",
@@ -92,6 +103,7 @@ COLORS = {
     "g2_fullaug_lowlr": "#F5A623",
     "g3_fullaug_r32": "#D32F2F",
     "g4_ultimate": "#B71C1C",
+    "g7_position_context": "#6A1B9A",
     "g6_baseline": "#90A4AE",
     "gemini_ap_v2": "#1565C0",
     "gemini_unified": "#1565C0",
@@ -163,6 +175,13 @@ STRATEGY_META = {
 
 def _load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _pick_oracle_topology_dir() -> Path:
+    for candidate in ORACLE_DIR_CANDIDATES:
+        if (candidate / "oracle_topology_metrics.json").exists():
+            return candidate
+    raise FileNotFoundError("No oracle_topology_metrics.json found in canonical or legacy oracle directories.")
 
 
 def _ensure_parent(path: Path) -> None:
@@ -280,7 +299,7 @@ def load_track_b2_rows() -> List[dict]:
 
 
 def load_oracle_strategy_rows() -> List[dict]:
-    data = _load_json(ORACLE_DIR / "oracle_topology_metrics.json")
+    data = _load_json(_pick_oracle_topology_dir() / "oracle_topology_metrics.json")
     rows = []
     for key in ["p0_only", "p1_only_strategy", "p0_intersect_p1", "p0_union_p1"]:
         overall = data["overall"][key]["overall"]
@@ -302,7 +321,7 @@ def load_oracle_strategy_rows() -> List[dict]:
 
 
 def load_oracle_topology_rows() -> dict:
-    data = _load_json(ORACLE_DIR / "oracle_topology_metrics.json")
+    data = _load_json(_pick_oracle_topology_dir() / "oracle_topology_metrics.json")
     overall = data["overall"]
     universe = data["sliced"]["universe"]
     multiplicity = data["sliced"]["multiplicity"]
@@ -803,7 +822,10 @@ def plot_p1_vs_full_topology(out_path: Path) -> None:
 def plot_oracle_vs_model_gap(out_path: Path) -> None:
     oracle = load_oracle_phase3_metrics()
     rows = load_track_b2_rows()
-    model_rows = [next(r for r in rows if r["key"] == key) for key in ["g3_fullaug_r32", "g4_ultimate", "g2_fullaug_lowlr", "gemini_ap_v2"]]
+    model_rows = [
+        next(r for r in rows if r["key"] == key)
+        for key in ["g3_fullaug_r32", "g4_ultimate", "g7_position_context", "g2_fullaug_lowlr", "gemini_ap_v2"]
+    ]
     compare_rows = [
         {
             "label": "Oracle P3",
@@ -893,7 +915,7 @@ def plot_oracle_vs_model_gap(out_path: Path) -> None:
     ax.text(0, ax.get_ylim()[1] * 0.97, "Oracle ceiling", ha="center", va="top", fontsize=10, weight="bold", color=HIGHLIGHT_COLORS["oracle_text"])
     ax.text(best_idx, ax.get_ylim()[1] * 0.90, f"Closest model: {best_model['label']}", ha="center", va="top", fontsize=10, weight="bold", color=HIGHLIGHT_COLORS["safe_green_text"])
 
-    fig.suptitle("Oracle-to-model comparison: GT-in-Pool / Top-10 / Top-1", fontsize=15, y=1.02)
+    fig.suptitle("Oracle-to-model comparison after G7 correction", fontsize=15, y=1.02)
     _add_note(
         fig,
         "Oracle Phase3 is the symbolic ceiling under perfect extraction with the upgraded planner and p0_union_p1. "
@@ -1328,11 +1350,11 @@ def plot_appendix_track_b1(out_path: Path) -> None:
 def plot_appendix_phase4_zoom(out_path: Path) -> None:
     track_a = {r["key"]: r for r in load_track_a_rows()}
     track_b2 = {r["key"]: r for r in load_track_b2_rows()}
-    order = ["g3_fullaug_r32", "g4_ultimate", "g6_baseline"]
+    order = ["g3_fullaug_r32", "g4_ultimate", "g7_position_context", "g6_baseline"]
     labels = [DISPLAY[k] for k in order]
     colors = [COLORS[k] for k in order]
 
-    fig, axes = plt.subplots(1, 2, figsize=(12.8, 5.6), constrained_layout=True)
+    fig, axes = plt.subplots(1, 2, figsize=(13.8, 5.8), constrained_layout=True)
     _style_axes(fig, list(axes))
 
     left_metrics = [track_a[k]["hop1"] for k in order]
@@ -1371,12 +1393,333 @@ def plot_appendix_phase4_zoom(out_path: Path) -> None:
     _annotate_bars(axes[1], bars1, "{:.1f}")
     _annotate_bars(axes[1], bars2, "{:.1f}")
 
-    fig.suptitle("Appendix A4. Phase 4 new-model zoom-in (G3 vs G4 vs G6)", fontsize=16, y=1.03)
+    fig.suptitle("Appendix A4. Phase 4 new-model zoom-in (G3 vs G4 vs G7 vs G6)", fontsize=16, y=1.03)
     _add_note(
         fig,
         "Left: Track A extraction comparison. Right: Track B-2 strict downstream comparison. "
-        "This zoom-in is useful for explaining why G4 improves intermediate extraction while G3 still leads downstream ranking.",
+        "This zoom-in is useful for explaining why G7 now leads Track A and early-rank metrics, while G3 still retains the strongest Top-10 hit rate.",
     )
+    fig.savefig(out_path, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_appendix_planner_explainer(out_path: Path) -> None:
+    _ensure_parent(out_path)
+    fig, axes = plt.subplots(
+        1,
+        3,
+        figsize=(18.2, 7.4),
+        constrained_layout=True,
+        gridspec_kw={"width_ratios": [1.0, 1.15, 1.0]},
+    )
+
+    for ax in axes:
+        ax.set_axis_off()
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+
+    def add_box(ax, x, y, w, h, title, lines, facecolor, *, fontsize=9.5, family=None):
+        patch = FancyBboxPatch(
+            (x, y),
+            w,
+            h,
+            boxstyle="round,pad=0.018,rounding_size=0.02",
+            linewidth=1.2,
+            edgecolor="#111111",
+            facecolor=facecolor,
+            alpha=0.97,
+        )
+        ax.add_patch(patch)
+        ax.text(
+            x + 0.02,
+            y + h - 0.04,
+            title,
+            ha="left",
+            va="top",
+            fontsize=11,
+            fontweight="bold",
+            color="#111111",
+        )
+        ax.text(
+            x + 0.02,
+            y + h - 0.085,
+            "\n".join(lines),
+            ha="left",
+            va="top",
+            fontsize=fontsize,
+            color="#222222",
+            family=family,
+            linespacing=1.25,
+        )
+        return patch
+
+    def add_arrow(ax, start, end, color="#444444"):
+        arrow = FancyArrowPatch(
+            start,
+            end,
+            arrowstyle="-|>",
+            mutation_scale=12,
+            linewidth=1.4,
+            color=color,
+            connectionstyle="arc3,rad=0.0",
+        )
+        ax.add_patch(arrow)
+
+    def add_node(ax, x, y, label, facecolor, size=1500, text_color="#111111"):
+        ax.scatter([x], [y], s=size, color=facecolor, edgecolors="#111111", linewidths=1.2, zorder=3)
+        ax.text(x, y, label, ha="center", va="center", fontsize=9.2, color=text_color, zorder=4)
+
+    def add_callout(ax, x, y, text, facecolor="#FFFFFF", ha="left"):
+        ax.text(
+            x,
+            y,
+            text,
+            ha=ha,
+            va="center",
+            fontsize=8.9,
+            color="#1F2937",
+            bbox={
+                "boxstyle": "round,pad=0.22,rounding_size=0.02",
+                "facecolor": facecolor,
+                "edgecolor": "#CBD5E1",
+                "alpha": 0.98,
+            },
+            zorder=5,
+        )
+
+    fig.suptitle(
+        "Appendix A5. Planner explainer: multi-anchor + multi-chain + fingerprint-aware filter",
+        fontsize=16,
+        y=1.02,
+    )
+
+    # Left column: extracted constraints / planner inputs
+    ax = axes[0]
+    ax.text(0.02, 0.96, "1. Extracted constraints", fontsize=13, fontweight="bold", va="top")
+    add_box(
+        ax,
+        0.04,
+        0.69,
+        0.90,
+        0.18,
+        "Base target attributes",
+        [
+            "storey_name = Level 1",
+            "ifc_class = IfcWindow",
+            "space_name = Living",
+            "target_keyword = BALANS 10M",
+        ],
+        "#FFF3E0",
+        fontsize=9.2,
+    )
+    add_box(
+        ax,
+        0.04,
+        0.40,
+        0.90,
+        0.22,
+        "Spatial relations (multi-anchor)",
+        [
+            "SR1 FILLS -> IfcWall",
+            "SR2 NEXT_TO -> IfcDoor (direction = left)",
+            "SR3 NEXT_TO -> IfcWindow (subtype = BATHROOM)",
+        ],
+        "#E3F2FD",
+        fontsize=9.0,
+    )
+    add_box(
+        ax,
+        0.04,
+        0.18,
+        0.90,
+        0.12,
+        "Position fingerprint",
+        [
+            "position_context = 3rd of 17 openings",
+            "on the same wall",
+        ],
+        "#E8F5E9",
+        fontsize=9.2,
+    )
+    ax.text(
+        0.05,
+        0.04,
+        "Planner request:\nattribute_only -> topology_only -> relation_fingerprint -> exact_slot",
+        fontsize=9.2,
+        color="#333333",
+        va="bottom",
+    )
+
+    # Middle column: deterministic chain execution
+    ax = axes[1]
+    ax.text(0.02, 0.96, "2. Execution path", fontsize=13, fontweight="bold", va="top")
+    add_box(
+        ax,
+        0.09,
+        0.82,
+        0.84,
+        0.10,
+        "Seed pool",
+        [
+            "P1 base pool = storey_name + ifc_class",
+            "Target-rooted candidate set",
+        ],
+        "#FFF3E0",
+    )
+
+    # Graph traversal panel
+    graph_panel = FancyBboxPatch(
+        (0.06, 0.32),
+        0.88,
+        0.43,
+        boxstyle="round,pad=0.02,rounding_size=0.02",
+        linewidth=1.2,
+        edgecolor="#111111",
+        facecolor="#F8FAFC",
+        alpha=0.98,
+    )
+    ax.add_patch(graph_panel)
+    ax.text(0.09, 0.72, "Deterministic graph traversal templates", fontsize=11, fontweight="bold", va="top")
+    ax.text(0.09, 0.685, "Example: FILLS + NEXT_TO + NEXT_TO", fontsize=9.5, color="#374151", va="top")
+
+    # nodes
+    add_node(ax, 0.50, 0.54, "target", "#FDE68A", size=1500)
+    add_node(ax, 0.50, 0.43, "wall", "#BFDBFE", size=1350)
+    add_node(ax, 0.24, 0.54, "A", "#C7D2FE", size=1250)
+    add_node(ax, 0.76, 0.54, "B", "#C7D2FE", size=1250)
+    add_node(ax, 0.24, 0.40, "dir", "#E9D5FF", size=1050)
+    add_node(ax, 0.76, 0.40, "sub", "#E9D5FF", size=1050)
+    add_callout(ax, 0.50, 0.61, "target = IfcWindow", facecolor="#FFFBEB", ha="center")
+    add_callout(ax, 0.50, 0.35, "filled wall fi0", facecolor="#EFF6FF", ha="center")
+    add_callout(ax, 0.12, 0.60, "anchor A:\nIfcDoor", facecolor="#EEF2FF")
+    add_callout(ax, 0.80, 0.60, "anchor B:\nIfcWindow", facecolor="#EEF2FF")
+    add_callout(ax, 0.08, 0.42, "direction = left", facecolor="#F5F3FF")
+    add_callout(ax, 0.81, 0.42, "subtype =\nBATHROOM", facecolor="#F5F3FF")
+
+    # edges and labels
+    add_arrow(ax, (0.50, 0.51), (0.50, 0.46), color="#1F2937")
+    add_arrow(ax, (0.46, 0.54), (0.30, 0.54), color="#1F2937")
+    add_arrow(ax, (0.54, 0.54), (0.70, 0.54), color="#1F2937")
+    add_arrow(ax, (0.24, 0.50), (0.24, 0.44), color="#6D28D9")
+    add_arrow(ax, (0.76, 0.50), (0.76, 0.44), color="#6D28D9")
+    ax.text(0.50, 0.485, "FILLS", fontsize=9.2, ha="center", va="center", color="#111827")
+    ax.text(0.37, 0.57, "chain 1", fontsize=8.8, ha="center", va="center", color="#111827")
+    ax.text(0.63, 0.57, "chain 2", fontsize=8.8, ha="center", va="center", color="#111827")
+    ax.text(0.50, 0.28, "same-wall pin via wall_guid\nAND distinct-neighbor filter", fontsize=9.1, ha="center", va="center", color="#334155")
+
+    add_box(
+        ax,
+        0.09,
+        0.12,
+        0.84,
+        0.09,
+        "Multi-anchor AND filter",
+        [
+            "All extracted relations remain hard constraints",
+            "Only candidates satisfying every anchored chain survive",
+        ],
+        "#E3F2FD",
+        fontsize=8.9,
+    )
+    add_box(
+        ax,
+        0.09,
+        0.04,
+        0.84,
+        0.09,
+        "Output",
+        [
+            "Candidate pool after graph matching",
+            "Then rank / report Top-10",
+        ],
+        "#EDE7F6",
+        fontsize=8.9,
+    )
+    add_arrow(ax, (0.50, 0.82), (0.50, 0.76))
+    add_arrow(ax, (0.50, 0.31), (0.50, 0.21))
+    add_arrow(ax, (0.50, 0.12), (0.50, 0.095))
+
+    # Right column: fingerprint-aware narrowing and fallbacks
+    ax = axes[2]
+    ax.text(0.02, 0.96, "3. Fingerprint-aware narrowing", fontsize=13, fontweight="bold", va="top")
+    add_box(
+        ax,
+        0.06,
+        0.77,
+        0.88,
+        0.11,
+        "full_fingerprint",
+        [
+            "topology + direction + subtype + exact slot",
+        ],
+        "#D1FAE5",
+        fontsize=9.0,
+    )
+    add_box(
+        ax,
+        0.06,
+        0.61,
+        0.88,
+        0.10,
+        "no_position",
+        [
+            "drop exact slot, keep relation fingerprint",
+        ],
+        "#E8F5E9",
+        fontsize=9.0,
+    )
+    add_box(
+        ax,
+        0.06,
+        0.46,
+        0.88,
+        0.10,
+        "topology_only",
+        [
+            "drop direction / subtype",
+        ],
+        "#FFF3E0",
+        fontsize=9.0,
+    )
+    add_box(
+        ax,
+        0.06,
+        0.31,
+        0.88,
+        0.10,
+        "no_storey",
+        [
+            "retry without storey restriction",
+        ],
+        "#FFE0B2",
+        fontsize=9.0,
+    )
+    add_box(
+        ax,
+        0.06,
+        0.15,
+        0.88,
+        0.10,
+        "relaxed",
+        [
+            "drop weakest relation one-by-one",
+        ],
+        "#FFCDD2",
+        fontsize=9.0,
+    )
+    add_arrow(ax, (0.50, 0.77), (0.50, 0.71), color="#166534")
+    add_arrow(ax, (0.50, 0.61), (0.50, 0.56), color="#2E7D32")
+    add_arrow(ax, (0.50, 0.46), (0.50, 0.41), color="#9A3412")
+    add_arrow(ax, (0.50, 0.31), (0.50, 0.26), color="#9A3412")
+    ax.text(
+        0.06,
+        0.03,
+        "Interpretation:\nMore specific fingerprints shrink the pool earlier.\nFallback keeps recall when full fingerprint returns empty.",
+        fontsize=9.5,
+        color="#333333",
+        va="bottom",
+    )
+
     fig.savefig(out_path, bbox_inches="tight")
     plt.close(fig)
 
@@ -1419,6 +1762,7 @@ def main() -> None:
         "figA2_topology_slice_benefit_by_multiplicity.png": plot_appendix_multiplicity_benefit,
         "figA3_trackB1_external_generalization.png": plot_appendix_track_b1,
         "figA4_phase4_new_models_zoomin.png": plot_appendix_phase4_zoom,
+        "figA5_planner_multianchor_multichain_explainer.png": plot_appendix_planner_explainer,
     }
     args.appendix_out_dir.mkdir(parents=True, exist_ok=True)
     appendix_manifest = {"out_dir": str(args.appendix_out_dir), "generated": []}

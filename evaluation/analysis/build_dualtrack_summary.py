@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from evaluation.track_registry import METRICS_DIR
+from evaluation.track_registry import METRICS_DIR, TRACK_A_ORDER, TRACK_B2_ORDER, TRACK_B_ORDER
 
 
 def _load_metrics(metrics_dir: Path, suffix: str) -> Dict[str, dict]:
@@ -24,6 +24,12 @@ def _load_metrics(metrics_dir: Path, suffix: str) -> Dict[str, dict]:
             payload = json.load(f)
         result[payload["group"]] = payload
     return result
+
+
+def _ordered_groups(metrics: Dict[str, dict], preferred: List[str]) -> List[str]:
+    ordered = [group for group in preferred if group in metrics]
+    ordered.extend(sorted(group for group in metrics if group not in preferred))
+    return ordered
 
 
 def main() -> None:
@@ -58,7 +64,8 @@ def main() -> None:
                 "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
             ]
         )
-        for group, metrics in sorted(track_a.items()):
+        for group in _ordered_groups(track_a, TRACK_A_ORDER):
+            metrics = track_a[group]
             md_lines.append(
                 f"| {metrics['display_name']} | "
                 f"{metrics['json_parse_rate']:.1%} | "
@@ -91,7 +98,8 @@ def main() -> None:
                 "| --- | ---: | ---: | ---: | ---: | ---: |",
             ]
         )
-        for group, metrics in sorted(track_b.items()):
+        for group in _ordered_groups(track_b, TRACK_B_ORDER):
+            metrics = track_b[group]
             overall = metrics["overall"]
             md_lines.append(
                 f"| {metrics['display_name']} | "
@@ -122,7 +130,8 @@ def main() -> None:
                 "| --- | ---: | ---: | ---: | ---: | ---: |",
             ]
         )
-        for group, metrics in sorted(track_b2.items()):
+        for group in _ordered_groups(track_b2, TRACK_B2_ORDER):
+            metrics = track_b2[group]
             overall = metrics["overall"]
             md_lines.append(
                 f"| {metrics['display_name']} | "
