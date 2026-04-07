@@ -9,12 +9,12 @@
 # -----------------------------------------------------------------------------
 ifc:
   # Default IFC model (used when case_id has no model prefix, or for single-model runs)
-  model_path: "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
+  model_path: "data_curation/ifc_models/AdvancedProject.ifc"
   # Multi-model map: case_id prefix (_AP_, _BH_, _DXA_) → IFC file path
   models:
-    AP: "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
-    BH: "data/ifc/BasicHouse.ifc"
-    DXA: "../data_curation/ifc_models/Duplex_A_20110505.ifc"
+    AP: "data_curation/ifc_models/AdvancedProject.ifc"
+    BH: "data_curation/ifc_models/BasicHouse.ifc"
+    DXA: "data_curation/ifc_models/Duplex_A_20110505.ifc"
 
 # -----------------------------------------------------------------------------
 # Neo4j Graph Database Configuration

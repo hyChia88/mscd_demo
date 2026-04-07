@@ -643,6 +643,7 @@ def main(
     condition_override: str = "",
     cases: str = "",
     tag_suffix: str = "",
+    prompt_key: str = "",
 ):
     """Launch LoRA evaluation on Modal GPU.
 
@@ -650,8 +651,11 @@ def main(
         cases: Remote path to cases JSONL inside Modal container.
                Use "/data/v05_test.jsonl" for v0.5 topology cases (69 cases).
                Use "/data/ap_eval.jsonl" for legacy LoRA6-v2 AP eval cases.
-               Use "/data/ap_eval_g7.jsonl" for G7 AP eval cases.
+               Use "/data/ap_eval_g7.jsonl" for G7/G8 AP eval cases.
                Default: G7 adapters use "/data/ap_eval_g7.jsonl"; others use "/data/ap_eval.jsonl".
+        prompt_key: System prompt key from constraints_extraction.yaml.
+                    Use "lora_system_g7" for G7/G8 adapters trained with G7 profile.
+                    Auto-detected from adapter_dir name ("g7" -> lora_system_g7) if not set.
     """
     if cases:
         cases_label = cases
@@ -677,6 +681,7 @@ def main(
         condition_override=condition_override,
         cases_file=cases,
         tag_suffix=tag_suffix,
+        prompt_key=prompt_key,
     )
     result = None
     poll_secs = 120  # re-open gRPC connection every 2 minutes

@@ -20,7 +20,7 @@ lora_system: |
   You are a construction site assistant that extracts IFC search constraints from multimodal evidence. Use the floorplan and site photo to reason about storey, element type, and spatial relations. Output valid JSON only.
 
 # =============================================================================
-# LORA7 / G7 SYSTEM PROMPT — planner-consumable fingerprint output
+# LORA7 / G7 SYSTEM PROMPT — planner-consumable fingerprint output (not using - regressed)
 # =============================================================================
 # Used for the performance-oriented G7 run. This prompt stays compact, but makes
 # the richer fingerprint fields explicit so the model sees the exact JSON schema

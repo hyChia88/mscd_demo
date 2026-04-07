@@ -52,6 +52,9 @@ class Constraints(BaseModel):
     target_name_keyword: Optional[str] = None  # equipment ID (e.g. "AHU-03"); null for generic types
     position_context: Optional[str] = None  # e.g. "3rd of 17 openings on the same wall"
     spatial_relations: List[SpatialTriplet] = Field(default_factory=list)
+    # ── Fix NEW: target element physical dimensions (IfcWindow / IfcDoor) ──
+    target_width_mm: Optional[float] = None   # Physical width of target element (e.g. 894.0 for IfcWindow)
+    target_height_mm: Optional[float] = None  # Physical height of target element (e.g. 1294.0 for IfcWindow)
     # Predicates: FILLS, ADJACENT_TO, CONTINUOUS, NEXT_TO, CONNECTS_TO
 
     # ── LEGACY fields (LoRA2/LoRA3 era — kept for backward-compat with old traces) ─
