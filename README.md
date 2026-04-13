@@ -158,6 +158,141 @@ python script/run.py \
 modal run training/train_lora5.py --epochs 5 --lr 2e-4 --lora-r 32
 ```
 
+## System Architecture
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ OFFLINE: IFC → Neo4j Graph  (ifc_engine.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ IFC File → Nodes (IFCElement, IFCStorey, IFCSpace)
+   .guid  .ifc_type  .storey  .material  .object_type
+   .width_mm  .height_mm          ← Fix 3 (IfcWindow/Door)
+   .wall_position_index  .wall_child_total
+
+ Edges:
+   -[:CONTAINS]→                 storey/space containment
+   -[:FILLS]→                    Door/Window → host Wall
+   -[:NEXT_TO {wall_guid, pos}]→ consecutive fillers on wall
+   -[:CONNECTS_TO {conn_type}]→  wall T/L/X junctions (IFC rel)
+   -[:ADJACENT_TO {distance_mm}]→ centroid dist 100–1500mm  ← Fix 4
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ OFFLINE: Training Labels  (6_assemble_lora6.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ skeleton + skins + element_index + IFC dims
+   →  Constraints JSON label per case:
+        storey_name, ifc_class
+        target_width_mm, target_height_mm    ← Fix NEW
+        position_context  (text)             ← Fix 1/2
+        spatial_relations[]:
+          predicate, object_type, object_subtype
+          object_material, direction
+          connection_degree (int)            ← Fix 2
+          distance_mm (float)               ← Fix 4
+          confidence: 1.0 (schema) / 0.75 (geometry) ← Fix 3
+   →  filter_label_for_evidence()
+        drops fields not observable at given crop scale
+   →  LoRA fine-tuning (G8, Qwen2.5-VL-7B, r=32)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ONLINE: Inference  (per query)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ Query: text + site_photo(s) + floorplan
+      │
+      ▼
+ ┌─────────────────────────────────────────────────────┐
+ │  NEURO LAYER — LoRA VLM (G8)                       │
+ │  Output: Constraints JSON                          │
+ │   ifc_class, storey_name                           │
+ │   target_width_mm, target_height_mm                │
+ │   position_context (text)                          │
+ │   spatial_relations[{predicate, object_type,       │
+ │     object_subtype, object_material, direction,    │
+ │     connection_degree, distance_mm, confidence}]   │
+ └─────────────────────────────────────────────────────┘
+      │
+      ▼
+ ┌─────────────────────────────────────────────────────┐
+ │  QUERY PLANNER — constraints_to_query.py           │
+ │                                                     │
+ │  fingerprint_level_requested:                       │
+ │    "exact_slot"          position_index set         │
+ │    "relation_fingerprint" subtype/direction set     │
+ │    "topology_only"       predicate + obj_type only  │
+ │    "attribute_only"      no spatial_relations       │
+ │                                                     │
+ │  Priority 0a: spatial_triplet  (FILLS/NEXT_TO/      │
+ │               CONNECTS_TO/ADJACENT_TO edge traversal)│
+ │  Priority 0b: continuous_span  (property filter)    │
+ │  Priority 1:  space+type                            │
+ │  Priority 2:  name_keyword                          │
+ │  Priority 4:  storey+type                           │
+ │  Priority 6:  type_only                             │
+ │  Priority 8:  fallback                              │
+ └─────────────────────────────────────────────────────┘
+      │  QueryPlan
+      ▼
+ ┌─────────────────────────────────────────────────────┐
+ │  SYMBOLIC LAYER — Neo4j Cypher                      │
+ │  (retrieval_backend.py _execute_neo4j)              │
+ │                                                     │
+ │  Single-hop (1 SR):                                 │
+ │    MATCH (target)-[:PRED]->(ref)                    │
+ │    WHERE ifc_type, storey_list,                     │
+ │          material, width/height_mm ±50mm            │
+ │                                                     │
+ │  Multi-anchor (2+ SR): _execute_multi_anchor()      │
+ │    FILLS  → MATCH promoted (wall-pin)               │
+ │      + object_subtype CONTAINS         ← Fix 1      │
+ │    NEXT_TO → MATCH (wall_guid pin)                  │
+ │      + direction, object_subtype                    │
+ │    CONNECTS_TO → WHERE EXISTS                       │
+ │      + COUNT{(t)-[:CONNECTS_TO]-()} = N ← Fix 2     │
+ │    ADJACENT_TO → WHERE EXISTS                       │
+ │      + r.distance_mm ±200mm            ← Fix 4      │
+ │    target.wall_position_index = K  (exact slot)     │
+ │    target.width/height_mm ±50mm       ← Fix 3       │
+ │                                                     │
+ │  Relaxation ladder (on empty):                      │
+ │    drop exact_slot → drop fingerprint               │
+ │    → drop storey → drop weakest SR                  │
+ │    → fallback storey+type (P4)                      │
+ └─────────────────────────────────────────────────────┘
+      │  P0 candidate pool
+      │
+      ▼  p0_union_p1:  P0 ∪ storey+type pool
+         (P0 elements ranked first, P1-only appended)
+      │
+      ▼  _post_filter_by_name_keyword()  (Python, graceful)
+      │
+      │  Shortlist (top-K candidates, default K=10)
+      ▼
+ ┌─────────────────────────────────────────────────────┐
+ │  GRAPH-RAG RERANKER  (graph_rag_rerank_ap.py)       │
+ │                                                     │
+ │  For each candidate → query Neo4j for context:      │
+ │    host wall, NEXT_TO neighbors (left/right),       │
+ │    CONNECTS_TO walls, ADJACENT_TO elements,         │
+ │    wall slot position (pos / total)                 │
+ │                                                     │
+ │  Format as text description per candidate letter    │
+ │  (A. IfcWindow on Level 1; host: Brick wall;        │
+ │   position 3 of 14; left: IfcDoor …)                │
+ │                                                     │
+ │  Gemini VLM prompt:                                 │
+ │    site_photo + floorplan + query_text              │
+ │    + candidate descriptions                         │
+ │    → ranked letter sequence  "C A B D …"            │
+ │                                                     │
+ │  Reorder shortlist by Gemini ranking                │
+ └─────────────────────────────────────────────────────┘
+      │
+      ▼
+ Final ranked pool → Top-1 answer
+```
+
 ## Useful Files
 
 - Latest summary: [`RESULT_OVERVIEW.md`](RESULT_OVERVIEW.md)

@@ -19,11 +19,14 @@ GRAPH_RAG_ROOT = PROJECT_ROOT / "output" / "lora6_v2_ap_20260331" / "graph_rag_r
 DOCS_MAIN_DIR = PROJECT_ROOT / "docs" / "plots" / "phase4_lora6_main"
 DOCS_APPENDIX_DIR = PROJECT_ROOT / "docs" / "plots" / "phase4_lora6_appendix"
 
-G7_SUMMARY_DEFAULT = GRAPH_RAG_ROOT / "20260405_top15_g7_v1" / "graph_rag_rerank_summary.json"
-P1_SUMMARY_DEFAULT = GRAPH_RAG_ROOT / "20260405_top15_p1_v1" / "graph_rag_rerank_summary.json"
-G7_RESULTS_DEFAULT = GRAPH_RAG_ROOT / "20260405_top15_g7_v1" / "graph_rag_rerank_results.jsonl"
-P1_RESULTS_DEFAULT = GRAPH_RAG_ROOT / "20260405_top15_p1_v1" / "graph_rag_rerank_results.jsonl"
-OUT_DEFAULT = GRAPH_RAG_ROOT / "20260405_top15_g7_v1" / "graph_rag_rerank_comparison.png"
+G7_SUMMARY_DEFAULT = GRAPH_RAG_ROOT / "20260407_g7_phase5_v1" / "graph_rag_rerank_summary.json"
+G8_SUMMARY_DEFAULT = GRAPH_RAG_ROOT / "20260407_g8_phase5_v1" / "graph_rag_rerank_summary.json"
+G7_RESULTS_DEFAULT = GRAPH_RAG_ROOT / "20260407_g7_phase5_v1" / "graph_rag_rerank_results.jsonl"
+G8_RESULTS_DEFAULT = GRAPH_RAG_ROOT / "20260407_g8_phase5_v1" / "graph_rag_rerank_results.jsonl"
+# Keep legacy P1 alias (same as G7 p1_only mode)
+P1_SUMMARY_DEFAULT = G7_SUMMARY_DEFAULT
+P1_RESULTS_DEFAULT = G7_RESULTS_DEFAULT
+OUT_DEFAULT = GRAPH_RAG_ROOT / "20260407_g8_phase5_v1" / "graph_rag_rerank_comparison.png"
 MAIN_OUT_DEFAULT = DOCS_MAIN_DIR / "fig11_graph_rag_rerank_comparison.png"
 APPENDIX_OUT_DEFAULT = DOCS_APPENDIX_DIR / "figA6_graph_rag_rerank_comparison.png"
 
@@ -72,7 +75,9 @@ def _changed_cases(rows: List[Dict[str, Any]], mode: str) -> List[Dict[str, Any]
     return changed
 
 
-def build_rows(g7_summary: Dict[str, Any], p1_summary: Dict[str, Any]) -> List[Dict[str, float]]:
+def build_rows(g7_summary: Dict[str, Any], g8_summary: Dict[str, Any]) -> List[Dict[str, float]]:
+    """Build comparison rows: G7, G7+GR, G8, G8+GR, P1-only (G7 coarse), P1+GR, Oracle."""
+    p1 = g7_summary["modes"]["p1_only"]   # P1-only pool is identical for G7/G8
     return [
         {
             "system": "Full-topology (G7)",
@@ -87,16 +92,28 @@ def build_rows(g7_summary: Dict[str, Any], p1_summary: Dict[str, Any]) -> List[D
             "mrr10": g7_summary["modes"]["g7_pipeline"]["reranked"]["mrr10"],
         },
         {
+            "system": "Full-topology (G8)",
+            "top10": g8_summary["modes"]["g7_pipeline"]["baseline"]["top10_pct"],
+            "top1": g8_summary["modes"]["g7_pipeline"]["baseline"]["top1_pct"],
+            "mrr10": g8_summary["modes"]["g7_pipeline"]["baseline"]["mrr10"],
+        },
+        {
+            "system": "Full-topology (G8) + Graph-RAG rerank",
+            "top10": g8_summary["modes"]["g7_pipeline"]["reranked"]["top10_pct"],
+            "top1": g8_summary["modes"]["g7_pipeline"]["reranked"]["top1_pct"],
+            "mrr10": g8_summary["modes"]["g7_pipeline"]["reranked"]["mrr10"],
+        },
+        {
             "system": "P1-only (G7 coarse)",
-            "top10": p1_summary["modes"]["p1_only"]["baseline"]["top10_pct"],
-            "top1": p1_summary["modes"]["p1_only"]["baseline"]["top1_pct"],
-            "mrr10": p1_summary["modes"]["p1_only"]["baseline"]["mrr10"],
+            "top10": p1["baseline"]["top10_pct"],
+            "top1": p1["baseline"]["top1_pct"],
+            "mrr10": p1["baseline"]["mrr10"],
         },
         {
             "system": "P1-only (G7 coarse) + Graph-RAG rerank",
-            "top10": p1_summary["modes"]["p1_only"]["reranked"]["top10_pct"],
-            "top1": p1_summary["modes"]["p1_only"]["reranked"]["top1_pct"],
-            "mrr10": p1_summary["modes"]["p1_only"]["reranked"]["mrr10"],
+            "top10": p1["reranked"]["top10_pct"],
+            "top1": p1["reranked"]["top1_pct"],
+            "mrr10": p1["reranked"]["mrr10"],
         },
         {"system": "Oracle", "top10": 40.0, "top1": 5.0, "mrr10": 0.1279},
     ]
@@ -244,7 +261,7 @@ def plot_figure(
                 fontsize=9,
             )
 
-    subset_labels = ["Full-topology (G7) target subset", "P1-only (G7 coarse) target subset"]
+    subset_labels = ["Full-topology (G7) top-10\u2260top-1", "P1-only (G7 coarse) top-10\u2260top-1"]
     rescued = [g7_subset["rescued"], p1_subset["rescued"]]
     total = [g7_subset["n"], p1_subset["n"]]
     worsened = [g7_subset["worsened"], p1_subset["worsened"]]
@@ -275,7 +292,7 @@ def plot_figure(
         ax_subset.text(i + 0.42, w + 0.15, str(w), ha="center", va="bottom", fontsize=10)
 
     fig.suptitle(
-        f"Graph-RAG reranking at top-{top_k}: weak on Full-topology (G7), stronger on P1-only (G7 coarse)",
+        f"Graph-RAG reranking at top-{top_k}: G7→G8 gain (+3pp Top-10), but reranking hurts full-topology; P1-only benefits",
         fontsize=16,
         fontweight="bold",
     )
@@ -283,8 +300,8 @@ def plot_figure(
         0.5,
         0.01,
         f"Top-10 remains fixed because the benchmark still scores Top-10/MRR@10, but reranking now operates inside the top-{top_k} shortlist. "
-        "The canonical comparison uses the 2026-04-05 top-15 rerank runs. The effect remains asymmetric: "
-        "Full-topology (G7) degrades under reranking, while the coarse P1-only (G7 coarse) shortlist improves clearly.",
+        "The canonical comparison uses phase5 (enriched graph) traces for G7 and G8. The effect remains asymmetric: "
+        "Full-topology pipelines degrade under reranking, while the coarse P1-only (G7 coarse) shortlist improves clearly.",
         ha="center",
         fontsize=10,
     )
@@ -297,9 +314,12 @@ def plot_figure(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--g7-summary", type=Path, default=G7_SUMMARY_DEFAULT)
-    parser.add_argument("--p1-summary", type=Path, default=P1_SUMMARY_DEFAULT)
+    parser.add_argument("--g8-summary", type=Path, default=G8_SUMMARY_DEFAULT)
     parser.add_argument("--g7-results", type=Path, default=G7_RESULTS_DEFAULT)
-    parser.add_argument("--p1-results", type=Path, default=P1_RESULTS_DEFAULT)
+    parser.add_argument("--g8-results", type=Path, default=G8_RESULTS_DEFAULT)
+    # Legacy aliases (ignored — kept for backward compat)
+    parser.add_argument("--p1-summary", type=Path, default=None)
+    parser.add_argument("--p1-results", type=Path, default=None)
     parser.add_argument("--out", type=Path, default=OUT_DEFAULT)
     parser.add_argument("--main-out", type=Path, default=MAIN_OUT_DEFAULT)
     parser.add_argument("--appendix-out", type=Path, default=APPENDIX_OUT_DEFAULT)
@@ -307,14 +327,18 @@ def main() -> None:
     args = parser.parse_args()
 
     g7_summary = _load_json(args.g7_summary)
-    p1_summary = _load_json(args.p1_summary)
+    g8_summary = _load_json(args.g8_summary)
     g7_rows = _load_jsonl(args.g7_results)
-    p1_rows = _load_jsonl(args.p1_results)
+    g8_rows = _load_jsonl(args.g8_results)
 
-    rows = build_rows(g7_summary, p1_summary)
+    rows = build_rows(g7_summary, g8_summary)
     g7_subset = _subset_stats(g7_rows, args.top_k)
-    p1_subset = _subset_stats(p1_rows, args.top_k)
-    changed_rows = _changed_cases(g7_rows, "g7_pipeline") + _changed_cases(p1_rows, "p1_only")
+    p1_subset = _subset_stats(g7_rows, args.top_k)  # P1-only pool same as G7 run
+    changed_rows = (
+        _changed_cases(g7_rows, "g7_pipeline")
+        + _changed_cases(g8_rows, "g7_pipeline")
+        + _changed_cases(g7_rows, "p1_only")
+    )
 
     for out_path in [args.out, args.main_out, args.appendix_out]:
         plot_figure(rows=rows, g7_subset=g7_subset, p1_subset=p1_subset, out_path=out_path, top_k=args.top_k)

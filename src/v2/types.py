@@ -35,6 +35,10 @@ class SpatialTriplet(BaseModel):
     direction: Optional[Literal["left", "right"]] = None
     object_material: Optional[str] = None  # optional material filter on the ref element
     confidence: float = 0.0  # VLM extraction confidence [0, 1]
+    # Fix 2: CONNECTS_TO degree — number of walls this wall connects to (1=end, 2=corner, 3+=junction)
+    connection_degree: Optional[int] = None
+    # Fix 4: ADJACENT_TO distance — centroid distance in mm to the anchor element
+    distance_mm: Optional[float] = None
 
 
 class Constraints(BaseModel):

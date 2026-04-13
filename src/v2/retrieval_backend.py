@@ -384,6 +384,21 @@ class RetrievalBackend:
                         self._strategy_actually_used = f"{plan.strategy}[relaxed]"
             else:
                 # Single-hop Cypher (original behavior, unchanged)
+                # Fix 3: build optional dimension clauses for single-hop
+                single_hop_dim_clause = ""
+                single_hop_dim_params: Dict[str, Any] = {}
+                if params.get("target_width_mm") is not None:
+                    single_hop_dim_params["target_width_mm"] = float(params["target_width_mm"])
+                    single_hop_dim_clause += (
+                        "\n                      AND abs(coalesce(target.width_mm, -9999)"
+                        " - $target_width_mm) <= 50"
+                    )
+                if params.get("target_height_mm") is not None:
+                    single_hop_dim_params["target_height_mm"] = float(params["target_height_mm"])
+                    single_hop_dim_clause += (
+                        "\n                      AND abs(coalesce(target.height_mm, -9999)"
+                        " - $target_height_mm) <= 50"
+                    )
                 cypher = f"""
                     MATCH (target:IFCElement)-[:{predicate}]->(ref:IFCElement)
                     WHERE (target.ifc_type = $subject_type
@@ -394,7 +409,7 @@ class RetrievalBackend:
                       AND (size($storey_list) = 0
                            OR ANY(s IN $storey_list WHERE toLower(target.storey) CONTAINS s))
                       AND ($object_material = ''
-                           OR toLower(ref.material) CONTAINS toLower($object_material))
+                           OR toLower(ref.material) CONTAINS toLower($object_material)){single_hop_dim_clause}
                     RETURN DISTINCT target.guid as guid, target.name as name,
                            target.ifc_type as type,
                            ref.ifc_type as ref_type, ref.storey as ref_storey
@@ -406,6 +421,7 @@ class RetrievalBackend:
                     storey_list=storey_siblings,
                     object_material=object_material,
                     model=model_key,
+                    **single_hop_dim_params,
                 )
                 candidates = [dict(r) for r in result]
 
@@ -419,7 +435,7 @@ class RetrievalBackend:
                                OR ref.ifc_type STARTS WITH $object_type)
                           AND target.ifc_model = $model
                           AND ($object_material = ''
-                               OR toLower(ref.material) CONTAINS toLower($object_material))
+                               OR toLower(ref.material) CONTAINS toLower($object_material)){single_hop_dim_clause}
                         RETURN DISTINCT target.guid as guid, target.name as name,
                                target.ifc_type as type,
                                ref.ifc_type as ref_type, ref.storey as ref_storey
@@ -430,6 +446,7 @@ class RetrievalBackend:
                         object_type=object_type,
                         object_material=object_material,
                         model=model_key,
+                        **single_hop_dim_params,
                     )
                     candidates = [dict(r) for r in result2]
 
@@ -626,18 +643,35 @@ class RetrievalBackend:
             where_parts.append(
                 "($fills_mat_0 = '' OR toLower(fi0.material) CONTAINS toLower($fills_mat_0))"
             )
+            # Fix 1: object_subtype on FILLS host (e.g. "brick" wall material filter)
+            fills_subtype_0 = (sr0.get("object_subtype") or "").strip().lower()
+            if fills_subtype_0:
+                cypher_params["fills_subtype_0"] = fills_subtype_0
+                where_parts.append(
+                    "(toLower(coalesce(fi0.object_type, '')) CONTAINS $fills_subtype_0 "
+                    "OR toLower(coalesce(fi0.name, '')) CONTAINS $fills_subtype_0)"
+                )
             # Additional FILLS rels (rare) remain as WHERE EXISTS
             for i, sr in enumerate(fills_rels[1:], start=1):
                 key = f"fills_obj_{i}"
                 mat_key = f"fills_mat_{i}"
                 cypher_params[key] = sr.get("object_type", "")
                 cypher_params[mat_key] = sr.get("object_material") or ""
+                fills_subtype_i = (sr.get("object_subtype") or "").strip().lower()
+                subtype_clause_i = ""
+                if fills_subtype_i:
+                    cypher_params[f"fills_subtype_{i}"] = fills_subtype_i
+                    subtype_clause_i = (
+                        f" AND (toLower(coalesce(fi{i}.object_type, '')) CONTAINS $fills_subtype_{i} "
+                        f"OR toLower(coalesce(fi{i}.name, '')) CONTAINS $fills_subtype_{i})"
+                    )
                 where_parts.append(
                     f"EXISTS {{ "
                     f"(target)-[:FILLS]->(fi{i}:IFCElement) "
                     f"WHERE (fi{i}.ifc_type = ${key} OR fi{i}.ifc_type STARTS WITH ${key}) "
                     f"AND fi{i}.ifc_model = $model "
                     f"AND (${mat_key} = '' OR toLower(fi{i}.material) CONTAINS toLower(${mat_key}))"
+                    f"{subtype_clause_i}"
                     f" }}"
                 )
         else:
@@ -647,12 +681,21 @@ class RetrievalBackend:
                 mat_key = f"fills_mat_{i}"
                 cypher_params[key] = sr.get("object_type", "")
                 cypher_params[mat_key] = sr.get("object_material") or ""
+                fills_subtype_i = (sr.get("object_subtype") or "").strip().lower()
+                subtype_clause_i = ""
+                if fills_subtype_i:
+                    cypher_params[f"fills_subtype_{i}"] = fills_subtype_i
+                    subtype_clause_i = (
+                        f" AND (toLower(coalesce(fi{i}.object_type, '')) CONTAINS $fills_subtype_{i} "
+                        f"OR toLower(coalesce(fi{i}.name, '')) CONTAINS $fills_subtype_{i})"
+                    )
                 where_parts.append(
                     f"EXISTS {{ "
                     f"(target)-[:FILLS]->(fi{i}:IFCElement) "
                     f"WHERE (fi{i}.ifc_type = ${key} OR fi{i}.ifc_type STARTS WITH ${key}) "
                     f"AND fi{i}.ifc_model = $model "
                     f"AND (${mat_key} = '' OR toLower(fi{i}.material) CONTAINS toLower(${mat_key}))"
+                    f"{subtype_clause_i}"
                     f" }}"
                 )
 
@@ -711,13 +754,60 @@ class RetrievalBackend:
             mat_key = f"other_mat_{i}"
             cypher_params[key] = sr.get("object_type", "")
             cypher_params[mat_key] = sr.get("object_material") or ""
-            where_parts.append(
-                f"EXISTS {{ "
-                f"(target)-[:{pred}]->(ot{i}:IFCElement) "
-                f"WHERE (ot{i}.ifc_type = ${key} OR ot{i}.ifc_type STARTS WITH ${key}) "
-                f"AND ot{i}.ifc_model = $model "
-                f"AND (${mat_key} = '' OR toLower(ot{i}.material) CONTAINS toLower(${mat_key}))"
-                f" }}"
+            # Fix 1: object_subtype on the anchor element (e.g. neighbour wall name)
+            other_subtype = (sr.get("object_subtype") or "").strip().lower()
+            subtype_clause = ""
+            if other_subtype:
+                subtype_key = f"other_subtype_{i}"
+                cypher_params[subtype_key] = other_subtype
+                subtype_clause = (
+                    f" AND (toLower(coalesce(ot{i}.object_type, '')) CONTAINS ${subtype_key} "
+                    f"OR toLower(coalesce(ot{i}.name, '')) CONTAINS ${subtype_key})"
+                )
+            # Fix 2: CONNECTS_TO connection_degree filter (COUNT sub-query on target node)
+            degree_clause = ""
+            if pred == "CONNECTS_TO":
+                degree = sr.get("connection_degree")
+                if degree is not None:
+                    deg_key = f"other_degree_{i}"
+                    cypher_params[deg_key] = int(degree)
+                    degree_clause = (
+                        f" AND COUNT {{ (target)-[:CONNECTS_TO]-() }} = ${deg_key}"
+                    )
+            # Fix 4: ADJACENT_TO distance_mm range filter on edge property (±200mm tolerance)
+            dist_clause = ""
+            if pred == "ADJACENT_TO":
+                dist_mm = sr.get("distance_mm")
+                if dist_mm is not None:
+                    dist_key = f"other_dist_{i}"
+                    cypher_params[dist_key] = float(dist_mm)
+                    dist_clause = (
+                        f" AND abs(coalesce(r_adj{i}.distance_mm, -9999) - ${dist_key}) <= 200"
+                    )
+            # Build the EXISTS / edge-var clause
+            if pred == "ADJACENT_TO" and dist_clause:
+                # Need to bind the relationship to access distance_mm
+                where_parts.append(
+                    f"EXISTS {{ "
+                    f"(target)-[r_adj{i}:ADJACENT_TO]->(ot{i}:IFCElement) "
+                    f"WHERE (ot{i}.ifc_type = ${key} OR ot{i}.ifc_type STARTS WITH ${key}) "
+                    f"AND ot{i}.ifc_model = $model "
+                    f"AND (${mat_key} = '' OR toLower(ot{i}.material) CONTAINS toLower(${mat_key}))"
+                    f"{subtype_clause}"
+                    f"{dist_clause}"
+                    f" }}"
+                    f"{degree_clause}"
+                )
+            else:
+                where_parts.append(
+                    f"EXISTS {{ "
+                    f"(target)-[:{pred}]->(ot{i}:IFCElement) "
+                    f"WHERE (ot{i}.ifc_type = ${key} OR ot{i}.ifc_type STARTS WITH ${key}) "
+                    f"AND ot{i}.ifc_model = $model "
+                    f"AND (${mat_key} = '' OR toLower(ot{i}.material) CONTAINS toLower(${mat_key}))"
+                    f"{subtype_clause}"
+                    f" }}"
+                    f"{degree_clause}"
                 )
 
         if needs_exact_slot:
@@ -726,6 +816,18 @@ class RetrievalBackend:
             if params.get("position_total") is not None:
                 cypher_params["target_wall_child_total"] = int(params["position_total"])
                 where_parts.append("coalesce(target.wall_child_total, -1) = $target_wall_child_total")
+
+        # Fix 3: physical dimension filter for IfcWindow/IfcDoor (±50mm tolerance)
+        if params.get("target_width_mm") is not None:
+            cypher_params["target_width_mm"] = float(params["target_width_mm"])
+            where_parts.append(
+                "abs(coalesce(target.width_mm, -9999) - $target_width_mm) <= 50"
+            )
+        if params.get("target_height_mm") is not None:
+            cypher_params["target_height_mm"] = float(params["target_height_mm"])
+            where_parts.append(
+                "abs(coalesce(target.height_mm, -9999) - $target_height_mm) <= 50"
+            )
 
         match_str = "\n    ".join(match_lines)
         where_str = "\n      AND ".join(where_parts)

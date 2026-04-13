@@ -41,6 +41,10 @@ COND_MASK_PY  = PROJECT_ROOT / "src" / "v2" / "condition_mask.py"
 DEFAULT_CASES_FILE = DATA_ROOT / "datasets" / "synth_v0.4_merged" / "train" / "test_holdout_with_images.jsonl"
 AP_EVAL_CASES_FILE = DATA_ROOT / "datasets" / "synth_v0.5_ap" / "train" / "lora6_v2_ap_eval_canonical_m.jsonl"
 AP_EVAL_CASES_FILE_G7 = DATA_ROOT / "datasets" / "synth_v0.5_ap" / "train" / "lora6_v2_ap_eval_canonical_m_g7.jsonl"
+# Modality ablation slices (FPSITE = floorplan + site image, no chat text)
+_SLICE_ROOT = DATA_ROOT / "datasets" / "synth_v0.5_ap" / "train" / "modality_slices"
+AP_EVAL_FPSITE        = _SLICE_ROOT / "lora6_v2_ap_eval_canonical_m_FPSITE.jsonl"
+AP_EVAL_FPSITE_G7     = _SLICE_ROOT / "lora6_v2_ap_eval_canonical_m_g7_FPSITE.jsonl"
 
 # ── v0.4 image dirs (legacy) ────────────────────────────────────────────────
 AP_IMGS_DIR   = DATA_ROOT / "datasets" / "synth_v0.4_ap"  / "cases" / "imgs"
@@ -94,13 +98,27 @@ def _build_eval_image() -> modal.Image:
         .add_local_file(str(COND_MASK_PY), remote_path="/app/condition_mask.py")
     )
 
+    # Build per-slice remote paths for modality ablation
+    _SLICE_PAIRS = [
+        ("MC", False), ("MC4D", False), ("FP", False), ("SITE", False),
+        ("FPSITE", False), ("MA", False),
+        ("MC", True), ("MC4D", True), ("FP", True), ("SITE", True),
+        ("FPSITE", True), ("MA", True),
+    ]
+    _slice_file_pairs = []
+    for _s, _is_g7 in _SLICE_PAIRS:
+        _suffix = "_g7" if _is_g7 else ""
+        _local = _SLICE_ROOT / f"lora6_v2_ap_eval_canonical_m{_suffix}_{_s}.jsonl"
+        _remote = f"/data/ap_eval{_suffix}_{_s.lower()}.jsonl"
+        _slice_file_pairs.append((_local, _remote))
+
     for local_file, remote_file in [
         (DEFAULT_CASES_FILE, "/data/test_holdout.jsonl"),
         (AP_EVAL_CASES_FILE, "/data/ap_eval.jsonl"),
         (AP_EVAL_CASES_FILE_G7, "/data/ap_eval_g7.jsonl"),
         (V05_CASES_FILE, "/data/v05_test.jsonl"),
         (V05_CASES_SITE_FILE, "/data/v05_test_site.jsonl"),
-    ]:
+    ] + _slice_file_pairs:
         if local_file.exists():
             image = image.add_local_file(str(local_file), remote_path=remote_file)
 
@@ -652,6 +670,8 @@ def main(
                Use "/data/v05_test.jsonl" for v0.5 topology cases (69 cases).
                Use "/data/ap_eval.jsonl" for legacy LoRA6-v2 AP eval cases.
                Use "/data/ap_eval_g7.jsonl" for G7/G8 AP eval cases.
+               Use "/data/ap_eval_fpsite.jsonl" for FPSITE ablation (standard adapters).
+               Use "/data/ap_eval_fpsite_g7.jsonl" for FPSITE ablation (G7/G8 adapters).
                Default: G7 adapters use "/data/ap_eval_g7.jsonl"; others use "/data/ap_eval.jsonl".
         prompt_key: System prompt key from constraints_extraction.yaml.
                     Use "lora_system_g7" for G7/G8 adapters trained with G7 profile.

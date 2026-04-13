@@ -69,17 +69,17 @@ st.markdown(
 
 # ── main tabs ─────────────────────────────────────────────────────────────
 t1, t2, t3, t4 = st.tabs([
-    "📋 Query Context", "🔍 Pipeline Trace", "🏗️ Result", "🧠 Live Inference"
+    "🧠 Input", "📋 Query Context", "🔍 Pipeline Trace", "🏗️ Result"
 ])
 
 with t1:
-    tab_context.render(trace)
+    tab_inference.render(static_base_url=static_base, trace=trace, case_id=case_id)
 
 with t2:
-    tab_pipeline.render(trace, static_base_url=static_base, case_id=case_id)
+    tab_context.render(trace)
 
 with t3:
-    tab_result.render(trace, static_base_url=static_base)
+    tab_pipeline.render(trace, static_base_url=static_base, case_id=case_id)
 
 with t4:
-    tab_inference.render(static_base_url=static_base, trace=trace, case_id=case_id)
+    tab_result.render(trace, static_base_url=static_base)

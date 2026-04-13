@@ -19,23 +19,22 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 PLOTS_DIR = PROJECT_ROOT / "docs" / "plots" / "phase4_lora6_main"
 DEFAULT_METRICS_ROOT = PROJECT_ROOT / "output" / "lora6_v2_ap_20260331" / "modality_ablation_trackA" / "metrics"
 
-MODEL_ORDER = ["g3_fullaug_r32", "g4_ultimate", "g7_position_context", "gemini_ap_v2"]
-SLICE_ORDER = ["MC", "MC4D", "FP", "SITE", "MA"]
+MODEL_ORDER = ["g7_position_context", "g8_posctx_dim", "gemini_ap_v2"]
+SLICE_ORDER = ["MC", "MC4D", "FP", "SITE", "FPSITE", "MA"]
 DISPLAY = {
-    "g3_fullaug_r32": "G3",
-    "g4_ultimate": "G4",
     "g7_position_context": "G7",
-    "gemini_ap_v2": "Gemini AP v2",
-    "MC": "Site + Floorplan + Chat",
-    "MC4D": "Site + Floorplan + Chat + 4D Metadata",
-    "FP": "Floorplan + Chat",
+    "g8_posctx_dim": "G8",
+    "gemini_ap_v2": "Gemini v2",
+    "MC": "Site + FP + Chat",
+    "MC4D": "Site + FP + Chat + 4D",
+    "FP": "FP + Chat",
     "SITE": "Site + Chat",
+    "FPSITE": "Site + FP (visual only)",
     "MA": "Chat Only",
 }
 COLORS = {
-    "g3_fullaug_r32": "#D32F2F",
-    "g4_ultimate": "#B71C1C",
     "g7_position_context": "#6A1B9A",
+    "g8_posctx_dim": "#3E1080",
     "gemini_ap_v2": "#1565C0",
 }
 
@@ -44,13 +43,16 @@ def _load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def load_rows(metrics_root: Path) -> List[dict]:
+def load_rows(metrics_root: Path, skip_missing: bool = False) -> List[dict]:
     rows: List[dict] = []
     for slice_key in SLICE_ORDER:
         slice_dir = metrics_root / slice_key
         for model_key in MODEL_ORDER:
             path = slice_dir / f"{model_key}__ap_metrics.json"
             if not path.exists():
+                if skip_missing:
+                    print(f"  [SKIP] Missing metrics file: {path}")
+                    continue
                 raise FileNotFoundError(f"Missing metrics file: {path}")
             metrics = _load_json(path)
             rows.append(
@@ -114,14 +116,20 @@ def plot(rows: List[dict], out_path: Path) -> None:
         ("predicate_recall", "Predicate Recall"),
         ("direction_accuracy", "Direction Accuracy"),
     ]
-    x = list(range(len(SLICE_ORDER)))
+    # Only plot slices that have at least one data row
+    present_slices = [s for s in SLICE_ORDER if any(r["slice"] == s for r in rows)]
+    x = list(range(len(present_slices)))
 
     for ax, (metric_key, title) in zip(axes, metrics):
         for model_key in MODEL_ORDER:
-            y = [next(r[metric_key] for r in rows if r["slice"] == slice_key and r["model"] == model_key) for slice_key in SLICE_ORDER]
+            model_rows = {r["slice"]: r[metric_key] for r in rows if r["model"] == model_key}
+            xs = [i for i, s in enumerate(present_slices) if s in model_rows]
+            ys = [model_rows[s] for s in present_slices if s in model_rows]
+            if not ys:
+                continue
             ax.plot(
-                x,
-                y,
+                xs,
+                ys,
                 marker="o",
                 linewidth=2.2,
                 markersize=6,
@@ -129,13 +137,13 @@ def plot(rows: List[dict], out_path: Path) -> None:
                 label=DISPLAY[model_key],
             )
         ax.set_title(title)
-        ax.set_xticks(x, [DISPLAY[s] for s in SLICE_ORDER], rotation=20, ha="right")
+        ax.set_xticks(x, [DISPLAY[s] for s in present_slices], rotation=20, ha="right")
         ax.set_ylim(0, 105)
         ax.grid(axis="y", alpha=0.25)
 
     axes[0].set_ylabel("Accuracy (%)")
     axes[-1].legend(frameon=False, loc="lower left")
-    fig.suptitle("Track A Modality Ablation on AP Held-out (G3, G4, G7, Gemini AP v2)", fontsize=13)
+    fig.suptitle("Track A Modality Ablation on AP Held-out (G7, G8, Gemini v2)", fontsize=13)
     fig.tight_layout(rect=(0, 0, 1, 0.95))
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, dpi=220, bbox_inches="tight")
@@ -146,9 +154,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--metrics-root", type=Path, default=DEFAULT_METRICS_ROOT)
     parser.add_argument("--out-dir", type=Path, default=PLOTS_DIR)
+    parser.add_argument("--skip-missing", action="store_true",
+                        help="Skip missing slice/model combos instead of raising an error.")
     args = parser.parse_args()
 
-    rows = load_rows(args.metrics_root)
+    rows = load_rows(args.metrics_root, skip_missing=args.skip_missing)
     write_csv(rows, args.out_dir / "fig09_trackA_modality_ablation_summary.csv")
     write_md(rows, args.out_dir / "fig09_trackA_modality_ablation_summary.md")
     plot(rows, args.out_dir / "fig09_trackA_modality_ablation.png")

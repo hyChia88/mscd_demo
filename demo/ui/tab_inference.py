@@ -1,8 +1,9 @@
 """
-Tab 4 — Live Inference: upload images + enter chat → LoRA_3 extracts constraints
+Tab 1 — Live Inference: upload images + enter chat → G4-Ultimate VLM extracts constraints
 → QueryPlanner builds plans → RetrievalBackend executes → 3D viewer shows pool.
 
 Full neuro-symbolic pipeline: VLM (Modal GPU) → Constraints → Cypher → GUIDs → 3D.
+Two modes: Full Topology (P0 spatial + P1 fallback) and P1+Rerank (storey+type first).
 """
 import asyncio
 import hashlib
@@ -85,183 +86,270 @@ def render(
     trace: dict | None = None,
     case_id: str = "",
 ) -> None:
-    st.markdown("#### Neuro-Symbolic Inference Pipeline")
-    st.caption(
-        "Upload site photos / floorplans and enter chat text. "
-        "Watch each pipeline stage execute in sequence: "
-        "**VLM → Constraints → Query Plan → Cypher → Pool → 3D**"
-    )
-    # Avoid showing stale retrieval output when user switches selected case.
+    # Reset stale results when sidebar case changes.
     if st.session_state.get("live_case_id") != case_id:
         st.session_state.pop("last_inference", None)
         st.session_state.pop("last_retrieval", None)
+        st.session_state.pop("last_explain", None)
         st.session_state["live_case_id"] = case_id
 
-    gt_mode = "None"
-    gt_case_id = ""
-    gt_guid = ""
+    # ── Two-column layout ─────────────────────────────────────────────────
+    #   LEFT  (1): compact multimodal evidence input
+    #   RIGHT (2): closeable analysis / pipeline trace panel
+    left_col, right_col = st.columns([1, 2], gap="medium")
 
-    # ── Input form ────────────────────────────────────────────────────────
-    col_img, col_text = st.columns([1, 1], gap="medium")
+    # ═════════════════════════════════════════════════════════════════════
+    # LEFT — Evidence input
+    # ═════════════════════════════════════════════════════════════════════
+    with left_col:
+        with st.container(border=True):
+            st.markdown(
+                '<p style="font-size:11px;font-weight:600;text-transform:uppercase;'
+                'letter-spacing:0.5px;color:#64748b;margin-bottom:4px;">Evidence Input</p>',
+                unsafe_allow_html=True,
+            )
 
-    with col_img:
-        st.markdown("**Images**")
-        uploaded_files = st.file_uploader(
-            "Site photo + floorplan",
-            type=["png", "jpg", "jpeg"],
-            accept_multiple_files=True,
-            key="inference_images",
-        )
-        if uploaded_files:
-            img_cols = st.columns(min(len(uploaded_files), 3))
-            for i, f in enumerate(uploaded_files):
-                img_cols[i % 3].image(f, caption=f.name, width=180)
+            # VLM model variant selector
+            model_variant = st.selectbox(
+                "VLM Model",
+                [
+                    "G8 — Full Topology (P0 spatial + P1…)",
+                    "G8 — P1 + Rerank (skip spatial, storey+type first)",
+                    "G4-Ultimate — Full Topology (P0 spatial + P1…)",
+                    "G4-Ultimate — P1 + Rerank (skip spatial, storey+type first)",
+                ],
+                key="inf_model_variant",
+            )
 
-    with col_text:
-        st.markdown("**Chat Message**")
-        chat_text = st.text_area(
-            "Site worker message",
-            value="There's a crack on the window next to the railing, third floor",
-            height=80,
-            key="inference_chat",
-        )
+            ifc_model = st.selectbox(
+                "IFC Model",
+                ["AP (AdvancedProject)", "BH (BasicHouse)", "DXA (Duplex)"],
+                key="inf_ifc_model",
+            )
+            model_code = ifc_model.split(" ", 1)[0].strip()
 
-        st.markdown("**4D Metadata** (optional)")
-        meta_col1, meta_col2 = st.columns(2)
-        storey = meta_col1.text_input("Location / Storey", value="3 - Third Floor", key="inf_storey")
-        phase = meta_col2.text_input("Project Phase", value="Interior Fit-out", key="inf_phase")
-        task_status = meta_col1.selectbox(
-            "Task Status",
-            ["IN_PROGRESS", "PENDING_INSPECTION", "REVIEW_REQUIRED", "ON_HOLD"],
-            key="inf_status",
-        )
-        ifc_model = meta_col2.selectbox(
-            "IFC Model",
-            ["AP (AdvancedProject)", "BH (BasicHouse)", "DXA (Duplex)"],
-            key="inf_ifc_model",
-        )
-        model_code = ifc_model.split(" ", 1)[0].strip()
+            st.caption("Site photos")
+            uploaded_files = st.file_uploader(
+                "site_photos",
+                type=["png", "jpg", "jpeg"],
+                accept_multiple_files=True,
+                key="inference_images",
+                label_visibility="collapsed",
+            )
+            if uploaded_files:
+                thumb_cols = st.columns(min(len(uploaded_files), 3))
+                for i, f in enumerate(uploaded_files):
+                    thumb_cols[i % 3].image(f, caption=f.name, width=110)
 
-        st.markdown("**Ground Truth** (optional)")
-        gt_mode = st.radio(
-            "GT source",
-            ["None", "Sidebar case", "Manual case ID"],
-            horizontal=True,
-            key="inf_gt_source_mode",
-        )
-        if gt_mode == "Sidebar case":
-            gt_case_id = case_id
-            if case_id:
-                st.caption(f"Using sidebar case: `{case_id}`")
-        elif gt_mode == "Manual case ID":
-            gt_case_id = st.text_input(
-                "GT case ID",
-                value=st.session_state.get("inf_gt_case_manual", ""),
-                placeholder="e.g. SYNTH_V3_002_SK_002 or H2_001",
-                key="inf_gt_case_manual",
-            ).strip()
+            st.caption("Floorplan")
+            floorplan_file = st.file_uploader(
+                "floorplan",
+                type=["png", "jpg", "jpeg"],
+                accept_multiple_files=False,
+                key="inference_floorplan",
+                label_visibility="collapsed",
+            )
+            if floorplan_file:
+                st.image(floorplan_file, caption=floorplan_file.name, width=110)
 
-    allow_trace_fallback = (gt_mode == "Sidebar case")
-    gt_guid = _extract_gt_guid(
-        trace,
-        case_id=gt_case_id,
-        allow_trace_fallback=allow_trace_fallback,
-    )
-    if gt_guid:
-        st.caption(f"GT loaded for 3D coloring: `{gt_guid}`")
-    elif gt_case_id:
-        st.warning(f"No target_guid found for case id `{gt_case_id}`.")
+            st.caption("Chat message")
+            chat_text = st.text_area(
+                "chat_msg",
+                value="There's a crack on the window next to the railing, third floor",
+                height=72,
+                key="inference_chat",
+                label_visibility="collapsed",
+            )
 
-    metadata_text = (
-        f"[4D Task Status] TASK_0001: Inspection — {task_status}\n"
-        f"[Project Phase] {phase}\n"
-        f"[Location] {storey}\n"
-        f"[IFC Model] {model_code}"
-    )
+            with st.expander("4D Metadata", expanded=False):
+                meta_c1, meta_c2 = st.columns(2)
+                meta_c1.text_input("Storey", value="3 - Third Floor", key="inf_storey")
+                meta_c2.text_input("Phase", value="Interior Fit-out", key="inf_phase")
+                meta_c1.selectbox(
+                    "Task Status",
+                    ["IN_PROGRESS", "PENDING_INSPECTION", "REVIEW_REQUIRED", "ON_HOLD"],
+                    key="inf_status",
+                )
 
-    # ── Run inference ─────────────────────────────────────────────────────
-    run_btn = st.button("Run Pipeline", type="primary", use_container_width=True)
+            storey      = st.session_state.get("inf_storey",  "3 - Third Floor")
+            phase       = st.session_state.get("inf_phase",   "Interior Fit-out")
+            task_status = st.session_state.get("inf_status",  "IN_PROGRESS")
 
+            with st.expander("Ground Truth (optional)", expanded=False):
+                gt_mode_widget = st.radio(
+                    "GT source",
+                    ["None", "Sidebar case", "Case ID", "Direct GUID"],
+                    horizontal=True,
+                    key="inf_gt_source_mode",
+                )
+                if gt_mode_widget == "Sidebar case" and case_id:
+                    st.caption(f"Using: `{case_id}`")
+                elif gt_mode_widget == "Case ID":
+                    st.text_input(
+                        "Case ID",
+                        value=st.session_state.get("inf_gt_case_manual", ""),
+                        placeholder="e.g. AP_SK_282  or  SYNTH_V3_002_SK_002",
+                        key="inf_gt_case_manual",
+                    )
+                elif gt_mode_widget == "Direct GUID":
+                    st.text_input(
+                        "Target GUID",
+                        value=st.session_state.get("inf_gt_guid_manual", ""),
+                        placeholder="e.g. 2BLn4xX2vF_gM9G5wfbU5X",
+                        key="inf_gt_guid_manual",
+                    )
+
+            gt_mode = st.session_state.get("inf_gt_source_mode", "None")
+            if gt_mode == "Sidebar case":
+                gt_case_id = case_id
+            elif gt_mode == "Case ID":
+                gt_case_id = st.session_state.get("inf_gt_case_manual", "").strip()
+            else:
+                gt_case_id = ""
+
+            # Direct GUID bypasses case_id lookup entirely
+            if gt_mode == "Direct GUID":
+                gt_guid = st.session_state.get("inf_gt_guid_manual", "").strip()
+            else:
+                allow_trace_fallback = (gt_mode == "Sidebar case")
+                gt_guid = _extract_gt_guid(
+                    trace, case_id=gt_case_id, allow_trace_fallback=allow_trace_fallback,
+                )
+
+            metadata_text = (
+                f"[4D Task Status] TASK_0001: Inspection — {task_status}\n"
+                f"[Project Phase] {phase}\n"
+                f"[Location] {storey}\n"
+                f"[IFC Model] {model_code}"
+            )
+
+            run_btn = st.button("▶  Run Pipeline", type="primary", use_container_width=True)
+
+        # Post-run status badge
+        vlm_result      = st.session_state.get("last_inference")
+        retrieval_result = st.session_state.get("last_retrieval")
+        if vlm_result is not None:
+            pool_guids  = (retrieval_result or {}).get("pool_guids") or []
+            guid_match  = (retrieval_result or {}).get("guid_match", False)
+            total_ms    = (vlm_result.get("_latency_ms", 0)
+                           + (retrieval_result or {}).get("_latency_ms", 0))
+            if not vlm_result.get("valid_json", False):
+                st.error("VLM returned invalid JSON")
+            else:
+                match_color = "#22c55e" if guid_match else ("#ef4444" if pool_guids else "#f59e0b")
+                match_icon  = "✓ match" if guid_match else ("✗ miss" if pool_guids else "no pool")
+                _used_mv = vlm_result.get("_model_variant", "")
+                _mode_tag = "P1+rerank" if "P1 + Rerank" in _used_mv else "full topo"
+                _model_tag = "G8" if _used_mv.startswith("G8") else "G4"
+                st.markdown(
+                    f'<div style="padding:6px 12px;border-radius:6px;margin-top:4px;'
+                    f'background:rgba(15,23,42,0.6);border:1px solid #1e293b;'
+                    f'font-family:monospace;font-size:0.82em;">'
+                    f'<span style="color:{match_color};font-weight:700;">{match_icon}</span>'
+                    f'<span style="color:#64748b;margin-left:8px;">'
+                    f'pool={len(pool_guids)}  ·  {total_ms}ms  ·  {_model_tag}/{_mode_tag}</span></div>',
+                    unsafe_allow_html=True,
+                )
+
+    # ── Handle run (outside columns to avoid nested widget issues) ────────
     if run_btn:
         if not chat_text.strip():
             st.warning("Please enter a chat message.")
-            return
+        else:
+            all_image_bytes = [f.getvalue() for f in (uploaded_files or [])]
+            if floorplan_file:
+                all_image_bytes.append(floorplan_file.getvalue())
 
-        image_bytes_list = [f.getvalue() for f in (uploaded_files or [])]
+            # Resolve model variant from session state (widget is inside left_col scope)
+            _mv = st.session_state.get("inf_model_variant", "")
+            _skip_p0 = "P1 + Rerank" in _mv  # True for p1+rerank mode
+            _use_g8 = _mv.startswith("G8")    # True → route to G8ModelPredictor
 
-        # Stage 1: VLM
-        t0 = time.time()
-        with st.spinner("Stage 1/3 — VLM inference on Modal A100..."):
-            vlm_result = _call_modal_inference(image_bytes_list, chat_text, metadata_text)
-        vlm_ms = int((time.time() - t0) * 1000)
+            _model_label = "G8" if _use_g8 else "G4-Ultimate"
+            t0 = time.time()
+            with st.spinner(f"Stage 1/3 — VLM inference ({_model_label}) on Modal A100..."):
+                vlm_result = _call_modal_inference(all_image_bytes, chat_text, metadata_text, use_g8=_use_g8)
+            vlm_ms = int((time.time() - t0) * 1000)
 
-        if vlm_result is None:
-            return
+            if vlm_result is not None:
+                vlm_result["_latency_ms"] = vlm_ms
+                vlm_result["_model_variant"] = _mv
+                retrieval_result = None
+                if vlm_result.get("valid_json") and vlm_result.get("parsed"):
+                    t1 = time.time()
+                    with st.spinner("Stage 2-3 — Query planning + Neo4j retrieval..."):
+                        retrieval_result = _run_retrieval(
+                            vlm_result["parsed"],
+                            model_code=model_code,
+                            gt_guid=gt_guid,
+                            skip_p0=_skip_p0,
+                        )
+                    if retrieval_result:
+                        retrieval_result["_latency_ms"] = int((time.time() - t1) * 1000)
 
-        vlm_result["_latency_ms"] = vlm_ms
+                st.session_state["last_inference"]  = vlm_result
+                st.session_state["last_retrieval"]  = retrieval_result
+                st.rerun()
 
-        # Stage 2+3: Symbolic retrieval
-        retrieval_result = None
-        if vlm_result.get("valid_json") and vlm_result.get("parsed"):
-            t1 = time.time()
-            with st.spinner("Stage 2-3 — Query planning + Neo4j retrieval..."):
-                retrieval_result = _run_retrieval(
-                    vlm_result["parsed"],
-                    model_code=model_code,
-                    gt_guid=gt_guid,
-                )
-            if retrieval_result:
-                retrieval_result["_latency_ms"] = int((time.time() - t1) * 1000)
-
-        st.session_state["last_inference"] = vlm_result
-        st.session_state["last_retrieval"] = retrieval_result
-
-    # ── Display pipeline ──────────────────────────────────────────────────
-    vlm_result = st.session_state.get("last_inference")
-    if vlm_result is None:
-        st.info("Click **Run Pipeline** to execute the full neuro-symbolic pipeline.")
-        return
-
+    # Re-read after potential rerun
+    vlm_result       = st.session_state.get("last_inference")
     retrieval_result = st.session_state.get("last_retrieval")
-    _render_pipeline(vlm_result, retrieval_result, static_base_url=static_base_url)
 
-    # ── Explain: occlusion saliency ──────────────────────────────────────
-    has_images = bool(uploaded_files)
-    has_spatial = bool((vlm_result.get("parsed") or {}).get("spatial_relations"))
+    # ═════════════════════════════════════════════════════════════════════
+    # RIGHT — Closeable analysis panel
+    # ═════════════════════════════════════════════════════════════════════
+    with right_col:
+        hdr_c, tog_c = st.columns([3, 1])
+        hdr_c.markdown(
+            '<p style="font-size:11px;font-weight:600;text-transform:uppercase;'
+            'letter-spacing:0.5px;color:#64748b;margin-bottom:0;">Analysis / Trace Inspector</p>',
+            unsafe_allow_html=True,
+        )
+        show_analysis = tog_c.toggle("Show", value=True, key="show_analysis_panel")
 
-    if has_images and has_spatial:
-        st.markdown("---")
-        st.markdown("#### VLM Spatial Grounding")
-        st.caption(
-            "Occlusion saliency: masks each image patch, re-runs VLM, "
-            "measures which regions drive the spatial relation prediction."
-        )
-        grid_col, btn_col = st.columns([1, 2])
-        grid_size = grid_col.select_slider(
-            "Grid resolution",
-            options=[3, 4, 5, 6],
-            value=4,
-            key="explain_grid",
-        )
-        explain_btn = btn_col.button(
-            f"Run Explain ({grid_size}x{grid_size} = {grid_size**2} forward passes)",
-            key="explain_btn",
-        )
-
-        if explain_btn:
-            image_bytes_list = [f.getvalue() for f in uploaded_files]
-            with st.spinner(
-                f"Running occlusion saliency ({grid_size*grid_size} passes, ~{grid_size*grid_size}s)..."
-            ):
-                explain_result = _call_modal_explain(
-                    image_bytes_list, chat_text, metadata_text, grid_size
+        if show_analysis:
+            if vlm_result is None:
+                st.info(
+                    "Run the pipeline to see analysis — "
+                    "**VLM → Constraints → Query Plan → Cypher → Pool → 3D**"
                 )
-            if explain_result:
-                st.session_state["last_explain"] = explain_result
+            else:
+                _render_pipeline(vlm_result, retrieval_result, static_base_url=static_base_url)
 
-        explain_result = st.session_state.get("last_explain")
-        if explain_result and "heatmaps" in explain_result:
-            _render_saliency(explain_result, uploaded_files)
+                # ── Occlusion saliency (only when images + spatial relations present) ──
+                has_images   = bool(uploaded_files or floorplan_file)
+                has_spatial  = bool((vlm_result.get("parsed") or {}).get("spatial_relations"))
+                if has_images and has_spatial:
+                    st.markdown("---")
+                    st.markdown("#### VLM Spatial Grounding")
+                    st.caption(
+                        "Occlusion saliency: masks each image patch, re-runs VLM, "
+                        "measures which regions drive the spatial relation prediction."
+                    )
+                    grid_col, btn_col = st.columns([1, 2])
+                    grid_size = grid_col.select_slider(
+                        "Grid resolution", options=[3, 4, 5, 6], value=4, key="explain_grid",
+                    )
+                    explain_btn = btn_col.button(
+                        f"Run Explain ({grid_size}×{grid_size} = {grid_size**2} passes)",
+                        key="explain_btn",
+                    )
+                    if explain_btn:
+                        all_bytes = [f.getvalue() for f in (uploaded_files or [])]
+                        if floorplan_file:
+                            all_bytes.append(floorplan_file.getvalue())
+                        with st.spinner(f"Running occlusion saliency ({grid_size**2} passes)..."):
+                            explain_result = _call_modal_explain(
+                                all_bytes, chat_text, metadata_text, grid_size
+                            )
+                        if explain_result:
+                            st.session_state["last_explain"] = explain_result
+                    explain_result = st.session_state.get("last_explain")
+                    if explain_result and "heatmaps" in explain_result:
+                        all_files = list(uploaded_files or []) + (
+                            [floorplan_file] if floorplan_file else []
+                        )
+                        _render_saliency(explain_result, all_files)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -279,6 +367,8 @@ def _render_pipeline(
     parsed = vlm_result.get("parsed") or {}
     raw = vlm_result.get("raw_output", "")
     vlm_ms = vlm_result.get("_latency_ms", 0)
+    _mv = vlm_result.get("_model_variant", "")
+    _model_label = "G8" if _mv.startswith("G8") else "G4-Ultimate"
 
     if not valid:
         st.error("VLM returned invalid JSON — pipeline halted")
@@ -293,6 +383,7 @@ def _render_pipeline(
             parsed=parsed,
             vlm_ms=vlm_ms,
             retrieval_result=retrieval_result,
+            model_label=_model_label,
         )
 
     _render_raw_outputs_panel(vlm_result, retrieval_result)
@@ -343,12 +434,13 @@ def _render_pipeline_details(
     parsed: dict,
     vlm_ms: int,
     retrieval_result: dict | None,
+    model_label: str = "G4-Ultimate",
 ) -> None:
     """Render detailed stage trace below the key outputs."""
     # ━━ Stage 1: Neuro Layer (VLM) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     st.markdown(
         f'<div style="{_STAGE_STYLE}">'
-        + _stage_header(1, "Neuro Layer", "LoRA_3 VLM → Structured JSON", vlm_ms)
+        + _stage_header(1, "Neuro Layer", f"{model_label} VLM → Structured JSON", vlm_ms)
         + '</div>',
         unsafe_allow_html=True,
     )
@@ -915,87 +1007,155 @@ def _build_ifc_context_dot(
     return "\n".join(lines)
 
 
+def _build_spatial_constraint_dot(parsed: dict) -> str:
+    """Build DOT graph of spatial relation triplets extracted by the VLM.
+
+    Shows the target element type as the central node with edges to each
+    object_type labelled by predicate (FILLS / ADJACENT_TO / CONTINUOUS).
+    Used as a fallback when Neo4j subgraph data is not available.
+    """
+    ifc_class = parsed.get("ifc_class") or "Target"
+    rels      = parsed.get("spatial_relations") or []
+
+    _pred_fill = {
+        "FILLS":       ("#1e3a8a", "#3b82f6"),   # dark-blue fill, blue border
+        "ADJACENT_TO": ("#78350f", "#f59e0b"),   # dark-amber fill, amber border
+        "CONTINUOUS":  ("#3b0764", "#8b5cf6"),   # dark-purple fill, purple border
+    }
+
+    lines = [
+        "digraph spatial {",
+        "rankdir=LR;",
+        'graph [bgcolor="transparent"];',
+        'node [shape=box, style="rounded,filled", fontcolor="#e2e8f0", '
+        'fontname="Helvetica", fontsize=11];',
+        'edge [fontname="Helvetica", fontsize=10];',
+        f'target [label="{_gv_escape(ifc_class)}", fillcolor="#14532d", '
+        f'color="#22c55e", penwidth=2.2, fontcolor="#ecfdf5"];',
+    ]
+
+    for i, rel in enumerate(rels):
+        pred     = rel.get("predicate", "REL")
+        obj_type = rel.get("object_type") or "Element"
+        obj_mat  = rel.get("object_material")
+        conf     = rel.get("confidence", 0)
+        fill_c, border_c = _pred_fill.get(pred, ("#334155", "#64748b"))
+
+        mat_label = f"\\n({_gv_escape(obj_mat)})" if obj_mat else ""
+        node_id   = f"obj_{i}"
+        conf_tag  = f"\\nconf={conf:.2f}" if conf else ""
+
+        lines.append(
+            f'{node_id} [label="{_gv_escape(obj_type)}{mat_label}", '
+            f'fillcolor="{fill_c}", color="{border_c}", penwidth=1.8];'
+        )
+        lines.append(
+            f'target -> {node_id} [label="{_gv_escape(pred)}{conf_tag}", '
+            f'color="{border_c}", fontcolor="{border_c}", penwidth=2.0];'
+        )
+
+    if not rels:
+        lines.append(
+            'no_rels [label="No spatial relations\\n(attribute-only case)", '
+            'fillcolor="#1e293b", color="#475569", fontcolor="#94a3b8"];'
+        )
+
+    lines.append("}")
+    return "\n".join(lines)
+
+
 def _render_graph_retrieval_panel(parsed: dict, retrieval_result: dict | None) -> None:
-    """Render graph-centric explainability for why symbolic retrieval helps."""
+    """Render graph-centric explainability: spatial relationship graph nodes."""
     if not retrieval_result:
         return
 
-    plans = retrieval_result.get("plans") or []
-    results = retrieval_result.get("results") or []
-    winning = retrieval_result.get("winning") or {}
+    plans    = retrieval_result.get("plans") or []
+    results  = retrieval_result.get("results") or []
+    winning  = retrieval_result.get("winning") or {}
+    subgraph = retrieval_result.get("subgraph")
+    gt_guid  = (retrieval_result.get("gt_guid") or "").strip()
+    graph_snapshot = retrieval_result.get("graph_snapshot")
+
     if not plans:
         return
 
     st.markdown("#### Graph Retrieval Explainability")
 
+    # ── Build plan summary rows ───────────────────────────────────────────
     rows = []
+    graph_size = attr_size = None
     for i, plan in enumerate(plans):
         result = results[i] if i < len(results) else None
+        pool   = (result or {}).get("pool_size", 0)
+        strat  = plan.get("strategy", "?")
         rows.append({
             "Priority": f"P{plan.get('priority', '?')}",
-            "Strategy": plan.get("strategy", "?"),
-            "Pool Size": (result or {}).get("pool_size", 0),
-            "Winner": "YES" if winning and plan.get("strategy") == winning.get("strategy") else "",
-            "Fallback": "YES" if (result or {}).get("fallback_triggered") else "",
+            "Strategy": strat,
+            "Pool":     pool,
+            "Winner":   "✓" if winning and strat == winning.get("strategy") else "",
+            "Fallback": "↩" if (result or {}).get("fallback_triggered") else "",
         })
-
-    # Compare graph-first vs attribute baseline to highlight retrieval gain.
-    graph_size = None
-    attr_size = None
-    for row in rows:
-        if row["Strategy"] in {"spatial_triplet", "continuous_span"} and graph_size is None:
-            graph_size = row["Pool Size"]
-        if row["Strategy"] in {"storey+type", "type_only"} and attr_size is None:
-            attr_size = row["Pool Size"]
+        if strat in {"spatial_triplet", "continuous_span"} and graph_size is None:
+            graph_size = pool
+        if strat in {"storey+type", "type_only"} and attr_size is None:
+            attr_size = pool
 
     c1, c2 = st.columns([1, 1], gap="large")
+
+    # ── LEFT: plan table ─────────────────────────────────────────────────
     with c1:
         st.dataframe(rows, use_container_width=True, hide_index=True)
         if graph_size is not None and attr_size is not None:
             delta = attr_size - graph_size
             st.caption(
-                f"Graph gain: attribute pool {attr_size} → graph-first pool {graph_size} (Δ {delta})"
+                f"Graph gain: attribute pool {attr_size} → graph pool {graph_size} (Δ −{delta})"
             )
 
+    # ── RIGHT: spatial relationship graph ────────────────────────────────
     with c2:
-        dot = _build_plan_graph_dot(parsed, plans, results, winning)
-        st.graphviz_chart(dot, use_container_width=True)
+        if graph_snapshot and graph_snapshot.get("edges"):
+            # Full IFC context bubble cloud with 1-hop spatial neighbourhood highlighted
+            snap_nodes = len(graph_snapshot.get("nodes") or [])
+            snap_edges = len(graph_snapshot.get("edges") or [])
+            hop_nodes  = len((subgraph or {}).get("nodes") or [])
+            hop_edges  = len((subgraph or {}).get("edges") or [])
+            st.caption(
+                f"IFC graph sample: {snap_nodes} nodes / {snap_edges} edges — "
+                f"spatial 1-hop: {hop_nodes} nodes / {hop_edges} edges"
+            )
+            st.graphviz_chart(
+                _build_ifc_context_dot(graph_snapshot, subgraph, gt_guid=gt_guid),
+                use_container_width=True,
+            )
+            st.caption(
+                "🟢 top-1 · 🟡 1-hop spatial neighbours · 🔵 ground truth · ⚫ context"
+            )
+            if subgraph and subgraph.get("edges"):
+                with st.expander("Isolated 1-hop neighbourhood", expanded=False):
+                    st.graphviz_chart(
+                        _build_subgraph_dot(subgraph, gt_guid=gt_guid),
+                        use_container_width=True,
+                    )
 
-    subgraph = retrieval_result.get("subgraph")
-    gt_guid = (retrieval_result.get("gt_guid") or "").strip()
-    graph_snapshot = retrieval_result.get("graph_snapshot")
-    if graph_snapshot and graph_snapshot.get("edges"):
-        snap_nodes = len(graph_snapshot.get("nodes") or [])
-        snap_edges = len(graph_snapshot.get("edges") or [])
-        hop_nodes = len((subgraph or {}).get("nodes") or [])
-        hop_edges = len((subgraph or {}).get("edges") or [])
-        st.caption(
-            f"Whole IFC graph sample: {snap_nodes} nodes / {snap_edges} edges. "
-            f"Highlighted 1-hop around top-1: {hop_nodes} nodes / {hop_edges} edges."
-        )
-        st.graphviz_chart(
-            _build_ifc_context_dot(graph_snapshot, subgraph, gt_guid=gt_guid),
-            use_container_width=True,
-        )
-        st.caption(
-            "Classic Neo4j explainability: gray = whole graph context, "
-            "green = top-1, amber = 1-hop neighbors/edges, blue = GT (if set)."
-        )
+        elif subgraph and subgraph.get("edges"):
+            # Neo4j returned a 1-hop subgraph without the full snapshot
+            st.caption("Spatial 1-hop neighbourhood around top-1 candidate (Neo4j)")
+            st.graphviz_chart(
+                _build_subgraph_dot(subgraph, gt_guid=gt_guid),
+                use_container_width=True,
+            )
 
-        if subgraph and subgraph.get("edges"):
-            with st.expander("Show isolated 1-hop neighborhood", expanded=False):
-                st.graphviz_chart(
-                    _build_subgraph_dot(subgraph, gt_guid=gt_guid),
-                    use_container_width=True,
-                )
-    elif subgraph and subgraph.get("edges"):
-        st.caption("Neo4j 1-hop neighborhood around top-1 candidate")
-        st.graphviz_chart(
-            _build_subgraph_dot(subgraph, gt_guid=gt_guid),
-            use_container_width=True,
-        )
-    else:
-        st.caption("Neo4j graph visualization unavailable (Neo4j disabled or graph edges not returned).")
+        else:
+            # Fallback: draw VLM-extracted spatial constraint triplets
+            rels = (parsed.get("spatial_relations") or [])
+            if rels:
+                st.caption("Spatial relation triplets extracted by VLM (Neo4j graph not available)")
+            else:
+                st.caption("Attribute-only case — no spatial relations extracted")
+            st.graphviz_chart(
+                _build_spatial_constraint_dot(parsed),
+                use_container_width=True,
+            )
 
 
 def _render_raw_outputs_panel(vlm_result: dict, retrieval_result: dict | None) -> None:
@@ -1156,11 +1316,18 @@ def _call_modal_inference(
     image_bytes_list: list[bytes],
     chat_text: str,
     metadata_text: str,
+    use_g8: bool = False,
 ) -> dict | None:
-    """Call the Modal serverless inference endpoint."""
+    """Call the Modal VLM inference endpoint.
+
+    Routes to G8ModelPredictor (G8 adapter) or G8Predictor (G4-Ultimate adapter)
+    depending on use_g8. Both use lora_system_g7 prompt and base+PEFT two-step loading.
+    Strategy (full-topo vs P1+rerank) is controlled by skip_p0 in retrieval.
+    """
     try:
         import modal
-        predictor_cls = modal.Cls.from_name("mscd-vlm-lora3-inference", "LoRA3Predictor")
+        cls_name = "G8ModelPredictor" if use_g8 else "G8Predictor"
+        predictor_cls = modal.Cls.from_name("mscd-vlm-lora3-inference", cls_name)
         predictor = predictor_cls()
         result = predictor.predict.remote(
             image_bytes_list=image_bytes_list,
@@ -1171,9 +1338,10 @@ def _call_modal_inference(
     except Exception as e:
         err_msg = str(e)
         if "NotFound" in err_msg or "not found" in err_msg.lower():
+            cls_name = "G8ModelPredictor" if use_g8 else "G8Predictor"
             st.error(
-                "Modal app `mscd-vlm-lora3-inference` not found. "
-                "Deploy it first:\n\n"
+                f"Modal app `mscd-vlm-lora3-inference` / `{cls_name}` not found. "
+                "Deploy first:\n\n"
                 "```\nmodal deploy training/inference.py\n```"
             )
         else:
@@ -1190,7 +1358,7 @@ def _call_modal_explain(
     """Call the Modal explain endpoint for occlusion saliency."""
     try:
         import modal
-        predictor_cls = modal.Cls.from_name("mscd-vlm-lora3-inference", "LoRA3Predictor")
+        predictor_cls = modal.Cls.from_name("mscd-vlm-lora3-inference", "G8Predictor")
         predictor = predictor_cls()
         result = predictor.explain.remote(
             image_bytes_list=image_bytes_list,
@@ -1258,13 +1426,25 @@ def _render_saliency(explain_result: dict, uploaded_files) -> None:
 
 @st.cache_data(show_spinner=False)
 def _load_demo_gt_index() -> dict[str, str]:
-    """Load case_id -> target_guid from local demo JSONL datasets."""
+    """Load case_id -> target_guid from local demo JSONL datasets.
+
+    Scans both demo test-data files and the synth_v0.5_* skeleton files so that
+    eval-format IDs like 'AP_SK_282' resolve correctly.
+    """
     repo_root = Path(__file__).resolve().parents[2]
+    data_root = repo_root / "data_curation" / "datasets"
+
+    # Fixed test-data files
     candidates = [
         repo_root / "data" / "test_data" / "demo10_h1h3_top1" / "h1_h3_top1_success10.jsonl",
         repo_root / "data" / "test_data" / "demo10" / "h2_test_cases_demo10.jsonl",
         repo_root / "data" / "test_data" / "h2_test_cases.jsonl",
     ]
+    # Skeleton files from all synth_v0.5_* sub-directories
+    if data_root.exists():
+        for skel_file in data_root.glob("synth_v0.5_*/skeletons/skeletons.jsonl"):
+            candidates.append(skel_file)
+
     index: dict[str, str] = {}
     for path in candidates:
         if not path.exists():
@@ -1343,7 +1523,12 @@ def _extract_gt_guid(
     return ev.get("target_guid", "")
 
 
-def _run_retrieval(parsed: dict, model_code: str = "AP", gt_guid: str = "") -> dict | None:
+def _run_retrieval(
+    parsed: dict,
+    model_code: str = "AP",
+    gt_guid: str = "",
+    skip_p0: bool = False,
+) -> dict | None:
     """Run the symbolic retrieval pipeline: Constraints → QueryPlanner → Neo4j."""
     try:
         from src.v2.types import Constraints, SpatialTriplet
@@ -1383,6 +1568,10 @@ def _run_retrieval(parsed: dict, model_code: str = "AP", gt_guid: str = "") -> d
         # Query planning
         planner = QueryPlanner()
         plans = planner.plan(constraints)
+
+        # P1+Rerank mode: skip P0 spatial_triplet / continuous_span plans entirely
+        if skip_p0:
+            plans = [p for p in plans if p.priority >= 1]
 
         # Load config for Neo4j
         repo_root = Path(__file__).parent.parent.parent

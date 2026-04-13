@@ -123,8 +123,19 @@ def render(trace: dict) -> None:
       + _badge("🗺️ Floorplan",   m["has_plan"],   "plan")
       + _badge("📊 4D Context",  m["has_4d"],     "ctx_4d")
     )
+    # Show masking condition label for AP eval traces (enriched by loader)
+    scenario = trace.get("scenario") or {}
+    cond_label = scenario.get("_bench_condition_label", "")
+    cond_code  = scenario.get("_bench_condition", "")
+    cond_tag = ""
+    if cond_code:
+        cond_tag = (
+            f'&nbsp;&nbsp;<span style="font-size:0.78em;padding:2px 7px;border-radius:4px;'
+            f'background:#1e293b;color:#94a3b8;border:1px solid #334155;">'
+            f'Condition: {cond_code} — {cond_label}</span>'
+        )
     st.markdown(
-        f"<div style='margin-bottom:8px;'><strong>Input Modalities</strong>&nbsp;&nbsp;{badges}</div>",
+        f"<div style='margin-bottom:8px;'><strong>Input Modalities</strong>&nbsp;&nbsp;{badges}{cond_tag}</div>",
         unsafe_allow_html=True,
     )
 

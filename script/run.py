@@ -257,6 +257,8 @@ def init_engine(config: Dict[str, Any], llm_client: Optional[Any] = None):
     from src.ifc_engine import IFCEngine
 
     ifc_path = config.get("ifc", {}).get("model_path", "")
+    if ifc_path and not Path(ifc_path).is_absolute():
+        ifc_path = str((PROJECT_ROOT.parent / ifc_path).resolve())
 
     neo4j_conn = None
     neo4j_cfg = config.get("neo4j", {})

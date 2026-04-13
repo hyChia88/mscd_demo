@@ -1392,26 +1392,18 @@ def generate_dataset_gallery(
 
 
 DEFAULT_HELDOUT_CASES   = PROJECT_ROOT / "evaluation" / "cases" / "cases_ap_heldout_e2e.jsonl"
-DEFAULT_G7_EVAL_JSONL   = PROJECT_ROOT / "output" / "lora6_v2_ap_20260331" / "g7_position_context__ap_eval.jsonl"
-DEFAULT_GEMINI_EVAL_JSONL = PROJECT_ROOT / "output" / "lora6_v2_ap_20260331" / "gemini_ap__ap_eval.jsonl"
-DEFAULT_G7_TRACES       = (
-    PROJECT_ROOT / "output" / "lora6_v2_ap_20260331"
-    / "ap_e2e_phase3_fixed" / "g7_position_context"
-    / "traces_20260404_132823_v2_lora_p0_union_p1.jsonl"
-)
+DEFAULT_G8_EVAL_JSONL   = PROJECT_ROOT / "output" / "lora6_v2_ap_20260331" / "g8_posctx_dim__ap_eval.jsonl"
+DEFAULT_GEMINI_EVAL_JSONL = PROJECT_ROOT / "output" / "lora6_v2_ap_20260331" / "gemini_ap_v2__ap_eval.jsonl"
 DEFAULT_GEMINI_TRACES   = (
     PROJECT_ROOT / "output" / "lora6_v2_ap_20260331"
-    / "ap_e2e_phase3_fixed" / "gemini_ap_v2"
-    / "traces_20260401_221955_v2_lora_p0_union_p1.jsonl"
+    / "ap_e2e_phase5_g8" / "gemini_ap_v2"
+    / "traces_20260407_235044_v2_lora_p0_union_p1.jsonl"
 )
-DEFAULT_G7_RERANK_JSONL = (
+# Combined rerank file (phase5, G8): mode='g7_pipeline' = G8 full-topo + GR rerank
+#                                     mode='p1_only'     = P1-only coarse + GR rerank
+DEFAULT_G8_RERANK_JSONL = (
     PROJECT_ROOT / "output" / "lora6_v2_ap_20260331"
-    / "graph_rag_rerank" / "20260405_top15_g7_v1"
-    / "graph_rag_rerank_results.jsonl"
-)
-DEFAULT_P1_RERANK_JSONL = (
-    PROJECT_ROOT / "output" / "lora6_v2_ap_20260331"
-    / "graph_rag_rerank" / "20260405_top15_p1_v1"
+    / "graph_rag_rerank" / "20260407_g8_phase5_v1"
     / "graph_rag_rerank_results.jsonl"
 )
 
@@ -1633,11 +1625,10 @@ def _draw_sr_graph_for_model(
 def generate_eval_gallery(
     out_dir: Path,
     heldout_cases_jsonl: Path = DEFAULT_HELDOUT_CASES,
-    g7_eval_jsonl: Path = DEFAULT_G7_EVAL_JSONL,
+    g8_eval_jsonl: Path = DEFAULT_G8_EVAL_JSONL,
     gemini_eval_jsonl: Path = DEFAULT_GEMINI_EVAL_JSONL,
     gemini_traces_path: Path = DEFAULT_GEMINI_TRACES,
-    g7_rerank_jsonl: Path = DEFAULT_G7_RERANK_JSONL,
-    p1_rerank_jsonl: Path = DEFAULT_P1_RERANK_JSONL,
+    g8_rerank_jsonl: Path = DEFAULT_G8_RERANK_JSONL,
     ds_root: Path = DEFAULT_DS_ROOT,
 ) -> None:
     """Generate a 60-row × 10-col eval gallery saved as PDF + PNG.
@@ -1648,12 +1639,12 @@ def generate_eval_gallery(
     1   Site photo          ┐ tight left group
     2   Floorplan           │
     3   GT SR graph         ┘
-    4   G7 full JSON        ┐ G7 group (blue tint)
-    5   G7 SR graph         ┘
-    6   P1-only rerank info ┐ P1 group (green tint)
-    7   P1 SR graph (= G7)  ┘
-    8   Gemini full JSON    ┐ Gemini group (orange tint)
-    9   Gemini SR graph     ┘
+    4   G8 full JSON        ┐ G8 group (blue tint)
+    5   G8 SR graph         ┘
+    6   G8-P1 rerank info   ┐ P1 group (green tint)
+    7   P1 SR graph (= G8)  ┘
+    8   Gemini v2 full JSON ┐ Gemini group (orange tint)
+    9   Gemini v2 SR graph  ┘
     """
     import textwrap
 
@@ -1669,11 +1660,23 @@ def generate_eval_gallery(
                     out[r[key]] = r
         return out
 
-    g7_eval    = _load_by_id(g7_eval_jsonl)
+    def _load_by_id_mode(path: Path, mode_val: str, key: str = "case_id") -> Dict[str, dict]:
+        """Load JSONL filtered to a specific 'mode' field value."""
+        out: Dict[str, dict] = {}
+        if path.exists():
+            with path.open() as f:
+                for line in f:
+                    r = json.loads(line)
+                    if r.get("mode") == mode_val:
+                        out[r[key]] = r
+        return out
+
+    g8_eval     = _load_by_id(g8_eval_jsonl)
     gemini_eval = _load_by_id(gemini_eval_jsonl)
-    g7_rerank  = _load_by_id(g7_rerank_jsonl)
-    p1_rerank  = _load_by_id(p1_rerank_jsonl)
-    eval_msgs  = _load_by_id(DEFAULT_EVAL_JSONL, key="id")
+    # G8 rerank JSONL contains both modes in one file
+    g8_rerank   = _load_by_id_mode(g8_rerank_jsonl, mode_val="g7_pipeline")
+    p1_rerank   = _load_by_id_mode(g8_rerank_jsonl, mode_val="p1_only")
+    eval_msgs   = _load_by_id(DEFAULT_EVAL_JSONL, key="id")
 
     cases_gt_guid = {
         c["case_id"]: (c.get("ground_truth") or {}).get("target_guid")
@@ -1726,10 +1729,10 @@ def generate_eval_gallery(
         (1, 2, "Site",                  "#DCDCDC"),
         (2, 3, "Floorplan",             "#DCDCDC"),
         (3, 4, "GT SR Graph",           "#DCDCDC"),
-        (4, 5, "G7 JSON",               "#C8DCEF"),
-        (5, 6, "G7 SR",                 "#C8DCEF"),
-        (6, 7, "P1-only+G7\nRerank",    "#C8EFD8"),
-        (7, 8, "P1 SR\n(G7 query)",     "#C8EFD8"),
+        (4, 5, "G8 JSON",               "#C8DCEF"),
+        (5, 6, "G8 SR",                 "#C8DCEF"),
+        (6, 7, "G8-P1+GR\nRerank",      "#C8EFD8"),
+        (7, 8, "P1 SR\n(G8 query)",     "#C8EFD8"),
         (8, 9, "Gemini JSON",           "#EFD8C8"),
         (9, 10, "Gemini SR",            "#EFD8C8"),
     ]
@@ -1759,7 +1762,7 @@ def generate_eval_gallery(
                 linespacing=1.25, family="monospace")
 
     # ── Helper: P1 rerank info panel ──────────────────────────────────────────
-    def _p1_panel(ax, p1r_rec, g7_raw, rank_val, pool_sz, bg):
+    def _p1_panel(ax, p1r_rec, g8_raw, rank_val, pool_sz, bg):
         ax.axis("off")
         ax.set_facecolor(bg)
         label, badge_color = _rank_badge(rank_val, pool_sz)
@@ -1778,9 +1781,9 @@ def generate_eval_gallery(
             f"Winner    : {p1_winner}",
             "",
         ]
-        # Append the underlying G7 JSON (truncated) for reference
-        lines.append("── G7 constraints used ──")
-        lines.append(_fmt_full_json(g7_raw, max_lines=22, max_line_len=38))
+        # Append the underlying G8 JSON (truncated) for reference
+        lines.append("── G8 constraints used ──")
+        lines.append(_fmt_full_json(g8_raw, max_lines=22, max_line_len=38))
         text = "\n".join(lines)
         ax.text(0.03, 0.94, text,
                 ha="left", va="top", fontsize=3.8,
@@ -1810,18 +1813,17 @@ def generate_eval_gallery(
                 )
 
         # Rank data
-        g7r_rec  = g7_rerank.get(cid, {})
+        g8r_rec  = g8_rerank.get(cid, {})
         p1r_rec  = p1_rerank.get(cid, {})
         gem_rank, gem_pool = gem_ranks.get(cid, (None, None))
-        g7_base_rank  = g7r_rec.get("base_rank")
-        g7_pool_size  = g7r_rec.get("pool_size")
+        g8_base_rank  = g8r_rec.get("base_rank")
+        g8_pool_size  = g8r_rec.get("pool_size")
         p1_final_rank = p1r_rec.get("reranked_rank")
         p1_pool_size  = p1r_rec.get("pool_size")
 
-        # G7 raw_output may be hard-truncated in the precomputed file (same
-        # logging bug as Gemini); prefer the complete parsed constraints dict.
-        g7_raw  = (g7_eval.get(cid) or {}).get("constraints") \
-                  or (g7_eval.get(cid) or {}).get("raw_output")
+        # G8 raw_output: prefer the complete parsed constraints dict.
+        g8_raw  = (g8_eval.get(cid) or {}).get("constraints") \
+                  or (g8_eval.get(cid) or {}).get("raw_output")
         # Gemini raw_output is hard-truncated at ~67 chars in the precomputed
         # file (logging bug); use the complete parsed constraints dict instead.
         gem_raw = (gemini_eval.get(cid) or {}).get("constraints") \
@@ -1877,20 +1879,20 @@ def generate_eval_gallery(
         }, fontscale=0.62)
 
         # ── Col 4: G7 full JSON + rank badge ──────────────────────────────
-        ax_g7j = fig.add_subplot(gs[gi, 4])
-        _json_panel(ax_g7j, g7_raw, g7_base_rank, g7_pool_size, bg="#EFF5FF")
+        ax_g8j = fig.add_subplot(gs[gi, 4])
+        _json_panel(ax_g8j, g8_raw, g8_base_rank, g8_pool_size, bg="#EFF5FF")
 
         # ── Col 5: G7 SR graph ─────────────────────────────────────────────
-        ax_g7sr = fig.add_subplot(gs[gi, 5])
-        _draw_sr_graph_for_model(ax_g7sr, g7_raw, fontscale=0.52, bg="#EFF5FF")
+        ax_g8sr = fig.add_subplot(gs[gi, 5])
+        _draw_sr_graph_for_model(ax_g8sr, g8_raw, fontscale=0.52, bg="#EFF5FF")
 
         # ── Col 6: P1-only rerank info ─────────────────────────────────────
         ax_p1j = fig.add_subplot(gs[gi, 6])
-        _p1_panel(ax_p1j, p1r_rec, g7_raw, p1_final_rank, p1_pool_size, bg="#EFFFEF")
+        _p1_panel(ax_p1j, p1r_rec, g8_raw, p1_final_rank, p1_pool_size, bg="#EFFFEF")
 
         # ── Col 7: P1 SR graph (G7 query graph — same constraints) ─────────
         ax_p1sr = fig.add_subplot(gs[gi, 7])
-        _draw_sr_graph_for_model(ax_p1sr, g7_raw, fontscale=0.52, bg="#EFFFEF")
+        _draw_sr_graph_for_model(ax_p1sr, g8_raw, fontscale=0.52, bg="#EFFFEF")
 
         # ── Col 8: Gemini full JSON + rank badge ───────────────────────────
         ax_gemj = fig.add_subplot(gs[gi, 8])
@@ -2358,7 +2360,7 @@ def main() -> None:
     parser.add_argument(
         "--eval-gallery",
         action="store_true",
-        help="Generate 60-case eval gallery with G7 / P1-rerank / Gemini model outputs.",
+        help="Generate 60-case eval gallery with G8 / G8-P1-rerank / Gemini v2 model outputs.",
     )
     parser.add_argument(
         "--diagnostic",

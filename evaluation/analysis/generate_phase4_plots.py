@@ -59,6 +59,7 @@ MODEL_ORDER = [
     "g3_fullaug_r32",
     "g4_ultimate",
     "g7_position_context",
+    "g8_posctx_dim",
     "g6_baseline",
     "gemini_ap_v2",
 ]
@@ -70,19 +71,25 @@ TRACK_A_FILES = {
     "g3_fullaug_r32": METRICS_DIR / "g3_fullaug_r32__ap_metrics.json",
     "g4_ultimate": METRICS_DIR / "g4_ultimate__ap_metrics.json",
     "g7_position_context": METRICS_DIR / "g7_position_context__ap_metrics.json",
+    "g8_posctx_dim": METRICS_DIR / "g8_posctx_dim__ap_metrics.json",
     "g6_baseline": METRICS_DIR / "g6_baseline__ap_metrics.json",
     "gemini_ap_v2": METRICS_DIR / "gemini_ap_v2__ap_metrics.json",
 }
 
+# Track B2 (downstream e2e) metrics:
+# G1-G6: phase3_fixed (enriched graph has no effect — don't use new fields)
+# G7/G8/Gemini: phase5 (enriched graph, v2_lora profile for all, correct comparison)
+# G0: phase3 (only phases prior to G8 training)
 TRACK_B2_FILES = {
     "g0_canonical": METRICS_DIR / "g0_canonical__ap_e2e_metrics.json",
-    "g1_fullaug": METRICS_DIR / "g1_fullaug__ap_e2e_metrics.json",
-    "g2_fullaug_lowlr": METRICS_DIR / "g2_fullaug_lowlr__ap_e2e_metrics.json",
-    "g3_fullaug_r32": METRICS_DIR / "g3_fullaug_r32__ap_e2e_metrics.json",
-    "g4_ultimate": METRICS_DIR / "g4_ultimate__ap_e2e_metrics.json",
-    "g7_position_context": METRICS_DIR / "g7_position_context__ap_e2e_metrics.json",
-    "g6_baseline": METRICS_DIR / "g6_baseline__ap_e2e_metrics.json",
-    "gemini_ap_v2": METRICS_DIR / "gemini_ap_v2__ap_e2e_phase3_fixed_metrics.json",
+    "g1_fullaug": METRICS_DIR / "g1_fullaug__ap_e2e_phase3_metrics.json",
+    "g2_fullaug_lowlr": METRICS_DIR / "g2_fullaug_lowlr__ap_e2e_phase3_metrics.json",
+    "g3_fullaug_r32": METRICS_DIR / "g3_fullaug_r32__ap_e2e_phase3_metrics.json",
+    "g4_ultimate": METRICS_DIR / "g4_ultimate__ap_e2e_phase3_metrics.json",
+    "g7_position_context": METRICS_DIR / "g7_position_context__ap_e2e_phase5_metrics.json",
+    "g8_posctx_dim": METRICS_DIR / "g8_posctx_dim__ap_e2e_phase5_metrics.json",
+    "g6_baseline": METRICS_DIR / "g6_baseline__ap_e2e_phase3_metrics.json",
+    "gemini_ap_v2": METRICS_DIR / "gemini_ap_v2__ap_e2e_phase5_metrics.json",
 }
 
 DISPLAY = {
@@ -92,6 +99,7 @@ DISPLAY = {
     "g3_fullaug_r32": "G3",
     "g4_ultimate": "G4",
     "g7_position_context": "G7",
+    "g8_posctx_dim": "G8",
     "g6_baseline": "G6",
     "gemini_ap_v2": "Gemini v2",
     "oracle_phase3": "Oracle P3",
@@ -104,6 +112,7 @@ COLORS = {
     "g3_fullaug_r32": "#D32F2F",
     "g4_ultimate": "#B71C1C",
     "g7_position_context": "#6A1B9A",
+    "g8_posctx_dim": "#3E1080",
     "g6_baseline": "#90A4AE",
     "gemini_ap_v2": "#1565C0",
     "gemini_unified": "#1565C0",
@@ -1724,6 +1733,226 @@ def plot_appendix_planner_explainer(out_path: Path) -> None:
     plt.close(fig)
 
 
+# ─── Modality Ablation (Track-A, 6 conditions) ────────────────────────────────
+_MODALITY_METRICS_ROOT = EXPERIMENT_ROOT / "modality_ablation_trackA" / "metrics"
+_MODALITY_RERANK_ROOT  = EXPERIMENT_ROOT / "graph_rag_rerank" / "20260407_g8_phase5_v1"
+
+_SLICE_ORDER = ["MC", "MC4D", "FP", "SITE", "FPSITE", "MA"]
+_SLICE_LABEL = {
+    "MC":     "MC\n(Site+FP+Chat)",
+    "MC4D":   "MC4D\n(+4D scan)",
+    "FP":     "FP\n(FP+Chat)",
+    "SITE":   "SITE\n(Site+Chat)",
+    "FPSITE": "FPSITE\n(Visual only)",
+    "MA":     "MA\n(Chat only)",
+}
+_MODAL_MODELS  = ["g7_position_context", "g8_posctx_dim", "gemini_ap_v2"]
+_MODAL_COLOR   = {"g7_position_context": "#6A1B9A", "g8_posctx_dim": "#1B5E20",
+                  "gemini_ap_v2": "#1565C0"}
+_MODAL_LS      = {"g7_position_context": "-", "g8_posctx_dim": "--", "gemini_ap_v2": ":"}
+_MODAL_MK      = {"g7_position_context": "o", "g8_posctx_dim": "s", "gemini_ap_v2": "^"}
+_MODAL_DISPLAY = {"g7_position_context": "G7", "g8_posctx_dim": "G8", "gemini_ap_v2": "Gemini v2"}
+
+
+def _load_modality_metrics() -> dict:
+    data: dict = {}
+    for sl in _SLICE_ORDER:
+        for m in _MODAL_MODELS:
+            p = _MODALITY_METRICS_ROOT / sl / f"{m}__ap_metrics.json"
+            if not p.exists():
+                continue
+            d = _load_json(p)
+            data[(m, sl)] = {
+                "hop1":    d["hop1_acc"] * 100,
+                "pred_r":  d["predicate_recall"] * 100,
+                "dir_acc": d["direction_acc"] * 100,
+            }
+    return data
+
+
+def plot_modality_ablation(out_path: Path) -> None:
+    """3-panel line chart: hop1 / predicate recall / direction accuracy × 6 conditions."""
+    import numpy as np
+    import matplotlib.patches as mpatches
+
+    data = _load_modality_metrics()
+    metric_specs = [
+        ("hop1",    "One-hop Spatial Accuracy (%)"),
+        ("pred_r",  "Predicate Recall (%)"),
+        ("dir_acc", "Direction Accuracy (%)"),
+    ]
+    n_slices = len(_SLICE_ORDER)
+    xs       = list(range(n_slices))
+    xlabels  = [_SLICE_LABEL[s] for s in _SLICE_ORDER]
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5.5), sharey=False)
+    fig.suptitle(
+        "Track-A Modality Ablation on AP Held-out (n=60 per condition)",
+        fontsize=14, fontweight="bold",
+    )
+
+    for ax, (metric_key, ylabel) in zip(axes, metric_specs):
+        for m in _MODAL_MODELS:
+            ys = [data.get((m, sl), {}).get(metric_key, float("nan"))
+                  for sl in _SLICE_ORDER]
+            valid_xs = [i for i, y in enumerate(ys) if not np.isnan(y)]
+            valid_ys = [y for y in ys if not np.isnan(y)]
+            if not valid_ys:
+                continue
+            ax.plot(valid_xs, valid_ys,
+                    marker=_MODAL_MK[m], linestyle=_MODAL_LS[m],
+                    linewidth=2.2, markersize=7,
+                    color=_MODAL_COLOR[m], label=_MODAL_DISPLAY[m])
+            for xi, yi in zip(valid_xs, valid_ys):
+                ax.annotate(f"{yi:.0f}",
+                            (xi, yi), textcoords="offset points",
+                            xytext=(0, 7), ha="center", fontsize=7.5,
+                            color=_MODAL_COLOR[m])
+
+        # shade FPSITE column
+        fpsite_idx = _SLICE_ORDER.index("FPSITE")
+        ax.axvspan(fpsite_idx - 0.45, fpsite_idx + 0.45,
+                   color="gold", alpha=0.12, zorder=0)
+
+        ax.set_xticks(xs)
+        ax.set_xticklabels(xlabels, fontsize=9)
+        ax.set_ylim(0, 110)
+        ax.set_ylabel(ylabel)
+        ax.grid(axis="y", alpha=0.25, linestyle="--")
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+    handles = [mpatches.Patch(color=_MODAL_COLOR[m], label=_MODAL_DISPLAY[m])
+               for m in _MODAL_MODELS]
+    fpsite_patch = mpatches.Patch(color="gold", alpha=0.5, label="FPSITE (visual-only)")
+    axes[-1].legend(handles=handles + [fpsite_patch], frameon=False,
+                    fontsize=9, loc="lower left")
+
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    _ensure_parent(out_path)
+    fig.savefig(out_path, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_multimodal_weak_proof(out_path: Path) -> None:
+    """2-panel figure: scatter (G7 vs P1 per-case rank) + bar (retrieval top-1 by system)."""
+    import numpy as np
+    import matplotlib.patches as mpatches
+
+    rerank_f = _MODALITY_RERANK_ROOT / "graph_rag_rerank_results.jsonl"
+    if not rerank_f.exists():
+        print(f"[SKIP] rerank file not found: {rerank_f}")
+        return
+    rows  = [json.loads(l) for l in rerank_f.open()]
+    g7    = {r["case_id"]: r for r in rows if r["mode"] == "g7_pipeline"}
+    p1    = {r["case_id"]: r for r in rows if r["mode"] == "p1_only"}
+    common = sorted(set(g7) & set(p1))
+    n      = len(common)
+
+    g7_base = [g7[c]["base_rank"] for c in common]
+    p1_base = [p1[c]["base_rank"] for c in common]
+    g7_rr   = [g7[c].get("reranked_rank", g7[c]["base_rank"]) for c in common]
+    p1_rr   = [p1[c].get("reranked_rank", p1[c]["base_rank"]) for c in common]
+
+    helps = sum(1 for g, p in zip(g7_base, p1_base) if g < p)
+    hurts = sum(1 for g, p in zip(g7_base, p1_base) if g > p)
+    equal = sum(1 for g, p in zip(g7_base, p1_base) if g == p)
+
+    g7_top1_base = sum(1 for r in g7_base if r == 1)
+    p1_top1_base = sum(1 for r in p1_base if r == 1)
+    g7_top1_rr   = sum(1 for r in g7_rr   if r == 1)
+    p1_top1_rr   = sum(1 for r in p1_rr   if r == 1)
+    random_pct   = 1 / 128.9 * 100          # avg pool size from H2 eval
+
+    families = [g7[c]["family"].split(":")[-1] for c in common]
+    fam_colors = {
+        "ADJACENT_TO":                         "#E53935",
+        "CONNECTS_TO":                         "#1E88E5",
+        "FILLS+NEXT_TO+NEXT_TO":               "#43A047",
+        "FILLS+NEXT_TO":                       "#FB8C00",
+        "FILLS":                               "#8E24AA",
+        "FILLS+NEXT_TO+NEXT_TO(mixed-anchor)": "#00ACC1",
+    }
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    fig.suptitle(
+        "Multimodal Proof: Neuro-Symbolic (G7 P0∪P1) vs Text-Only (P1)\non AP Held-out (n=60)",
+        fontsize=13, fontweight="bold",
+    )
+
+    # ── Panel A: scatter ──────────────────────────────────────────────────────
+    ax = axes[0]
+    for cid, g7b, p1b, fam in zip(common, g7_base, p1_base, families):
+        c = fam_colors.get(fam, "#999999")
+        ax.scatter(p1b, g7b, color=c, alpha=0.75, s=45, zorder=3,
+                   edgecolors="white", linewidths=0.5)
+
+    lim = max(max(g7_base), max(p1_base)) + 20
+    ax.plot([0, lim], [0, lim], "k--", linewidth=1, alpha=0.4)
+    ax.fill_between([0, lim], [0, 0], [0, lim], alpha=0.06, color="#43A047")   # below diagonal = spatial helps
+    ax.fill_between([0, lim], [0, lim], [lim, lim], alpha=0.06, color="#E53935")  # above = hurts
+
+    ax.text(lim * 0.08, lim * 0.78, f"Spatial helps\n({helps} cases)",
+            color="#43A047", fontsize=9, fontweight="bold")
+    ax.text(lim * 0.55, lim * 0.15, f"Spatial hurts\n({hurts} cases)",
+            color="#E53935", fontsize=9, fontweight="bold")
+
+    ax.set_xlabel("P1 Text-Only Base Rank", fontsize=11)
+    ax.set_ylabel("G7 Spatial Base Rank", fontsize=11)
+    ax.set_title(f"Per-case Rank Comparison (equal={equal})", fontsize=10)
+    ax.set_xlim(0, lim); ax.set_ylim(0, lim)
+    ax.grid(alpha=0.2, linestyle="--")
+    ax.spines["top"].set_visible(False); ax.spines["right"].set_visible(False)
+
+    fam_set     = sorted(set(families))
+    fam_handles = [mpatches.Patch(color=fam_colors.get(f, "#999999"), label=f)
+                   for f in fam_set]
+    ax.legend(handles=fam_handles, fontsize=7.5, frameon=False, loc="upper left",
+              title="Relation family", title_fontsize=8)
+
+    # ── Panel B: bar ──────────────────────────────────────────────────────────
+    ax2  = axes[1]
+    lbls = ["Random\nbaseline", "P1 text-only\n(base)",
+            "G7 spatial\n(P0∪P1 base)", "G7+GraphRAG\n(rerank)",
+            "P1+GraphRAG\n(rerank)"]
+    vals = [random_pct,
+            p1_top1_base / n * 100,
+            g7_top1_base / n * 100,
+            g7_top1_rr   / n * 100,
+            p1_top1_rr   / n * 100]
+    bar_colors = ["#BDBDBD", "#90CAF9", "#1B5E20", "#66BB6A", "#1565C0"]
+    xpos = list(range(len(lbls)))
+    bars = ax2.bar(xpos, vals, color=bar_colors, width=0.55,
+                   edgecolor="white", linewidth=0.8)
+
+    raw_ns = ["~0.8%", "0/60", f"{g7_top1_base}/60", f"{g7_top1_rr}/60", f"{p1_top1_rr}/60"]
+    for bar, v, rn in zip(bars, vals, raw_ns):
+        ax2.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.2,
+                 f"{v:.1f}%", ha="center", va="bottom", fontsize=10, fontweight="bold")
+        ax2.text(bar.get_x() + bar.get_width() / 2, -0.9,
+                 rn, ha="center", va="top", fontsize=8, color="grey")
+
+    # proof arrow P1→G7
+    ax2.annotate("", xy=(2, vals[2] + 0.15), xytext=(1, vals[1] + 0.15),
+                 arrowprops=dict(arrowstyle="->", color="#1B5E20", lw=2))
+    ax2.text(1.5, max(vals[1], vals[2]) + 1.8,
+             "Weak positive\nproof ✓", color="#1B5E20", fontsize=8.5,
+             ha="center", fontweight="bold")
+
+    ax2.set_xticks(xpos)
+    ax2.set_xticklabels(lbls, fontsize=9)
+    ax2.set_ylim(0, 16)
+    ax2.set_ylabel("Top-1 Retrieval Accuracy (%)", fontsize=11)
+    ax2.set_title("Top-1 Retrieval Rate by System\n(Spatial P0∪P1 > pure text P1)", fontsize=10)
+    ax2.grid(axis="y", alpha=0.25, linestyle="--")
+    ax2.spines["top"].set_visible(False); ax2.spines["right"].set_visible(False)
+
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
+    _ensure_parent(out_path)
+    fig.savefig(out_path, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
@@ -1743,6 +1972,8 @@ def main() -> None:
         "fig05_p1_vs_full_topology_benefit.png": plot_p1_vs_full_topology,
         "fig06_oracle_vs_model_gap.png": plot_oracle_vs_model_gap,
         "fig07_oracle_progression_waterfall.png": plot_oracle_waterfall_progression,
+        "fig08_modality_ablation.png": plot_modality_ablation,
+        "fig09_multimodal_weak_proof.png": plot_multimodal_weak_proof,
     }
 
     manifest = {"out_dir": str(args.out_dir), "generated": []}

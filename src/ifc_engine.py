@@ -739,6 +739,14 @@ class IFCEngine:
                 if material_name:
                     node_props["material"] = material_name
 
+                # Fix 3: physical dimensions for IfcWindow/IfcDoor (breaks size-entropy)
+                if element.is_a() in ("IfcWindow", "IfcDoor"):
+                    w, h = self._get_element_dimensions(element, psets)
+                    if w is not None:
+                        node_props["width_mm"] = w
+                    if h is not None:
+                        node_props["height_mm"] = h
+
                 # Flatten key properties for graph queries
                 for pset_name, props in psets.items():
                     for prop_name, prop_value in props.items():
@@ -784,6 +792,43 @@ class IFCEngine:
         except Exception:
             pass
         return None
+
+    def _get_element_dimensions(self, element, psets: dict) -> tuple:
+        """
+        Fix 3 — Extract physical width and height (mm) from IfcWindow or IfcDoor.
+
+        Primary source: OverallWidth / OverallHeight attributes (IFC standard).
+        Fallback: scan all psets for OverallWidth / OverallHeight / Width / Height.
+
+        Returns (width_mm, height_mm) — either or both may be None.
+        IFC stores dimensions in mm for AdvancedProject (verified: units=MILLIMETRE).
+        """
+        width: Optional[float] = None
+        height: Optional[float] = None
+        try:
+            # IFC direct attribute (most reliable)
+            w_attr = getattr(element, "OverallWidth", None)
+            h_attr = getattr(element, "OverallHeight", None)
+            if w_attr is not None:
+                width = float(w_attr)
+            if h_attr is not None:
+                height = float(h_attr)
+        except Exception:
+            pass
+        # Fallback: pset scan (handles IFC2x3 files without direct attribute)
+        if width is None or height is None:
+            dim_keys_w = {"OverallWidth", "Width", "Breite"}
+            dim_keys_h = {"OverallHeight", "Height", "Höhe"}
+            for pset_props in psets.values():
+                for k, v in pset_props.items():
+                    try:
+                        if width is None and k in dim_keys_w:
+                            width = float(v)
+                        if height is None and k in dim_keys_h:
+                            height = float(v)
+                    except (TypeError, ValueError):
+                        pass
+        return width, height
 
     def _create_spatial_relationships(self) -> int:
         """Create CONTAINS relationships between spaces/storeys and elements.
@@ -958,6 +1003,9 @@ class IFCEngine:
         # CONNECTS_TO: wall-to-wall path connections from IfcRelConnectsPathElements
         count += self._create_connects_to_edges()
 
+        # Fix 4: ADJACENT_TO edges between same-storey elements within 1500mm
+        count += self._create_adjacent_to_edges()
+
         return count
 
     def _create_connects_to_edges(self) -> int:
@@ -1016,6 +1064,118 @@ class IFCEngine:
             )
             count += 2
 
+        return count
+
+    def _create_adjacent_to_edges(self) -> int:
+        """Fix 4: Create ADJACENT_TO edges between same-storey elements with centroid
+        distance in (100mm, 1500mm].
+
+        Mirrors the ADJACENT_TO criterion used in 2_hunt_skeletons.py so that
+        Neo4j Cypher queries can now filter on this predicate.
+
+        Includes distance_mm as an edge property for future distance-range filtering.
+        Only links elements whose types are both in a relevant set (walls, windows,
+        doors, railings, stairs) — avoids O(N²) over all 1200+ elements.
+
+        Returns count of ADJACENT_TO edges created (bidirectional).
+        """
+        import ifcopenshell.util.placement
+        import math
+        from collections import defaultdict
+
+        # Element types to include in ADJACENT_TO computation
+        adj_types = {
+            "IfcWall", "IfcWallStandardCase",
+            "IfcDoor", "IfcWindow",
+            "IfcRailing", "IfcStair", "IfcColumn",
+        }
+
+        # Collect (guid, storey, centroid) for all relevant elements in this model
+        element_data: List[Dict] = []
+
+        # Build storey_map using ifcopenshell.util.element.get_container() which
+        # traverses IfcSpace → IfcBuildingStorey hierarchy (handles DXA / IFC2x3)
+        import ifcopenshell.util.element as _ifc_elem_util
+        primary_storey: Dict[str, str] = {}
+        for rel in self.file.by_type("IfcRelContainedInSpatialStructure"):
+            for el in rel.RelatedElements:
+                if el.GlobalId in primary_storey:
+                    continue
+                container = _ifc_elem_util.get_container(el)
+                # Walk up until we hit a BuildingStorey
+                while container and not container.is_a("IfcBuildingStorey"):
+                    container = _ifc_elem_util.get_container(container)
+                if container and container.is_a("IfcBuildingStorey"):
+                    primary_storey[el.GlobalId] = container.Name or ""
+
+        for ifc_type in adj_types:
+            try:
+                elements = self.file.by_type(ifc_type)
+            except RuntimeError:
+                continue
+            for element in elements:
+                storey = primary_storey.get(element.GlobalId)
+                if not storey:
+                    continue  # skip unplaced elements
+                try:
+                    mat = ifcopenshell.util.placement.get_local_placement(
+                        element.ObjectPlacement
+                    )
+                    cx, cy, cz = mat[0][3], mat[1][3], mat[2][3]
+                except Exception:
+                    continue
+                element_data.append({
+                    "guid": element.GlobalId,
+                    "ifc_type": element.is_a(),
+                    "storey": storey,
+                    "cx": cx,
+                    "cy": cy,
+                    "cz": cz,
+                })
+
+        # Group by storey for O(per-storey N²) instead of O(total N²)
+        by_storey: Dict[str, List[Dict]] = defaultdict(list)
+        for ed in element_data:
+            by_storey[ed["storey"]].append(ed)
+
+        DIST_MIN = 100.0   # mm — exclude degenerate same-origin pairs
+        DIST_MAX = 1500.0  # mm — same threshold as skeleton miner
+
+        count = 0
+        seen_pairs: set = set()
+
+        for storey_name, group in by_storey.items():
+            n = len(group)
+            for i in range(n):
+                a = group[i]
+                for j in range(i + 1, n):
+                    b = group[j]
+                    dx = a["cx"] - b["cx"]
+                    dy = a["cy"] - b["cy"]
+                    dist = math.sqrt(dx * dx + dy * dy)
+                    if dist <= DIST_MIN or dist > DIST_MAX:
+                        continue
+                    pair_key = tuple(sorted([a["guid"], b["guid"]]))
+                    if pair_key in seen_pairs:
+                        continue
+                    seen_pairs.add(pair_key)
+                    props = {"distance_mm": round(dist, 1)}
+                    self._create_relationship_with_props(
+                        "IFCElement", a["guid"],
+                        "ADJACENT_TO",
+                        "IFCElement", b["guid"],
+                        props,
+                    )
+                    self._create_relationship_with_props(
+                        "IFCElement", b["guid"],
+                        "ADJACENT_TO",
+                        "IFCElement", a["guid"],
+                        props,
+                    )
+                    count += 2
+
+        print(f"   ADJACENT_TO: {count // 2} pairs → {count} edges "
+              f"(across {len(by_storey)} storeys)")
         return count
 
     def _create_next_to_edges(self, wall_fillers: Dict[str, List]) -> int:

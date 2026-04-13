@@ -344,6 +344,12 @@ class QueryPlanner:
         if constraints.target_name_keyword:
             params["target_name_keyword"] = constraints.target_name_keyword
 
+        # Fix 3: propagate physical dimensions for IfcWindow/IfcDoor matching
+        if constraints.target_width_mm is not None:
+            params["target_width_mm"] = constraints.target_width_mm
+        if constraints.target_height_mm is not None:
+            params["target_height_mm"] = constraints.target_height_mm
+
         return params
 
     def _parse_position_context(self, value: str) -> Dict[str, int]:

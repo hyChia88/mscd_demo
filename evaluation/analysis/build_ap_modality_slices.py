@@ -21,7 +21,7 @@ DEFAULT_STANDARD = DATA_ROOT / "lora6_v2_ap_eval_canonical_m.jsonl"
 DEFAULT_G7 = DATA_ROOT / "lora6_v2_ap_eval_canonical_m_g7.jsonl"
 DEFAULT_OUT_DIR = DATA_ROOT / "modality_slices"
 
-SLICE_ORDER = ("MC", "MC4D", "FP", "SITE", "MA")
+SLICE_ORDER = ("MC", "MC4D", "FP", "SITE", "FPSITE", "MA")
 
 
 def _load_assemble_module():
@@ -63,7 +63,14 @@ def _slice_user_content(content: List[dict], slice_key: str) -> List[dict]:
         if not isinstance(part, dict):
             result.append(part)
             continue
-        if part.get("type") != "image":
+        part_type = part.get("type")
+        # FPSITE: keep only images (drop chat text) — tests pure visual interpretation
+        if slice_key == "FPSITE":
+            if part_type == "image":
+                result.append(part)
+            # drop text parts intentionally
+            continue
+        if part_type != "image":
             result.append(part)
             continue
         image_uri = str(part.get("image") or "")
