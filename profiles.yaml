@@ -249,6 +249,38 @@ conditions:
     4d_metadata: true
 
   # ---------------------------------------------------------------------------
+  # Track A Modality Ablation (6-condition study)
+  # Used in modality_ablation_trackA with --condition-override
+  # ---------------------------------------------------------------------------
+  FP:
+    # Floorplan only (no site photos, no 4D) — mirrors C1
+    use_images: false
+    use_floorplan: true
+    chat_blur: false
+    4d_metadata: false
+
+  SITE:
+    # Site photos only (no floorplan, no 4D) — like MB without 4D
+    use_images: true
+    use_floorplan: false
+    chat_blur: false
+    4d_metadata: false
+
+  FPSITE:
+    # Site photos + floorplan, no 4D context
+    use_images: true
+    use_floorplan: true
+    chat_blur: false
+    4d_metadata: false
+
+  MC4D:
+    # Full: site photos + floorplan + 4D context (= MC + 4D enhanced)
+    use_images: true
+    use_floorplan: true
+    chat_blur: false
+    4d_metadata: true
+
+  # ---------------------------------------------------------------------------
   # 4D Context Ablation (MA-/MB-/MC-): identical to MA/MB/MC but with 4D OFF
   # Pair each with its MA/MB/MC counterpart to isolate pure 4D contribution.
   # Run via:  python script/run.py --profile v2_lora --condition-override MA-

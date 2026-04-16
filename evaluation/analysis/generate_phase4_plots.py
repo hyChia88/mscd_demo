@@ -1953,6 +1953,226 @@ def plot_multimodal_weak_proof(out_path: Path) -> None:
     plt.close(fig)
 
 
+_FINGERPRINT_CSV = (
+    EXPERIMENT_ROOT
+    / "group4_post-hoc_analysis"
+    / "oracle_ceiling"
+    / "20260404"
+    / "fingerprint_loss_by_level.csv"
+)
+
+# CSV internal level codes → display order for the waterfall
+_FP_LEVEL_ORDER = [
+    "L0_p1_only",
+    "L1_pred_obj",
+    "L3_pred_obj_dir_sub",
+    "L4_full_fingerprint",
+]
+_FP_LEVEL_LABEL = {
+    "L0_p1_only":           ("L1", "(Storey + IFC Class)  —  Attribute Baseline"),
+    "L1_pred_obj":          ("L2", "(Topology Type  —  Predicate + Object)"),
+    "L3_pred_obj_dir_sub":  ("L3", "(Fingerprint  —  Direction + Subtype)"),
+    "L4_full_fingerprint":  ("L4", "(Exact Position Slot  —  FILLS / NEXT_TO)"),
+}
+
+
+def _load_fingerprint_rows(slice_name: str = "all_cases") -> List[dict]:
+    """Return rows from fingerprint_loss_by_level.csv for a given slice."""
+    import csv as _csv
+    rows = list(_csv.DictReader(_FINGERPRINT_CSV.read_text(encoding="utf-8").splitlines()))
+    return [r for r in rows if r["slice"] == slice_name]
+
+
+def plot_fingerprint_waterfall(out_path: Path) -> None:
+    """Graph B: Fingerprint information-loss waterfall.
+
+    Loads median pool sizes and Top-1 accuracy from the oracle ceiling
+    experiment (fingerprint_loss_by_level.csv, all_cases slice, n=60).
+
+    Layer mapping:
+      L0  No Filter                 → 1,257  (oracle total_pool, constant)
+      L1  Storey + IFC Class        → CSV L0_p1_only       (median pool)
+      L2  Predicate + Object        → CSV L1_pred_obj       (median pool)
+      L3  Direction + Subtype       → CSV L3_pred_obj_dir_sub (median pool)
+      L4  Exact Position Slot       → CSV L4_full_fingerprint (median pool)
+
+    Note: CSV L2_pred_obj_dir (direction-only, 55% coverage) is omitted for
+    a clean 5-level waterfall consistent with the reference figure.
+    """
+    _ensure_parent(out_path)
+
+    # ── Load oracle-ceiling data ──────────────────────────────────────────────
+    rows_by_level = {r["level"]: r for r in _load_fingerprint_rows("all_cases")}
+
+    def _med(level_key: str) -> float:
+        return float(rows_by_level[level_key]["median_pool"])
+
+    def _top1(level_key: str) -> float:
+        return float(rows_by_level[level_key]["top1_rate"]) * 100
+
+    def _cov(level_key: str) -> float:
+        return float(rows_by_level[level_key]["coverage"]) * 100
+
+    # ── Stage data ────────────────────────────────────────────────────────────
+    # (short_code, desc, median_pool, top1_pct, coverage_pct)
+    STAGES: List[tuple] = [
+        ("L0", "(No Filter)", 1_257, 0.0, 100.0),
+    ]
+    for lvl in _FP_LEVEL_ORDER:
+        lx, desc = _FP_LEVEL_LABEL[lvl]
+        STAGES.append((lx, desc, _med(lvl), _top1(lvl), _cov(lvl)))
+
+    N = len(STAGES)
+    MAX_COUNT = float(STAGES[0][2])
+
+    # ── Palette ───────────────────────────────────────────────────────────────
+    BAR_BLUE   = "#4472C4"
+    BAR_ORANGE = "#ED7D31"
+    ARROW_CLR  = "#9CA3AF"
+    LABEL_CLR  = "#1F2937"
+    DESC_CLR   = "#4B5563"
+    TOP1_CLR   = "#166534"   # green for Top-1 badge
+    PARTIAL_CLR= "#92400E"   # amber for partial coverage
+
+    # ── Layout constants (axes-fraction units) ────────────────────────────────
+    ROW_H  = 0.60
+    ROW_GAP= 0.36
+    STEP   = ROW_H + ROW_GAP
+
+    LX_X   = 0.000
+    DESC_X = 0.060
+    BAR_X0 = 0.000
+
+    # Bars: sqrt-scaled for visual balance; minimum width so thin bars are visible
+    MAX_BAR_W = 1.0
+    MIN_BAR_W = 0.010
+    bar_widths = [
+        max((pool / MAX_COUNT) ** 0.5 * MAX_BAR_W, MIN_BAR_W)
+        for _, _, pool, _, _ in STAGES
+    ]
+
+    # ── Figure: label panel (left) + bar panel (right) ───────────────────────
+    fig = plt.figure(figsize=(14.0, 5.0))
+    fig.patch.set_facecolor("#ffffff")
+
+    # Left: 38% for row labels; Right: 57% for bars + annotations
+    ax_lbl = fig.add_axes([0.01, 0.09, 0.37, 0.80])
+    ax_bar = fig.add_axes([0.38, 0.09, 0.57, 0.80])
+
+    for ax in (ax_lbl, ax_bar):
+        ax.set_axis_off()
+        ax.set_xlim(0, 1)
+        ax.set_ylim(-0.5 * STEP, (N - 0.5) * STEP)
+
+    def yc(i: int) -> float:
+        """y-centre for stage i (i=0 → L0 at top)."""
+        return (N - 1 - i) * STEP + ROW_H / 2
+
+    # ── Labels (left panel) ───────────────────────────────────────────────────
+    for i, (lx, desc, pool, top1, cov) in enumerate(STAGES):
+        yv    = yc(i)
+        is_l4 = (i == N - 1)
+        ax_lbl.text(
+            LX_X, yv, lx,
+            ha="left", va="center",
+            fontsize=12.5, fontweight="bold",
+            color=BAR_ORANGE if is_l4 else LABEL_CLR,
+        )
+        ax_lbl.text(
+            DESC_X, yv, fill(desc, width=48),
+            ha="left", va="center",
+            fontsize=9.2, color=DESC_CLR,
+            linespacing=1.28,
+        )
+
+    # ── Bars, count labels, Top-1 badges, arrows (right panel) ───────────────
+    for i, (lx, desc, pool, top1, cov) in enumerate(STAGES):
+        yv    = yc(i)
+        y0    = yv - ROW_H / 2
+        bw    = bar_widths[i]
+        is_l4 = (i == N - 1)
+        color = BAR_ORANGE if is_l4 else BAR_BLUE
+
+        # Bar
+        rect = FancyBboxPatch(
+            (BAR_X0, y0), bw, ROW_H,
+            boxstyle="round,pad=0.005,rounding_size=0.008",
+            linewidth=0, facecolor=color, alpha=0.87, zorder=2,
+        )
+        ax_bar.add_patch(rect)
+
+        # Pool-size label
+        if pool == MAX_COUNT:
+            count_str = f"{int(pool):,} elements"
+        elif pool <= 1.5:
+            count_str = "median 1  (exact match)"
+        else:
+            count_str = f"median {int(pool)}"
+        ax_bar.text(
+            BAR_X0 + bw + 0.018, yv,
+            count_str,
+            ha="left", va="center",
+            fontsize=10.5, fontweight="bold",
+            color=BAR_ORANGE if is_l4 else LABEL_CLR,
+        )
+
+        # Top-1 accuracy badge (skip L0 which has no top-1 meaning)
+        if i > 0 and top1 > 0:
+            badge_x = BAR_X0 + bw + 0.018
+            badge_y = yv - ROW_H * 0.38
+            ax_bar.text(
+                badge_x, badge_y,
+                f"Top-1: {top1:.0f}%",
+                ha="left", va="center",
+                fontsize=8.2, color=TOP1_CLR,
+                fontstyle="italic",
+            )
+
+        # Partial-coverage note (coverage < 100%)
+        if cov < 99.9 and i > 0:
+            cov_x = BAR_X0 + bw + 0.018
+            cov_y = yv + ROW_H * 0.42
+            ax_bar.text(
+                cov_x, cov_y,
+                f"({cov:.0f}% cases)",
+                ha="left", va="center",
+                fontsize=7.8, color=PARTIAL_CLR,
+            )
+
+        # Downward arrow to next row
+        if i < N - 1:
+            ax_bar.annotate(
+                "",
+                xy=(BAR_X0 + 0.028, yc(i + 1) + ROW_H / 2),
+                xytext=(BAR_X0 + 0.028, y0),
+                arrowprops=dict(
+                    arrowstyle="-|>", color=ARROW_CLR, lw=1.8, mutation_scale=11,
+                ),
+                annotation_clip=False, zorder=3,
+            )
+
+    # ── Title ────────────────────────────────────────────────────────────────
+    fig.text(
+        0.01, 0.965,
+        "Graph B.  Fingerprint information-loss waterfall",
+        ha="left", va="top",
+        fontsize=14, fontweight="bold", color="#111827",
+    )
+
+    # ── Footer note ──────────────────────────────────────────────────────────
+    fig.text(
+        0.01, 0.01,
+        "Median candidate pool across n=60 oracle eval cases (AdvancedProject.ifc).  "
+        "Bar widths: √(median / 1,257) — square-root scale for visual balance.  "
+        "Top-1 = oracle accuracy at that layer.",
+        ha="left", va="bottom",
+        fontsize=7.8, color="#6B7280", style="italic",
+    )
+
+    fig.savefig(out_path, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
@@ -1974,6 +2194,7 @@ def main() -> None:
         "fig07_oracle_progression_waterfall.png": plot_oracle_waterfall_progression,
         "fig08_modality_ablation.png": plot_modality_ablation,
         "fig09_multimodal_weak_proof.png": plot_multimodal_weak_proof,
+        "figB_fingerprint_waterfall.png": plot_fingerprint_waterfall,
     }
 
     manifest = {"out_dir": str(args.out_dir), "generated": []}

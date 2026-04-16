@@ -186,8 +186,8 @@ _CONDITION_MODALITIES: dict[str, dict] = {
     "C1":  {"use_images": False, "use_floorplan": True,  "has_4d": False, "label": "Floorplan only"},
     "C2":  {"use_images": True,  "use_floorplan": True,  "has_4d": False, "label": "Site + Floorplan"},
     "C3":  {"use_images": True,  "use_floorplan": True,  "has_4d": True,  "label": "Full (Site+FP+4D)"},
-    "MA":  {"use_images": True,  "use_floorplan": False, "has_4d": False, "label": "Site only"},
-    "MB":  {"use_images": False, "use_floorplan": False, "has_4d": False, "label": "Chat only"},
+    "MA":  {"use_images": False, "use_floorplan": False, "has_4d": False, "label": "Text only"},
+    "MB":  {"use_images": True,  "use_floorplan": False, "has_4d": False, "label": "Site only"},
     "MC":  {"use_images": True,  "use_floorplan": True,  "has_4d": False, "label": "Site + Floorplan"},
     "MC4D":{"use_images": True,  "use_floorplan": True,  "has_4d": True,  "label": "Site+FP+4D"},
     "FP":  {"use_images": False, "use_floorplan": True,  "has_4d": False, "label": "Floorplan only"},
@@ -250,8 +250,19 @@ def _enrich_missing_images(trace: dict) -> None:
     Also tags trace with bench_condition_label for display.
     """
     scenario = trace.get("scenario") or {}
-    if scenario.get("image_paths") or scenario.get("image_files"):
-        return  # already has image data
+
+    # Validate any stored image_paths before deciding whether to skip enrichment.
+    # Tier-2 traces generated with wrong CWD can store broken relative paths like
+    # '../data_curation/AP_SK_002_site.png' that don't resolve from the demo's CWD.
+    # Clear them so the enrichment below re-injects correct absolute paths.
+    existing = scenario.get("image_paths") or []
+    if existing and not all(Path(p).exists() for p in existing):
+        scenario["image_paths"] = []  # broken relative paths — force re-enrich
+
+    # Note: do NOT check image_files here — that field stores original case filenames
+    # (not resolved paths) and is non-empty even when image_paths is broken.
+    if scenario.get("image_paths"):
+        return  # already has valid image data
 
     case_id = scenario.get("id", "")
     if not case_id:
@@ -262,7 +273,10 @@ def _enrich_missing_images(trace: dict) -> None:
     if not entry:
         return
 
-    condition = entry.get("condition") or (trace.get("bench") or {}).get("condition", "")
+    # Prefer the trace's own bench.condition (set by run.py --condition-override)
+    # over the cases-file condition (always "C1" for cases_ap_heldout_e2e.jsonl).
+    # This ensures Tier-2 MC/SITE/FP traces inject the right modality set.
+    condition = (trace.get("bench") or {}).get("condition", "") or entry.get("condition", "")
     cond_profile = _CONDITION_MODALITIES.get(condition, {})
 
     # Inject site photo paths

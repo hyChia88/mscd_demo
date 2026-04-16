@@ -113,6 +113,26 @@ def _annotate_image(image_path: Path, rels: list[dict], label: str) -> Image.Ima
     return img
 
 
+def _infer_condition_from_signals(m: dict) -> tuple[str, str]:
+    """Derive condition code + label from actual modality signals in the trace.
+
+    Reflects what was ACTUALLY fed to the model (not the case's base condition),
+    so modality-ablation traces (MA, SITE, MC4D, …) display correctly.
+    """
+    has_photos = m.get("has_photos", False)
+    has_plan   = m.get("has_plan",   False)
+    has_4d     = m.get("has_4d",     False)
+    if has_photos and has_plan and has_4d:
+        return "MC4D", "Site+FP+4D"
+    if has_photos and has_plan:
+        return "FPSITE", "Site + Floorplan"
+    if has_photos:
+        return "SITE", "Site only"
+    if has_plan:
+        return "FP", "Floorplan only"
+    return "MB", "Chat only"
+
+
 def render(trace: dict) -> None:
     m = _modality_signals(trace)
 
@@ -123,17 +143,14 @@ def render(trace: dict) -> None:
       + _badge("🗺️ Floorplan",   m["has_plan"],   "plan")
       + _badge("📊 4D Context",  m["has_4d"],     "ctx_4d")
     )
-    # Show masking condition label for AP eval traces (enriched by loader)
-    scenario = trace.get("scenario") or {}
-    cond_label = scenario.get("_bench_condition_label", "")
-    cond_code  = scenario.get("_bench_condition", "")
-    cond_tag = ""
-    if cond_code:
-        cond_tag = (
-            f'&nbsp;&nbsp;<span style="font-size:0.78em;padding:2px 7px;border-radius:4px;'
-            f'background:#1e293b;color:#94a3b8;border:1px solid #334155;">'
-            f'Condition: {cond_code} — {cond_label}</span>'
-        )
+    # Derive condition from what was actually present in the trace (not bench metadata),
+    # so modality-ablation runs (MA, SITE, MC4D, …) display the right label.
+    cond_code, cond_label = _infer_condition_from_signals(m)
+    cond_tag = (
+        f'&nbsp;&nbsp;<span style="font-size:0.78em;padding:2px 7px;border-radius:4px;'
+        f'background:#1e293b;color:#94a3b8;border:1px solid #334155;">'
+        f'Condition: {cond_code} — {cond_label}</span>'
+    )
     st.markdown(
         f"<div style='margin-bottom:8px;'><strong>Input Modalities</strong>&nbsp;&nbsp;{badges}{cond_tag}</div>",
         unsafe_allow_html=True,

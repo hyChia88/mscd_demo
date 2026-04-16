@@ -305,6 +305,15 @@ async def main(args: argparse.Namespace) -> None:
     config = load_yaml(args.config)
     profiles_data = load_yaml(args.profiles)
 
+    # Resolve image_dir to an absolute path so traces store absolute image paths
+    # regardless of the CWD from which run.py is invoked.
+    # config paths are relative to PROJECT_ROOT (mscd_demo/), not the caller's CWD.
+    _img_dir = (config.get("ground_truth") or {}).get("image_dir", "")
+    if _img_dir and not Path(_img_dir).is_absolute():
+        config.setdefault("ground_truth", {})["image_dir"] = str(
+            (PROJECT_ROOT / _img_dir).resolve()
+        )
+
     profile_name = args.profile
     all_profiles = profiles_data.get("profiles", {})
     if profile_name not in all_profiles:

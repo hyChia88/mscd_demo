@@ -1,0 +1,155 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Optimized AEC Neuro-Symbolic Architecture" id="aec_arch_01">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <mxCell id="bg_off" value="I. The Offline Engine: Knowledge Foundation &amp; Training" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;align=left;verticalAlign=top;fontStyle=1;fontSize=14;spacingTop=10;spacingLeft=15;dashed=1;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="250" y="40" width="880" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="bg_phys" value="Physical Boundary&#10;(On-Site)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCCCC;strokeColor=#B85450;align=center;verticalAlign=top;fontStyle=1;fontSize=14;spacingTop=10;dashed=1;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="40" y="220" width="180" height="280" as="geometry" />
+        </mxCell>
+        <mxCell id="bg_mid" value="II. The Online Middleware: 5-Stage Interpreter Pipeline" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;align=left;verticalAlign=top;fontStyle=1;fontSize=14;spacingTop=10;spacingLeft=15;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="250" y="220" width="880" height="280" as="geometry" />
+        </mxCell>
+        <mxCell id="bg_digi" value="III. Digital &amp; Office Boundary&#10;(CDE)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;align=center;verticalAlign=top;fontStyle=1;fontSize=14;spacingTop=10;dashed=1;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="220" width="220" height="280" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_train" value="&lt;b&gt;Training Data Pipeline&lt;/b&gt;&lt;br&gt;&lt;hr&gt;&lt;div style='text-align:left;font-size:10px;'&gt;- Topology Skeleton Mining&lt;br&gt;- Skin Gen (Gemini Render)&lt;br&gt;- Tier 1/2/3 Label Records&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D79B00;verticalAlign=top;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="440" y="80" width="160" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="n_graph" value="&lt;b&gt;Enriched Neo4j Graph&lt;/b&gt;&lt;br&gt;&lt;hr&gt;&lt;div style='text-align:left;font-size:10px;'&gt;- Nodes: IFCElement, Space&lt;br&gt;- Props: GUID, material, mm&lt;br&gt;- Edges: CONTAINS, NEXT_TO&lt;/div&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#D5E8D4;strokeColor=#82B366;verticalAlign=top;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="660" y="70" width="160" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_site" value="&lt;b&gt;Unstructured Evidence&lt;/b&gt;&lt;br&gt;&lt;hr&gt;&lt;div style='text-align:left;font-size:11px;'&gt;📷 Site Photos&lt;br&gt;💬 WhatsApp Chats&lt;br&gt;📄 Annotated Floorplans&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B85450;verticalAlign=top;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="60" y="310" width="140" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m1" value="&lt;b&gt;① Multimodal Input&lt;/b&gt;&lt;br&gt;&lt;hr&gt;&lt;div style='font-size:10px;'&gt;Ingest &amp;amp; Format to&lt;br&gt;Constraint Repr (CSR)&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D6B656;verticalAlign=top;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="270" y="315" width="130" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="m2" value="&lt;b&gt;② Neural Layer&lt;/b&gt;&lt;br&gt;&lt;hr&gt;&lt;div style='font-size:10px;'&gt;Qwen2.5-VL / Gemini&lt;br&gt;(Probabilistic Extraction)&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D6B656;verticalAlign=top;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="455" y="315" width="130" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="m3" value="&lt;b&gt;③ Symbolic Layer&lt;/b&gt;&lt;br&gt;&lt;hr&gt;&lt;div style='font-size:10px;'&gt;Cypher Query Cascade&lt;br&gt;(Deterministic Filter)&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D6B656;verticalAlign=top;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="640" y="315" width="130" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="m4" value="&lt;b&gt;④ Graph-RAG Rerank&lt;/b&gt;&lt;br&gt;&lt;hr&gt;&lt;div style='font-size:10px;'&gt;Contextual Enrichment&lt;br&gt;&amp;amp; CoT Reranking&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D6B656;verticalAlign=top;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="815" y="315" width="130" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="m5" value="&lt;b&gt;⑤ GUID Output&lt;/b&gt;&lt;br&gt;&lt;hr&gt;&lt;div style='font-size:10px;'&gt;JSON Record + Audit Trail&lt;br&gt;BCF 2.1 Package&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D6B656;verticalAlign=top;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="980" y="315" width="130" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_cde" value="&lt;b&gt;CDE / BIM Cloud&lt;/b&gt;&lt;br&gt;&lt;hr&gt;&lt;div style='font-size:10px;'&gt;IFC Repository&lt;br&gt;BCF Issue Tracker&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;verticalAlign=top;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="280" width="160" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n_off" value="&lt;b&gt;Office Stakeholders&lt;/b&gt;&lt;br&gt;&lt;hr&gt;&lt;div style='font-size:10px;'&gt;Architects / BIM Coord&lt;br&gt;(Review &amp;amp; Coordinate)&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;verticalAlign=top;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="390" width="160" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;html=1;fontColor=#333333;" edge="1" parent="1" source="n_site" target="m1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;html=1;" edge="1" parent="1" source="m1" target="m2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;html=1;" edge="1" parent="1" source="m2" target="m3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3_lbl" value="Constraints&lt;br&gt;(JSON)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=#FFF2CC;fontColor=#333333;" vertex="1" connectable="0" parent="e3">
+          <mxGeometry x="0" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;html=1;" edge="1" parent="1" source="m3" target="m4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4_lbl" value="Top-K&lt;br&gt;Pool" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=#FFF2CC;fontColor=#333333;" vertex="1" connectable="0" parent="e4">
+          <mxGeometry x="0" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;html=1;" edge="1" parent="1" source="m4" target="m5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5_lbl" value="Reranked&lt;br&gt;Shortlist" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=#FFF2CC;fontColor=#333333;" vertex="1" connectable="0" parent="e5">
+          <mxGeometry x="0" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;html=1;strokeColor=#6C8EBF;" edge="1" parent="1" source="m5" target="n_cde">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6_lbl" value="GUID &amp;amp; BCF" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#FFFFFF;fontColor=#0066CC;fontStyle=1;" vertex="1" connectable="0" parent="e6">
+          <mxGeometry x="-0.2" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;html=1;strokeColor=#666666;" edge="1" parent="1" source="n_cde" target="n_off">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;html=1;dashed=1;strokeColor=#D79B00;" edge="1" parent="1" source="n_train" target="m2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8_lbl" value="LoRA JSON Labels" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=#FFFFFF;fontColor=#D79B00;" vertex="1" connectable="0" parent="e8">
+          <mxGeometry x="0" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;html=1;dashed=1;strokeColor=#82B366;" edge="1" parent="1" source="n_graph" target="m3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="705" y="240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e9_lbl" value="Cypher Queries / Exact Match" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=#FFFFFF;fontColor=#4D9900;" vertex="1" connectable="0" parent="e9">
+          <mxGeometry x="-0.2" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;html=1;dashed=1;strokeColor=#82B366;" edge="1" parent="1" source="n_graph" target="m4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="740" y="190" />
+              <mxPoint x="880" y="190" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e10_lbl" value="Graph Context per Candidate" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=#FFFFFF;fontColor=#4D9900;" vertex="1" connectable="0" parent="e10">
+          <mxGeometry x="-0.1" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;html=1;dashed=1;strokeColor=#CC0000;entryX=1;entryY=0.5;entryDx=0;entryDy=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" edge="1" parent="1" source="n_cde" target="n_train">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1270" y="125" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e11_lbl" value="Feedback Loop (Worker Accept/Reject) → Retrain Signal" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=#FFFFFF;fontColor=#CC0000;fontStyle=1;" vertex="1" connectable="0" parent="e11">
+          <mxGeometry x="0.1" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

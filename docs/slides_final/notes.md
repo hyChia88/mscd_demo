@@ -1,4 +1,5 @@
 # Final slides for MSCD
+### Slide 0: Title
 
 ## **Part 1: Motivation: show an ideal system/results**
 ### Slide 1
@@ -68,7 +69,7 @@ Uncontrollable output	Brittle to vocabulary mismatch	Controllable with learned s
     - show base vs enrich graph: symbolic method
     - show data curation
     - show VLM: multimodal learning -->
-### Slide 8 & 9 - zoom in view of supporting module: The Enriched Knowledge Graph
+### Slide 8 - zoom in view of supporting module: The Enriched Knowledge Graph
 <!-- Slide 8 -->
 Base graph: IFC attributes only (type, storey, name, GUID)
 Enriched graph: + FILLS, ADJACENT_TO, CONTINUOUS, NEXT_TO edges + width_mm, height_mm, distance_mm properties
@@ -81,6 +82,10 @@ Take one concrete window from the AP model
 Show its topology signature: FILLS:IfcWallStandardCase | NEXT_TO:IfcWindow:left | NEXT_TO:IfcWindow:right
 Oracle waterfall table: L0=1257 → L1 (attrs)=46 → L3 (fingerprint)=9 → L4 (position slot)=1
 This slide makes RQ2's answer visceral: yes, topology breaks the bottleneck — in theory
+
+### Slide 9 - graph reasoning visualization and methods
+graph query on enriched ifc graph
+graph rerank
 
 ### Slide 10 — Data Curation: Teaching the Model
 Show the 3-tier labeling strategy and why it matters:
@@ -110,6 +115,7 @@ Key design choice: confidence gate (threshold ~0.7) controls when symbolic layer
 ## **Part 4: Conclusion:**
 - ans Main RQ: How to intergrate tech in this situation, how does it helps?
 - insights
+     - graph
 - future RLHP 
 — Limitations & Scope
 
