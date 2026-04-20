@@ -1,151 +1,126 @@
-"""
-End-to-end pipeline trace — proves Priority-0 fires (not silent fallback).
+"""End-to-end topology trace smoke test for Priority-0 execution."""
 
-For each test skeleton:
-  1. Builds a Constraints object with SpatialTriplet from skeleton metadata
-  2. Runs QueryPlanner → takes first plan
-  3. Executes via RetrievalBackend (Neo4j mode)
-  4. Reports: strategy_asked / strategy_actually_used / fallback_triggered / pool_size / gt_in_pool
+from __future__ import annotations
 
-Passes if Priority-0 strategies produce results WITHOUT triggering fallback for
-the majority of FILLS / CONTINUOUS / ADJACENT_TO test cases.
-
-Run with:
-    conda run -n mscd_demo python test/test_e2e_pipeline_trace.py
-"""
-import sys
-import os
-import json
 import asyncio
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+import json
+import sys
+from pathlib import Path
 
-from v2.types import Constraints, SpatialTriplet, QueryPlan
-from v2.constraints_to_query import QueryPlanner
-from v2.retrieval_backend import RetrievalBackend
-from ifc_engine import IFCEngine
+import pytest
 
-IFC_PATH    = "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
-SKEL_PATH   = "../data_curation/datasets/synth_v0.5/skeletons/skeletons_v2_5.jsonl"
-MAX_CASES   = 12   # run at most N skeletons to keep output readable
 
-PREDICATE_PATTERNS = {"FILLS_RELATION", "ADJACENT_TO_RELATION", "CONTINUOUS_SPAN"}
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = PROJECT_ROOT.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-# ── Load skeletons ────────────────────────────────────────────────────────────
-with open(SKEL_PATH) as f:
-    all_skeletons = [json.loads(l) for l in f if l.strip()]
+from src.ifc_engine import IFCEngine
+from src.neurosym.constraints_to_query import QueryPlanner
+from src.neurosym.retrieval_backend import RetrievalBackend
+from src.neurosym.types import Constraints, SpatialTriplet
 
-test_cases = [s for s in all_skeletons if s["pattern"] in PREDICATE_PATTERNS][:MAX_CASES]
-print(f"Loaded {len(test_cases)} topology skeletons (capped at {MAX_CASES})\n")
 
-# ── Set up engine + backend ───────────────────────────────────────────────────
-print("Loading IFC model + Neo4j...")
-try:
-    from py2neo import Graph
-    g = Graph('bolt://localhost:7687', auth=('neo4j', 'password'))
-    g.run("RETURN 1")
-    engine = IFCEngine(IFC_PATH, neo4j_conn=g)
-    backend = RetrievalBackend(engine=engine, retrieval_mode="neo4j")
-    print("  Neo4j connected.\n")
-except Exception as e:
-    print(f"  Neo4j unavailable: {e}  — falling back to memory mode\n")
-    engine = IFCEngine(IFC_PATH)
-    backend = RetrievalBackend(engine=engine, retrieval_mode="memory")
+IFC_PATH = REPO_ROOT / "data_curation" / "ifc_models" / "AdvancedProject.ifc"
+SKEL_PATH = (
+    REPO_ROOT
+    / "data_curation"
+    / "datasets"
+    / "synth_v0.5"
+    / "skeletons"
+    / "skeletons_v2_5.jsonl"
+)
+MAX_CASES = 12
+PATTERNS = {"FILLS_RELATION", "ADJACENT_TO_RELATION", "CONTINUOUS_SPAN"}
 
-planner = QueryPlanner()
 
-# ── Run each test case ────────────────────────────────────────────────────────
-header = (f"{'ID':<8} {'Pattern':<22} {'Strategy Asked':<18} "
-          f"{'Actually Used':<18} {'Fallback':<9} {'Pool':<6} {'GT in Pool'}")
-print(header)
-print("-" * len(header))
+def _load_test_cases() -> list[dict]:
+    with SKEL_PATH.open("r", encoding="utf-8") as f:
+        skeletons = [json.loads(line) for line in f if line.strip()]
+    return [row for row in skeletons if row.get("pattern") in PATTERNS][:MAX_CASES]
 
-p0_hits = 0       # Priority-0 fired without fallback
-fallback_count = 0
-gt_found_count = 0
-results_log = []
 
-for sk in test_cases:
-    tp = sk.get("target_props", {})
-    pattern = sk["pattern"]
-    target_guid = sk["target_guid"]
-
-    # Build predicate from skeleton
-    predicate = tp.get("predicate") or (
-        "FILLS"       if pattern == "FILLS_RELATION"    else
-        "ADJACENT_TO" if pattern == "ADJACENT_TO_RELATION" else
-        "CONTINUOUS"
+def _build_constraints(skeleton: dict) -> Constraints | None:
+    target_props = skeleton.get("target_props", {})
+    predicate = target_props.get("predicate") or (
+        "FILLS"
+        if skeleton.get("pattern") == "FILLS_RELATION"
+        else "ADJACENT_TO"
+        if skeleton.get("pattern") == "ADJACENT_TO_RELATION"
+        else "CONTINUOUS"
     )
-    subject_type = tp.get("subject_type") or tp.get("Type", "")
-    ref_type     = tp.get("ref_type") or tp.get("object_type", "")
-    storey_raw   = tp.get("ref_storey") or tp.get("Storey") or ""
-    top_storey   = tp.get("top_constraint") or storey_raw
+    subject_type = target_props.get("subject_type") or target_props.get("Type") or ""
+    object_type = (
+        target_props.get("ref_type")
+        or target_props.get("object_type")
+        or skeleton.get("ref_element_type")
+        or ""
+    )
+    storey_name = target_props.get("ref_storey") or target_props.get("Storey") or ""
+    if predicate == "CONTINUOUS":
+        storey_name = target_props.get("top_constraint") or storey_name
 
-    # Constraints → QueryPlan
-    try:
-        triplet = SpatialTriplet(
-            subject_type=subject_type,
-            predicate=predicate,
-            object_type=ref_type
-        )
-    except Exception:
-        continue   # skip malformed
+    if not subject_type or not object_type:
+        return None
 
-    # For CONTINUOUS, storey_name = top_storey (the upper bound)
-    storey_name = top_storey if predicate == "CONTINUOUS" else storey_raw
-    c = Constraints(
+    return Constraints(
         ifc_class=subject_type,
         storey_name=storey_name,
-        spatial_relations=[triplet]
+        spatial_relations=[
+            SpatialTriplet(
+                subject_type=subject_type,
+                predicate=predicate,
+                object_type=object_type,
+            )
+        ],
     )
-    plans = planner.plan(c)
-    plan = plans[0]
 
-    # Execute
-    result = asyncio.run(backend.execute_plan(plan))
 
-    # Check ground truth
-    guids = {cand.get("guid") for cand in result.candidates}
-    gt_in_pool = target_guid in guids
+@pytest.fixture(scope="module")
+def planner() -> QueryPlanner:
+    return QueryPlanner()
 
-    strategy_asked = plan.strategy
-    strategy_used  = result.strategy_actually_used or plan.strategy
-    fallback       = result.fallback_triggered
 
-    if not fallback and plan.priority == 0:
-        p0_hits += 1
-    if fallback:
-        fallback_count += 1
-    if gt_in_pool:
-        gt_found_count += 1
+@pytest.fixture(scope="module")
+def neo4j_backend() -> RetrievalBackend:
+    py2neo = pytest.importorskip("py2neo")
+    try:
+        graph = py2neo.Graph("bolt://localhost:7687", auth=("neo4j", "password"))
+        graph.run("RETURN 1")
+    except Exception as exc:  # pragma: no cover - environment dependent
+        pytest.skip(f"Neo4j unavailable for topology trace smoke test: {exc}")
+    engine = IFCEngine(str(IFC_PATH), neo4j_conn=graph)
+    return RetrievalBackend(engine=engine, retrieval_mode="neo4j")
 
-    p0_mark  = "✅" if not fallback else "⚠️ "
-    gt_mark  = "✅" if gt_in_pool  else "❌"
-    fb_mark  = "YES" if fallback   else "no"
 
-    print(f"{sk['id']:<8} {pattern:<22} {strategy_asked:<18} "
-          f"{strategy_used:<18} {fb_mark:<9} {len(result.candidates):<6} {gt_mark}")
+def test_priority_zero_topology_traces_do_not_majority_fallback(
+    planner: QueryPlanner,
+    neo4j_backend: RetrievalBackend,
+) -> None:
+    test_cases = _load_test_cases()
+    fallback_count = 0
+    gt_found_count = 0
+    checked = 0
 
-    results_log.append({
-        "id": sk["id"], "pattern": pattern,
-        "strategy_asked": strategy_asked, "strategy_used": strategy_used,
-        "fallback": fallback, "pool": len(result.candidates), "gt_in_pool": gt_in_pool
-    })
+    for skeleton in test_cases:
+        constraints = _build_constraints(skeleton)
+        if constraints is None:
+            continue
 
-# ── Summary ───────────────────────────────────────────────────────────────────
-n = len(test_cases)
-print()
-print(f"=== Summary ({n} topology test cases) ===")
-print(f"  Priority-0 fired (no fallback) : {p0_hits}/{n}  "
-      f"({'%.0f'%(100*p0_hits/n)}%)")
-print(f"  Fallback triggered             : {fallback_count}/{n}  "
-      f"({'%.0f'%(100*fallback_count/n)}%)")
-print(f"  Ground truth in candidate pool : {gt_found_count}/{n}  "
-      f"({'%.0f'%(100*gt_found_count/n)}%)")
+        plan = planner.plan(constraints)[0]
+        assert plan.priority == 0, f"{skeleton['id']} did not route to Priority-0"
 
-# Fail if majority fallback (>50%) — means Priority-0 isn't actually working
-if fallback_count > n // 2:
-    print(f"\n❌ FAIL: {fallback_count}/{n} cases fell back — "
-          f"Priority-0 edge traversal is not firing correctly.")
-    sys.exit(1)
-else:
-    print(f"\n✅ PASS: Priority-0 fires without fallback in majority of topology cases.")
+        result = asyncio.run(neo4j_backend.execute_plan(plan))
+        checked += 1
+        if result.fallback_triggered:
+            fallback_count += 1
+
+        guids = {cand.get("guid") for cand in result.candidates}
+        if skeleton.get("target_guid") in guids:
+            gt_found_count += 1
+
+    assert checked > 0, "no topology skeletons produced executable constraints"
+    assert fallback_count <= checked // 2, (
+        f"Priority-0 fell back in {fallback_count}/{checked} topology cases"
+    )
+    assert gt_found_count > 0, "ground truth never appeared in the candidate pool"

@@ -41,9 +41,9 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 load_dotenv(PROJECT_ROOT / ".env")
 
 from src.evaluation_infra.contracts import EvalTrace
-from src.evaluation_infra.metrics import compute_summary
-from src.v2.metrics_v2 import compute_v2_metrics, compute_v2_summary
-from src.v2.types import Constraints, SpatialTriplet, V2Trace
+from src.evaluation_infra.metrics import compute_summary as compute_eval_summary
+from src.neurosym.metrics import compute_metrics, compute_summary as compute_pipeline_summary
+from src.neurosym.types import Constraints, SpatialTriplet, PipelineTrace
 from src.common.trace_io import write_trace
 
 
@@ -172,8 +172,8 @@ def _normalize_precomputed_spatial_triplet(
 
 def write_csv_summary(
     v1_summary: Any,
-    v2_summary: Optional[Dict[str, Any]],
-    v2_per_case: Optional[List[Dict[str, Any]]],
+    pipeline_summary: Optional[Dict[str, Any]],
+    pipeline_per_case: Optional[List[Dict[str, Any]]],
     path: Path,
     percent_used: float = 100.0,
     *,
@@ -211,26 +211,26 @@ def write_csv_summary(
         w.writerow([])
 
         # ── Section 2: v2 diagnostic metrics ──
-        if v2_summary:
+        if pipeline_summary:
             w.writerow(["=== V2 DIAGNOSTIC METRICS ==="])
             w.writerow(["Metric", "Value"])
-            w.writerow(["Constraints Parse Rate", f"{v2_summary.get('constraints_parse_rate', 0):.4f}"])
-            avg_rg = v2_summary.get("avg_rerank_gain")
+            w.writerow(["Constraints Parse Rate", f"{pipeline_summary.get('constraints_parse_rate', 0):.4f}"])
+            avg_rg = pipeline_summary.get("avg_rerank_gain")
             w.writerow(["Avg Rerank Gain", f"{avg_rg:.4f}" if avg_rg is not None else "N/A"])
-            w.writerow(["Avg Constraints Extraction (ms)", f"{v2_summary.get('avg_constraints_extraction_ms', 0):.1f}"])
-            w.writerow(["Avg Query Planning (ms)", f"{v2_summary.get('avg_query_planning_ms', 0):.1f}"])
-            w.writerow(["Avg Retrieval (ms)", f"{v2_summary.get('avg_retrieval_ms', 0):.1f}"])
+            w.writerow(["Avg Constraints Extraction (ms)", f"{pipeline_summary.get('avg_constraints_extraction_ms', 0):.1f}"])
+            w.writerow(["Avg Query Planning (ms)", f"{pipeline_summary.get('avg_query_planning_ms', 0):.1f}"])
+            w.writerow(["Avg Retrieval (ms)", f"{pipeline_summary.get('avg_retrieval_ms', 0):.1f}"])
             w.writerow([])
 
         # ── Section 3: per-case v2 detail ──
-        if v2_per_case:
+        if pipeline_per_case:
             w.writerow(["=== PER-CASE V2 DETAIL ==="])
             headers = [
                 "case_id", "constraints_parsed",
                 "constraints_field_em_f1", "rerank_gain",
             ]
             w.writerow(headers)
-            for row in v2_per_case:
+            for row in pipeline_per_case:
                 w.writerow([
                     row.get("case_id", ""),
                     row.get("constraints_parsed", ""),
@@ -392,14 +392,11 @@ async def main(args: argparse.Namespace) -> None:
                 precomputed_constraints[cid] = Constraints(
                     storey_name=c.get("storey_name"),
                     ifc_class=c.get("ifc_class"),
-                    near_keywords=c.get("near_keywords", []),
-                    relations=c.get("relations", []),
-                    # Phase 2 new fields
                     space_name=c.get("space_name"),
                     target_name_keyword=c.get("target_name_keyword"),
                     position_context=c.get("position_context"),
-                    neighbor_type=c.get("neighbor_type"),
-                    # Phase 5 spatial relations
+                    position_context_confidence=c.get("position_context_confidence"),
+                    position_context_source=c.get("position_context_source"),
                     spatial_relations=spatial_rels,
                     confidence=0.85 if entry.get("status") == "OK" else 0.0,
                     source="lora_precomputed",
@@ -475,7 +472,7 @@ async def main(args: argparse.Namespace) -> None:
         run_id += f"_{args.condition}"
 
     traces: List[EvalTrace] = []
-    v2_traces: List[V2Trace] = []
+    pipeline_traces: List[PipelineTrace] = []
     v2_per_case_metrics: List[Dict[str, Any]] = []
 
     # V1 requires MCP session context
@@ -604,14 +601,14 @@ async def main(args: argparse.Namespace) -> None:
                 print(f"  pool={pool:<5}  {hit}")
 
                 if trace.internals:
-                    # Reconstruct V2Trace locally — only needed here for metrics functions.
-                    # trace.internals is the authoritative source; V2Trace is not persisted.
-                    v2_trace = V2Trace.model_validate(trace.internals)
-                    v2_traces.append(v2_trace)
+                    # Reconstruct PipelineTrace locally — only needed here for metrics functions.
+                    # trace.internals is the authoritative source; PipelineTrace is not persisted.
+                    pipeline_trace = PipelineTrace.model_validate(trace.internals)
+                    pipeline_traces.append(pipeline_trace)
                     # Per-case v2 metrics
                     labels = case.get("labels")
                     gt_dict = case.get("ground_truth", {})
-                    m = compute_v2_metrics(v2_trace, gt_dict, labels)
+                    m = compute_metrics(pipeline_trace, gt_dict, labels)
                     m["case_id"] = case_id
                     v2_per_case_metrics.append(m)
             except Exception as exc:
@@ -628,11 +625,11 @@ async def main(args: argparse.Namespace) -> None:
 
     # ── 6. compute summaries ───────────────────────────────────────────────
     valid_traces = [t for t in traces if t.success and t.scenario is not None]
-    v1_summary = compute_summary(valid_traces)
+    v1_summary = compute_eval_summary(valid_traces)
 
-    v2_summary = None
-    if v2_traces:
-        v2_summary = compute_v2_summary(list(zip(valid_traces, v2_traces)))
+    pipeline_summary = None
+    if pipeline_traces:
+        pipeline_summary = compute_pipeline_summary(list(zip(valid_traces, pipeline_traces)))
 
         # enrich with field-F1 average
         f1_scores = [
@@ -641,7 +638,7 @@ async def main(args: argparse.Namespace) -> None:
             if m.get("constraints_field_em_f1") is not None
         ]
         if f1_scores:
-            v2_summary["avg_constraints_field_em_f1"] = sum(f1_scores) / len(f1_scores)
+            pipeline_summary["avg_constraints_field_em_f1"] = sum(f1_scores) / len(f1_scores)
 
     # ── 7. write outputs ───────────────────────────────────────────────────
     output_dir = Path(args.output_dir)
@@ -684,7 +681,7 @@ async def main(args: argparse.Namespace) -> None:
     gt_in_pool_pct = gt_in_pool_count / n if n > 0 else 0.0
 
     write_csv_summary(
-        v1_summary, v2_summary, v2_per_case_metrics or None, summary_file, percent_used,
+        v1_summary, pipeline_summary, v2_per_case_metrics or None, summary_file, percent_used,
         mrr=mrr, gt_in_pool=gt_in_pool_count, top10_hits=top10_hits, n=n,
     )
 
@@ -697,11 +694,11 @@ async def main(args: argparse.Namespace) -> None:
     print(f"MRR@10         : {mrr:.4f}")
     print(f"GT-in-Pool     : {gt_in_pool_count}/{n} ({gt_in_pool_pct:.1%})")
     print(f"Search Space   : {v1_summary.avg_search_space_reduction:.4f}")
-    if v2_summary:
-        print(f"Parse Rate     : {v2_summary.get('constraints_parse_rate', 0):.4f}")
-        avg_f1 = v2_summary.get("avg_constraints_field_em_f1")
+    if pipeline_summary:
+        print(f"Parse Rate     : {pipeline_summary.get('constraints_parse_rate', 0):.4f}")
+        avg_f1 = pipeline_summary.get("avg_constraints_field_em_f1")
         print(f"Field EM F1    : {avg_f1:.4f}" if avg_f1 else "Field EM F1    : N/A")
-        avg_rg = v2_summary.get("avg_rerank_gain")
+        avg_rg = pipeline_summary.get("avg_rerank_gain")
         print(f"Rerank Gain    : {avg_rg:.4f}" if avg_rg else "Rerank Gain    : N/A")
     print("=" * 60)
     print(f"Traces  → {traces_file}")

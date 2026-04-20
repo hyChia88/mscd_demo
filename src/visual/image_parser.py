@@ -17,7 +17,7 @@ from typing import Any, Dict, Optional
 from langchain_core.messages import HumanMessage
 from common.config import load_yaml_prompts
 
-from src.v2.types import ImageParseResult, ParsedImage
+from src.neurosym.types import ImageParseResult, ParsedImage
 
 
 class ImageParserReader:

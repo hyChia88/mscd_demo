@@ -9,6 +9,7 @@ from typing import Dict, Any, Optional
 import json
 from .types import Constraints, ImageParseResult, SpatialTriplet
 from .condition_mask import ConditionMask
+from .floorplan_counter import FloorplanCounter, FloorplanCountResult, merge_position_context
 from common.config import load_yaml_prompts
 
 
@@ -22,7 +23,12 @@ class PromptConstraintsExtractor:
     Prompts are loaded from prompts/constraints_extraction.yaml for easy modification.
     """
 
-    def __init__(self, llm: Any, prompts_path: str = "prompts/constraints_extraction.yaml"):
+    def __init__(
+        self,
+        llm: Any,
+        prompts_path: str = "prompts/constraints_extraction.yaml",
+        image_dir: str = "",
+    ):
         """
         Initialize extractor with LLM and load prompts.
 
@@ -31,6 +37,7 @@ class PromptConstraintsExtractor:
             prompts_path: Path to constraints extraction prompts YAML file
         """
         self.llm = llm
+        self.floorplan_counter = FloorplanCounter(image_dir=image_dir)
         self._load_prompts(prompts_path)
 
     def _load_prompts(self, prompts_path: str):
@@ -63,9 +70,10 @@ class PromptConstraintsExtractor:
         """
         # Apply condition mask first
         masked_case = ConditionMask.apply(case, condition_overrides)
+        opencv_position = self.floorplan_counter.count_from_case(masked_case)
 
         # Build prompt from masked inputs
-        prompt = self._build_prompt(masked_case, image_context)
+        prompt = self._build_prompt(masked_case, image_context, opencv_position)
 
         # Call LLM
         try:
@@ -105,16 +113,19 @@ class PromptConstraintsExtractor:
                         )
                     )
 
+                final_position_context, pos_conf, pos_source = merge_position_context(
+                    data.get("position_context"),
+                    opencv_position,
+                )
+
                 constraints = Constraints(
                     storey_name=data.get("storey_name"),
                     ifc_class=data.get("ifc_class"),
-                    near_keywords=data.get("near_keywords", []),
-                    relations=data.get("relations", []),
-                    # Phase 2 new fields
                     space_name=data.get("space_name"),
                     target_name_keyword=data.get("target_name_keyword"),
-                    position_context=data.get("position_context"),
-                    neighbor_type=data.get("neighbor_type"),
+                    position_context=final_position_context,
+                    position_context_confidence=pos_conf,
+                    position_context_source=pos_source,
                     spatial_relations=spatial_rels,
                     confidence=0.8,  # Reasonable confidence for successful parse
                     source="prompt"
@@ -129,23 +140,31 @@ class PromptConstraintsExtractor:
                     # Pull space_name from floorplan spatial_zone if LLM didn't extract one
                     if not constraints.space_name and image_context.floorplan:
                         constraints.space_name = image_context.floorplan.spatial_zone
-                    for cue in image_context.all_location_cues:
-                        if cue not in constraints.near_keywords:
-                            constraints.near_keywords.append(cue)
 
                 return constraints
             else:
                 # Parse failed — still try image-derived hints
-                if image_context and (image_context.inferred_ifc_class or image_context.inferred_storey):
+                if image_context and (image_context.inferred_ifc_class or image_context.inferred_storey or opencv_position):
                     print(f"⚠️  Constraints: JSON parse failed, falling back to image-derived hints "
                           f"(ifc_class={image_context.inferred_ifc_class}, "
                           f"storey={image_context.inferred_storey})")
                     return Constraints(
                         storey_name=image_context.inferred_storey,
                         ifc_class=image_context.inferred_ifc_class,
-                        near_keywords=image_context.all_location_cues,
+                        position_context=opencv_position.position_context if opencv_position else None,
+                        position_context_confidence=opencv_position.confidence if opencv_position else None,
+                        position_context_source="opencv" if opencv_position else None,
                         confidence=0.5,
                         source="prompt_failed+image"
+                    )
+                if opencv_position:
+                    print("⚠️  Constraints: JSON parse failed, falling back to OpenCV floorplan counting.")
+                    return Constraints(
+                        position_context=opencv_position.position_context,
+                        position_context_confidence=opencv_position.confidence,
+                        position_context_source="opencv",
+                        confidence=max(0.3, opencv_position.confidence),
+                        source="prompt_failed+opencv",
                     )
                 print("⚠️  Constraints: JSON parse failed, no image context — returning empty constraints.")
                 return Constraints(
@@ -164,6 +183,7 @@ class PromptConstraintsExtractor:
         self,
         masked_case: Dict[str, Any],
         image_context: Optional[ImageParseResult] = None,
+        opencv_position: Optional[FloorplanCountResult] = None,
     ) -> str:
         """
         Build extraction prompt from masked case.
@@ -207,6 +227,20 @@ class PromptConstraintsExtractor:
                 sections.append("VISUAL ANALYSIS (from vision model):")
                 sections.append(desc)
                 sections.append("")
+
+        if opencv_position is not None:
+            sections.append("OPENCV FLOORPLAN COUNTING:")
+            sections.append(
+                f"  position_context: {opencv_position.position_context}"
+            )
+            sections.append(f"  position: {opencv_position.position}")
+            sections.append(f"  total: {opencv_position.total}")
+            sections.append(f"  confidence: {opencv_position.confidence:.2f}")
+            if opencv_position.mode == "patch_only":
+                sections.append("  note: patch-only fallback estimate; treat as soft evidence.")
+            else:
+                sections.append("  note: derived from floorplan patch matched against a larger floorplan reference.")
+            sections.append("")
 
         # Combine system prompt + context
         full_prompt = f"{self.system_prompt}\n\n" + "\n".join(sections)

@@ -1,5 +1,5 @@
 """
-H2 Hard-Negative Evaluation — Priority-0 Retrieval on Topology Test Cases
+H2 Hard-Negative Evaluation — Priority-0 Retrieval on topology test cases.
 
 Measures the benefit of Priority-0 (topology) queries over attribute baseline:
 
@@ -19,9 +19,9 @@ Summary metrics:
   Mean SSR         — average search space reduction (higher = better)
 
 Run with:
-    conda run -n mscd_demo python eval/h2_eval.py
-    conda run -n mscd_demo python eval/h2_eval.py --max-cases 20
-    conda run -n mscd_demo python eval/h2_eval.py --pattern FILLS_RELATION
+    conda run -n mscd_demo python evaluation/h2/h2_eval.py
+    conda run -n mscd_demo python evaluation/h2/h2_eval.py --max-cases 20
+    conda run -n mscd_demo python evaluation/h2/h2_eval.py --pattern FILLS_RELATION
 """
 
 import argparse
@@ -29,16 +29,23 @@ import asyncio
 import json
 import os
 import sys
+from pathlib import Path
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = PROJECT_ROOT.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+SRC_ROOT = PROJECT_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
-from v2.constraints_to_query import QueryPlanner
-from v2.retrieval_backend import RetrievalBackend
-from v2.types import Constraints, QueryPlan, SpatialTriplet
-from ifc_engine import IFCEngine
+from src.ifc_engine import IFCEngine
+from src.neurosym.constraints_to_query import QueryPlanner
+from src.neurosym.retrieval_backend import RetrievalBackend
+from src.neurosym.types import Constraints, SpatialTriplet
 
-IFC_PATH = "data/ifc/AdvancedProject/IFC/AdvancedProject.ifc"
-H2_PATH = "../data_curation/datasets/synth_v0.5/eval/h2_hard_negatives.jsonl"
+IFC_PATH = REPO_ROOT / "data_curation" / "ifc_models" / "AdvancedProject.ifc"
+H2_PATH = REPO_ROOT / "data_curation" / "datasets" / "synth_v0.5" / "legacy" / "eval" / "h2_hard_negatives.jsonl"
 
 # Predicate → strategy mapping (for display)
 STRATEGY_MAP = {
@@ -69,16 +76,16 @@ def build_constraints(h2: dict) -> Constraints:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--h2", default=H2_PATH, help="H2 eval set JSONL")
+    parser.add_argument("--h2", default=str(H2_PATH), help="H2 eval set JSONL")
     parser.add_argument("--max-cases", type=int, default=0, help="Cap (0 = all)")
     parser.add_argument("--pattern", default="", help="Filter by pattern name")
-    parser.add_argument("--ifc", default=IFC_PATH)
+    parser.add_argument("--ifc", default=str(IFC_PATH))
     parser.add_argument("--output", default="", help="Save results to JSONL")
     parser.add_argument("--plot", default="", help="Save comparison plot to PNG (thesis figure)")
     args = parser.parse_args()
 
     # ── Load H2 cases ─────────────────────────────────────────────────────────
-    with open(args.h2) as f:
+    with open(args.h2, "r", encoding="utf-8") as f:
         h2_cases = [json.loads(l) for l in f if l.strip()]
 
     if args.pattern:

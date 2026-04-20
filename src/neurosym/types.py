@@ -49,30 +49,23 @@ class Constraints(BaseModel):
     in terms of spatial and semantic filters.
     """
 
+    # Ignore legacy keys (near_keywords / relations / neighbor_type) found in
+    # old JSONL traces so deserialization of Phase 1-4 data still works.
+    model_config = ConfigDict(extra="ignore")
+
     # ── LoRA6 active schema (matches 6_assemble_lora6.py training labels) ────
     storey_name: Optional[str] = None  # e.g., "6 - Sixth Floor", "Level 1"
     ifc_class: Optional[str] = None  # e.g., "IfcWindow", "IfcWall", "IfcDoor"
     space_name: Optional[str] = None  # room/space name (e.g. "Living Room"); NOT storey
     target_name_keyword: Optional[str] = None  # equipment ID (e.g. "AHU-03"); null for generic types
     position_context: Optional[str] = None  # e.g. "3rd of 17 openings on the same wall"
+    position_context_confidence: Optional[float] = None
+    position_context_source: Optional[str] = None
     spatial_relations: List[SpatialTriplet] = Field(default_factory=list)
-    # ── Fix NEW: target element physical dimensions (IfcWindow / IfcDoor) ──
-    target_width_mm: Optional[float] = None   # Physical width of target element (e.g. 894.0 for IfcWindow)
-    target_height_mm: Optional[float] = None  # Physical height of target element (e.g. 1294.0 for IfcWindow)
-    # Predicates: FILLS, ADJACENT_TO, CONTINUOUS, NEXT_TO, CONNECTS_TO
-
-    # ── LEGACY fields (LoRA2/LoRA3 era — kept for backward-compat with old traces) ─
-    # NOT produced by LoRA6 model; NOT used by Phase 3 planner.
-    # Retained so old JSONL traces can be deserialized without errors.
-    near_keywords: List[str] = Field(default_factory=list)
-    relations: List[str] = Field(default_factory=list)
-    neighbor_type: Optional[str] = None
-    # Structured spatial predicates extracted by the Neuro layer (LoRA_3).
-    # Each triplet encodes (subject_type, predicate, object_type) observed
-    # in the site photo/relation-crop images.
-    # Enables: spatial_triplet query (Priority 0) → ~1-3 candidates
-    # Backward-compatible: empty list → Priority 0 skipped, existing 1-8 cascade used.
-    # ────────────────────────────────────────────────────────────────────────
+    # TODO(T4): replace mm fields with `size_cluster: Optional[str]` once
+    # dimension clustering ships and LoRA is retrained on classification labels.
+    target_width_mm: Optional[float] = None   # Physical width (IfcWindow/IfcDoor)
+    target_height_mm: Optional[float] = None  # Physical height (IfcWindow/IfcDoor)
 
     # Diagnostics
     confidence: float = 0.0  # Confidence score (0.0-1.0)
@@ -195,7 +188,7 @@ class ImageParseResult(BaseModel):
         return list(dict.fromkeys(cues))  # deduplicate, preserve order
 
 
-class V2Trace(BaseModel):
+class PipelineTrace(BaseModel):
     """V2-specific trace data (augments EvalTrace)."""
 
     constraints: Optional[Constraints] = None

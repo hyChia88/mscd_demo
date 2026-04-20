@@ -1531,9 +1531,9 @@ def _run_retrieval(
 ) -> dict | None:
     """Run the symbolic retrieval pipeline: Constraints → QueryPlanner → Neo4j."""
     try:
-        from src.v2.types import Constraints, SpatialTriplet
-        from src.v2.constraints_to_query import QueryPlanner
-        from src.v2.retrieval_backend import RetrievalBackend
+        from src.neurosym.types import Constraints, SpatialTriplet
+        from src.neurosym.constraints_to_query import QueryPlanner
+        from src.neurosym.retrieval_backend import RetrievalBackend
         import yaml
         from pathlib import Path
 

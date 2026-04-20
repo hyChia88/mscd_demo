@@ -22,8 +22,10 @@ GROUP_DISPLAY = {
     "g3_fullaug_r32": "G3 FullAug r32",
     "g4_ultimate": "G4 Ultimate",
     "g7_position_context": "G7 Position Context",
+    "g8_posctx_dim": "G8 PosCtx+Dim",
     "g6_baseline": "G6 Baseline",
     "gemini_ap": "Gemini AP",
+    "gemini_ap_v2": "Gemini AP v2",
     "gemini_unified": "Gemini Unified",
     "lora5_r16_unified": "LoRA5-r16",
     "lora5_r32_unified": "LoRA5-r32",
@@ -57,8 +59,10 @@ TRACK_B2_ORDER = [
     "g3_fullaug_r32",
     "g4_ultimate",
     "g7_position_context",
+    "g8_posctx_dim",
     "g6_baseline",
     "gemini_ap",
+    "gemini_ap_v2",
 ]
 
 AP_HELDOUT_E2E_CASES = PROJECT_ROOT / "evaluation" / "cases" / "cases_ap_heldout_e2e.jsonl"

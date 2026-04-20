@@ -2,7 +2,7 @@
 V2 Pipeline — Constraints-driven retrieval with optional thin-agent refinement.
 
 Flow:
-  case_v2 → ConditionMask → ConstraintsExtractor → QueryPlanner
+  case → ConditionMask → ConstraintsExtractor → QueryPlanner
           → RetrievalBackend → (opt. thin agent) → EvalTrace
 """
 
@@ -25,9 +25,9 @@ from .condition_mask import ConditionMask
 from .constraints_extractor_lora import LoRAConstraintsExtractor
 from .constraints_extractor_prompt_only import PromptConstraintsExtractor
 from .constraints_to_query import QueryPlanner
-from .metrics_v2 import compute_v2_metrics
+from .metrics import compute_metrics
 from .retrieval_backend import RetrievalBackend
-from .types import V2Trace
+from .types import PipelineTrace
 from common.evaluation import compute_gt_matches
 
 
@@ -100,7 +100,7 @@ def _build_scenario_input(case: Dict[str, Any], image_dir: str) -> ScenarioInput
 # main pipeline entry
 # ─────────────────────────────────────────────────────────────────────────────
 
-async def run_v2_case(
+async def run_pipeline_case(
     case: Dict[str, Any],
     condition_overrides: Dict[str, Any],
     *,
@@ -118,11 +118,11 @@ async def run_v2_case(
     image_parser: Optional[Any] = None,  # ImageParserReader instance
     lora_extractor: Optional[Any] = None,  # Pre-built LoRAConstraintsExtractor
     precomputed_constraints: Optional[Dict] = None,  # {case_id: Constraints} from Modal eval
-) -> Tuple[EvalTrace, V2Trace]:
+) -> Tuple[EvalTrace, PipelineTrace]:
     """
     Run the V2 pipeline on a single case.
 
-    Returns (EvalTrace, V2Trace) — the first is v1-compatible, the second
+    Returns (EvalTrace, PipelineTrace) — the first is v1-compatible, the second
     carries v2-only diagnostics.
     """
     t0 = time.perf_counter()
@@ -162,7 +162,7 @@ async def run_v2_case(
             masked_case, condition_overrides, image_context=image_parse_result
         )
     else:
-        extractor = PromptConstraintsExtractor(llm)
+        extractor = PromptConstraintsExtractor(llm, image_dir=image_dir)
         constraints = await extractor.extract(
             masked_case, condition_overrides, image_context=image_parse_result
         )
@@ -238,15 +238,15 @@ async def run_v2_case(
     total_ms = (time.perf_counter() - t0) * 1000
 
     # V2 API usage: 1 call for constraints extraction + optional 1 for image parsing
-    v2_api_calls = 1  # constraints extraction always uses 1 LLM call
+    api_calls = 1  # constraints extraction always uses 1 LLM call
     if image_parse_result is not None:
-        v2_api_calls += 1  # image parsing uses 1 VLM call
+        api_calls += 1  # image parsing uses 1 VLM call
 
     # Cost estimation (Gemini 2.5 Flash pricing)
     input_cost_per_call = 2.0 * 0.00001875   # ~2K input tokens
     output_cost_per_call = 0.5 * 0.000075    # ~500 output tokens
     cost_per_call = input_cost_per_call + output_cost_per_call
-    v2_api_cost = v2_api_calls * cost_per_call
+    v2_api_cost = api_calls * cost_per_call
 
     trace = EvalTrace(
         scenario_id=scenario.id,
@@ -255,7 +255,7 @@ async def run_v2_case(
         tool_steps=[],                   # v2 has no agent tool calls
         interpreter_output=interpreter_output,
         total_latency_ms=total_ms,
-        api_calls_count=v2_api_calls,
+        api_calls_count=api_calls,
         api_cost_estimate=v2_api_cost,
         pipeline_type="v2",
         guid_match=guid_match,
@@ -287,8 +287,8 @@ async def run_v2_case(
         except Exception as exc:
             print(f"⚠️  RQ2 post-processing failed: {exc}")
 
-    # ── 7. build V2Trace ───────────────────────────────────────────────────
-    v2_trace = V2Trace(
+    # ── 7. build PipelineTrace ───────────────────────────────────────────────────
+    pipeline_trace = PipelineTrace(
         constraints=constraints,
         query_plans=query_plans,
         retrieval_results=retrieval_results,
@@ -307,10 +307,10 @@ async def run_v2_case(
     # compute rerank gain if applicable
     gt_dict = case.get("ground_truth", {})
     labels = case.get("labels")
-    v2_metrics = compute_v2_metrics(v2_trace, gt_dict, labels)
-    v2_trace.rerank_gain = v2_metrics.get("rerank_gain")
+    pipeline_metrics = compute_metrics(pipeline_trace, gt_dict, labels)
+    pipeline_trace.rerank_gain = pipeline_metrics.get("rerank_gain")
 
     # Embed all V2 internals into the single EvalTrace artifact.
-    trace.internals = v2_trace.model_dump(mode="json")
+    trace.internals = pipeline_trace.model_dump(mode="json")
 
-    return trace, v2_trace
+    return trace, pipeline_trace

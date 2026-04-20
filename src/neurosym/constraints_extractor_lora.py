@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .condition_mask import ConditionMask
+from .floorplan_counter import FloorplanCounter, FloorplanCountResult, merge_position_context
 from .types import Constraints, ImageParseResult, SpatialTriplet
 from common.config import load_yaml_prompts
 
@@ -80,6 +81,7 @@ class LoRAConstraintsExtractor:
         self.model = None
         self.processor = None
         self._loaded = False
+        self.floorplan_counter = FloorplanCounter(image_dir=image_dir)
 
         if adapter_path:
             self._load_model(adapter_path)  # Raises on failure — no silent fallback
@@ -167,9 +169,10 @@ class LoRAConstraintsExtractor:
 
         # Apply condition mask (respects A1-C3 modality control)
         masked_case = ConditionMask.apply(case, condition_overrides)
+        opencv_position = self.floorplan_counter.count_from_case(masked_case)
 
         # Build inference messages (same format as training data)
-        messages = self._build_messages(masked_case)
+        messages = self._build_messages(masked_case, opencv_position)
 
         # Run VLM inference
         try:
@@ -208,23 +211,42 @@ class LoRAConstraintsExtractor:
             # Use max relation confidence, or 0.85 for attribute-only cases
             conf = max((r.confidence for r in spatial_rels), default=0.85)
 
+            final_position_context, pos_conf, pos_source = merge_position_context(
+                data.get("position_context"),
+                opencv_position,
+            )
+
             return Constraints(
                 storey_name=data.get("storey_name"),
                 ifc_class=data.get("ifc_class"),
                 space_name=data.get("space_name"),
                 target_name_keyword=data.get("target_name_keyword"),
-                position_context=data.get("position_context"),
+                position_context=final_position_context,
+                position_context_confidence=pos_conf,
+                position_context_source=pos_source,
                 spatial_relations=spatial_rels,
                 confidence=conf,
                 source="lora",
             )
 
         print(f"  [LoRA] JSON parse failed. Raw output: {output_text[:200]}")
+        if opencv_position is not None:
+            return Constraints(
+                position_context=opencv_position.position_context,
+                position_context_confidence=opencv_position.confidence,
+                position_context_source="opencv",
+                confidence=max(0.3, opencv_position.confidence),
+                source="lora_parse_failed+opencv",
+            )
         return Constraints(confidence=0.0, source="lora_parse_failed")
 
     # ── Internal methods ──────────────────────────────────────────────────
 
-    def _build_messages(self, masked_case: Dict[str, Any]) -> list:
+    def _build_messages(
+        self,
+        masked_case: Dict[str, Any],
+        opencv_position: Optional[FloorplanCountResult] = None,
+    ) -> list:
         """
         Build ChatML messages for VLM inference.
 
@@ -247,7 +269,7 @@ class LoRAConstraintsExtractor:
             })
 
         # Build text (same format as training)
-        user_text = self._build_user_text(masked_case)
+        user_text = self._build_user_text(masked_case, opencv_position)
         user_content.append({
             "type": "text",
             "text": user_text,
@@ -258,7 +280,11 @@ class LoRAConstraintsExtractor:
             {"role": "user", "content": user_content},
         ]
 
-    def _build_user_text(self, case: Dict[str, Any]) -> str:
+    def _build_user_text(
+        self,
+        case: Dict[str, Any],
+        opencv_position: Optional[FloorplanCountResult] = None,
+    ) -> str:
         """
         Build user text from case inputs.
 
@@ -291,6 +317,17 @@ class LoRAConstraintsExtractor:
         query = case.get("query_text", "")
         if query:
             parts.append(f"\n[Query] {query}")
+
+        if opencv_position is not None:
+            parts.append("\n[OpenCV Counting]")
+            parts.append(f"  position_context: {opencv_position.position_context}")
+            parts.append(f"  position: {opencv_position.position}")
+            parts.append(f"  total: {opencv_position.total}")
+            parts.append(f"  confidence: {opencv_position.confidence:.2f}")
+            if opencv_position.mode == "patch_only":
+                parts.append("  note: patch-only fallback estimate; use cautiously.")
+            else:
+                parts.append("  note: derived from the floorplan patch matched against a larger floorplan reference.")
 
         parts.append("\nExtract the search constraints as JSON.")
 

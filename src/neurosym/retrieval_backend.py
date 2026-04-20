@@ -529,12 +529,6 @@ class RetrievalBackend:
             keyword = params.get("name_keyword", "")
             return self.engine.query_elements_by_name_keyword(keyword)
 
-        elif strategy == "neighbor+type":
-            # Topological adjacency via Phase 1a method (Neo4j only)
-            neighbor_type = params.get("neighbor_type", "")
-            target_type = params.get("type", "")
-            return self.engine.query_elements_by_neighbor(target_type, neighbor_type)
-
         # ── Original strategies ─────────────────────────────────────────────
         elif strategy == "storey+type":
             # Use IFCEngine's query_elements_by_level with type filter

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perception vs. Determinism Landscape (Print Version)</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #ffffff;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        /* Increased size for better print resolution and text spacing */
+        .matrix-container {
+            position: relative;
+            width: 950px;
+            height: 950px;
+            background-color: white;
+            border: 2px solid #333;
+            margin: 40px;
+        }
+        /* Axes */
+        .axis-x {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: #333;
+            z-index: 1;
+        }
+        .axis-y {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 2px;
+            height: 100%;
+            background-color: #333;
+            z-index: 1;
+        }
+        /* Axis Titles */
+        .axis-title-x { position: absolute; bottom: -40px; width: 100%; text-align: center; font-weight: bold; font-size: 18px;}
+        .axis-title-y { position: absolute; top: 50%; width: 100%; left: -500px; text-align: center; transform: translateY(-50%) rotate(-90deg); font-weight: bold; font-size: 18px; white-space: nowrap; }
+
+        /* Quadrant Backgrounds */
+        .quadrant {
+            position: absolute;
+            width: 50%;
+            height: 50%;
+            font-size: 22px;
+            font-weight: bold;
+            color: rgba(95, 91, 91, 0.372); /* Slightly darkened for better print visibility */
+            box-sizing: border-box;
+            z-index: 0;
+        }
+        .q1 { bottom: 0; left: 0; background-color: #fcfcfc; }
+        .q2 { top: 0; left: 0; background-color: #ffffff; }
+        .q3 { bottom: 0; right: 0; background-color: #ffffff; }
+        .q4 { top: 0; right: 0; background-color: #f4fdf4; border-top: 4px solid #28a745; border-right: 4px solid #28a745;}
+
+        /* Pinning text to the corners */
+        .quadrant-text { 
+            position: absolute;
+            max-width: 350px; 
+            padding: 25px;
+        }
+        .q1 .quadrant-text { bottom: 0; left: 0; text-align: left; }
+        .q2 .quadrant-text { top: 0; left: 0; text-align: left; }
+        .q3 .quadrant-text { bottom: 0; right: 0; text-align: right; }
+        .q4 .quadrant-text { top: 0; right: 0; text-align: right; }
+
+        /* Data Points */
+        .point {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            background-color: #0056b3;
+            border-radius: 50%;
+            transform: translate(-50%, 50%);
+            z-index: 10;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        .point.thesis {
+            background-color: #28a745;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #ffc107;
+        }
+
+        /* Static Text Labels */
+        .static-label {
+            position: absolute;
+            width: 220px;
+            background-color: rgba(255, 255, 255, 0.95);
+            color: #222;
+            border: 1px solid #aaa;
+            text-align: left;
+            border-radius: 4px;
+            padding: 8px 10px;
+            font-size: 12px;
+            line-height: 1.4;
+            z-index: 5;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
+        }
+        .static-label strong {
+            display: block;
+            margin-bottom: 4px;
+            color: #004085;
+            font-size: 13px;
+        }
+        .thesis-label {
+            border: 2px solid #28a745;
+            background-color: #f4fdf4;
+            width: 240px;
+        }
+        .thesis-label strong {
+            color: #1e7e34;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="matrix-container">
+        <div class="axis-title-x">Perception (Low to High) &rarr;</div>
+        <div class="axis-title-y">Determinism (Low to High) &rarr;</div>
+
+        <div class="quadrant q1"><div class="quadrant-text">Fragmented Manual Workflows</div></div>
+        <div class="quadrant q2"><div class="quadrant-text">Digital Platforms & Compliance</div></div>
+        <div class="quadrant q3"><div class="quadrant-text">Generic AI & Generation</div></div>
+        <div class="quadrant q4"><div class="quadrant-text">AEC Interpreter Layer (The Void)</div></div>
+
+        <div class="axis-x"></div>
+        <div class="axis-y"></div>
+
+        <div class="point" style="bottom: 20%; left: 20%;">
+            <div class="static-label" style="left: 15px; top: -20px;">
+                <strong>Gao et al. (2024)</strong>
+                RFID/BIM integration. Captures location pings but lacks semantic context and graph integration.
+            </div>
+        </div>
+        <div class="point" style="bottom: 32%; left: 35%;">
+            <div class="static-label" style="left: 15px; top: 10px;">
+                <strong>Tan et al. (2020)</strong>
+                LiDAR point clouds. Captures raw geometry but requires manual semantic linking.
+            </div>
+        </div>
+
+        <div class="point" style="bottom: 88%; left: 15%;">
+            <div class="static-label" style="left: 15px; top: -10px;">
+                <strong>BCA DfMA Essential Guide (2016)</strong>
+                Strict regulatory standards. Demands perfect schema-compliant inputs.
+            </div>
+        </div>
+        <div class="point" style="bottom: 75%; left: 10%;">
+            <div class="static-label" style="left: 15px; top: 10px;">
+                <strong>Chatsuwan et al. (2025)</strong>
+                OpenBIM interoperability. High determinism but relies entirely on human translation.
+            </div>
+        </div>
+        <div class="point" style="bottom: 65%; left: 30%;">
+            <div class="static-label" style="left: 15px; top: -10px;">
+                <strong>Lilis et al. (2025)</strong>
+                Geometric relation checking. Deterministic but operates on pre-structured inputs.
+            </div>
+        </div>
+
+        <div class="point" style="bottom: 35%; left: 85%;">
+            <div class="static-label" style="right: 15px; top: -60px;">
+                <strong>Du et al. (2024)</strong>
+                Text2BIM. Generates BIM from text. High perception but hallucinates strict topology.
+            </div>
+        </div>
+        <div class="point" style="bottom: 20%; left: 92%;">
+            <div class="static-label" style="right: 15px; top: 10px;">
+                <strong>Xiao et al. (2025)</strong>
+                Visual grounding survey. VLMs excel at pixels but are blind to allocentric graphs.
+            </div>
+        </div>
+        <div class="point" style="bottom: 45%; left: 65%;">
+            <div class="static-label" style="right: 15px; top: -50px;">
+                <strong>Chua & Cheah (2024)</strong>
+                Deep learning progress monitoring. Perceives site photos but outputs broad statistics.
+            </div>
+        </div>
+
+        <div class="point" style="bottom: 65%; left: 65%;">
+            <div class="static-label" style="left: 15px; top: -20px;">
+                <strong>Iranmanesh et al. (2025)</strong>
+                Graph-RAG. Approaches the void but relies on linearizing IFC into text tokens.
+            </div>
+        </div>
+        <div class="point" style="bottom: 80%; left: 80%;">
+            <div class="static-label" style="right: 15px; top: 15px;">
+                <strong>Garcez et al. / Mao et al.</strong>
+                Neuro-Symbolic AI. Proves combining perception with symbolic logic overcomes hallucination.
+            </div>
+        </div>
+        
+        <div class="point thesis" style="bottom: 92%; left: 92%;">
+            <div class="static-label thesis-label" style="right: 25px; top: 20px;">
+                <strong>Proposed Architecture (Thesis)</strong>
+                The AEC Interpreter. Fine-tuned VLMs for perceptual extraction + Neo4j planner for deterministic IFC querying.
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

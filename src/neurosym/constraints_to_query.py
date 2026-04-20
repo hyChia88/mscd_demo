@@ -89,20 +89,6 @@ class QueryPlanner:
                 LIMIT 20
             """
         },
-        {
-            "priority": 3,
-            "strategy": "neighbor+type",
-            "requires": ["neighbor_type", "ifc_class"],
-            "description": "Topological: element adjacent to known neighbor type — Neo4j only (~3-8 candidates)",
-            "template_memory": "filter_by_neighbor_type",
-            "template_cypher": """
-                MATCH (e:IFCElement)-[:HAS_OPENING|FILLS]-(nb:IFCElement)
-                WHERE (e.ifc_type = $type OR e.ifc_type STARTS WITH $type)
-                  AND nb.ifc_type = $neighbor_type
-                  AND e.ifc_model = $model
-                RETURN DISTINCT e.guid as guid, e.name as name, e.ifc_type as type
-            """
-        },
         # ── Original rules (renumbered 1-5 → 4-8) ───────────────────────────
         {
             "priority": 4,
@@ -143,20 +129,6 @@ class QueryPlanner:
                 MATCH (e:IFCElement)
                 WHERE (e.ifc_type = $type OR e.ifc_type STARTS WITH $type)
                   AND e.ifc_model = $model
-                RETURN e.guid as guid, e.name as name, e.ifc_type as type
-            """
-        },
-        {
-            "priority": 7,
-            "strategy": "keyword",
-            "requires": ["near_keywords"],
-            "description": "Text search using spatial keywords (~100 candidates)",
-            "template_memory": "search_by_keywords",
-            "template_cypher": """
-                MATCH (e:IFCElement)
-                WHERE e.ifc_model = $model
-                  AND (toLower(e.name) CONTAINS toLower($keyword)
-                       OR toLower(e.description) CONTAINS toLower($keyword))
                 RETURN e.guid as guid, e.name as name, e.ifc_type as type
             """
         },
@@ -278,24 +250,12 @@ class QueryPlanner:
         if "ifc_class" in required_fields:
             params["type"] = constraints.ifc_class
 
-        if "near_keywords" in required_fields and constraints.near_keywords:
-            # Use first keyword for now (can be extended to multiple)
-            params["keyword"] = constraints.near_keywords[0]
-            params["keywords"] = constraints.near_keywords
-
-        if "relations" in required_fields and constraints.relations:
-            params["relations"] = constraints.relations
-
         # Phase 4 new field mappings
         if "space_name" in required_fields:
             params["space_name"] = constraints.space_name
 
         if "target_name_keyword" in required_fields:
             params["name_keyword"] = constraints.target_name_keyword
-
-        if "neighbor_type" in required_fields:
-            params["neighbor_type"] = constraints.neighbor_type
-            params["type"] = constraints.ifc_class  # neighbor query also needs ifc_class
 
         # Phase 5: spatial_triplet — extract predicate data from the first triplet
         if "spatial_relations" in required_fields and constraints.spatial_relations:
@@ -326,8 +286,19 @@ class QueryPlanner:
 
         if constraints.position_context:
             params["position_context"] = constraints.position_context
+            if constraints.position_context_confidence is not None:
+                params["position_context_confidence"] = constraints.position_context_confidence
+            if constraints.position_context_source:
+                params["position_context_source"] = constraints.position_context_source
             parsed_position = self._parse_position_context(constraints.position_context)
-            if parsed_position:
+            should_hard_filter = (
+                parsed_position
+                and (
+                    constraints.position_context_confidence is None
+                    or constraints.position_context_confidence >= 0.8
+                )
+            )
+            if should_hard_filter:
                 params.update(parsed_position)
 
         if params.get("position_index") is not None:

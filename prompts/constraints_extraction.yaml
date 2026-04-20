@@ -1,6 +1,6 @@
 # Constraints Extraction Prompts for V2 Pipeline
-# Used by: src/v2/constraints_extractor_lora.py
-#          src/v2/constraints_extractor_prompt_only.py
+# Used by: src/neurosym/constraints_extractor_lora.py
+#          src/neurosym/constraints_extractor_prompt_only.py
 #          training/eval.py (Modal GPU inference)
 
 # =============================================================================

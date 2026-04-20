@@ -126,6 +126,15 @@ If you want to run Modal jobs, also make sure Modal is already set up on your ma
 ```bash
 ./script/neo4j_init.sh
 ```
+To run at neo4j frontend:
+1. If the browser isn't accessible from WSL2, run this in PowerShell/Windows browser instead — WSL2 localhost is forwarded automatically on recent Windows 11. If it doesn't work:
+```
+# Get WSL2 IP
+hostname -I | awk '{print $1}'
+Then open http://<that-ip>:7474 in your Windows browser.
+```
+2. username: neo4j, password: password (default)
+3. connects to bolt://localhost:7687
 
 ### 4. Run the Demo
 

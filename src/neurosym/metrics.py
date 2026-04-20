@@ -6,11 +6,11 @@ field-level accuracy, and CLIP reranking effectiveness.
 """
 
 from typing import List, Dict, Any, Optional, Tuple
-from .types import Constraints, V2Trace, RetrievalResult
+from .types import Constraints, PipelineTrace, RetrievalResult
 
 
-def compute_v2_metrics(
-    v2_trace: V2Trace,
+def compute_metrics(
+    trace: PipelineTrace,
     ground_truth: Optional[Dict[str, Any]] = None,
     labels: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
@@ -18,7 +18,7 @@ def compute_v2_metrics(
     Compute V2-specific diagnostic metrics.
 
     Args:
-        v2_trace: V2Trace with constraints and retrieval results
+        trace: PipelineTrace with constraints and retrieval results
         ground_truth: Ground truth dict from case
         labels: Label constraints from case["labels"]["constraints"]
 
@@ -28,12 +28,12 @@ def compute_v2_metrics(
     metrics = {}
 
     # 1. Constraints parse success
-    metrics["constraints_parsed"] = v2_trace.constraints_parse_success
+    metrics["constraints_parsed"] = trace.constraints_parse_success
 
     # 2. Field-level F1 (only if labels available)
-    if labels and v2_trace.constraints and ground_truth:
+    if labels and trace.constraints and ground_truth:
         metrics["constraints_field_em_f1"] = compute_constraints_field_f1(
-            v2_trace.constraints,
+            trace.constraints,
             labels.get("constraints", {}),
             ground_truth
         )
@@ -41,18 +41,18 @@ def compute_v2_metrics(
         metrics["constraints_field_em_f1"] = None
 
     # 3. Rerank gain (only if reranking was applied)
-    if v2_trace.retrieval_results and ground_truth:
+    if trace.retrieval_results and ground_truth:
         metrics["rerank_gain"] = compute_rerank_gain(
-            v2_trace.retrieval_results,
+            trace.retrieval_results,
             ground_truth.get("target_guid", "")
         )
     else:
         metrics["rerank_gain"] = None
 
     # 4. Timing breakdowns
-    metrics["constraints_extraction_ms"] = v2_trace.constraints_extraction_ms
-    metrics["query_planning_ms"] = v2_trace.query_planning_ms
-    metrics["retrieval_ms"] = v2_trace.retrieval_ms
+    metrics["constraints_extraction_ms"] = trace.constraints_extraction_ms
+    metrics["query_planning_ms"] = trace.query_planning_ms
+    metrics["retrieval_ms"] = trace.retrieval_ms
 
     return metrics
 
@@ -98,19 +98,6 @@ def compute_constraints_field_f1(
     else:
         if label_ifc_class:
             fn += 1
-
-    # 3. Near keywords (set-based F1)
-    label_keywords = set(label.get("near_keywords", []))
-    predicted_keywords = set(predicted.near_keywords)
-
-    if predicted_keywords:
-        keyword_tp = len(predicted_keywords & label_keywords)
-        keyword_fp = len(predicted_keywords - label_keywords)
-        tp += keyword_tp
-        fp += keyword_fp
-    else:
-        if label_keywords:
-            fn += len(label_keywords)
 
     # Compute F1
     precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
@@ -171,22 +158,22 @@ def compute_rerank_gain(
     return gain
 
 
-def compute_v2_summary(
-    traces_with_v2: List[Tuple[Any, V2Trace]]
+def compute_summary(
+    trace_pairs: List[Tuple[Any, PipelineTrace]]
 ) -> Dict[str, Any]:
     """
     Aggregate v2 metrics across all traces.
 
     Args:
-        traces_with_v2: List of (EvalTrace, V2Trace) tuples
+        trace_pairs: List of (EvalTrace, PipelineTrace) tuples
 
     Returns:
         Dict with aggregated v2 metrics
     """
-    if not traces_with_v2:
+    if not trace_pairs:
         return {}
 
-    total_traces = len(traces_with_v2)
+    total_traces = len(trace_pairs)
 
     # Counters
     parsed_count = 0
@@ -198,23 +185,23 @@ def compute_v2_summary(
     planning_times = []
     retrieval_times = []
 
-    for eval_trace, v2_trace in traces_with_v2:
+    for eval_trace, trace in trace_pairs:
         # Parse success
-        if v2_trace.constraints_parse_success:
+        if trace.constraints_parse_success:
             parsed_count += 1
 
         # Field F1 (if available)
-        # Note: This requires access to labels, which may not be in v2_trace
+        # Note: This requires access to labels, which may not be in trace
         # We'll skip aggregation here and compute in the runner
 
         # Rerank gain
-        if v2_trace.rerank_gain is not None:
-            rerank_gains.append(v2_trace.rerank_gain)
+        if trace.rerank_gain is not None:
+            rerank_gains.append(trace.rerank_gain)
 
         # Timing
-        extraction_times.append(v2_trace.constraints_extraction_ms)
-        planning_times.append(v2_trace.query_planning_ms)
-        retrieval_times.append(v2_trace.retrieval_ms)
+        extraction_times.append(trace.constraints_extraction_ms)
+        planning_times.append(trace.query_planning_ms)
+        retrieval_times.append(trace.retrieval_ms)
 
     # Compute aggregates
     summary = {

@@ -63,7 +63,6 @@ def _render_v2(
                 st.markdown("**Semantic**")
                 st.markdown(f"- IFC class: `{c.get('ifc_class') or '—'}`")
                 st.markdown(f"- Name keyword: `{c.get('target_name_keyword') or '—'}`")
-                st.markdown(f"- Neighbor type: `{c.get('neighbor_type') or '—'}`")
 
             conf = c.get("confidence", 0)
             src  = c.get("source", "?")

@@ -23,6 +23,7 @@ import copy
 import json
 import os
 import re
+import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -33,6 +34,11 @@ import modal
 
 PROJECT_ROOT  = Path(__file__).parent.parent
 DATA_ROOT     = PROJECT_ROOT.parent / "data_curation"
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.neurosym.floorplan_counter import FloorplanCounter, FloorplanCountResult, merge_position_context
+
 PROFILES_YAML = PROJECT_ROOT / "profiles.yaml"
 PROMPTS_YAML  = PROJECT_ROOT / "prompts" / "constraints_extraction.yaml"
 COND_MASK_PY  = PROJECT_ROOT / "src" / "v2" / "condition_mask.py"
@@ -250,7 +256,7 @@ def _remap_to_modal(path: str, case_id: str = "") -> str:
 
 # ── Build inference messages (mirrors constraints_extractor_lora.py) ─────────
 
-def _build_user_text(case: dict) -> str:
+def _build_user_text(case: dict, opencv_position: Optional[FloorplanCountResult] = None) -> str:
     """Build user text — must match 7_prepare_lora_data.py exactly."""
     parts = []
     ctx = case.get("inputs", {}).get("project_context", {})
@@ -275,11 +281,26 @@ def _build_user_text(case: dict) -> str:
     if query:
         parts.append(f"\n[Query] {query}")
 
+    if opencv_position is not None:
+        parts.append("\n[OpenCV Counting]")
+        parts.append(f"  position_context: {opencv_position.position_context}")
+        parts.append(f"  position: {opencv_position.position}")
+        parts.append(f"  total: {opencv_position.total}")
+        parts.append(f"  confidence: {opencv_position.confidence:.2f}")
+        if opencv_position.mode == "patch_only":
+            parts.append("  note: patch-only fallback estimate; use cautiously.")
+        else:
+            parts.append("  note: derived from the floorplan patch matched against a larger floorplan reference.")
+
     parts.append("\nExtract the search constraints as JSON.")
     return "\n".join(parts)
 
 
-def _build_messages(case: dict, system_prompt: str) -> list:
+def _build_messages(
+    case: dict,
+    system_prompt: str,
+    opencv_position: Optional[FloorplanCountResult] = None,
+) -> list:
     """Build ChatML messages for VLM inference."""
     user_content = []
     inputs = case.get("inputs", {})
@@ -301,7 +322,7 @@ def _build_messages(case: dict, system_prompt: str) -> list:
             user_content.append({"type": "image", "image": f"file://{modal_path}"})
 
     # Text prompt
-    user_content.append({"type": "text", "text": _build_user_text(case)})
+    user_content.append({"type": "text", "text": _build_user_text(case, opencv_position)})
 
     return [
         {"role": "system", "content": system_prompt},
@@ -470,6 +491,7 @@ def run_eval(
     results = []
     n_parsed = 0
     total_latency = 0.0
+    floorplan_counter = FloorplanCounter(image_dir="/data/images")
 
     if condition_override:
         print(f"Condition override: ALL cases will use condition={condition_override}")
@@ -483,8 +505,15 @@ def run_eval(
         # Apply condition mask (same as local pipeline)
         masked_case = apply_condition_mask(case, condition, condition_configs, ConditionMask) if "inputs" in case else case
 
+        opencv_position = None
+        if "inputs" in masked_case:
+            opencv_position = floorplan_counter.count_from_case(masked_case)
+
         # Build messages
-        messages = _build_messages_for_eval_case(masked_case, system_prompt)
+        if "messages" in masked_case:
+            messages = _build_messages_for_eval_case(masked_case, system_prompt)
+        else:
+            messages = _build_messages(masked_case, system_prompt, opencv_position)
 
         # Count images for logging
         n_images = sum(
@@ -551,6 +580,11 @@ def run_eval(
 
         total_latency += latency_ms
 
+        final_position_context, pos_conf, pos_source = merge_position_context(
+            parsed.get("position_context"),
+            opencv_position,
+        )
+
         result = {
             "case_id": case_id,
             "condition": condition,
@@ -563,6 +597,9 @@ def run_eval(
                 "target_name_keyword": parsed.get("target_name_keyword"),
                 "neighbor_type": parsed.get("neighbor_type"),
                 "spatial_relations": parsed.get("spatial_relations", []),
+                "position_context": final_position_context,
+                "position_context_confidence": pos_conf,
+                "position_context_source": pos_source,
             },
             "raw_output": raw_output[:500],
             "latency_ms": round(latency_ms, 1),

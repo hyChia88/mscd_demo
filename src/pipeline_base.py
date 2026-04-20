@@ -66,8 +66,8 @@ class V1Pipeline(PipelineBase):
         condition_overrides: Dict[str, Any],
         run_id: str,
     ) -> EvalTrace:
-        from src.v2.condition_mask import ConditionMask
-        from src.v2.pipeline import _build_scenario_input
+        from src.neurosym.condition_mask import ConditionMask
+        from src.neurosym.pipeline import _build_scenario_input
 
         # Apply condition mask (even v1 supports modality control)
         masked = ConditionMask.apply(case, condition_overrides)
@@ -96,7 +96,7 @@ class V1Pipeline(PipelineBase):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class V2Pipeline(PipelineBase):
-    """Constraints-driven pipeline (wraps run_v2_case)."""
+    """Constraints-driven pipeline (wraps run_pipeline_case)."""
 
     def __init__(
         self,
@@ -125,7 +125,7 @@ class V2Pipeline(PipelineBase):
         self.precomputed_constraints = precomputed_constraints
 
         # Build retrieval backend from profile
-        from src.v2.retrieval_backend import RetrievalBackend
+        from src.neurosym.retrieval_backend import RetrievalBackend
 
         self.retrieval_backend = RetrievalBackend(
             engine=engine,
@@ -144,7 +144,7 @@ class V2Pipeline(PipelineBase):
         # Skip model loading when precomputed constraints are available
         self.lora_extractor = None
         if profile.get("constraints_model") == "lora" and adapter_path and not precomputed_constraints:
-            from src.v2.constraints_extractor_lora import LoRAConstraintsExtractor
+            from src.neurosym.constraints_extractor_lora import LoRAConstraintsExtractor
 
             image_dir = config.get("ground_truth", {}).get("image_dir", "")
             self.lora_extractor = LoRAConstraintsExtractor(
@@ -159,11 +159,11 @@ class V2Pipeline(PipelineBase):
         condition_overrides: Dict[str, Any],
         run_id: str,
     ) -> EvalTrace:
-        from src.v2.pipeline import run_v2_case
+        from src.neurosym.pipeline import run_pipeline_case
 
         image_dir = self.config.get("ground_truth", {}).get("image_dir", "")
 
-        trace, _ = await run_v2_case(
+        trace, _ = await run_pipeline_case(
             case=case,
             condition_overrides=condition_overrides,
             constraints_model=self.profile.get("constraints_model", "prompt"),
