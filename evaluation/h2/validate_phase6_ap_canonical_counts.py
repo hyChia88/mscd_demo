@@ -156,6 +156,7 @@ def _wall_endpoints_world(host_guid: str) -> tuple[tuple[float, float], tuple[fl
         return None
 
     try:
+        import ifcopenshell.util.placement as _placement
         shape = ifcopenshell.geom.create_shape(settings, wall)
         verts = np.array(shape.geometry.verts).reshape(-1, 3)[:, :2]
         if len(verts) < 2:
@@ -163,14 +164,26 @@ def _wall_endpoints_world(host_guid: str) -> tuple[tuple[float, float], tuple[fl
             return None
         center = verts.mean(axis=0)
         centered = verts - center
-        # Principal axis via eigendecomposition of 2D covariance
+        # Principal axis via eigendecomposition of 2D covariance (undirected).
         cov = (centered.T @ centered) / max(1, len(verts))
-        eigvals, eigvecs = np.linalg.eigh(cov)
+        _eigvals, eigvecs = np.linalg.eigh(cov)
         axis = eigvecs[:, -1]  # largest eigenvalue = longest direction
+
+        # Align to IFC's ObjectPlacement local-X so endpoint ordering matches
+        # the teacher's convention (teacher's position_index sorts by projection
+        # along the wall's IFC local X-axis; see 6_assemble_lora6.py:310-358).
+        try:
+            mat = _placement.get_local_placement(wall.ObjectPlacement)
+            local_x_xy = np.array([mat[0][0], mat[1][0]])  # wall's local +X in world xy
+            if np.dot(axis, local_x_xy) < 0:
+                axis = -axis
+        except Exception:
+            pass  # leave PCA direction as-is; counter's ordering may invert
+
         projs = centered @ axis
         lo, hi = float(projs.min()), float(projs.max())
-        a = center + lo * axis
-        b = center + hi * axis
+        a = center + lo * axis  # IFC-origin end
+        b = center + hi * axis  # IFC-far end
         endpoints = ((float(a[0]), float(a[1])), (float(b[0]), float(b[1])))
         _WALL_ENDPOINTS_CACHE[host_guid] = endpoints
         return endpoints

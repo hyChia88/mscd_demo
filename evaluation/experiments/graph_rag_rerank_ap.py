@@ -33,8 +33,12 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 REPO_ROOT = PROJECT_ROOT.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+SRC_ROOT = PROJECT_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
 from evaluation.analysis.group4_common import topology_family, universe_key
+from common.config import load_yaml_prompts
 
 try:
     from dotenv import load_dotenv  # type: ignore
@@ -46,14 +50,15 @@ DEFAULT_TRACE_JSONL = (
     PROJECT_ROOT
     / "output"
     / "lora6_v2_ap_20260331"
-    / "ap_e2e_phase5_g7"
+    / "ap_e2e_phase5_g8"
     / "g7_position_context"
-    / "traces_20260404_132823_v2_lora_p0_union_p1.jsonl"
+    / "traces_20260407_195114_v2_lora_p0_union_p1.jsonl"
 )
 DEFAULT_CASES_JSONL = PROJECT_ROOT / "evaluation" / "cases" / "cases_ap_heldout_e2e.jsonl"
 DEFAULT_CONFIG = PROJECT_ROOT / "config.yaml"
 DEFAULT_MODEL = "gemini-2.5-flash"
 DEFAULT_TOP_K = 10
+PROMPTS_PATH = "prompts/graphrag_rerank.yaml"
 
 MODE_BASE_LABELS = {
     "g7_pipeline": "Full-topology (G7)",
@@ -69,6 +74,8 @@ REFERENCE_ROWS = [
     {"system": "P1-only upper bound", "top10": 16.7, "top1": 0.0, "mrr10": 0.0392},
     {"system": "Oracle", "top10": 40.0, "top1": 5.0, "mrr10": 0.1279},
 ]
+
+RERANK_PROMPTS = load_yaml_prompts(PROMPTS_PATH)
 
 
 def _date_tag() -> str:
@@ -217,11 +224,7 @@ def _init_gemini(model_name: str) -> Any:
     genai.configure(api_key=api_key)
     return genai.GenerativeModel(
         model_name=model_name,
-        system_instruction=(
-            "You are a careful BIM graph reranker. "
-            "Use the site evidence and candidate graph fingerprints to rank candidates. "
-            "Return only the ordered candidate letters from best to worst."
-        ),
+        system_instruction=RERANK_PROMPTS.get("system_instruction", ""),
         generation_config=genai.GenerationConfig(
             temperature=0.0,
             max_output_tokens=64,
@@ -512,19 +515,76 @@ def _format_candidate_description(letter: str, ctx: dict, fallback: dict) -> str
     return "; ".join(x for x in fields if x)
 
 
-def _build_prompt(case: dict, descriptions: Sequence[str], letters: Sequence[str]) -> str:
+def _relation_hint_text(constraints: dict) -> str:
+    relations = list(constraints.get("spatial_relations") or [])
+    if not relations:
+        return "none"
+    parts: List[str] = []
+    for rel in relations[:3]:
+        predicate = str(rel.get("predicate") or "?")
+        object_type = str(rel.get("object_type") or "?")
+        extra = []
+        if rel.get("direction"):
+            extra.append(f"direction={rel['direction']}")
+        if rel.get("object_subtype"):
+            extra.append(f"subtype={rel['object_subtype']}")
+        if rel.get("object_material"):
+            extra.append(f"material={rel['object_material']}")
+        suffix = f" ({', '.join(extra)})" if extra else ""
+        parts.append(f"{predicate}->{object_type}{suffix}")
+    return "; ".join(parts)
+
+
+def _structured_evidence(case: dict, constraints: Optional[dict]) -> str:
+    constraints = constraints or {}
+    lines = [
+        f"- query_text: {case.get('query_text') or _flatten_chat(case.get('inputs') or {}) or 'N/A'}",
+        f"- extracted_storey: {constraints.get('storey_name') or 'N/A'}",
+        f"- extracted_ifc_class: {constraints.get('ifc_class') or 'N/A'}",
+        f"- position_context: {constraints.get('position_context') or 'N/A'}",
+        f"- spatial_relations: {_relation_hint_text(constraints)}",
+    ]
+    return "\n".join(lines)
+
+
+def _build_prompt(
+    case: dict,
+    descriptions: Sequence[str],
+    letters: Sequence[str],
+    *,
+    prompt_mode: str,
+    constraints: Optional[dict] = None,
+    cot_reasoning: Optional[str] = None,
+) -> str:
     query_text = case.get("query_text") or _flatten_chat(case.get("inputs") or {})
     example = " ".join(letters[: min(len(letters), 8)])
-    return (
-        "Match the construction-site evidence to the best BIM candidate.\n\n"
-        "Use the site photo, floorplan patch, and query text. "
-        "Prefer candidates whose type, storey, host wall, slot position, and left/right neighbors best match the evidence.\n\n"
-        f"Query:\n{query_text}\n\n"
-        "Candidates:\n"
-        + "\n".join(descriptions)
-        + "\n\nReturn only the ranked candidate letters from best to worst, separated by spaces.\n"
-        f"Example: {example}\n"
-        "Do not return JSON. Do not explain."
+    evidence_block = _structured_evidence(case, constraints)
+    candidate_block = "\n".join(descriptions)
+
+    if prompt_mode == "single_shot":
+        return RERANK_PROMPTS.get("single_shot_user", "").format(
+            evidence_block=evidence_block,
+            query_text=query_text,
+            candidate_block=candidate_block,
+            example=example,
+        )
+
+    if prompt_mode != "cot":
+        raise ValueError(f"Unsupported prompt_mode: {prompt_mode}")
+
+    if cot_reasoning is None:
+        return RERANK_PROMPTS.get("cot_reasoning_user", "").format(
+            evidence_block=evidence_block,
+            query_text=query_text,
+            candidate_block=candidate_block,
+        )
+
+    return RERANK_PROMPTS.get("cot_rank_user", "").format(
+        evidence_block=evidence_block,
+        query_text=query_text,
+        candidate_block=candidate_block,
+        cot_reasoning=cot_reasoning.strip(),
+        example=example,
     )
 
 
@@ -666,6 +726,7 @@ def _run_mode(
     sleep_seconds: float,
     skip_gemini: bool,
     limit: int,
+    prompt_mode: str,
 ) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     rows = list(trace_rows[:limit] if limit > 0 else trace_rows)
@@ -712,20 +773,15 @@ def _run_mode(
             if path is not None
         ]
         floorplan_path = _resolve_asset_path((case.get("inputs") or {}).get("floorplan_patch"))
-        prompt_text = _build_prompt(
-            {
-                "query_text": query_text,
-                "inputs": case.get("inputs") or {},
-            },
-            descriptions,
-            letters,
-        )
+        trace_constraints = _trace_constraints(trace)
 
         raw_output = ""
+        prompt_text = ""
         rerank_failed = False
         reason = ""
         winner = ""
         ordered_ids: List[str] = []
+        cot_reasoning = ""
 
         if skip_gemini:
             ordered_ids = list(letters)
@@ -734,6 +790,40 @@ def _run_mode(
             winner = ordered_ids[0] if ordered_ids else ""
         else:
             try:
+                if prompt_mode == "cot":
+                    cot_prompt = _build_prompt(
+                        {
+                            "query_text": query_text,
+                            "inputs": case.get("inputs") or {},
+                        },
+                        descriptions,
+                        letters,
+                        prompt_mode=prompt_mode,
+                        constraints=trace_constraints,
+                    )
+                    cot_reasoning = _call_gemini(gemini_model, cot_prompt, input_images, floorplan_path)
+                    prompt_text = _build_prompt(
+                        {
+                            "query_text": query_text,
+                            "inputs": case.get("inputs") or {},
+                        },
+                        descriptions,
+                        letters,
+                        prompt_mode=prompt_mode,
+                        constraints=trace_constraints,
+                        cot_reasoning=cot_reasoning,
+                    )
+                else:
+                    prompt_text = _build_prompt(
+                        {
+                            "query_text": query_text,
+                            "inputs": case.get("inputs") or {},
+                        },
+                        descriptions,
+                        letters,
+                        prompt_mode=prompt_mode,
+                        constraints=trace_constraints,
+                    )
                 raw_output = _call_gemini(gemini_model, prompt_text, input_images, floorplan_path)
                 ordered_ids, winner, reason = _parse_rerank_response(raw_output, letters)
                 if not ordered_ids:
@@ -755,6 +845,7 @@ def _run_mode(
         out.append(
             {
                 "mode": mode,
+                "prompt_mode": prompt_mode,
                 "case_id": case_id,
                 "family": family,
                 "universe": universe,
@@ -776,11 +867,13 @@ def _run_mode(
                 "topk_guids": topk_guids,
                 "reranked_topk_guids": reranked_topk,
                 "query_text": query_text,
+                "cot_reasoning": cot_reasoning,
+                "prompt_text": prompt_text,
                 "raw_output": raw_output,
             }
         )
         print(
-            f"[{mode} {idx:02d}/{len(rows)}] {case_id} "
+            f"[{mode}/{prompt_mode} {idx:02d}/{len(rows)}] {case_id} "
             f"base={base_rank:>3} rerank={reranked_rank:>3} pool={pool_size:>3} "
             f"top1={reranked_rank == 1}"
         )
@@ -792,6 +885,7 @@ def _build_summary(rows: Sequence[Dict[str, Any]], top_k: int) -> Dict[str, Any]
     summary: Dict[str, Any] = {
         "meta": {
             "top_k": top_k,
+            "prompt_modes": sorted({str(row.get("prompt_mode") or "") for row in rows}),
             "mode_base_labels": MODE_BASE_LABELS,
             "mode_rerank_labels": MODE_RERANK_LABELS,
         },
@@ -884,6 +978,7 @@ def main() -> None:
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--top-k", type=int, default=DEFAULT_TOP_K)
     parser.add_argument("--mode", choices=["all", "g7_pipeline", "p1_only"], default="all")
+    parser.add_argument("--prompt-mode", choices=["single_shot", "cot"], default="single_shot")
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--sleep-seconds", type=float, default=0.5)
     parser.add_argument("--skip-gemini", action="store_true")
@@ -914,6 +1009,7 @@ def main() -> None:
                 sleep_seconds=args.sleep_seconds,
                 skip_gemini=args.skip_gemini,
                 limit=args.limit,
+                prompt_mode=args.prompt_mode,
             )
         )
 

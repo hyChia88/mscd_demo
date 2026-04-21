@@ -204,14 +204,16 @@ step 4  : cross-check
 | Item | Status |
 |---|---|
 | Counter plumbing (prompt injection, confidence gating) | ✅ Works |
-| Full-storey renderer (`3c_render_full_storeys.py`) | ✅ Works for 3 scoped storeys; Level 1 reuses First Floor's bbox for consistent pixel density |
-| Storey calibration sidecar JSON | ✅ Works — deterministic world→pixel mapping |
-| `count_from_full_storey()` entry point (F3) | ✅ Works — 2/15 exact-match on scoped set (frame-mismatch ceiling) |
-| `count_from_full_storey_with_wall_bounds()` entry point (F4) | ✅ Implemented — not yet measured |
+| Full-storey renderer (`3c_render_full_storeys.py`) | ✅ 3 scoped storeys; Level 1 reuses First Floor's bbox for consistent pixel density |
+| Storey calibration sidecar JSON | ✅ Deterministic world→pixel mapping |
+| `count_from_full_storey()` F3 entry point | ✅ **2/15 exact-match (13.3%)** on scoped set (frame-mismatch ceiling) |
+| `count_from_full_storey_with_wall_bounds()` F4 entry point | ✅ **12/15 exact-match (80.0%)** on scoped set |
 | AP canonical validator with `--mode {f3,f4,both}` | ✅ Works end-to-end |
-| Wall-endpoint helper (PCA over IFC 2D vertices) | ✅ Implemented |
-| Counter bug fixes (ordering + filter threshold) | ✅ Applied — didn't move F3 rate (bugs were subordinate to frame mismatch) |
-| Track B-2 fig03 with OpenCV rows | ⏳ Next — pending F4 measurement |
+| Wall-endpoint helper (PCA + IFC local-X direction alignment) | ✅ Implemented |
+| Counter bug fixes (ordering + filter threshold) | ✅ Applied |
+| IFC local-X axis alignment (T1.3 fix) | ✅ Applied — flipped 5 F4 inversions to OK (7→12/15) |
+| Annotation visualizer (`annotate_phase6_counter.py`) | ✅ Works — per-case PNG overlays |
+| Track B-2 fig03 with OpenCV rows | ⏳ **T1.4 — next step** |
 
 **Scope decision (down from full 33 cases to 15):** attempts to render Floors 2-5 via either (a) `IfcRelContainedInSpatialStructure` union with Level 1 walls or (b) z-overlap scanning failed to produce usable renders. Scoped to the three storeys whose `IfcRelContainedInSpatialStructure` gives complete coverage:
 
@@ -296,31 +298,52 @@ Files:
 - `data_curation/scripts/synth/3c_render_full_storeys.py` — renders the 3 scoped storeys + calibration index
 - `data_curation/datasets/synth_v0.5_ap/floorplans_full/` — 3 PNGs + 3 JSONs + `calibration.json`
 
-#### T1.3 — Dual-mode validation (F3 + F4) — *~1 day, in progress*
+#### T1.3 — Dual-mode validation (F3 + F4) — ✅ *done*
 
 **Counter entry points:**
 - `FloorplanCounter.count_from_full_storey()` — F3 soft-signal mode (Hough line)
 - `FloorplanCounter.count_from_full_storey_with_wall_bounds()` — F4 oracle mode; clips counting to IFC-supplied wall segment
 
-**Wall-endpoint helper:** `_wall_endpoints_world(host_guid)` in the validator — PCA over 2D vertices of the wall's geometry (`ifcopenshell.geom.create_shape`). Cached per GUID.
+**Wall-endpoint helper:** `_wall_endpoints_world(host_guid)` in the validator — PCA over 2D vertices of the wall's geometry, with direction aligned to `IfcWall.ObjectPlacement` local-X so endpoint ordering matches teacher's convention. Cached per GUID.
 
 **Validator CLI:** `--mode {f3, f4, both}`
-- `f3` (default) → `phase6_ap_canonical_counter_report_f3.jsonl`
+- `f3` → `phase6_ap_canonical_counter_report_f3.jsonl`
 - `f4` → `phase6_ap_canonical_counter_report_f4.jsonl`
-- `both` → runs both sequentially
+- `both` (default) → runs both sequentially
 
-**Scope:** 15 cases (Floor 1 + Garage + Level 1).
+**Scope:** 15 cases (6 Floor 1 + 2 Garage + 7 Level 1).
 
-**Acceptance gates (revised for scoped set):**
-- F3 mode: 2/15 = 13.3% today — below 40% gate because 13/15 remaining failures are frame-mismatch cases (expected; F3 can't resolve these by design).
-- F4 oracle mode: target **≥80%** (12/15) — capability ceiling demonstration.
+**Final numbers:**
+| Mode | Exact-match | Rate | Gate | Notes |
+|---|---|---|---|---|
+| F3 (soft, no oracle) | 2/15 | 13.3% | below 40% | Frame mismatch ceiling — F3 can't resolve by design (Hough line spans multiple IFC walls) |
+| **F4 (oracle wall bounds)** | **12/15** | **80.0%** | **✅ ≥80% target** | Capability ceiling demonstrated |
 
-**Current F3 numbers (for reference):**
-```
-counting_denominator: 15
-exact_match: 2   (AP_SK_096 FILLS, AP_SK_149 NEXT_TO — both on Floor 1)
-fail_counter_mismatch: 13  (frame mismatch — awaiting F4)
-```
+**F4 remaining failures (3 cases) — dataset ceiling:**
+- `AP_SK_158`: teacher 4/10, opencv 5/10 — target pixel on boundary between openings
+- `AP_SK_228`: teacher 13/14, opencv 14/14 — same
+- `AP_SK_234`: teacher 3/3, opencv 2/3 — same
+
+All three are "target world_xy lands between two adjacent openings" — not algorithmically recoverable without additional target disambiguation (e.g. target bounding-box, not just centroid).
+
+**F3 → F4 gains attributed:**
+- +5 from IFC-local-X axis alignment (ordering direction fix) — most important change
+- +3 from frame clipping (restricts counting to IFC wall segment)
+- +2 from retained F3 wins (SK_096, SK_149)
+
+#### T1.3.5 — Annotation visualizer — ✅ *done*
+
+**Script:** `mscd_demo/evaluation/h2/annotate_phase6_counter.py`  
+**CLI:** `--mode {f3, f4, both}` `[--cases SK_xxx,SK_yyy]`  
+**Output:** `mscd_demo/output/lora6_v2_ap_20260331/phase6_annotations/{f3,f4}/`
+
+Per-case PNG overlays with:
+- Teal line + arrow — detected wall line (arrow at `wall_origin`, shows ordering direction)
+- Red circle — opening OpenCV picked as target
+- Green circle — teacher's expected target position
+- Orange circles (numbered) — other detected openings
+- Magenta X — target's world_xy mapped to pixel
+- Title bar — case_id, predicate, teacher slot, opencv slot, OK/FAIL
 
 #### T1.5 — Frame-mismatch resolution (F-options) — *architectural decision*
 
@@ -450,11 +473,11 @@ Regenerate fig03. Expect:
 **Effort:** ~2 days  
 **File:** `mscd_demo/evaluation/experiments/graph_rag_rerank_ap.py:515-528` (`_build_prompt`)
 
-With T1 shipping, reranker inputs now include OpenCV counts in descriptors, so CoT questions naturally include positional reasoning.
+With T1 shipping, reranker inputs can include OpenCV counts in descriptors, so CoT questions naturally include positional reasoning when that signal is available.
 
-Two variants to A/B test:
+For implementation, keep the current prompt as baseline and add one new CoT mode:
 
-**Variant A — Static CoT questions**
+**Variant — Decomposed CoT questions**
 ```
 Q1: Which candidates share the same wall host?
 Q2: Do the opencv counts match the candidates' wall_position_index?
@@ -462,14 +485,11 @@ Q3: Among compatible candidates, which matches neighbor type / subtype?
 Q4: Rank using answers above.
 ```
 
-**Variant B — Auto-generated discriminative questions**
-- Diff candidate fingerprints → find differing fields → template questions per field
-- Example: candidates differ only in `wall_position_index` → "Which matches the OpenCV-reported position?"
-
 Implementation:
-- Modify `_build_prompt()` to support `mode="cot_static"` and `mode="cot_auto"`
+- Modify `_build_prompt()` to support `mode="single_shot"` and `mode="cot"`
 - Two-phase Gemini call: answer questions → rank using answers
-- Eval on 116-case set; compare MRR / Top-1 against current single-shot prompt
+- Standardize eval on the 60-case AP held-out set (`cases_ap_heldout_e2e.jsonl`; mirrors `lora6_v2_ap_eval_canonical_m_g7.jsonl`)
+- Compare MRR / Top-1 against current single-shot prompt
 
 ### T3 — Dimension classification from IFC clusters — *medium gain*
 **Effort:** ~3-4 days (requires LoRA retraining)
@@ -575,9 +595,10 @@ Graceful degradation: every stage has a fallback when the upstream signal is abs
 | 1a | T1.1 Counter diagnostics | ✅ done |
 | 1b | T1.2 Counter bug fixes (ordering + filter) | ✅ done — outputs deterministic; F3 rate unchanged (frame mismatch dominates) |
 | 1c | T1.2.5 Renderer scope decision (Floor 1 + Garage + Level 1, 15 cases) | ✅ done — Floors 2-5 deferred to Ch. 8 future work |
-| 1d | T1.3 Dual-mode validation (F3 + F4) | ⏳ **Next — run `python validate_phase6_ap_canonical_counts.py --mode both`** |
-| 1e | T1.4 fig03 Track B-2 refresh (F3 + F4 bars) | ⏳ Blocked on T1.3 F4 number |
-| 1f | T1.5 Frame-mismatch architectural decision | ✅ baked in — F4+F3 ship; F2 junction detection = Ch. 8 future work |
+| 1d | T1.3 Dual-mode validation (F3 + F4) | ✅ done — F3 13.3%, **F4 80.0%** on 15-case scoped set |
+| 1e | T1.3.5 Annotation visualizer | ✅ done — per-case PNG overlays |
+| 1f | T1.4 fig03 Track B-2 refresh (F3 + F4 bars) | ⏳ **Next** — inject counter into G8 precomputed, rescore, add 2 bars |
+| 1g | T1.5 Frame-mismatch architectural decision | ✅ baked in — F4+F3 ship; F2 junction detection = Ch. 8 future work |
 | 2 | T2 Decomposed reranker (CoT) | ⏳ After T1.4 |
 | 3 | T3 Dimension clusters (Pattern-B bucketize) | ⏳ After T2 |
 | 4 | T4 Layer-ratio tracking (diagnostic) | ⏳ Dormant until next retrain |

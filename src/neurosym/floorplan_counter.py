@@ -770,11 +770,13 @@ class FloorplanCounter:
                 debug=debug,
             )
 
-        # Canonicalise wall_line endpoint ordering (leftmost first, then topmost)
+        # F4: trust the validator's endpoint ordering (aligned to IFC local-X in
+        # _wall_endpoints_world). Do NOT canonicalise to image-space lex-order,
+        # because teacher's position_index ordering comes from IFC local-X which
+        # can point either +world-x or -world-x depending on how the wall was
+        # modeled.
         p1 = (float(a_px), float(a_py))
         p2 = (float(b_px), float(b_py))
-        if (p2[0], p2[1]) < (p1[0], p1[1]):
-            p1, p2 = p2, p1
         wall_line = (p1, p2)
         seg_length = math.hypot(p2[0] - p1[0], p2[1] - p1[1])
         debug["wall_line"] = {

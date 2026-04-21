@@ -1,9 +1,22 @@
 #!/usr/bin/env python3
-"""Inject Phase 6 OpenCV slot counts into an existing precomputed JSONL."""
+"""
+Inject Phase 6 OpenCV slot counts into an existing precomputed JSONL.
+
+Supports two counter modes:
+  --mode f3   soft-signal (no oracle): uses count_from_full_storey()
+  --mode f4   oracle:                   uses count_from_full_storey_with_wall_bounds(),
+                                        with wall endpoints derived from IFC via PCA
+                                        + local-X alignment.
+
+Scope: only cases whose storey has a calibrated full-storey render available
+       (currently Floor 1 + Garage + Level 1 on AP). Cases outside scope pass
+       through unchanged.
+"""
 
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import sys
 from collections import Counter
@@ -19,13 +32,31 @@ SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from src.neurosym.floorplan_counter import FloorplanCounter, FloorplanCountResult, merge_position_context
+# Load counter without triggering src/neurosym/__init__.py.
+_FC_PATH = SRC_ROOT / "neurosym" / "floorplan_counter.py"
+_spec = importlib.util.spec_from_file_location("_fc_mod", _FC_PATH)
+_fc = importlib.util.module_from_spec(_spec)
+sys.modules["_fc_mod"] = _fc
+_spec.loader.exec_module(_fc)
+FloorplanCounter = _fc.FloorplanCounter
+FloorplanCountResult = _fc.FloorplanCountResult
+merge_position_context = _fc.merge_position_context
+load_storey_calibration_index = _fc.load_storey_calibration_index
+
+# Import validator for its wall-endpoint helper (F4 mode only).
+_VAL_PATH = PROJECT_ROOT / "evaluation" / "h2" / "validate_phase6_ap_canonical_counts.py"
+_vspec = importlib.util.spec_from_file_location("_val_mod", _VAL_PATH)
+_val = importlib.util.module_from_spec(_vspec)
+sys.modules["_val_mod"] = _val
+_vspec.loader.exec_module(_val)
 
 
 CURATED_AP_ROOT = REPO_ROOT / "data_curation" / "datasets" / "synth_v0.5_ap"
-DEFAULT_CASES = PROJECT_ROOT / "evaluation" / "cases" / "cases_ap_heldout_e2e.jsonl"
+SKELETONS_PATH  = CURATED_AP_ROOT / "skeletons" / "skeletons.jsonl"
+FULL_DIR        = CURATED_AP_ROOT / "floorplans_full"
+DEFAULT_CASES       = PROJECT_ROOT / "evaluation" / "cases" / "cases_ap_heldout_e2e.jsonl"
 DEFAULT_PRECOMPUTED = PROJECT_ROOT / "output" / "lora6_v2_ap_20260331" / "g8_posctx_dim__ap_eval.jsonl"
-DEFAULT_OUTPUT = PROJECT_ROOT / "output" / "lora6_v2_ap_20260331" / "g8_posctx_dim__ap_eval_opencv_count.jsonl"
+DEFAULT_OUTPUT_FMT  = PROJECT_ROOT / "output" / "lora6_v2_ap_20260331" / "g8_posctx_dim__ap_eval_opencv_count_{mode}.jsonl"
 OPENING_PREDICATES = {"FILLS", "NEXT_TO"}
 OPENING_TYPES = {"IfcDoor", "IfcWindow"}
 
@@ -47,36 +78,49 @@ def _case_map(path: Path) -> dict[str, dict]:
     return {row["case_id"]: row for row in rows if row.get("case_id")}
 
 
-def _candidate_scales(case_id: str, prefer_scales: list[str]) -> list[tuple[str, Path]]:
-    root = CURATED_AP_ROOT / "floorplans_v2"
-    found: list[tuple[str, Path]] = []
-    for scale in prefer_scales:
-        patch = root / f"{case_id}_scale_{scale}.png"
-        if patch.exists():
-            found.append((scale, patch))
-    return found
+def _skeleton_map(path: Path) -> dict[str, dict]:
+    rows = _load_jsonl(path)
+    return {row["id"]: row for row in rows if row.get("id")}
 
 
-def _pick_best_count(
-    counter: FloorplanCounter,
-    *,
-    case_id: str,
-    prefer_scales: list[str],
-) -> tuple[Optional[FloorplanCountResult], Optional[str]]:
-    full_floorplan = CURATED_AP_ROOT / "floorplans" / f"{case_id}_floorplan.png"
-    if not full_floorplan.exists():
-        return None, None
+def _resolve_storey_name(case: dict, skeleton: Optional[dict]) -> Optional[str]:
+    """Return a teacher-consistent storey name for calibration lookup."""
+    if skeleton:
+        band = skeleton.get("storey_band") or (skeleton.get("target_props") or {}).get("Storey")
+        if band:
+            return str(band)
+    gt = case.get("ground_truth") or {}
+    if gt.get("target_storey"):
+        return str(gt["target_storey"])
+    labels = (case.get("labels") or {}).get("constraints") or {}
+    if labels.get("storey_name"):
+        return str(labels["storey_name"])
+    return None
 
-    best_result: Optional[FloorplanCountResult] = None
-    best_scale: Optional[str] = None
-    for scale, patch in _candidate_scales(case_id, prefer_scales):
-        result = counter.count_from_paths(patch, full_floorplan)
-        if result is None:
-            continue
-        if best_result is None or result.confidence > best_result.confidence:
-            best_result = result
-            best_scale = scale
-    return best_result, best_scale
+
+def _resolve_calibration(calibrations: dict, storey_name: Optional[str]) -> Optional[dict]:
+    if not storey_name:
+        return None
+    key = str(storey_name).strip().lower()
+    if key in calibrations:
+        return calibrations[key]
+    for name, entry in calibrations.items():
+        if key in name or name in key:
+            return entry
+    return None
+
+
+def _target_world_xy(skeleton: Optional[dict]) -> Optional[tuple[float, float]]:
+    if not skeleton:
+        return None
+    props = skeleton.get("target_props") or {}
+    centre = props.get("patch_center_xyz") or skeleton.get("patch_center_xyz")
+    if not centre:
+        return None
+    try:
+        return float(centre["x"]), float(centre["y"])
+    except Exception:
+        return None
 
 
 def _should_attempt(case: dict, entry: dict) -> bool:
@@ -93,29 +137,51 @@ def _should_attempt(case: dict, entry: dict) -> bool:
     return False
 
 
+def _count_for_case(
+    counter: FloorplanCounter,
+    calibration: dict,
+    skeleton: Optional[dict],
+    target_xy: tuple[float, float],
+    mode: str,
+) -> Optional[FloorplanCountResult]:
+    png_path = FULL_DIR / Path(calibration["png_path"]).name
+
+    if mode == "f4":
+        host_guid = _val._host_guid_from_skeleton(skeleton) if skeleton else None
+        if not host_guid:
+            return None
+        endpoints = _val._wall_endpoints_world(host_guid)
+        if endpoints is None:
+            return None
+        return counter.count_from_full_storey_with_wall_bounds(
+            png_path, calibration, target_xy, endpoints
+        )
+    return counter.count_from_full_storey(png_path, calibration, target_xy)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cases", type=Path, default=DEFAULT_CASES)
     parser.add_argument("--precomputed", type=Path, default=DEFAULT_PRECOMPUTED)
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    parser.add_argument(
-        "--prefer-scale",
-        action="append",
-        dest="prefer_scales",
-        choices=("M", "L", "S"),
-        help="Patch-scale priority. May be passed multiple times. Default: M, then L, then S.",
-    )
+    parser.add_argument("--output", type=Path, default=None,
+                        help="Override output path (defaults to *_{mode}.jsonl next to precomputed).")
+    parser.add_argument("--mode", choices=("f3", "f4"), default="f4",
+                        help="Counter mode: f3 = soft (no oracle), f4 = oracle wall bounds.")
     args = parser.parse_args()
 
-    prefer_scales = args.prefer_scales or ["M", "L", "S"]
+    output_path = args.output or Path(str(DEFAULT_OUTPUT_FMT).format(mode=args.mode))
+
     case_by_id = _case_map(args.cases)
+    skeletons = _skeleton_map(SKELETONS_PATH)
+    calibrations = load_storey_calibration_index(FULL_DIR / "calibration.json")
     rows = _load_jsonl(args.precomputed)
-    counter = FloorplanCounter(image_dir=str(REPO_ROOT / "data_curation" / "datasets"))
+    counter = FloorplanCounter()
 
     attempted = 0
     enriched = 0
-    scale_usage: Counter[str] = Counter()
+    out_of_scope = 0
     source_usage: Counter[str] = Counter()
+    storey_usage: Counter[str] = Counter()
     updated_rows: list[dict] = []
 
     for row in rows:
@@ -127,39 +193,54 @@ def main() -> None:
 
         attempted += 1
         constraints = dict(row.get("constraints") or {})
-        count_result, chosen_scale = _pick_best_count(counter, case_id=case_id, prefer_scales=prefer_scales)
-        final_position_context, pos_conf, pos_source = merge_position_context(
+        skeleton = skeletons.get(case_id)
+
+        storey = _resolve_storey_name(case, skeleton)
+        calibration = _resolve_calibration(calibrations, storey)
+        target_xy = _target_world_xy(skeleton)
+
+        count_result: Optional[FloorplanCountResult] = None
+        if calibration is not None and target_xy is not None:
+            count_result = _count_for_case(counter, calibration, skeleton, target_xy, args.mode)
+        else:
+            out_of_scope += 1
+
+        final_pc, pc_conf, pc_source = merge_position_context(
             constraints.get("position_context"),
             count_result,
         )
 
-        if count_result is not None:
-            constraints["position_context"] = final_position_context
-            constraints["position_context_confidence"] = pos_conf
-            constraints["position_context_source"] = pos_source
-            constraints["phase6_patch_scale"] = chosen_scale
+        if count_result is not None and count_result.position > 0:
+            constraints["position_context"] = final_pc
+            constraints["position_context_confidence"] = pc_conf
+            constraints["position_context_source"] = pc_source
+            constraints["phase6_opencv_mode"] = args.mode
             enriched += 1
-            if chosen_scale:
-                scale_usage[chosen_scale] += 1
-            if pos_source:
-                source_usage[pos_source] += 1
+            if pc_source:
+                source_usage[pc_source] += 1
+            if storey:
+                storey_usage[storey] += 1
         else:
-            if constraints.get("position_context"):
-                constraints.setdefault("position_context_source", "model")
+            constraints.setdefault(
+                "position_context_source",
+                "model" if constraints.get("position_context") else None,
+            )
 
         updated = dict(row)
         updated["constraints"] = constraints
         updated_rows.append(updated)
 
-    _write_jsonl(args.output, updated_rows)
+    _write_jsonl(output_path, updated_rows)
 
-    print(f"Wrote {len(updated_rows)} rows to {args.output}")
+    print(f"Wrote {len(updated_rows)} rows to {output_path.relative_to(REPO_ROOT)}")
+    print(f"Mode: {args.mode}")
     print(f"Attempted OpenCV enrichment on {attempted} opening-oriented cases")
     print(f"Injected OpenCV-backed position_context on {enriched} cases")
-    if scale_usage:
-        print(f"Patch scales used: {dict(scale_usage)}")
+    print(f"Out-of-scope (no calibration/target): {out_of_scope}")
     if source_usage:
         print(f"Position-context sources: {dict(source_usage)}")
+    if storey_usage:
+        print(f"Storey distribution of enriched cases: {dict(storey_usage)}")
 
 
 if __name__ == "__main__":

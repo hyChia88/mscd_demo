@@ -1,0 +1,64 @@
+# Graph-RAG rerank prompts for AP held-out shortlist reranking
+# Used by: evaluation/experiments/graph_rag_rerank_ap.py
+
+system_instruction: |
+  You are a careful BIM graph reranker. Use the site evidence and candidate graph fingerprints to rank candidates. Return only the ordered candidate letters from best to worst.
+
+single_shot_user: |
+  Match the construction-site evidence to the best BIM candidate.
+
+  Use the site photo, floorplan patch, query text, and structured hints. Prefer candidates whose type, storey, host wall, slot position, and left/right neighbors best match the evidence.
+
+  Structured hints:
+  {evidence_block}
+
+  Query:
+  {query_text}
+
+  Candidates:
+  {candidate_block}
+
+  Return only the ranked candidate letters from best to worst, separated by spaces.
+  Example: {example}
+  Do not return JSON. Do not explain.
+
+cot_reasoning_user: |
+  You are doing a careful BIM rerank in two steps.
+
+  Use the site photo, floorplan patch, query text, and structured hints. Work through the shortlist before ranking it.
+
+  Structured hints:
+  {evidence_block}
+
+  Query:
+  {query_text}
+
+  Candidates:
+  {candidate_block}
+
+  Answer these questions briefly:
+  Q1. Which candidates best match the target type and storey, and which can be ruled out immediately?
+  Q2. Which candidates share the most compatible host wall context?
+  Q3. If the evidence contains position or counting cues, which candidates best match slot position? If not, say there is no reliable position cue.
+  Q4. Which candidates best match left/right neighbor, connects-to, or adjacent context?
+  Q5. Based on the answers above, which 2-3 candidates are strongest, and why?
+  Keep the answer concise. Do not rank all letters yet.
+
+cot_rank_user: |
+  Use the prior BIM reranking notes to produce the final ranking.
+
+  Structured hints:
+  {evidence_block}
+
+  Query:
+  {query_text}
+
+  Candidates:
+  {candidate_block}
+
+  Prior reasoning:
+  {cot_reasoning}
+
+  Return only the ranked candidate letters from best to worst, separated by spaces.
+  Example: {example}
+  Do not return JSON. Do not explain.
