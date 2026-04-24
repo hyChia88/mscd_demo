@@ -1,0 +1,98 @@
+{
+  "models": {
+    "g0_canonical": "#E65100",
+    "g1_fullaug": "#F57C00",
+    "g2_fullaug_lowlr": "#F5A623",
+    "g3_fullaug_r32": "#D32F2F",
+    "g4_ultimate": "#B71C1C",
+    "g7_position_context": "#6A1B9A",
+    "g8_posctx_dim": "#3E1080",
+    "g6_baseline": "#90A4AE",
+    "gemini_ap_v2": "#1565C0",
+    "gemini_ap": "#1565C0",
+    "gemini_mm": "#1565C0",
+    "gemini_unified": "#1565C0",
+    "oracle_phase3": "#4A148C",
+    "lora5_fp": "#FB8C00",
+    "lora2_fp": "#78909C"
+  },
+  "strategies": {
+    "p0_only": "#E65100",
+    "p1_only_strategy": "#F5A623",
+    "p0_intersect_p1": "#D32F2F",
+    "p0_union_p1": "#1565C0",
+    "p1_only_upper_bound": "#F5A623",
+    "full_topology_union": "#1565C0",
+    "p1": "#F5A623",
+    "oracle": "#4A148C",
+    "fallback": "#777777"
+  },
+  "metrics": {
+    "gt": "#E65100",
+    "gt_line": "#000000",
+    "gt_in_pool": "#111111",
+    "top10": "#F4A261",
+    "top1": "#F7D7C1",
+    "pool": "#000000",
+    "avg_pool": "#334155",
+    "mrr": "#7B1FA2",
+    "mrr_aux": "#7B1FA2",
+    "mrr_track": "#1565C0",
+    "pred_r": "#7B1FA2",
+    "reduction": "#000000",
+    "parse": "#7C3AED",
+    "sr_extracted": "#A78BFA",
+    "hop2_sr": "#DDD6FE",
+    "graph_rag_full": "#7C3AED",
+    "graph_rag_full_rerank10": "#A78BFA",
+    "graph_rag_full_rerank15": "#DDD6FE",
+    "graph_rag_p1": "#0EA5E9",
+    "graph_rag_p1_rerank10": "#7DD3FC",
+    "graph_rag_p1_rerank15": "#BAE6FD",
+    "ideal_top10": "#16A34A",
+    "ideal_top1": "#F97316"
+  },
+  "highlights": {
+    "safe_green_fill": "#E8F5E9",
+    "safe_green_text": "#166534",
+    "winner_amber_fill": "#FFF3E0",
+    "winner_amber_text": "#9A3412",
+    "oracle_fill": "#EDE7F6",
+    "oracle_text": "#5B21B6",
+    "rerank_orange": "#EA580C",
+    "edge_dark": "#252525"
+  },
+  "universes": {
+    "U1": {"label": "U1 CONNECTS_TO", "color": "#1565C0"},
+    "U2": {"label": "U2 ADJACENT_TO", "color": "#2A9D8F"},
+    "U3": {"label": "U3 Opening-paired", "color": "#F5A623"},
+    "U4": {"label": "U4 Symmetric triad", "color": "#D32F2F"},
+    "U5": {"label": "U5 Mixed triad", "color": "#7B1FA2"},
+    "U6": {"label": "U6 FILLS only", "color": "#B0BEC5"}
+  },
+  "family_to_universe": {
+    "singleton:CONNECTS_TO": "U1",
+    "singleton:ADJACENT_TO": "U2",
+    "paired:FILLS+NEXT_TO": "U3",
+    "triad:FILLS+NEXT_TO+NEXT_TO": "U4",
+    "triad:FILLS+NEXT_TO+NEXT_TO(mixed-anchor)": "U5",
+    "singleton:FILLS": "U6"
+  },
+  "relation_families": {
+    "ADJACENT_TO": "#E53935",
+    "CONNECTS_TO": "#1E88E5",
+    "FILLS+NEXT_TO+NEXT_TO": "#43A047",
+    "FILLS+NEXT_TO": "#FB8C00",
+    "FILLS": "#8E24AA",
+    "FILLS+NEXT_TO+NEXT_TO(mixed-anchor)": "#00ACC1"
+  },
+  "fingerprint_waterfall": {
+    "bar_blue": "#4472C4",
+    "bar_orange": "#ED7D31",
+    "arrow": "#9CA3AF",
+    "label": "#1F2937",
+    "description": "#4B5563",
+    "top1_badge": "#166534",
+    "partial_coverage": "#92400E"
+  }
+}

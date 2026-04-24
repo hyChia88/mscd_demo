@@ -49,6 +49,10 @@ models/
 
 # Archived legacy code
 legacy/
+!evaluation/analysis/legacy/
+!evaluation/analysis/legacy/**
+evaluation/analysis/legacy/__pycache__/
+evaluation/analysis/legacy/**/*.pyc
 
 # Node / JS (demo viewer)
 demo/node_modules/

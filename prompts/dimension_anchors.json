@@ -1,0 +1,89 @@
+{
+  "sources": [
+    "/root/cmu/master_thesis/data_curation/datasets/synth_v0.5_ap/train/lora6_v2_ap_train_canonical_m_g7.jsonl",
+    "/root/cmu/master_thesis/data_curation/datasets/synth_v0.5_ap/train/lora6_v2_ap_eval_canonical_m_g7.jsonl"
+  ],
+  "round_to_mm": 10,
+  "min_count": 1,
+  "clusters": {
+    "IfcWindow": [
+      {
+        "w": 1000,
+        "h": 1400,
+        "count": 34
+      },
+      {
+        "w": 1500,
+        "h": 1400,
+        "count": 31
+      },
+      {
+        "w": 2000,
+        "h": 1400,
+        "count": 12
+      },
+      {
+        "w": 1000,
+        "h": 600,
+        "count": 11
+      },
+      {
+        "w": 3000,
+        "h": 2200,
+        "count": 10
+      },
+      {
+        "w": 2000,
+        "h": 2200,
+        "count": 6
+      },
+      {
+        "w": 1500,
+        "h": 2200,
+        "count": 5
+      },
+      {
+        "w": 2500,
+        "h": 2200,
+        "count": 5
+      },
+      {
+        "w": 1600,
+        "h": 600,
+        "count": 4
+      },
+      {
+        "w": 2500,
+        "h": 1200,
+        "count": 4
+      },
+      {
+        "w": 2500,
+        "h": 3000,
+        "count": 4
+      },
+      {
+        "w": 2500,
+        "h": 1800,
+        "count": 1
+      }
+    ],
+    "IfcDoor": [
+      {
+        "w": 920,
+        "h": 2130,
+        "count": 33
+      },
+      {
+        "w": 760,
+        "h": 2030,
+        "count": 20
+      },
+      {
+        "w": 2010,
+        "h": 2400,
+        "count": 15
+      }
+    ]
+  }
+}

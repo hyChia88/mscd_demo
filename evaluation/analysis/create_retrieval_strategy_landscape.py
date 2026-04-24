@@ -12,6 +12,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+from phase4_plot_style import HIGHLIGHT_COLORS, METRIC_COLORS
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 OUTPUT_ROOT = PROJECT_ROOT / "output" / "lora6_v2_ap_20260331"
@@ -19,12 +21,36 @@ DOCS_MAIN_DIR = PROJECT_ROOT / "docs" / "plots" / "phase4_lora6_main"
 DOCS_APPENDIX_DIR = PROJECT_ROOT / "docs" / "plots" / "phase4_lora6_appendix"
 LANDSCAPE_OUT_DIR = OUTPUT_ROOT / "strategy_landscape" / "20260405"
 
+
+def _first_existing(*paths: Path) -> Path:
+    for path in paths:
+        if path.exists():
+            return path
+    return paths[0]
+
+
 TRACK_B2_G3 = OUTPUT_ROOT / "metrics" / "track_b2_phase3_fixed_summary.csv"
 TRACK_B2_G7 = OUTPUT_ROOT / "metrics" / "track_b2_phase5_g7_summary.csv"
-GRAPH_RAG_G7_AT10 = OUTPUT_ROOT / "graph_rag_rerank" / "20260405_g7_formal_v3" / "graph_rag_rerank_summary.json"
-GRAPH_RAG_P1_AT10 = OUTPUT_ROOT / "graph_rag_rerank" / "20260404_p1_formal_v2" / "graph_rag_rerank_summary.json"
-GRAPH_RAG_G7_AT15 = OUTPUT_ROOT / "graph_rag_rerank" / "20260405_top15_g7_v1" / "graph_rag_rerank_summary.json"
-GRAPH_RAG_P1_AT15 = OUTPUT_ROOT / "graph_rag_rerank" / "20260405_top15_p1_v1" / "graph_rag_rerank_summary.json"
+GRAPH_RAG_G7_AT10 = _first_existing(
+    OUTPUT_ROOT / "graph_rag_rerank" / "20260405_g7_formal_v3" / "graph_rag_rerank_summary.json",
+    OUTPUT_ROOT / "graph_rag_rerank" / "legacy" / "20260405_g7_formal_v3" / "graph_rag_rerank_summary.json",
+    OUTPUT_ROOT / "graph_rag_rerank" / "20260407_g7_phase5_v1" / "graph_rag_rerank_summary.json",
+)
+GRAPH_RAG_P1_AT10 = _first_existing(
+    OUTPUT_ROOT / "graph_rag_rerank" / "20260404_p1_formal_v2" / "graph_rag_rerank_summary.json",
+    OUTPUT_ROOT / "graph_rag_rerank" / "legacy" / "20260404_p1_formal_v2" / "graph_rag_rerank_summary.json",
+    OUTPUT_ROOT / "graph_rag_rerank" / "20260407_g7_phase5_v1" / "graph_rag_rerank_summary.json",
+)
+GRAPH_RAG_G7_AT15 = _first_existing(
+    OUTPUT_ROOT / "graph_rag_rerank" / "20260405_top15_g7_v1" / "graph_rag_rerank_summary.json",
+    OUTPUT_ROOT / "graph_rag_rerank" / "legacy" / "20260405_top15_g7_v1" / "graph_rag_rerank_summary.json",
+    OUTPUT_ROOT / "graph_rag_rerank" / "20260407_g7_phase5_v1" / "graph_rag_rerank_summary.json",
+)
+GRAPH_RAG_P1_AT15 = _first_existing(
+    OUTPUT_ROOT / "graph_rag_rerank" / "20260405_top15_p1_v1" / "graph_rag_rerank_summary.json",
+    OUTPUT_ROOT / "graph_rag_rerank" / "legacy" / "20260405_top15_p1_v1" / "graph_rag_rerank_summary.json",
+    OUTPUT_ROOT / "graph_rag_rerank" / "20260407_g7_phase5_v1" / "graph_rag_rerank_summary.json",
+)
 FINGERPRINT_CSV = OUTPUT_ROOT / "group4_post-hoc_analysis" / "oracle_ceiling" / "20260404" / "fingerprint_loss_by_level.csv"
 
 OUT_DEFAULT = LANDSCAPE_OUT_DIR / "fig12_retrieval_strategy_landscape.png"
@@ -248,22 +274,22 @@ def _plot_figure(
     exec_mrr = [float(row["mrr10"]) for row in executable_rows]
     x = list(range(len(exec_labels)))
     width = 0.34
-    ax_exec.bar([i - width / 2 for i in x], exec_top10, width=width, color="#0F766E", label="Top-10")
-    ax_exec.bar([i + width / 2 for i in x], exec_top1, width=width, color="#14B8A6", label="Top-1")
+    ax_exec.bar([i - width / 2 for i in x], exec_top10, width=width, color=METRIC_COLORS["top10"], label="Top-10")
+    ax_exec.bar([i + width / 2 for i in x], exec_top1, width=width, color=METRIC_COLORS["top1"], label="Top-1")
     ax_exec.set_title("A. Executable systems", fontsize=12, fontweight="bold")
     ax_exec.set_ylabel("Percent")
     ax_exec.set_xticks(x)
     ax_exec.set_xticklabels(exec_labels, rotation=18, ha="right")
     ax_exec.grid(axis="y", alpha=0.25)
     ax_exec_r = ax_exec.twinx()
-    ax_exec_r.plot(x, exec_mrr, color="#D97706", marker="o", linewidth=2, label="MRR@10")
+    ax_exec_r.plot(x, exec_mrr, color=METRIC_COLORS["mrr"], marker="o", linewidth=2, label="MRR@10")
     ax_exec_r.set_ylabel("MRR@10")
     for i, value in enumerate(exec_top10):
         ax_exec.text(i - width / 2, value, f"{value:.1f}", ha="center", va="bottom", fontsize=9)
     for i, value in enumerate(exec_top1):
         ax_exec.text(i + width / 2, value, f"{value:.1f}", ha="center", va="bottom", fontsize=9)
     for i, value in enumerate(exec_mrr):
-        ax_exec_r.text(i, value, f"{value:.3f}", ha="center", va="bottom", fontsize=9, color="#92400E")
+        ax_exec_r.text(i, value, f"{value:.3f}", ha="center", va="bottom", fontsize=9, color=HIGHLIGHT_COLORS["winner_amber_text"])
     lines1, labels1 = ax_exec.get_legend_handles_labels()
     lines2, labels2 = ax_exec_r.get_legend_handles_labels()
     ax_exec.legend(lines1 + lines2, labels1 + labels2, loc="upper left")
@@ -273,7 +299,14 @@ def _plot_figure(
     rerank_top1 = [float(row["top1"]) for row in rerank_rows]
     rerank_mrr = [float(row["mrr10"]) for row in rerank_rows]
     x2 = list(range(len(rerank_labels)))
-    colors = ["#7C3AED", "#A78BFA", "#DDD6FE", "#0EA5E9", "#7DD3FC", "#BAE6FD"]
+    colors = [
+        METRIC_COLORS["graph_rag_full"],
+        METRIC_COLORS["graph_rag_full_rerank10"],
+        METRIC_COLORS["graph_rag_full_rerank15"],
+        METRIC_COLORS["graph_rag_p1"],
+        METRIC_COLORS["graph_rag_p1_rerank10"],
+        METRIC_COLORS["graph_rag_p1_rerank15"],
+    ]
     ax_rerank.bar(x2, rerank_top1, color=colors, label="Top-1")
     ax_rerank.set_title("B. Graph-RAG paired follow-ups", fontsize=12, fontweight="bold")
     ax_rerank.set_ylabel("Top-1 (%)")
@@ -281,12 +314,12 @@ def _plot_figure(
     ax_rerank.set_xticklabels(rerank_labels, rotation=20, ha="right")
     ax_rerank.grid(axis="y", alpha=0.25)
     ax_rerank_r = ax_rerank.twinx()
-    ax_rerank_r.plot(x2, rerank_mrr, color="#EA580C", marker="o", linewidth=2, label="MRR@10")
+    ax_rerank_r.plot(x2, rerank_mrr, color=HIGHLIGHT_COLORS["rerank_orange"], marker="o", linewidth=2, label="MRR@10")
     ax_rerank_r.set_ylabel("MRR@10")
     for i, value in enumerate(rerank_top1):
         ax_rerank.text(i, value, f"{value:.1f}", ha="center", va="bottom", fontsize=9)
     for i, value in enumerate(rerank_mrr):
-        ax_rerank_r.text(i, value, f"{value:.3f}", ha="center", va="bottom", fontsize=9, color="#9A3412")
+        ax_rerank_r.text(i, value, f"{value:.3f}", ha="center", va="bottom", fontsize=9, color=HIGHLIGHT_COLORS["winner_amber_text"])
     lines1, labels1 = ax_rerank.get_legend_handles_labels()
     lines2, labels2 = ax_rerank_r.get_legend_handles_labels()
     ax_rerank.legend(lines1 + lines2, labels1 + labels2, loc="upper left")
@@ -297,22 +330,22 @@ def _plot_figure(
     fp_top10 = [float(row["top10"]) for row in fingerprint_rows]
     fp_top1 = [float(row["top1"]) for row in fingerprint_rows]
     x3 = list(range(len(fp_labels)))
-    ax_fp.bar(x3, fp_pool, color="#334155", alpha=0.88, label="Avg pool")
+    ax_fp.bar(x3, fp_pool, color=METRIC_COLORS["avg_pool"], alpha=0.88, label="Avg pool")
     ax_fp.set_title("C. Fingerprint ladder (position-sensitive subset)", fontsize=12, fontweight="bold")
     ax_fp.set_ylabel("Average pool")
     ax_fp.set_xticks(x3)
     ax_fp.set_xticklabels(fp_labels)
     ax_fp.grid(axis="y", alpha=0.25)
     ax_fp_r = ax_fp.twinx()
-    ax_fp_r.plot(x3, fp_top10, color="#16A34A", marker="o", linewidth=2, label="Ideal Top-10")
-    ax_fp_r.plot(x3, fp_top1, color="#F97316", marker="o", linewidth=2, label="Ideal Top-1")
+    ax_fp_r.plot(x3, fp_top10, color=METRIC_COLORS["ideal_top10"], marker="o", linewidth=2, label="Ideal Top-10")
+    ax_fp_r.plot(x3, fp_top1, color=METRIC_COLORS["ideal_top1"], marker="o", linewidth=2, label="Ideal Top-1")
     ax_fp_r.set_ylabel("Percent")
     for i, value in enumerate(fp_pool):
         ax_fp.text(i, value, f"{value:.1f}", ha="center", va="bottom", fontsize=9)
     for i, value in enumerate(fp_top10):
-        ax_fp_r.text(i, value, f"{value:.1f}", ha="center", va="bottom", fontsize=9, color="#166534")
+        ax_fp_r.text(i, value, f"{value:.1f}", ha="center", va="bottom", fontsize=9, color=HIGHLIGHT_COLORS["safe_green_text"])
     for i, value in enumerate(fp_top1):
-        ax_fp_r.text(i, value + 2, f"{value:.1f}", ha="center", va="bottom", fontsize=9, color="#9A3412")
+        ax_fp_r.text(i, value + 2, f"{value:.1f}", ha="center", va="bottom", fontsize=9, color=HIGHLIGHT_COLORS["winner_amber_text"])
     lines1, labels1 = ax_fp.get_legend_handles_labels()
     lines2, labels2 = ax_fp_r.get_legend_handles_labels()
     ax_fp.legend(lines1 + lines2, labels1 + labels2, loc="upper right")

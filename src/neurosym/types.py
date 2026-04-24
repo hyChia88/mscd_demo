@@ -62,10 +62,15 @@ class Constraints(BaseModel):
     position_context_confidence: Optional[float] = None
     position_context_source: Optional[str] = None
     spatial_relations: List[SpatialTriplet] = Field(default_factory=list)
-    # TODO(T4): replace mm fields with `size_cluster: Optional[str]` once
-    # dimension clustering ships and LoRA is retrained on classification labels.
-    target_width_mm: Optional[float] = None   # Physical width (IfcWindow/IfcDoor)
-    target_height_mm: Optional[float] = None  # Physical height (IfcWindow/IfcDoor)
+    # G9 (Phase 6): size cluster classification label (replaces ±50mm regression).
+    # Vocabulary: mscd_demo/prompts/size_cluster_taxonomy.json — e.g.
+    # "window_M_1480x1380", "door_S_760x2030". Retrieval filter is equality.
+    size_cluster: Optional[str] = None
+    # Deprecated since G9. mm fields are kept on the schema for backward-compat
+    # with G7/G8 traces. No retrieval branch consumes them when size_cluster
+    # is present (the planner prefers size_cluster).
+    target_width_mm: Optional[float] = None   # deprecated G9
+    target_height_mm: Optional[float] = None  # deprecated G9
 
     # Diagnostics
     confidence: float = 0.0  # Confidence score (0.0-1.0)

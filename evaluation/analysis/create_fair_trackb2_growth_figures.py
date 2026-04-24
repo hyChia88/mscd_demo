@@ -13,6 +13,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+from phase4_plot_style import COLORS as PHASE4_COLORS
+from phase4_plot_style import HIGHLIGHT_COLORS, METRIC_COLORS
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 SPECIAL_ROOT = PROJECT_ROOT / "output" / "ap_lora2_vs_lora5_floorplan_only"
@@ -29,7 +32,7 @@ MIXED_MODELS = [
         "source_type": "special_csv",
         "summary": SPECIAL_ROOT / "e2e" / "lora5r32_apheldout_FP" / "summary_20260405_030157_v2_lora_p0_union_p1.csv",
         "precomputed": SPECIAL_ROOT / "precomputed" / "lora5r32_apheldout_FP.jsonl",
-        "color": "#FB8C00",
+        "color": PHASE4_COLORS["lora5_fp"],
     },
     {
         "key": "gemini_mm",
@@ -39,7 +42,7 @@ MIXED_MODELS = [
         "source_type": "canonical_json",
         "e2e_json": CANONICAL_ROOT / "metrics" / "gemini_ap__ap_e2e_metrics.json",
         "precomputed": CANONICAL_ROOT / "gemini_ap__ap_eval_v2.jsonl",
-        "color": "#1565C0",
+        "color": PHASE4_COLORS["gemini_ap_v2"],
     },
     {
         "key": "g3_mm",
@@ -49,7 +52,7 @@ MIXED_MODELS = [
         "source_type": "canonical_json",
         "e2e_json": CANONICAL_ROOT / "metrics" / "g3_fullaug_r32__ap_e2e_metrics.json",
         "precomputed": CANONICAL_ROOT / "g3_fullaug_r32__ap_eval.jsonl",
-        "color": "#D32F2F",
+        "color": PHASE4_COLORS["g3_fullaug_r32"],
     },
     {
         "key": "g4_mm",
@@ -59,7 +62,7 @@ MIXED_MODELS = [
         "source_type": "canonical_json",
         "e2e_json": CANONICAL_ROOT / "metrics" / "g4_ultimate__ap_e2e_metrics.json",
         "precomputed": CANONICAL_ROOT / "g4_ultimate__ap_eval.jsonl",
-        "color": "#8E2424",
+        "color": PHASE4_COLORS["g4_ultimate"],
     },
     {
         "key": "g7_mm",
@@ -69,7 +72,7 @@ MIXED_MODELS = [
         "source_type": "canonical_json",
         "e2e_json": CANONICAL_ROOT / "metrics" / "g7_position_context__ap_e2e_metrics.json",
         "precomputed": CANONICAL_ROOT / "g7_position_context__ap_eval.jsonl",
-        "color": "#6A1B9A",
+        "color": PHASE4_COLORS["g7_position_context"],
     },
 ]
 
@@ -228,15 +231,15 @@ def plot_fig02(out_path: Path, rows: List[Dict[str, float | str]]) -> None:
 
     ax = axes[0]
     bars = ax.bar(x, top10, color=colors, edgecolor="white", linewidth=0.9, width=0.62, label="Top-10", zorder=3)
-    ax.plot(x, gt, color="#111111", marker="s", linestyle="--", linewidth=2.1, markersize=7, label="GT-in-Pool", zorder=4)
+    ax.plot(x, gt, color=METRIC_COLORS["gt_in_pool"], marker="s", linestyle="--", linewidth=2.1, markersize=7, label="GT-in-Pool", zorder=4)
     ax_r = ax.twinx()
-    ax_r.plot(x, [v * 1000.0 for v in mrr], color="#1565C0", marker="D", linestyle=":", linewidth=2.4, markersize=7, label="MRR@10 (×1000)", zorder=4)
+    ax_r.plot(x, [v * 1000.0 for v in mrr], color=METRIC_COLORS["mrr_track"], marker="D", linestyle=":", linewidth=2.4, markersize=7, label="MRR@10 (×1000)", zorder=4)
     for bar, val in zip(bars, top10):
         ax.text(bar.get_x() + bar.get_width() / 2, val + 0.6, f"{val:.1f}%", ha="center", va="bottom", fontsize=9)
     for xx, val in zip(x, gt):
-        ax.text(xx, val + 1.0, f"{val:.1f}", ha="center", va="bottom", fontsize=9, color="#111111")
+        ax.text(xx, val + 1.0, f"{val:.1f}", ha="center", va="bottom", fontsize=9, color=METRIC_COLORS["gt_in_pool"])
     for xx, raw in zip(x, mrr):
-        ax_r.text(xx, raw * 1000.0 + 1.5, f"{raw:.4f}", ha="center", va="bottom", fontsize=9, color="#1565C0")
+        ax_r.text(xx, raw * 1000.0 + 1.5, f"{raw:.4f}", ha="center", va="bottom", fontsize=9, color=METRIC_COLORS["mrr_track"])
     ax.set_xticks(x)
     ax.set_xticklabels(labels, rotation=16, ha="right")
     ax.set_ylim(0, 110)
@@ -252,9 +255,9 @@ def plot_fig02(out_path: Path, rows: List[Dict[str, float | str]]) -> None:
 
     ax = axes[1]
     width = 0.22
-    ax.bar([i - width for i in x], sr, width=width, color="#7C3AED", label="SR extracted")
-    ax.bar(x, hop2, width=width, color="#A78BFA", label="2-hop SR")
-    ax.bar([i + width for i in x], top1, width=width, color="#DDD6FE", label="Top-1")
+    ax.bar([i - width for i in x], sr, width=width, color=METRIC_COLORS["sr_extracted"], label="SR extracted")
+    ax.bar(x, hop2, width=width, color=METRIC_COLORS["hop2_sr"], label="2-hop SR")
+    ax.bar([i + width for i in x], top1, width=width, color=METRIC_COLORS["top1"], label="Top-1")
     ax.set_xticks(x)
     ax.set_xticklabels(labels, rotation=16, ha="right")
     ax.set_ylim(0, max(110.0, max(sr + hop2 + top1) + 12))
@@ -298,13 +301,13 @@ def plot_fig03(out_path: Path, rows: List[Dict[str, float | str]]) -> None:
     bars1 = ax.bar([i - width for i in x], gt, width=width, color=colors, alpha=1.0, edgecolor="white", linewidth=0.8, label="GT-in-Pool", zorder=3)
     bars2 = ax.bar(x, top10, width=width, color=colors, alpha=0.60, edgecolor="white", linewidth=0.8, label="Top-10", zorder=3)
     bars3 = ax.bar([i + width for i in x], top1, width=width, color=colors, alpha=0.28, edgecolor="white", linewidth=0.8, label="Top-1", zorder=3)
-    line = ax_r.plot(x, mrr, color="#1565C0", marker="D", linestyle="--", linewidth=2.3, markersize=7, label="MRR@10 (×1000)", zorder=4)[0]
+    line = ax_r.plot(x, mrr, color=METRIC_COLORS["mrr_track"], marker="D", linestyle="--", linewidth=2.3, markersize=7, label="MRR@10 (×1000)", zorder=4)[0]
 
     for bars, vals, fmt in [(bars1, gt, "{:.1f}%"), (bars2, top10, "{:.1f}%"), (bars3, top1, "{:.1f}%")]:
         for bar, val in zip(bars, vals):
             ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.6, fmt.format(val), ha="center", va="bottom", fontsize=8.8)
     for xx, raw in zip(x, [float(r["mrr10"]) for r in rows]):
-        ax_r.text(xx, raw * 1000.0 + 1.5, f"{raw:.4f}", ha="center", va="bottom", fontsize=8.8, color="#1565C0")
+        ax_r.text(xx, raw * 1000.0 + 1.5, f"{raw:.4f}", ha="center", va="bottom", fontsize=8.8, color=METRIC_COLORS["mrr_track"])
 
     ax.set_xticks(x)
     ax.set_xticklabels(labels, rotation=16, ha="right")
@@ -318,9 +321,9 @@ def plot_fig03(out_path: Path, rows: List[Dict[str, float | str]]) -> None:
 
     best_top10_idx = max(range(len(rows)), key=lambda i: top10[i])
     best_early_idx = max(range(len(rows)), key=lambda i: (top1[i], mrr[i]))
-    ax.axvspan(best_top10_idx - 0.42, best_top10_idx + 0.42, color="#EDE7F6", zorder=0)
-    ax.text(best_top10_idx, ax.get_ylim()[1] * 0.965, f"Best Top-10: {labels[best_top10_idx].replace(chr(10), ' ')}", ha="center", va="top", fontsize=10, weight="bold", color="#5B21B6")
-    ax.text(best_early_idx, ax.get_ylim()[1] * 0.905, f"Best early-rank: {labels[best_early_idx].replace(chr(10), ' ')}", ha="center", va="top", fontsize=9.5, weight="bold", color="#1565C0")
+    ax.axvspan(best_top10_idx - 0.42, best_top10_idx + 0.42, color=HIGHLIGHT_COLORS["oracle_fill"], zorder=0)
+    ax.text(best_top10_idx, ax.get_ylim()[1] * 0.965, f"Best Top-10: {labels[best_top10_idx].replace(chr(10), ' ')}", ha="center", va="top", fontsize=10, weight="bold", color=HIGHLIGHT_COLORS["oracle_text"])
+    ax.text(best_early_idx, ax.get_ylim()[1] * 0.905, f"Best early-rank: {labels[best_early_idx].replace(chr(10), ' ')}", ha="center", va="top", fontsize=9.5, weight="bold", color=METRIC_COLORS["mrr_track"])
 
     fig.suptitle("Track B-2: milestone growth from LoRA5 to the late multimodal LoRA6 systems", fontsize=14, y=0.98)
     fig.text(
@@ -355,7 +358,7 @@ def plot_appendix(out_path: Path, rows: List[Dict[str, float | str]]) -> None:
     ax.bar(x, top10, width=width, color=colors, alpha=0.60, edgecolor="white", linewidth=0.8, label="Top-10")
     ax.bar([i + width for i in x], top1, width=width, color=colors, alpha=0.28, edgecolor="white", linewidth=0.8, label="Top-1")
     ax_r = ax.twinx()
-    ax_r.plot(x, [v * 1000.0 for v in mrr], color="#1565C0", marker="D", linestyle="--", linewidth=2.3, markersize=7, label="MRR@10 (×1000)")
+    ax_r.plot(x, [v * 1000.0 for v in mrr], color=METRIC_COLORS["mrr_track"], marker="D", linestyle="--", linewidth=2.3, markersize=7, label="MRR@10 (×1000)")
     ax.set_xticks(x)
     ax.set_xticklabels(labels, rotation=16, ha="right")
     ax.set_ylabel("Accuracy (%)")
@@ -370,9 +373,9 @@ def plot_appendix(out_path: Path, rows: List[Dict[str, float | str]]) -> None:
 
     ax = axes[1]
     width = 0.22
-    ax.bar([i - width for i in x], sr, width=width, color="#7C3AED", label="SR extracted")
-    ax.bar(x, hop2, width=width, color="#A78BFA", label="2-hop SR")
-    ax.bar([i + width for i in x], top10, width=width, color="#DDD6FE", label="Top-10")
+    ax.bar([i - width for i in x], sr, width=width, color=METRIC_COLORS["sr_extracted"], label="SR extracted")
+    ax.bar(x, hop2, width=width, color=METRIC_COLORS["hop2_sr"], label="2-hop SR")
+    ax.bar([i + width for i in x], top10, width=width, color=METRIC_COLORS["top10"], label="Top-10")
     ax.set_xticks(x)
     ax.set_xticklabels(labels, rotation=16, ha="right")
     ax.set_ylabel("Percent")

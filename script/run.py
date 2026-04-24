@@ -398,6 +398,7 @@ async def main(args: argparse.Namespace) -> None:
                     position_context_confidence=c.get("position_context_confidence"),
                     position_context_source=c.get("position_context_source"),
                     spatial_relations=spatial_rels,
+                    size_cluster=c.get("size_cluster"),
                     confidence=0.85 if entry.get("status") == "OK" else 0.0,
                     source="lora_precomputed",
                 )

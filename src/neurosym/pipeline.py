@@ -28,7 +28,7 @@ from .constraints_to_query import QueryPlanner
 from .metrics import compute_metrics
 from .retrieval_backend import RetrievalBackend
 from .types import PipelineTrace
-from common.evaluation import compute_gt_matches
+from ..common.evaluation import compute_gt_matches
 
 
 # ─────────────────────────────────────────────────────────────────────────────

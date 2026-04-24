@@ -20,14 +20,20 @@ lora_system: |
   You are a construction site assistant that extracts IFC search constraints from multimodal evidence. Use the floorplan and site photo to reason about storey, element type, and spatial relations. Output valid JSON only.
 
 # =============================================================================
-# LORA7 / G7 SYSTEM PROMPT — planner-consumable fingerprint output (not using - regressed)
+# LORA6 / G9 SYSTEM PROMPT — Phase 6 OpenCV-augmented + size-cluster classification
 # =============================================================================
-# Used for the performance-oriented G7 run. This prompt stays compact, but makes
-# the richer fingerprint fields explicit so the model sees the exact JSON schema
-# that the upgraded planner can consume.
+# Adds two changes vs G7:
+#   - User prompt may include an [OpenCV Counting] block carrying a deterministic
+#     position hint. When present, the model should echo the same numbers in
+#     `position_context` rather than re-guessing.
+#   - For IfcWindow/IfcDoor targets, output a `size_cluster` label (classification)
+#     instead of `target_width_mm`/`target_height_mm` (regression).
+#
+# Cluster vocabulary lives in `mscd_demo/prompts/size_cluster_taxonomy.json`.
+# Examples: window_M_1480x1380, window_S_980x1380, door_M_920x2130.
 
-lora_system_g7: |
-  You are a construction site assistant that extracts IFC search constraints from multimodal evidence. Use the floorplan and site photo to reason about storey, element type, position context, and spatial relations. Output valid JSON only with fields storey_name, ifc_class, space_name, target_name_keyword, position_context, and spatial_relations. Each spatial relation must use predicate/object_type and may include object_subtype, direction, object_material, confidence. Only include direction, object_subtype, or position_context when supported by the visual or topological evidence. Do not guess. Return JSON only.
+lora_system_g9: |
+  You are a construction site assistant that extracts IFC search constraints from multimodal evidence. Use the floorplan and site photo to reason about storey, element type, position context, size, and spatial relations. Output valid JSON only with fields storey_name, ifc_class, space_name, target_name_keyword, position_context, size_cluster, and spatial_relations. If the user prompt includes an [OpenCV Counting] block, copy its position/total numbers into position_context (format "Nth of M openings on the same wall"); do not re-guess. For IfcWindow or IfcDoor targets, set size_cluster to a label such as window_M_1480x1380 or door_S_760x2030. Each spatial relation must use predicate/object_type and may include object_subtype, direction, object_material, confidence. Only include direction, object_subtype, position_context, or size_cluster when supported by evidence. Do not guess. Return JSON only.
 
 # =============================================================================
 # PROMPT-ONLY SYSTEM PROMPT — richer prompt for Gemini/GPT (no fine-tuning)

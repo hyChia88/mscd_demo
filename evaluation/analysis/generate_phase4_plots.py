@@ -25,6 +25,17 @@ import matplotlib.pyplot as plt
 import matplotlib.patheffects as pe
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 
+from phase4_plot_style import (
+    COLORS as SHARED_COLORS,
+    FAMILY_TO_UNIVERSE as SHARED_FAMILY_TO_UNIVERSE,
+    FINGERPRINT_WATERFALL_COLORS,
+    HIGHLIGHT_COLORS as SHARED_HIGHLIGHT_COLORS,
+    METRIC_COLORS as SHARED_METRIC_COLORS,
+    RELATION_FAMILY_COLORS,
+    STRATEGY_META as SHARED_STRATEGY_META,
+    UNIVERSE_META as SHARED_UNIVERSE_META,
+)
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 REPO_ROOT = PROJECT_ROOT.parent
@@ -180,6 +191,15 @@ STRATEGY_META = {
     "p0_intersect_p1": {"label": "p0∩p1", "color": COLORS["p0_intersect_p1"]},
     "p0_union_p1": {"label": "p0∪p1", "color": COLORS["p0_union_p1"]},
 }
+
+# Keep the JSON palette authoritative while preserving the older inline values
+# above as a readable fallback for anyone skimming this standalone script.
+COLORS = dict(SHARED_COLORS)
+METRIC_COLORS = dict(SHARED_METRIC_COLORS)
+HIGHLIGHT_COLORS = dict(SHARED_HIGHLIGHT_COLORS)
+UNIVERSE_META = dict(SHARED_UNIVERSE_META)
+FAMILY_TO_UNIVERSE = dict(SHARED_FAMILY_TO_UNIVERSE)
+STRATEGY_META = dict(SHARED_STRATEGY_META)
 
 
 def _load_json(path: Path) -> dict:
@@ -1747,8 +1767,11 @@ _SLICE_LABEL = {
     "MA":     "MA\n(Chat only)",
 }
 _MODAL_MODELS  = ["g7_position_context", "g8_posctx_dim", "gemini_ap_v2"]
-_MODAL_COLOR   = {"g7_position_context": "#6A1B9A", "g8_posctx_dim": "#1B5E20",
-                  "gemini_ap_v2": "#1565C0"}
+_MODAL_COLOR = {
+    "g7_position_context": COLORS["g7_position_context"],
+    "g8_posctx_dim": COLORS["g8_posctx_dim"],
+    "gemini_ap_v2": COLORS["gemini_ap_v2"],
+}
 _MODAL_LS      = {"g7_position_context": "-", "g8_posctx_dim": "--", "gemini_ap_v2": ":"}
 _MODAL_MK      = {"g7_position_context": "o", "g8_posctx_dim": "s", "gemini_ap_v2": "^"}
 _MODAL_DISPLAY = {"g7_position_context": "G7", "g8_posctx_dim": "G8", "gemini_ap_v2": "Gemini v2"}
@@ -1865,14 +1888,7 @@ def plot_multimodal_weak_proof(out_path: Path) -> None:
     random_pct   = 1 / 128.9 * 100          # avg pool size from H2 eval
 
     families = [g7[c]["family"].split(":")[-1] for c in common]
-    fam_colors = {
-        "ADJACENT_TO":                         "#E53935",
-        "CONNECTS_TO":                         "#1E88E5",
-        "FILLS+NEXT_TO+NEXT_TO":               "#43A047",
-        "FILLS+NEXT_TO":                       "#FB8C00",
-        "FILLS":                               "#8E24AA",
-        "FILLS+NEXT_TO+NEXT_TO(mixed-anchor)": "#00ACC1",
-    }
+    fam_colors = RELATION_FAMILY_COLORS
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
     fig.suptitle(
@@ -2026,13 +2042,13 @@ def plot_fingerprint_waterfall(out_path: Path) -> None:
     MAX_COUNT = float(STAGES[0][2])
 
     # ── Palette ───────────────────────────────────────────────────────────────
-    BAR_BLUE   = "#4472C4"
-    BAR_ORANGE = "#ED7D31"
-    ARROW_CLR  = "#9CA3AF"
-    LABEL_CLR  = "#1F2937"
-    DESC_CLR   = "#4B5563"
-    TOP1_CLR   = "#166534"   # green for Top-1 badge
-    PARTIAL_CLR= "#92400E"   # amber for partial coverage
+    BAR_BLUE = FINGERPRINT_WATERFALL_COLORS["bar_blue"]
+    BAR_ORANGE = FINGERPRINT_WATERFALL_COLORS["bar_orange"]
+    ARROW_CLR = FINGERPRINT_WATERFALL_COLORS["arrow"]
+    LABEL_CLR = FINGERPRINT_WATERFALL_COLORS["label"]
+    DESC_CLR = FINGERPRINT_WATERFALL_COLORS["description"]
+    TOP1_CLR = FINGERPRINT_WATERFALL_COLORS["top1_badge"]
+    PARTIAL_CLR = FINGERPRINT_WATERFALL_COLORS["partial_coverage"]
 
     # ── Layout constants (axes-fraction units) ────────────────────────────────
     ROW_H  = 0.60

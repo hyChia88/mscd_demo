@@ -1,0 +1,141 @@
+<mxfile host="app.diagrams.net" modified="2026-04-23T00:00:00.000Z" agent="claude" version="24.0.0">
+  <diagram name="symbolic_backend" id="symbolic_backend">
+    <mxGraphModel dx="1800" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ── Stage 1: LoRA_3 JSON ──────────────────────────────── -->
+        <mxCell id="json" value="&lt;b&gt;LoRA_3 JSON&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px'&gt;storey_name&lt;br&gt;ifc_class&lt;br&gt;space_name&lt;br&gt;target_name_keyword&lt;br&gt;position_context&lt;br&gt;size_cluster&lt;br&gt;spatial_relations[ ]&lt;br&gt;&#8195;{subject_type, predicate,&lt;br&gt;&#8195;&#8195;object_type, object_subtype,&lt;br&gt;&#8195;&#8195;direction, object_material,&lt;br&gt;&#8195;&#8195;confidence, connection_degree,&lt;br&gt;&#8195;&#8195;distance_mm}&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="240" height="230" as="geometry" />
+        </mxCell>
+
+        <!-- ── Stage 2: Pydantic ──────────────────────────────── -->
+        <mxCell id="pyd" value="&lt;b&gt;Pydantic Validator&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px'&gt;types.py::Constraints&lt;br&gt;- Literal[predicate] whitelist&lt;br&gt;- extra='ignore' (legacy keys)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="320" y="80" width="210" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- ── Stage 3: QueryPlanner ──────────────────────────────── -->
+        <mxCell id="planner" value="&lt;b&gt;QueryPlanner&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px'&gt;constraints_to_query.py&lt;br&gt;Walks PRIORITY_RULES top↓&lt;br&gt;First rule with all 'requires'&lt;br&gt;fields non-empty fires.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="570" y="80" width="220" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- Priority table -->
+        <mxCell id="ptable" value="&lt;b&gt;Priority rules (router)&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px' face='monospace'&gt;P0a spatial_triplet&#8195;(edge, not CONTINUOUS)&lt;br&gt;P0b continuous_span&#8195;(property filter)&lt;br&gt;P1  space+type&lt;br&gt;P2  name_keyword&lt;br&gt;P4  storey+type&lt;br&gt;P5  storey_only&lt;br&gt;P6  type_only&lt;br&gt;P8  fallback (LIMIT 100)&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="570" y="210" width="260" height="150" as="geometry" />
+        </mxCell>
+
+        <!-- ── Stage 4: RetrievalBackend ──────────────────────────────── -->
+        <mxCell id="backend" value="&lt;b&gt;RetrievalBackend.execute_plan&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px'&gt;retrieval_backend.py&lt;br&gt;Iterates plans in priority order.&lt;br&gt;First plan returning pool&gt;0 wins.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="880" y="80" width="260" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- ── P0 dispatch box ──────────────────────────────── -->
+        <mxCell id="p0" value="&lt;b&gt;P0 dispatch&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px'&gt;_requires_multi_chain?&lt;br&gt;&#8195;2+ triplets OR direction OR subtype&lt;br&gt;&#8195;OR position_index present&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="880" y="200" width="260" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Multi-anchor Cypher -->
+        <mxCell id="multi" value="&lt;b&gt;_execute_multi_anchor&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px'&gt;AND-intersection Cypher:&lt;br&gt;• FILLS[0] → MATCH (if NEXT_TO co-occurs)&lt;br&gt;• NEXT_TO → MATCH edge + wall_guid pin&lt;br&gt;• FILLS[1+], ADJACENT_TO, CONNECTS_TO → WHERE EXISTS&lt;br&gt;• object_material / subtype / direction&lt;br&gt;• distance_mm ±200 / connection_degree&lt;br&gt;• size_cluster equality / width±50 height±50&lt;br&gt;• wall_position_index = position_index − 1&lt;br&gt;ORDER BY wall_position_index&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="860" y="310" width="300" height="170" as="geometry" />
+        </mxCell>
+
+        <!-- Single-hop Cypher -->
+        <mxCell id="single" value="&lt;b&gt;Single-hop Cypher&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px'&gt;MATCH (target)-[:$pred]-&gt;(ref)&lt;br&gt;• ifc_type (= OR STARTS WITH)&lt;br&gt;• storey sibling list ANY(…CONTAINS)&lt;br&gt;• object_material CONTAINS&lt;br&gt;• optional width/height ±50mm&lt;br&gt;RETURN DISTINCT target.guid,…&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="310" width="270" height="130" as="geometry" />
+        </mxCell>
+
+        <!-- Relaxation ladder -->
+        <mxCell id="ladder" value="&lt;b&gt;Relaxation ladder (on empty pool)&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px' face='monospace'&gt;full_fingerprint&lt;br&gt;&#8195;↓ drop position_index&lt;br&gt;no_position&lt;br&gt;&#8195;↓ drop direction / subtype&lt;br&gt;topology_only&lt;br&gt;&#8195;↓ drop storey filter&lt;br&gt;no_storey&lt;br&gt;&#8195;↓ drop weakest SR (by conf)&lt;br&gt;relaxed&lt;br&gt;&#8195;↓ final: storey+type OR type_only&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="860" y="510" width="300" height="180" as="geometry" />
+        </mxCell>
+
+        <!-- Sibling resolver -->
+        <mxCell id="storey_res" value="&lt;b&gt;Storey sibling resolver&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px'&gt;_resolve_storey_siblings(q):&lt;br&gt;'Floor 1' → [&#39;level 1&#39;,&lt;br&gt;&#8195;&#39;1 - first floor&#39;]&lt;br&gt;Handles IFC naming heterogeneity&lt;br&gt;across models (AP / BH / DXA).&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="460" width="270" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- P0 fusion -->
+        <mxCell id="fusion" value="&lt;b&gt;P0 ↔ P1 fusion (default: p0_union_p1)&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px'&gt;candidates = P0 ∪ (P1_only)&lt;br&gt;Tier order: topology-matched first,&lt;br&gt;then storey+type-only elements.&lt;br&gt;Modes: p0_only | p1_only | ∩p1 | ∪p1&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="600" width="270" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- Post-filter -->
+        <mxCell id="postfilter" value="&lt;b&gt;Post-filter (Python)&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px'&gt;_post_filter_by_name_keyword&lt;br&gt;target_name_keyword CONTAINS&lt;br&gt;Graceful: never filter to empty.&lt;br&gt;Skipped if pool ≤ 3.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="720" width="270" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- Neo4j -->
+        <mxCell id="neo4j" value="&lt;b&gt;Neo4j graph (offline pre-computed)&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px'&gt;Nodes: IFCElement, IFCStorey, IFCSpace&lt;br&gt;Node props: ifc_type, storey, ifc_model,&lt;br&gt;&#8195;is_continuous, top_constraint, base_constraint,&lt;br&gt;&#8195;wall_position_index, wall_child_total,&lt;br&gt;&#8195;object_type, material, size_cluster, width_mm, height_mm&lt;br&gt;Edges: CONTAINS, FILLS, NEXT_TO(wall_guid),&lt;br&gt;&#8195;ADJACENT_TO(distance_mm), CONNECTS_TO,&lt;br&gt;&#8195;ON_TOP_OF, PERPENDICULAR_TO, PARALLEL_TO&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="40" y="400" width="380" height="180" as="geometry" />
+        </mxCell>
+
+        <!-- CLIP rerank -->
+        <mxCell id="clip" value="&lt;b&gt;CLIP rerank (optional)&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px'&gt;VisualAligner.match_image_to_elements&lt;br&gt;First&amp;nbsp;use of a real score ranking.&lt;br&gt;Uses only visual features — no fusion&lt;br&gt;with constraint-match evidence.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="840" width="270" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- Final -->
+        <mxCell id="final" value="&lt;b&gt;final_candidates[:10]&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px'&gt;→ EvalTrace.mentioned_guids&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="840" width="260" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Arrows -->
+        <mxCell id="e1" style="endArrow=classic;html=1;" edge="1" parent="1" source="json" target="pyd">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" style="endArrow=classic;html=1;" edge="1" parent="1" source="pyd" target="planner">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" style="endArrow=classic;html=1;" edge="1" parent="1" source="planner" target="backend">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" style="endArrow=classic;html=1;dashed=1;" edge="1" parent="1" source="planner" target="ptable">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" style="endArrow=classic;html=1;" edge="1" parent="1" source="backend" target="p0">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="yes" style="endArrow=classic;html=1;" edge="1" parent="1" source="p0" target="multi">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" value="no" style="endArrow=classic;html=1;" edge="1" parent="1" source="p0" target="single">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" style="endArrow=classic;html=1;dashed=1;" edge="1" parent="1" source="multi" target="ladder">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" style="endArrow=classic;html=1;dashed=1;" edge="1" parent="1" source="single" target="ladder">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" style="endArrow=classic;html=1;dashed=1;" edge="1" parent="1" source="single" target="storey_res">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" style="endArrow=classic;html=1;dashed=1;" edge="1" parent="1" source="multi" target="storey_res">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" style="endArrow=classic;html=1;" edge="1" parent="1" source="ladder" target="fusion">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" style="endArrow=classic;html=1;" edge="1" parent="1" source="fusion" target="postfilter">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" style="endArrow=classic;html=1;" edge="1" parent="1" source="postfilter" target="clip">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e15" style="endArrow=classic;html=1;" edge="1" parent="1" source="clip" target="final">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e16" style="endArrow=classic;html=1;dashed=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="neo4j" target="multi">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend" value="&lt;b&gt;Legend&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:10px'&gt;🟦 data artifact&#8195;🟩 processing stage&lt;br&gt;🟥 Cypher execution&#8195;🟨 control-flow / router&lt;br&gt;🟪 graph / resolver&#8195;— — dashed: reference&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="40" y="720" width="380" height="80" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

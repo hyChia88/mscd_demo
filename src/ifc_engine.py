@@ -43,7 +43,51 @@ class IFCEngine:
         self.spatial_index = {}
         self.neo4j_conn = neo4j_conn
         self._llm_client = llm_client  # set before _build_spatial_graph so registries use it
+        self._size_cluster_taxonomy = self._load_size_cluster_taxonomy()
         self._build_spatial_graph()
+
+    @staticmethod
+    def _load_size_cluster_taxonomy():
+        """Load `mscd_demo/prompts/size_cluster_taxonomy.json` if present.
+
+        Returns the raw dict. G9 retrieval relies on each IfcWindow / IfcDoor
+        node carrying a `size_cluster` label that matches the LoRA's emitted
+        label vocabulary, so reload-once-at-init is the right shape.
+        """
+        candidates = [
+            os.path.join(os.path.dirname(__file__), "..", "prompts", "size_cluster_taxonomy.json"),
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompts", "size_cluster_taxonomy.json"),
+        ]
+        for path in candidates:
+            if os.path.exists(path):
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        import json as _json
+                        return _json.load(f)
+                except Exception:
+                    pass
+        return None
+
+    def _snap_size_cluster(self, ifc_class: str, width_mm: Optional[float],
+                           height_mm: Optional[float]) -> Optional[str]:
+        """Return the nearest taxonomy cluster label, or None if unavailable."""
+        if not self._size_cluster_taxonomy or width_mm is None or height_mm is None:
+            return None
+        clusters = (self._size_cluster_taxonomy.get("clusters") or {}).get(ifc_class) or {}
+        if not clusters:
+            return None
+        best_label: Optional[str] = None
+        best_d2 = float("inf")
+        wx = float(width_mm)
+        hx = float(height_mm)
+        for label, info in clusters.items():
+            dw = float(info.get("w", 0.0)) - wx
+            dh = float(info.get("h", 0.0)) - hx
+            d2 = dw * dw + dh * dh
+            if d2 < best_d2:
+                best_d2 = d2
+                best_label = label
+        return best_label
 
     @staticmethod
     def _derive_model_key(file_path: str) -> str:
@@ -740,12 +784,16 @@ class IFCEngine:
                     node_props["material"] = material_name
 
                 # Fix 3: physical dimensions for IfcWindow/IfcDoor (breaks size-entropy)
+                # G9: also snap to size_cluster taxonomy for classification-based retrieval.
                 if element.is_a() in ("IfcWindow", "IfcDoor"):
                     w, h = self._get_element_dimensions(element, psets)
                     if w is not None:
                         node_props["width_mm"] = w
                     if h is not None:
                         node_props["height_mm"] = h
+                    cluster = self._snap_size_cluster(element.is_a(), w, h)
+                    if cluster:
+                        node_props["size_cluster"] = cluster
 
                 # Flatten key properties for graph queries
                 for pset_name, props in psets.items():

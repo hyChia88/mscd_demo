@@ -22,7 +22,7 @@ try:
 except Exception:  # pragma: no cover - plotting is optional at runtime
     plt = None
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 

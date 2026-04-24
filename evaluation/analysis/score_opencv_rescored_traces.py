@@ -44,26 +44,20 @@ def score(traces_path: Path) -> dict[str, Any]:
 
     for row in rows:
         rank, pool = _rank_from_trace(row)
-        # Check if GT is in pool (independent of top-10 cap on candidates list).
-        # A guid_match=True field indicates rank=1; otherwise infer from candidates.
-        if row.get("guid_match"):
+        # Rank is 1-based position of GT within the returned candidates list
+        # (which is typically truncated to top-10). rank=None means GT is not in
+        # the candidates — for the Track B-2 comparison we treat this as
+        # "not in pool" for Top-K purposes. NOTE: the pipeline's `guid_match`
+        # field means "GT in candidates" (≈ gt-in-pool), NOT rank=1.
+        if rank is not None:
             gt_in_pool += 1
-            top1 += 1
-            top5 += 1
-            top10 += 1
-            mrr_sum += 1.0
-        elif rank is not None:
-            gt_in_pool += 1
+            if rank == 1:
+                top1 += 1
             if rank <= 5:
                 top5 += 1
             if rank <= 10:
                 top10 += 1
             mrr_sum += 1.0 / rank
-        # When rank is None, GT may still be in the full pool beyond the top-10
-        # candidates cut. Without the full pool stored, we can't tell — conservative:
-        # treat as "not in top-10" for Top-K but leave gt_in_pool untouched unless
-        # we have stronger evidence. Most G-series reports count GT-in-pool from
-        # the backend's full result set; our candidates list is truncated to top-10.
         if pool:
             pool_sizes.append(int(pool))
 

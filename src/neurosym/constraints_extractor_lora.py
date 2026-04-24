@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional
 from .condition_mask import ConditionMask
 from .floorplan_counter import FloorplanCounter, FloorplanCountResult, merge_position_context
 from .types import Constraints, ImageParseResult, SpatialTriplet
-from common.config import load_yaml_prompts
+from ..common.config import load_yaml_prompts
 
 # ── System prompt — loaded from prompts/constraints_extraction.yaml ───────────
 # Shared with constraints_extractor_prompt_only.py and training/eval.py so that

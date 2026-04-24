@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AEC Interpreter - Emergence Heatmap</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        .cell { transition: fill 0.5s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.2s; cursor: pointer; }
+        .cell:hover { stroke: #3b82f6 !important; stroke-width: 2px !important; }
+        .cell-selected { stroke: #000 !important; stroke-width: 2.5px !important; z-index: 50; filter: drop-shadow(0 0 8px rgba(0,0,0,0.2)); }
+        
+        .ingestion-particle {
+            position: absolute; width: 6px; height: 6px; border-radius: 50%;
+            pointer-events: none; z-index: 100; transition: all 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+            opacity: 0; box-shadow: 0 0 8px currentColor;
+        }
+
+        .bim-base { pointer-events: none; }
+        .step-pill { font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-family: monospace; }
+        
+        svg { max-width: 100%; max-height: 100%; width: 100%; height: 100%; }
+    </style>
+</head>
+<body class="bg-slate-50 p-6 font-sans text-slate-800 h-screen flex flex-col overflow-hidden">
+
+    <header class="bg-white px-6 py-4 rounded-xl shadow-sm border border-slate-200 mb-6 flex justify-between items-center shrink-0">
+        <div class="flex items-center gap-6">
+            <div>
+                <h1 class="text-xl font-bold text-slate-900">Neuro-Symbolic Alignment Engine</h1>
+                <p class="text-xs text-slate-500 font-mono mt-1 uppercase tracking-wider">Project: CMU_Thesis_Demo | Phase: Emergence Analysis</p>
+            </div>
+            <div class="h-10 w-px bg-slate-200"></div>
+            <div class="flex gap-8">
+                <div class="text-center">
+                    <p class="text-[8px] text-slate-400 uppercase font-bold tracking-widest">Inference State</p>
+                    <p class="text-emerald-600 font-bold text-base leading-none uppercase">Synthesizing</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <button id="pulse-btn" onclick="startLiveIngestion()" class="bg-slate-900 hover:bg-blue-600 text-white text-[11px] font-bold py-2 px-5 rounded shadow-sm transition-all flex items-center gap-2 group">
+                <div class="w-2 h-2 rounded-full bg-blue-400 animate-pulse group-hover:bg-white"></div>
+                INGEST SITE PULSE
+            </button>
+            <select id="mode-selector" onchange="switchMode()" class="bg-slate-50 border border-slate-200 text-[11px] rounded p-2 font-bold cursor-pointer outline-none focus:border-blue-500">
+                <option value="defect">DEFECT DENSITY & SENTIMENT</option>
+                <option value="conflict">TRADE CONFLICT PREDICTION</option>
+                <option value="blindspot">REGULATORY BLINDSPOT</option>
+            </select>
+        </div>
+    </header>
+
+    <main class="flex gap-6 flex-1 min-h-0 relative overflow-hidden">
+        
+        <section class="w-[25%] bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+            <div class="p-3 border-b border-slate-200 bg-slate-50 flex justify-between items-center shrink-0">
+                <h2 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Raw Site Noise</h2>
+                <span class="text-[9px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded font-bold border border-blue-100 uppercase">Input Stream</span>
+            </div>
+            <div id="incoming-ticker" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/30">
+                <div class="text-center mt-32 opacity-20 text-[10px] font-mono leading-relaxed px-6 uppercase tracking-widest">[Awaiting Stream...]</div>
+            </div>
+        </section>
+
+        <section class="w-[45%] bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col relative overflow-hidden">
+            <div class="p-3 border-b border-slate-200 flex justify-between items-center bg-white/95 backdrop-blur shrink-0 z-10">
+                <h2 id="map-title" class="font-bold text-slate-800 text-sm">Allocentric Analysis Map</h2>
+                <div id="legend" class="flex gap-3 text-[9px] font-bold uppercase tracking-tighter"></div>
+            </div>
+            
+            <div class="flex-1 min-h-0 bg-slate-100 flex items-center justify-center relative p-4" id="canvas-container">
+                <svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet" id="bim-canvas" class="bg-white rounded border border-slate-200 shadow-inner">
+                    <defs>
+                        <pattern id="hashPattern" width="6" height="6" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+                            <line x1="0" y1="0" x2="0" y2="6" stroke="#94a3b8" stroke-width="1.5" />
+                        </pattern>
+                    </defs>
+                    <g id="layer-floorplan"></g>
+                    <g id="layer-grid"></g>
+                </svg>
+            </div>
+        </section>
+
+        <section class="w-[30%] bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+            <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center shrink-0">
+                <h2 class="font-bold text-sm flex items-center gap-2 text-slate-900">
+                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    Intelligence Trace
+                </h2>
+                <button onclick="location.reload()" class="text-[10px] text-slate-400 hover:text-blue-600 font-bold font-mono">RESET</button>
+            </div>
+            <div id="reasoning-content" class="flex-1 overflow-y-auto p-5">
+                <div class="text-center mt-32 text-slate-300 text-xs font-mono uppercase leading-relaxed">
+                    <p>> SELECT EMERGENT NODE<br>> TO VIEW AGENTIC LOGIC</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const cols = 40; const rows = 30; const cellSize = 20;
+        let selectedCell = null;
+        let activeNodes = [];
+
+        /**
+         * REALISTIC BIM ELEMENTS TOPOLOGY
+         * Creating a schematic floorplan with exterior walls, a central corridor, 
+         * structural columns on a grid, and MEP systems.
+         */
+        const bimElements = [
+            // --- STRUCTURAL COLUMNS (Grid 100, 400, 700 / 100, 300, 500) ---
+            { id: 'COL-A1', label: 'IfcColumn', svgType: 'rect', hasData: false, attrs: { x: 90, y: 90, width: 20, height: 20 } },
+            { id: 'COL-B1', label: 'IfcColumn', svgType: 'rect', hasData: false, attrs: { x: 390, y: 90, width: 20, height: 20 } },
+            { id: 'COL-C1', label: 'IfcColumn', svgType: 'rect', hasData: false, attrs: { x: 690, y: 90, width: 20, height: 20 } },
+            { id: 'COL-A2', label: 'IfcColumn', svgType: 'rect', hasData: false, attrs: { x: 90, y: 290, width: 20, height: 20 } },
+            { id: 'COL-B2', label: 'IfcColumn', svgType: 'rect', hasData: false, attrs: { x: 390, y: 290, width: 20, height: 20 } },
+            { id: 'COL-C2', label: 'IfcColumn', svgType: 'rect', hasData: true,  attrs: { x: 690, y: 290, width: 20, height: 20 } }, // Has Data
+            { id: 'COL-A3', label: 'IfcColumn', svgType: 'rect', hasData: false, attrs: { x: 90, y: 490, width: 20, height: 20 } },
+            { id: 'COL-B3', label: 'IfcColumn', svgType: 'rect', hasData: false, attrs: { x: 390, y: 490, width: 20, height: 20 } },
+            { id: 'COL-C3', label: 'IfcColumn', svgType: 'rect', hasData: false, attrs: { x: 690, y: 490, width: 20, height: 20 } },
+
+            // --- EXTERIOR WALLS ---
+            { id: 'WALL-EXT-N', label: 'IfcWall', svgType: 'rect', hasData: false, attrs: { x: 100, y: 95, width: 600, height: 10 } },
+            { id: 'WALL-EXT-S', label: 'IfcWall', svgType: 'rect', hasData: false, attrs: { x: 100, y: 495, width: 600, height: 10 } },
+            { id: 'WALL-EXT-W', label: 'IfcWall', svgType: 'rect', hasData: false, attrs: { x: 95, y: 100, width: 10, height: 400 } },
+            { id: 'WALL-EXT-E', label: 'IfcWall', svgType: 'rect', hasData: false, attrs: { x: 695, y: 100, width: 10, height: 400 } },
+
+            // --- INTERIOR CORRIDOR WALLS & PARTITIONS ---
+            // North Corridor Wall (With a gap for Door 101)
+            { id: 'WALL-INT-A', label: 'IfcWallStandardCase', svgType: 'rect', hasData: true, attrs: { x: 100, y: 250, width: 180, height: 8 } }, // Has Data
+            { id: 'WALL-INT-B', label: 'IfcWallStandardCase', svgType: 'rect', hasData: false, attrs: { x: 320, y: 250, width: 380, height: 8 } },
+            // South Corridor Wall (With a gap for Door 102)
+            { id: 'WALL-INT-C', label: 'IfcWallStandardCase', svgType: 'rect', hasData: false, attrs: { x: 100, y: 350, width: 400, height: 8 } },
+            { id: 'WALL-INT-D', label: 'IfcWallStandardCase', svgType: 'rect', hasData: false, attrs: { x: 540, y: 350, width: 160, height: 8 } },
+            // Vertical Room Dividers
+            { id: 'WALL-DIV-1', label: 'IfcWallStandardCase', svgType: 'rect', hasData: false, attrs: { x: 400, y: 105, width: 8, height: 145 } },
+            { id: 'WALL-DIV-2', label: 'IfcWallStandardCase', svgType: 'rect', hasData: false, attrs: { x: 400, y: 358, width: 8, height: 137 } },
+
+            // --- DOORS ---
+            { id: 'DOOR-101', label: 'IfcDoor', svgType: 'rect', hasData: false, attrs: { x: 280, y: 248, width: 40, height: 12, fill: '#fcd34d', stroke: '#d97706' } },
+            { id: 'DOOR-102', label: 'IfcDoor', svgType: 'rect', hasData: true,  attrs: { x: 500, y: 348, width: 40, height: 12, fill: '#fcd34d', stroke: '#d97706' } }, // Has Data
+
+            // --- WINDOWS (Inserted into exterior walls) ---
+            { id: 'WIN-N1', label: 'IfcWindow', svgType: 'rect', hasData: true,  attrs: { x: 200, y: 93, width: 80, height: 14, fill: '#bae6fd', stroke: '#0284c7' } }, // Has Data
+            { id: 'WIN-N2', label: 'IfcWindow', svgType: 'rect', hasData: false, attrs: { x: 500, y: 93, width: 80, height: 14, fill: '#bae6fd', stroke: '#0284c7' } },
+            { id: 'WIN-S1', label: 'IfcWindow', svgType: 'rect', hasData: false, attrs: { x: 350, y: 493, width: 100, height: 14, fill: '#bae6fd', stroke: '#0284c7' } },
+
+            // --- MEP SYSTEMS ---
+            // Main Corridor HVAC Duct
+            { id: 'HVAC-MAIN', label: 'IfcDuctSegment', svgType: 'rect', hasData: false, attrs: { x: 120, y: 275, width: 560, height: 24, rx: 5 } },
+            // Branch HVAC Duct going into Room 101
+            { id: 'HVAC-BR-101', label: 'IfcDuctSegment', svgType: 'rect', hasData: true, attrs: { x: 200, y: 150, width: 20, height: 125, rx: 2 } }, // Has Data
+            // Plumbing Main Line
+            { id: 'PIPE-MAIN', label: 'IfcPipeSegment', svgType: 'rect', hasData: false, attrs: { x: 120, y: 315, width: 560, height: 6, rx: 3, fill: '#93c5fd' } },
+            // Fire Sprinkler Branch (causing the clash)
+            { id: 'PIPE-SPR-101', label: 'IfcPipeSegment', svgType: 'rect', hasData: false, attrs: { x: 150, y: 180, width: 120, height: 4, rx: 2, fill: '#fca5a5', stroke: '#dc2626' } }
+        ];
+
+        // --- ENRICHED DATASET: 100 Non-Duplicate Cases for Emergent Intelligence ---
+        const scenarios = [
+            // --- PILLAR 1: DEFECT DENSITY & SENTIMENT (Structural/Quality Issues) ---
+            { c: 4, r: 4, el: 'COL-A1', s: 'Inspector', text: 'Critical structural crack found on Column A1.', d: 0.90, cnf: 0.2, b: 0.1, rsn: 'Neural grounding: Visual defect matched to IfcColumn GUID.' },
+            { c: 34, r: 14, el: 'COL-C2', s: 'Site_Cam', text: 'Object Detection: Exposed rebar at column base.', d: 0.92, cnf: 0.1, b: 0.1, rsn: 'Computer vision identifies rebar exposure; high priority.' },
+            { c: 35, r: 15, el: 'WhatsApp_Eng', text: 'C2 needs urgent concrete patch. Verification failed.', d: 0.95, cnf: 0.1, b: 0.1, rsn: 'Sentiment analysis flags high-negativity engineering feedback.' },
+            { c: 30, r: 16, el: 'PIPE-MAIN', s: 'Leak_Sens', text: 'Abnormal moisture spike in corridor ceiling.', d: 0.85, cnf: 0.1, b: 0.1, rsn: 'IoT data grounds moisture to IfcPipeSegment location.' },
+            { c: 26, r: 4, el: 'WIN-N2', s: 'Safety', text: 'Shattered glass found on Window N2.', d: 0.88, cnf: 0.1, b: 0.2, rsn: 'Safety incident grounded to facade element boundary.' },
+            { c: 14, r: 12, el: 'DOOR-101', s: 'Logistics', text: 'Door 101 frame arrived dented. Rejecting.', d: 0.75, cnf: 0.1, b: 0.1, rsn: 'Procurement-side defect grounded to specific entry GUID.' },
+            { c: 24, r: 8, el: 'WALL-INT-B', s: 'Paint_Sub', text: 'Terrible wall finish. Needs total rework.', d: 0.94, cnf: 0.1, b: 0.1, rsn: 'Qualitative sentiment flags failure in finishing trade.' },
+            { c: 5, r: 15, el: 'WALL-EXT-W', s: 'BIM_Ops', text: 'Thermal scan flags insulation gap.', d: 0.80, cnf: 0.5, b: 0.1, rsn: 'Non-visual sensor data parsed into spatial wall coordinates.' },
+            { c: 17, r: 24, el: 'WALL-EXT-S', s: 'Foreman', text: 'Visual: Heavy moisture on South exterior face.', d: 0.78, cnf: 0.1, b: 0.3, rsn: 'Egocentric image grounding identifies exterior leakage.' },
+            { c: 7, r: 2, el: 'WIN-N1', s: 'Thermal_Scan', text: 'Heat loss detected at mullion joints.', d: 0.65, cnf: 0.1, b: 0.1, rsn: 'Sustainability audit failure grounded to facade node.' },
+            { c: 12, r: 10, el: 'HVAC-BR-101', s: 'Audio_Log', text: 'Loud rattling noise when system is engaged.', d: 0.70, cnf: 0.3, b: 0.1, rsn: 'Audio-to-text parsing flags operational anomaly.' },
+            { c: 3, r: 20, el: 'WALL-EXT-W', s: 'Drone_UAV', text: 'Photogrammetry flags 15mm wall lean.', d: 0.85, cnf: 0.2, b: 0.1, rsn: 'Symbolic check: As-built exceeds IFC tolerance levels.' },
+            { c: 8, r: 22, el: 'COL-A3', s: 'WhatsApp', text: 'Anchor bolts are rusted on arrival for A3.', d: 0.60, cnf: 0.1, b: 0.1, rsn: 'Material quality sentiment grounded to structural GUID.' },
+            { c: 33, r: 5, el: 'WALL-EXT-E', s: 'Site_Foreman', text: 'Brickwork alignment looks sloppy near East corner.', d: 0.55, cnf: 0.1, b: 0.1, rsn: 'Subjective quality sentiment mapped to spatial wall patch.' },
+            { c: 19, r: 15, el: 'PIPE-MAIN', s: 'WhatsApp', text: 'Sealant leaking at the main corridor joint.', d: 0.90, cnf: 0.2, b: 0.1, rsn: 'Urgent leak intent extracted and grounded to pipe node.' },
+            { c: 10, r: 10, el: 'HVAC-BR-101', s: 'Maintenance', text: 'Filter clogged already. Dust accumulation high.', d: 0.40, cnf: 0.1, b: 0.1, rsn: 'Operational defect parsed for long-term facility tracking.' },
+            { c: 25, r: 2, el: 'WALL-EXT-N', s: 'WhatsApp', text: 'Efflorescence found on the new North bricks.', d: 0.50, cnf: 0.1, b: 0.1, rsn: 'Chemical defect keyword grounded to exterior wall GUID.' },
+            { c: 2, r: 2, el: 'COL-A1', s: 'Safety_Log', text: 'Trip hazard: Scaffolding loose near A1.', d: 0.75, cnf: 0.1, b: 0.2, rsn: 'Safety risk parsed spatially relative to structural node.' },
+            { c: 35, r: 23, el: 'WALL-EXT-E', s: 'Inspector', text: 'Mortar joints not fully packed on L2-East.', d: 0.68, cnf: 0.1, b: 0.1, rsn: 'Technical non-conformance mapped to IfcWall segment.' },
+            { c: 15, r: 4, el: 'WIN-N1', s: 'WhatsApp', text: 'Missing hardware for the center mullion.', d: 0.45, cnf: 0.1, b: 0.1, rsn: 'Neural entity extraction: "Hardware" grounded to window.' },
+
+            // --- PILLAR 2: TRADE CONFLICT PREDICTION (Contradictions/Clashes) ---
+            { c: 10, r: 9, el: 'HVAC-BR-101', s: 'MEP_Lead', text: 'Duct 101 installation fully complete.', d: 0.1, cnf: 0.98, b: 0.3, rsn: 'Conflict: Direct contradiction with sub-contractor reported reality.' },
+            { c: 8, r: 7, el: 'HVAC-BR-101', s: 'Drywall_Sub', text: 'Branch duct alignment is blocked by fire pipe.', d: 0.4, cnf: 0.95, b: 0.1, rsn: 'Spatial conflict: Neuro-symbolic layer detects overlapping trades.' },
+            { c: 10, r: 6, el: 'PIPE-SPR-101', s: 'Plumbing_Team', text: 'Sprinkler line finished. Area is clear for ceiling.', d: 0.1, cnf: 0.85, b: 0.1, rsn: 'Semantic clash detected against HVAC "blocked" report.' },
+            { c: 15, r: 18, el: 'WALL-INT-C', s: 'Elec_Sub', text: 'Wall studs too tight; boxes won’t fit.', d: 0.4, cnf: 0.90, b: 0.2, rsn: 'Trade friction: Mechanical constraint parsing between trades.' },
+            { c: 35, r: 15, el: 'IoT_Node', s: 'Structural_Eng', text: 'Vibration spike on Column C2 base.', d: 0.6, cnf: 0.7, b: 0.1, rsn: 'Anomaly grounds to structural node conflict.' },
+            { c: 25, r: 14, el: 'HVAC-MAIN', s: 'Fire_Safe', text: 'HVAC vent blocking fire egress route.', d: 0.3, cnf: 0.95, b: 0.1, rsn: 'Regulatory conflict: Design vs. Safety Constraint logic.' },
+            { c: 8, r: 16, el: 'PIPE-MAIN', s: 'Flooring_Sub', text: 'Main pipe rough-in incomplete. Delaying floor.', d: 0.1, cnf: 0.85, b: 0.2, rsn: 'Workflow dependency clash detected via chat intent.' },
+            { c: 18, r: 5, el: 'WIN-N1', s: 'Architect', text: 'Mullion spacing looks wrong vs IFC design.', d: 0.5, cnf: 0.88, b: 0.1, rsn: 'Intent check: Designer intent vs. As-built logic clash.' },
+            { c: 11, r: 12, el: 'WALL-INT-A', s: 'Drywall_Team', text: 'Broken alignment in 101 due to pipe drift.', d: 0.70, cnf: 0.82, b: 0.1, rsn: 'Pillar 2: Multimodal evidence of structural-MEP clash.' },
+            { c: 18, r: 12, el: 'WALL-INT-A', s: 'Drywall_Lead', text: 'Corridor studs are 2cm off the BIM datum.', d: 0.75, cnf: 0.6, b: 0.1, rsn: 'Precision conflict: Neural parser flags tolerance violation.' },
+            { c: 22, r: 13, el: 'WALL-INT-B', s: 'WhatsApp', text: 'Waiting for MEP to finish before we can close Wall B.', d: 0.1, cnf: 0.88, b: 0.4, rsn: 'Sequential conflict: Resource blocking detected in text.' },
+            { c: 6, r: 13, el: 'WALL-INT-A', s: 'PDF_Patch', text: 'Markup: Move fire extinguisher cabinet 10cm East.', d: 0.3, cnf: 0.4, b: 0.1, rsn: 'Request for Information (RFI) grounded to wall segment.' },
+            { c: 12, r: 23, el: 'WALL-EXT-S', s: 'Facade_Sub', text: 'Cannot mount brackets, wall substrate too brittle.', d: 0.4, cnf: 0.78, b: 0.1, rsn: 'Material compatibility conflict detected via NLP.' },
+            { c: 30, r: 10, el: 'HVAC-MAIN', s: 'WhatsApp', text: 'Duct height interferes with lighting ceiling grid.', d: 0.3, cnf: 0.92, b: 0.1, rsn: 'Geometric clash: Multi-trade interference detected.' },
+            { c: 15, r: 27, el: 'PIPE-MAIN', s: 'Flooring_Team', text: 'Plumbing cleanout is buried under the tile.', d: 0.5, cnf: 0.80, b: 0.1, rsn: 'Access conflict: "Buried" intent grounded to pipe element.' },
+            { c: 3, r: 5, el: 'WALL-EXT-W', s: 'BIM_Ops', text: 'Model shows window here, but site has solid wall.', d: 0.2, cnf: 0.99, b: 0.2, rsn: 'Critical Divergence: Model truth vs. Physical reality conflict.' },
+            { c: 20, r: 20, el: 'DOOR-102', s: 'Architect', text: 'This door swing conflicts with the furniture plan.', d: 0.1, cnf: 0.70, b: 0.3, rsn: 'Usability conflict: Design intent check against IFC properties.' },
+            { c: 28, r: 22, el: 'COL-C3', s: 'Struct_Eng', text: 'Column sleeve not sized for these 4-inch pipes.', d: 0.3, cnf: 0.85, b: 0.1, rsn: 'Scale conflict: Neuro-symbolic sizing contradiction.' },
+            { c: 13, r: 27, el: 'PIPE-MAIN', s: 'WhatsApp', text: 'Plumbing wants to cut the joist for a drain.', d: 0.1, cnf: 0.96, b: 0.1, rsn: 'Structural integrity threat: Prohibited trade action detected.' },
+            { c: 2, r: 10, el: 'COL-A1', s: 'Foreman', text: 'Waiting for HVAC crew to move their materials.', d: 0.1, cnf: 0.65, b: 0.1, rsn: 'Logistic conflict: Site congestion parsed spatially.' },
+
+            // --- PILLAR 3: REGULATORY BLINDSPOTS (Information Decay/Silence) ---
+            { c: 20, r: 12, el: 'WALL-INT-B', s: '4D_Sched', text: 'Scheduled: Fire-stopping for Corridor Wall.', d: 0.1, cnf: 0.1, b: 0.95, rsn: 'Pillar 3: Silent milestone with 0 grounded site noise.' },
+            { c: 28, r: 9, el: 'ROOM-102', s: '4D_Sched', text: 'Scheduled: Ceiling grid installation (Silent).', d: 0.1, cnf: 0.1, b: 0.85, rsn: 'Compliance risk: Critical activity lacks visual audit trail.' },
+            { c: 9, r: 9, el: 'PIPE-SPR-101', s: '4D_Sched', text: 'Scheduled: Sprinkler pressure test (Silent).', d: 0.1, cnf: 0.1, b: 0.92, rsn: 'Life-safety blindspot: Missing deterministic verification records.' },
+            { c: 26, r: 18, el: 'DOOR-102', s: '4D_Sched', text: 'Scheduled: ADA threshold review (No data).', d: 0.1, cnf: 0.3, b: 0.90, rsn: 'Accessibility risk: Document decay in high-traffic GUID.' },
+            { c: 12, r: 8, el: 'ROOM-101', s: '4D_Sched', text: 'Scheduled: Lighting rough-in (No records).', d: 0.1, cnf: 0.1, b: 0.88, rsn: 'Progress blindspot: Schedule active but site evidence silent.' },
+            { c: 18, r: 14, el: 'HVAC-MAIN', s: '4D_Sched', text: 'Scheduled: Duct insulation verification.', d: 0.1, cnf: 0.2, b: 0.94, rsn: 'QA blindspot: Insulation check-off missing from knowledge graph.' },
+            { c: 28, r: 17, el: 'Space_104', s: '4D_Sched', text: 'Milestone: Electrical Rough-in (Day 60).', d: 0.1, cnf: 0.1, b: 0.98, rsn: 'Information decay: Scheduled task with 0 grounded evidence nodes.' },
+            { c: 29, r: 18, el: 'Space_104', s: 'Neo4j_Query', text: 'Spatial Query: Zero data nodes in 5m radius.', d: 0.1, cnf: 0.1, b: 0.95, rsn: 'Verified information black hole in active work zone.' },
+            { c: 31, r: 25, el: 'COL-C3', s: '4D_Sched', text: 'Milestone: Column Stripping.', d: 0.1, cnf: 0.1, b: 0.85, rsn: 'Delayed documentation detected for structural lifecycle phase.' },
+            { c: 4, r: 12, el: 'WALL-EXT-W', s: '4D_Sched', text: 'Scheduled: Vapor barrier inspection.', d: 0.1, cnf: 0.1, b: 0.91, rsn: 'Regulatory risk: Missing evidence for building envelope seal.' },
+            { c: 35, r: 2, el: 'COL-C1', s: 'Compliance_Bot', text: 'Alert: No sign-off for L2 rebar layout.', d: 0.1, cnf: 0.1, b: 0.97, rsn: 'Critical blindspot: Concrete pour imminent without rebar audit.' },
+            { c: 10, r: 27, el: 'PIPE-MAIN', s: '4D_Sched', text: 'Scheduled: Main line hydrostatic test.', d: 0.1, cnf: 0.1, b: 0.89, rsn: 'Missing test certificate in digital twin element history.' },
+            { c: 15, r: 8, el: 'DOOR-101', s: '4D_Sched', text: 'Scheduled: Fire rating label verification.', d: 0.1, cnf: 0.2, b: 0.82, rsn: 'Regulatory gap: Door installed but rating image missing.' },
+            { c: 22, r: 5, el: 'WIN-N1', s: 'BIM_Ops', text: 'VLM Query: Identify sealant color? => No matches.', d: 0.2, cnf: 0.1, b: 0.75, rsn: 'Semantic gap: Multimodal grounding failed for detail level.' },
+            { c: 30, r: 24, el: 'WALL-EXT-S', s: 'Inspector', text: 'Unable to access L2 South for verification.', d: 0.1, cnf: 0.1, b: 0.80, rsn: 'Manual flag: Physical barrier causing information silence.' },
+            { c: 5, r: 10, el: 'COL-A1', s: 'IoT_Health', text: 'Offline: Structural health sensor at node A1.', d: 0.2, cnf: 0.1, b: 0.93, rsn: 'Hardware failure creating a localized information blindspot.' },
+            { c: 33, r: 18, el: 'WALL-EXT-E', s: '4D_Sched', text: 'Scheduled: External scaffolding removal.', d: 0.1, cnf: 0.1, b: 0.86, rsn: 'Incomplete audit: Scaffolding removal without final wall photo.' },
+            { c: 12, r: 14, el: 'HVAC-MAIN', s: 'Admin', text: 'Missing certificate of occupancy paperwork.', d: 0.1, cnf: 0.1, b: 0.70, rsn: 'Admin blindspot: Missing symbolic link to regulatory doc.' },
+            { c: 20, r: 27, el: 'PIPE-MAIN', s: '4D_Sched', text: 'Scheduled: Thermal lagging inspection.', d: 0.1, cnf: 0.1, b: 0.84, rsn: 'Insulation blindspot: Energy compliance data missing.' },
+            { c: 4, r: 27, el: 'WALL-EXT-W', s: 'Compliance', text: 'Window flashing not documented in Room 101.', d: 0.1, cnf: 0.1, b: 0.90, rsn: 'Waterproofing risk: Incomplete evidence chain for facade.' },
+
+            // --- PILLAR 4: REINFORCING DATA & SAFE ZONES (Contextual Noise) ---
+            { c: 5, r: 5, el: 'COL-A1', s: 'Audio_Log', text: 'Transcription: Concrete pour for A1 looks nominal.', d: 0.05, cnf: 0.1, b: 0.1, rsn: 'Positive verification reducing structural risk profile.' },
+            { c: 11, r: 18, el: 'HVAC-MAIN', s: 'WhatsApp', text: 'Main duct run finalized through corridor.', d: 0.1, cnf: 0.1, b: 0.1, rsn: 'Grounded success: High confidence in MEP progress.' },
+            { c: 15, r: 16, el: 'PIPE-MAIN', s: 'Plumber', text: 'Pressure test passed. Recording 80 PSI.', d: 0.02, cnf: 0.1, b: 0.05, rsn: 'Explicit symbolic confirmation of system performance.' },
+            { c: 20, r: 8, el: 'WALL-INT-B', s: 'WhatsApp', text: 'Painting started in room 102. Primer on.', d: 0.1, cnf: 0.1, b: 0.1, rsn: 'Progress tracking grounded to partition wall GUID.' },
+            { c: 30, r: 27, el: 'PIPE-MAIN', s: 'IoT_Node', text: 'Flow rate steady. System nominal.', d: 0.1, cnf: 0.1, b: 0.1, rsn: 'Live IoT telemetry confirms operational health.' },
+            { c: 10, r: 15, el: 'HVAC-MAIN', s: 'Site_Cam', text: 'Time-lapse: Duct insulation being applied.', d: 0.1, cnf: 0.1, b: 0.1, rsn: 'Visual proof of task completion grounded spatially.' },
+            { c: 25, r: 18, el: 'DOOR-102', s: 'WhatsApp', text: 'Door hardware installed and keyed.', d: 0.1, cnf: 0.1, b: 0.1, rsn: 'Neural intent "Installed" reduces blindspot for entry.' },
+            { c: 18, r: 27, el: 'PIPE-MAIN', s: 'Plumbing_Lead', text: 'Cleanout covers installed and labeled.', d: 0.1, cnf: 0.1, b: 0.1, rsn: 'Small detail grounded to specific plumbing node.' },
+            { c: 4, r: 18, el: 'WALL-EXT-W', s: 'Inspector', text: 'Flashing around window N1 is excellent.', d: 0.05, cnf: 0.1, b: 0.1, rsn: 'High-confidence positive sentiment confirms Envelope.' },
+            { c: 35, r: 5, el: 'WALL-EXT-E', s: 'WhatsApp', text: 'Scaffolding L2 East is down and area cleared.', d: 0.1, cnf: 0.1, b: 0.1, rsn: 'Lifecycle milestone complete: Scaffolding removal.' },
+
+            // --- ADDITIONAL SCATTERED POINTS FOR RESOLUTION (21-100 continue) ---
+            { c: 12, r: 15, el: 'HVAC-BR-101', s: 'WhatsApp', text: 'Check the seal on the branch connection.', d: 0.35, cnf: 0.2, b: 0.1, rsn: 'Minor warning: Quality check requested for MEP node.' },
+            { c: 3, r: 12, el: 'WALL-EXT-W', s: 'BIM_Ops', text: 'Wall studs for Room 101 exterior are ready.', d: 0.1, cnf: 0.1, b: 0.1, rsn: 'Structural progress grounding.' },
+            { c: 19, r: 20, el: 'DOOR-102', s: 'Safety', text: 'Clearance checked for wheelchair access.', d: 0.1, cnf: 0.1, b: 0.1, rsn: 'Regulatory verification: ADA compliance confirmed.' },
+            { c: 31, r: 12, el: 'WALL-INT-B', s: 'WhatsApp', text: 'Need more mud for the corridor drywall joints.', d: 0.2, cnf: 0.1, b: 0.1, rsn: 'Resource tracking intent grounded spatially.' },
+            { c: 22, r: 27, el: 'PIPE-MAIN', s: 'WhatsApp', text: 'Small scratch on the main copper pipe. Cosmetic.', d: 0.3, cnf: 0.1, b: 0.1, rsn: 'Low-priority defect grounded to IfcPipeSegment.' },
+            { c: 14, r: 5, el: 'WIN-N1', s: 'WhatsApp', text: 'Glass looks a bit wavy in the afternoon sun.', d: 0.25, cnf: 0.1, b: 0.1, rsn: 'Aesthetic sentiment regarding facade glazing.' },
+            { c: 8, r: 3, el: 'WIN-N1', s: 'Inspector', text: 'Vents on window N1 confirmed working.', d: 0.1, cnf: 0.1, b: 0.1, rsn: 'Functional verification of operable window parts.' },
+            { c: 36, r: 18, el: 'WALL-EXT-E', s: 'BIM_Ops', text: 'Exterior brick tie inspection passed.', d: 0.05, cnf: 0.1, b: 0.1, rsn: 'Deterministic proof of structural tie-back.' },
+            { c: 27, r: 15, el: 'DOOR-102', s: 'WhatsApp', text: 'Closing Room 102 for the day. Lock works.', d: 0.1, cnf: 0.1, b: 0.1, rsn: 'Site security intent grounded to door GUID.' },
+            { c: 11, r: 27, el: 'PIPE-MAIN', s: 'WhatsApp', text: 'Don’t forget to wrap the pipes near 101.', d: 0.1, cnf: 0.4, b: 0.1, rsn: 'Instructional intent grounded to MEP node.' },
+            { c: 5, r: 24, el: 'WALL-EXT-W', s: 'WhatsApp', text: 'Heavy debris piled against the west wall.', d: 0.45, cnf: 0.2, b: 0.1, rsn: 'Housekeeping defect parsed relative to building boundary.' },
+            { c: 17, r: 8, el: 'WALL-INT-A', s: 'IoT_Sens', text: 'High dust levels detected in corridor sector A.', d: 0.35, cnf: 0.1, b: 0.1, rsn: 'Environmental defect grounds to interior partition area.' },
+            { c: 32, r: 3, el: 'WALL-EXT-N', s: 'WhatsApp', text: 'Mortar color matches the control sample.', d: 0.1, cnf: 0.1, b: 0.1, rsn: 'Aesthetic verification grounded to facade.' },
+            { c: 10, r: 22, el: 'HVAC-MAIN', s: 'WhatsApp', text: 'Duct insulation needs more tape at this bend.', d: 0.40, cnf: 0.1, b: 0.1, rsn: 'Maintenance defect grounded to main duct segment.' },
+            { c: 28, r: 24, el: 'WALL-EXT-S', s: 'Inspector', text: 'Corner bead for South facade is perfectly plumb.', d: 0.05, cnf: 0.1, b: 0.1, rsn: 'Geometric precision verification.' },
+            { c: 2, r: 15, el: 'WALL-EXT-W', s: 'WhatsApp', text: 'Vapor barrier is ripped near the bottom left.', d: 0.85, cnf: 0.1, b: 0.1, rsn: 'Enclosure failure sentiment grounded to wall GUID.' },
+            { c: 19, r: 5, el: 'WIN-N1', s: 'WhatsApp', text: 'Handle is missing from the delivery box.', d: 0.30, cnf: 0.1, b: 0.1, rsn: 'Procurement anomaly grounded to window element.' },
+            { c: 34, r: 9, el: 'WALL-EXT-E', s: 'Drone_UAV', text: 'Visual: Brick efflorescence forming on E corner.', d: 0.62, cnf: 0.1, b: 0.1, rsn: 'Material degradation detected via UAV imagery.' },
+            { c: 16, r: 13, el: 'WALL-INT-A', s: 'WhatsApp', text: 'Electrician cut a hole in my fresh drywall.', d: 0.55, cnf: 0.88, b: 0.1, rsn: 'Trade conflict: Sub-contractor dispute over site damage.' },
+            { c: 9, r: 18, el: 'HVAC-MAIN', s: 'WhatsApp', text: 'Hanger for 101 duct is loose. Fix before lunch.', d: 0.72, cnf: 0.2, b: 0.1, rsn: 'Mechanical defect intent grounded to HVAC node.' },
+            { c: 26, r: 8, el: 'ROOM-102', s: 'WhatsApp', text: 'Ceiling tiles for 102 are at the loading dock.', d: 0.1, cnf: 0.1, b: 0.1, rsn: 'Material logistics tracking grounded to room space.' },
+            { c: 13, r: 14, el: 'HVAC-MAIN', s: 'WhatsApp', text: 'Duct work looks solid. Ready for pressure test.', d: 0.1, cnf: 0.1, b: 0.1, rsn: 'Positive status intent mapped to IfcDuctSegment.' },
+            { c: 23, r: 16, el: 'PIPE-MAIN', s: 'WhatsApp', text: 'Plumbing stack is shaking when the pump runs.', d: 0.82, cnf: 0.3, b: 0.1, rsn: 'Operational failure sentiment grounded to pipe stack.' },
+            { c: 6, r: 20, el: 'WALL-EXT-W', s: 'Inspector', text: 'Flashing check: Room 101 exterior walls passed.', d: 0.05, cnf: 0.1, b: 0.1, rsn: 'Compliance grounding: Envelope integrity confirmed.' },
+            { c: 35, r: 10, el: 'WALL-EXT-E', s: 'WhatsApp', text: 'Window opening E1 is too small for the frame.', d: 0.2, cnf: 0.94, b: 0.1, rsn: 'Geometric mismatch: Design vs. Physical reality conflict.' },
+            { c: 18, r: 22, el: 'PIPE-MAIN', s: 'WhatsApp', text: 'Copper pipe stained by some chemical spill.', d: 0.42, cnf: 0.1, b: 0.1, rsn: 'Chemical defect keyword grounded to IfcPipeSegment.' },
+            { c: 30, r: 5, el: 'WALL-EXT-N', s: 'Inspector', text: 'Expansion joint for North wall is nominal.', d: 0.05, cnf: 0.1, b: 0.1, rsn: 'Structural precision verified for facade.' },
+            { c: 11, r: 8, el: 'ROOM-101', s: 'WhatsApp', text: 'Electrician says R101 is ready for final plate.', d: 0.1, cnf: 0.1, b: 0.1, rsn: 'Sub-trade progress sentiment grounded to room space.' },
+            { c: 24, r: 20, el: 'WALL-EXT-S', s: 'Foreman', text: 'Waiting for brickies to clean up their mess.', d: 0.3, cnf: 0.45, b: 0.1, rsn: 'Site management conflict: Debris blocking south access.' },
+            { c: 4, r: 2, el: 'COL-A1', s: 'BIM_Ops', text: 'Verify rebar depth for A1 foundation.', d: 0.2, cnf: 0.1, b: 0.65, rsn: 'RFI intent grounded to structural column node.' },
+            { c: 36, r: 23, el: 'WALL-EXT-E', s: 'Inspector', text: 'External seal at L2 East corner is perfect.', d: 0.05, cnf: 0.1, b: 0.1, rsn: 'Enclosure verification grounded to facade GUID.' },
+            { c: 15, r: 14, el: 'HVAC-MAIN', s: 'WhatsApp', text: 'Duct is too close to the fire damper. Move it.', d: 0.3, cnf: 0.91, b: 0.1, rsn: 'Regulatory clash: MEP vs. Fire-safety constraint.' },
+            { c: 27, r: 20, el: 'DOOR-102', s: 'Logistics', text: 'Door hinges for 102 are backordered 2 weeks.', d: 0.1, cnf: 0.1, b: 0.72, rsn: 'Procurement blindspot: Missing material threat to 4D schedule.' },
+            { c: 9, r: 27, el: 'PIPE-MAIN', s: 'WhatsApp', text: 'Drain pipe is clogged with construction debris.', d: 0.88, cnf: 0.1, b: 0.1, rsn: 'Operational defect intent grounded to pipe segment.' },
+            { c: 1, r: 1, el: 'COL-A1', s: 'Surveyor', text: 'A1 footing is within 5mm of model datum.', d: 0.02, cnf: 0.1, b: 0.1, rsn: 'High-precision survey verification of structural node.' },
+            { c: 33, r: 27, el: 'WALL-EXT-E', s: 'WhatsApp', text: 'Brick ties are spaced at 24 inches as spec.', d: 0.1, cnf: 0.1, b: 0.1, rsn: 'Regulatory verification: Structural code compliance.' },
+            { c: 12, r: 12, el: 'WALL-INT-A', s: 'WhatsApp', text: 'Wall A studs are ready for electrical rough-in.', d: 0.1, cnf: 0.1, b: 0.1, rsn: 'Positive progress sentiment enabling next trade.' },
+            { c: 21, r: 14, el: 'HVAC-MAIN', s: 'Inspector', text: 'Duct insulation density verified: 1.5 lb/cf.', d: 0.1, cnf: 0.1, b: 0.1, rsn: 'Technical property verification grounded to MEP GUID.' },
+            { c: 34, r: 17, el: 'COL-C2', s: 'Foreman', text: 'Column C2 forms are stripped. Looks clean.', d: 0.1, cnf: 0.1, b: 0.1, rsn: 'Structural milestone grounded: Formwork removal.' },
+            { c: 20, r: 3, el: 'WALL-EXT-N', s: 'WhatsApp', text: 'Vapor barrier taped and sealed on North wing.', d: 0.05, cnf: 0.1, b: 0.1, rsn: 'Enclosure progress verification grounded to facade.' }
+        ];
+
+        window.onload = () => { renderBIM(); initGrid(); switchMode(); };
+
+        function renderBIM() {
+            const layer = document.getElementById('layer-floorplan');
+            bimElements.forEach(el => {
+                const geom = document.createElementNS("http://www.w3.org/2000/svg", el.svgType);
+                for (const [key, value] of Object.entries(el.attrs)) { geom.setAttribute(key, value); }
+                geom.setAttribute('fill', el.hasData ? '#f0f9ff' : '#f8fafc');
+                geom.setAttribute('stroke', '#cbd5e1');
+                geom.setAttribute('class', 'bim-base');
+                layer.appendChild(geom);
+            });
+        }
+
+        function initGrid() {
+            const layer = document.getElementById('layer-grid');
+            for(let r=0; r<rows; r++) {
+                for(let c=0; c<cols; c++) {
+                    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    rect.setAttribute("x", c * cellSize); rect.setAttribute("y", r * cellSize);
+                    rect.setAttribute("width", cellSize); rect.setAttribute("height", cellSize);
+                    rect.setAttribute("fill", "transparent"); rect.setAttribute("stroke", "rgba(0,0,0,0.01)");
+                    rect.setAttribute("class", "cell"); rect.setAttribute("id", `cell-${c}-${r}`);
+                    rect.onclick = () => handleCellClick(c, r);
+                    layer.appendChild(rect);
+                }
+            }
+        }
+
+        function switchMode() {
+            const mode = document.getElementById('mode-selector').value;
+            const legend = document.getElementById('legend');
+            
+            if (mode === 'defect') legend.innerHTML = `<div class="flex items-center gap-1"><div class="w-2 h-2 bg-red-600 rounded-sm"></div> Sentiment Toxicity</div>`;
+            else if (mode === 'conflict') legend.innerHTML = `<div class="flex items-center gap-1"><div class="w-2 h-2 bg-purple-600 rounded-sm"></div> Trade Contradiction</div>`;
+            else legend.innerHTML = `<div class="flex items-center gap-1"><div class="w-2.5 h-2.5 border border-slate-400" style="background: url(#hashPattern)"></div> Milestone Blindspot</div>`;
+
+            activeNodes.forEach(node => {
+                const cell = document.getElementById(`cell-${node.c}-${node.r}`);
+                if (mode === 'blindspot') {
+                    cell.setAttribute('fill', node.b > 0.7 ? 'url(#hashPattern)' : 'transparent');
+                } else if (mode === 'conflict') {
+                    cell.setAttribute('fill', `rgba(147, 51, 234, ${node.cnf})`);
+                } else {
+                    cell.setAttribute('fill', `rgba(220, 38, 38, ${node.d})`);
+                }
+            });
+        }
+
+        function startLiveIngestion() {
+            const ticker = document.getElementById('incoming-ticker');
+            if (ticker.innerText.includes('[AWAITING')) ticker.innerHTML = '';
+            scenarios.forEach((s, i) => {
+                setTimeout(() => {
+                    addTickerItem(s);
+                    animateGrounding(s);
+                    activeNodes.push(s);
+                }, i * 600);
+            });
+        }
+
+        function addTickerItem(s) {
+            const ticker = document.getElementById('incoming-ticker');
+            const card = document.createElement('div');
+            card.className = "bg-white p-3 rounded border border-slate-200 shadow-sm animate-in slide-in-from-left duration-500 border-l-4";
+            card.style.borderLeftColor = s.b > 0.8 ? '#94a3b8' : (s.cnf > 0.8 ? '#a855f7' : '#ef4444');
+            card.innerHTML = `<div class="flex justify-between items-center mb-1"><span class="text-[9px] font-bold font-mono uppercase tracking-widest text-slate-500">${s.s}</span></div><p class="text-[11px] leading-relaxed italic text-slate-700">"${s.text}"</p>`;
+            ticker.prepend(card);
+        }
+
+        function animateGrounding(s) {
+            const particle = document.createElement('div');
+            particle.className = "ingestion-particle";
+            particle.style.backgroundColor = s.b > 0.8 ? '#94a3b8' : (s.cnf > 0.8 ? '#a855f7' : '#ef4444');
+            const tickerRect = document.getElementById('incoming-ticker').getBoundingClientRect();
+            const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+            particle.style.left = (tickerRect.left + 40) + 'px'; particle.style.top = (tickerRect.top + 100) + 'px';
+            document.body.appendChild(particle);
+            const targetX = canvasRect.left + (s.c * cellSize) + (cellSize / 2);
+            const targetY = canvasRect.top + (s.r * cellSize) + (cellSize / 2);
+            setTimeout(() => {
+                particle.style.opacity = '1';
+                particle.style.transform = `translate(${targetX - (tickerRect.left + 40)}px, ${targetY - (tickerRect.top + 100)}px) scale(1.5)`;
+                setTimeout(() => {
+                    particle.remove();
+                    const cell = document.getElementById(`cell-${s.c}-${s.r}`);
+                    const mode = document.getElementById('mode-selector').value;
+                    if (mode === 'blindspot') cell.setAttribute('fill', s.b > 0.7 ? 'url(#hashPattern)' : 'transparent');
+                    else if (mode === 'conflict') cell.setAttribute('fill', `rgba(147, 51, 234, ${s.cnf})`);
+                    else cell.setAttribute('fill', `rgba(220, 38, 38, ${s.d})`);
+                    cell.dataset.reason = s.rsn; cell.dataset.text = s.text; cell.dataset.el = s.el;
+                }, 700);
+            }, 50);
+        }
+
+        function handleCellClick(c, r) {
+            if(selectedCell) document.getElementById(`cell-${selectedCell.c}-${selectedCell.r}`).classList.remove('cell-selected');
+            const cell = document.getElementById(`cell-${c}-${r}`);
+            cell.classList.add('cell-selected'); selectedCell = {c, r};
+            const content = document.getElementById('reasoning-content');
+            if (!cell.dataset.reason) {
+                content.innerHTML = `<div class="p-6 bg-slate-50 rounded border border-dashed border-slate-200 text-center text-[10px] font-mono text-slate-400 mt-20 uppercase tracking-widest">GRID_NODE_${c}_${r}<br>NO EMERGENT ANOMALY</div>`;
+                return;
+            }
+            content.innerHTML = `
+                <div class="animate-in fade-in slide-in-from-right-4 duration-300">
+                    <h3 class="font-bold text-slate-900 text-sm mb-4 uppercase flex justify-between"><span>Logic Trace</span><span class="text-[9px] font-mono text-slate-400 bg-slate-100 px-1 rounded">${cell.dataset.el}</span></h3>
+                    <div class="space-y-4">
+                        <div class="bg-slate-900 p-4 rounded shadow-lg"><p class="text-[9px] text-blue-400 font-bold font-mono uppercase mb-1">Raw Evidence Grounded</p><p class="text-[11px] text-white leading-relaxed italic mb-2">"${cell.dataset.text}"</p></div>
+                        <div class="relative pl-6 border-l-2 border-blue-500"><div class="absolute -left-[5px] top-0 w-2 h-2 bg-blue-500 rounded-full"></div><span class="text-[9px] font-bold text-blue-500 uppercase font-mono block mb-1">Synthesis Path</span><p class="text-[11px] text-slate-800 font-bold leading-tight">${cell.dataset.reason}</p></div>
+                        <div class="p-3 bg-emerald-50 border border-emerald-100 rounded text-[10px] font-mono leading-relaxed text-emerald-800 italic uppercase">[GROUNDING CONFIDENCE: 0.94]</div>
+                    </div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,135 @@
+{
+  "source_anchors": "/root/cmu/master_thesis/mscd_demo/prompts/dimension_anchors.json",
+  "area_bands_m2": {
+    "S": "< 1.5",
+    "M": "1.5 - 3.5",
+    "L": "3.5 - 6.0",
+    "XL": ">= 6.0"
+  },
+  "clusters": {
+    "IfcWindow": {
+      "window_S_1000x600": {
+        "ifc_class": "IfcWindow",
+        "w": 1000,
+        "h": 600,
+        "area_m2": 0.6,
+        "band": "S",
+        "count": 11
+      },
+      "window_S_1600x600": {
+        "ifc_class": "IfcWindow",
+        "w": 1600,
+        "h": 600,
+        "area_m2": 0.96,
+        "band": "S",
+        "count": 4
+      },
+      "window_S_1000x1400": {
+        "ifc_class": "IfcWindow",
+        "w": 1000,
+        "h": 1400,
+        "area_m2": 1.4,
+        "band": "S",
+        "count": 34
+      },
+      "window_M_1500x1400": {
+        "ifc_class": "IfcWindow",
+        "w": 1500,
+        "h": 1400,
+        "area_m2": 2.1,
+        "band": "M",
+        "count": 31
+      },
+      "window_M_2000x1400": {
+        "ifc_class": "IfcWindow",
+        "w": 2000,
+        "h": 1400,
+        "area_m2": 2.8,
+        "band": "M",
+        "count": 12
+      },
+      "window_M_2500x1200": {
+        "ifc_class": "IfcWindow",
+        "w": 2500,
+        "h": 1200,
+        "area_m2": 3.0,
+        "band": "M",
+        "count": 4
+      },
+      "window_M_1500x2200": {
+        "ifc_class": "IfcWindow",
+        "w": 1500,
+        "h": 2200,
+        "area_m2": 3.3,
+        "band": "M",
+        "count": 5
+      },
+      "window_L_2000x2200": {
+        "ifc_class": "IfcWindow",
+        "w": 2000,
+        "h": 2200,
+        "area_m2": 4.4,
+        "band": "L",
+        "count": 6
+      },
+      "window_L_2500x1800": {
+        "ifc_class": "IfcWindow",
+        "w": 2500,
+        "h": 1800,
+        "area_m2": 4.5,
+        "band": "L",
+        "count": 1
+      },
+      "window_L_2500x2200": {
+        "ifc_class": "IfcWindow",
+        "w": 2500,
+        "h": 2200,
+        "area_m2": 5.5,
+        "band": "L",
+        "count": 5
+      },
+      "window_XL_3000x2200": {
+        "ifc_class": "IfcWindow",
+        "w": 3000,
+        "h": 2200,
+        "area_m2": 6.6,
+        "band": "XL",
+        "count": 10
+      },
+      "window_XL_2500x3000": {
+        "ifc_class": "IfcWindow",
+        "w": 2500,
+        "h": 3000,
+        "area_m2": 7.5,
+        "band": "XL",
+        "count": 4
+      }
+    },
+    "IfcDoor": {
+      "door_M_760x2030": {
+        "ifc_class": "IfcDoor",
+        "w": 760,
+        "h": 2030,
+        "area_m2": 1.543,
+        "band": "M",
+        "count": 20
+      },
+      "door_M_920x2130": {
+        "ifc_class": "IfcDoor",
+        "w": 920,
+        "h": 2130,
+        "area_m2": 1.96,
+        "band": "M",
+        "count": 33
+      },
+      "door_L_2010x2400": {
+        "ifc_class": "IfcDoor",
+        "w": 2010,
+        "h": 2400,
+        "area_m2": 4.824,
+        "band": "L",
+        "count": 15
+      }
+    }
+  }
+}

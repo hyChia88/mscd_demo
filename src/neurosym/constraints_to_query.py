@@ -315,11 +315,15 @@ class QueryPlanner:
         if constraints.target_name_keyword:
             params["target_name_keyword"] = constraints.target_name_keyword
 
-        # Fix 3: propagate physical dimensions for IfcWindow/IfcDoor matching
-        if constraints.target_width_mm is not None:
-            params["target_width_mm"] = constraints.target_width_mm
-        if constraints.target_height_mm is not None:
-            params["target_height_mm"] = constraints.target_height_mm
+        # Dimension routing (G9): prefer size_cluster equality. Fall back to
+        # ±50mm tolerance only when size_cluster is absent (legacy G7/G8 traces).
+        if constraints.size_cluster:
+            params["target_size_cluster"] = constraints.size_cluster
+        else:
+            if constraints.target_width_mm is not None:
+                params["target_width_mm"] = constraints.target_width_mm
+            if constraints.target_height_mm is not None:
+                params["target_height_mm"] = constraints.target_height_mm
 
         return params
 

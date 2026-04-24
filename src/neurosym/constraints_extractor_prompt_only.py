@@ -10,7 +10,7 @@ import json
 from .types import Constraints, ImageParseResult, SpatialTriplet
 from .condition_mask import ConditionMask
 from .floorplan_counter import FloorplanCounter, FloorplanCountResult, merge_position_context
-from common.config import load_yaml_prompts
+from ..common.config import load_yaml_prompts
 
 
 class PromptConstraintsExtractor:

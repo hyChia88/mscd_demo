@@ -19,6 +19,8 @@ Usage:
     modal run training/eval.py --cases /data/v05_test.jsonl --condition-override MC
 """
 
+from __future__ import annotations
+
 import copy
 import json
 import os
@@ -34,19 +36,22 @@ import modal
 
 PROJECT_ROOT  = Path(__file__).parent.parent
 DATA_ROOT     = PROJECT_ROOT.parent / "data_curation"
+APP_ROOT      = Path("/app")
+if str(APP_ROOT) not in sys.path:
+    sys.path.insert(0, str(APP_ROOT))
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.neurosym.floorplan_counter import FloorplanCounter, FloorplanCountResult, merge_position_context
-
 PROFILES_YAML = PROJECT_ROOT / "profiles.yaml"
 PROMPTS_YAML  = PROJECT_ROOT / "prompts" / "constraints_extraction.yaml"
-COND_MASK_PY  = PROJECT_ROOT / "src" / "v2" / "condition_mask.py"
+COND_MASK_PY  = PROJECT_ROOT / "src" / "neurosym" / "condition_mask.py"
+FLOORPLAN_COUNTER_PY = PROJECT_ROOT / "src" / "neurosym" / "floorplan_counter.py"
 
 # Default cases file — override with --cases flag
 DEFAULT_CASES_FILE = DATA_ROOT / "datasets" / "synth_v0.4_merged" / "train" / "test_holdout_with_images.jsonl"
 AP_EVAL_CASES_FILE = DATA_ROOT / "datasets" / "synth_v0.5_ap" / "train" / "lora6_v2_ap_eval_canonical_m.jsonl"
 AP_EVAL_CASES_FILE_G7 = DATA_ROOT / "datasets" / "synth_v0.5_ap" / "train" / "lora6_v2_ap_eval_canonical_m_g7.jsonl"
+AP_EVAL_CASES_FILE_G9 = DATA_ROOT / "datasets" / "synth_v0.5_ap" / "train" / "lora6_v2_ap_eval_canonical_m_g9.jsonl"
 # Modality ablation slices (FPSITE = floorplan + site image, no chat text)
 _SLICE_ROOT = DATA_ROOT / "datasets" / "synth_v0.5_ap" / "train" / "modality_slices"
 AP_EVAL_FPSITE        = _SLICE_ROOT / "lora6_v2_ap_eval_canonical_m_FPSITE.jsonl"
@@ -76,6 +81,24 @@ V05_BH_IMGS_DIR   = DATA_ROOT / "datasets" / "synth_v0.5_bh"  / "imgs"
 
 app = modal.App("mscd-vlm-lora-eval")
 
+
+def _infer_prompt_key(adapter_dir: str) -> str:
+    adapter_lower = str(adapter_dir or "").lower()
+    if "g9" in adapter_lower or "opencv-cluster" in adapter_lower:
+        return "lora_system_g9"
+    if any(marker in adapter_lower for marker in ("g7", "g8", "g4-ultimate")):
+        return "lora_system_g7"
+    return "lora_system"
+
+
+def _infer_cases_path(adapter_dir: str, prompt_key: str = "") -> str:
+    key = prompt_key or _infer_prompt_key(adapter_dir)
+    if key == "lora_system_g9":
+        return "/data/ap_eval_g9.jsonl"
+    if key == "lora_system_g7":
+        return "/data/ap_eval_g7.jsonl"
+    return "/data/ap_eval.jsonl"
+
 def _build_eval_image() -> modal.Image:
     """Build the Modal image while tolerating legacy dataset directories missing.
 
@@ -90,6 +113,7 @@ def _build_eval_image() -> modal.Image:
             "qwen-vl-utils",
             "datasets==4.3.0",
             "hf-transfer",
+            "opencv-python-headless==4.10.0.84",
             "pyyaml",
         )
         .run_commands(
@@ -102,6 +126,10 @@ def _build_eval_image() -> modal.Image:
         .add_local_file(str(PROFILES_YAML), remote_path="/app/profiles.yaml")
         .add_local_file(str(PROMPTS_YAML), remote_path="/app/constraints_extraction.yaml")
         .add_local_file(str(COND_MASK_PY), remote_path="/app/condition_mask.py")
+        .add_local_file(
+            str(FLOORPLAN_COUNTER_PY),
+            remote_path="/app/mscd_demo/src/neurosym/floorplan_counter.py",
+        )
     )
 
     # Build per-slice remote paths for modality ablation
@@ -122,6 +150,7 @@ def _build_eval_image() -> modal.Image:
         (DEFAULT_CASES_FILE, "/data/test_holdout.jsonl"),
         (AP_EVAL_CASES_FILE, "/data/ap_eval.jsonl"),
         (AP_EVAL_CASES_FILE_G7, "/data/ap_eval_g7.jsonl"),
+        (AP_EVAL_CASES_FILE_G9, "/data/ap_eval_g9.jsonl"),
         (V05_CASES_FILE, "/data/v05_test.jsonl"),
         (V05_CASES_SITE_FILE, "/data/v05_test_site.jsonl"),
     ] + _slice_file_pairs:
@@ -182,6 +211,25 @@ def _load_condition_mask():
     sys.path.insert(0, "/app")
     from condition_mask import ConditionMask  # noqa: PLC0415
     return ConditionMask
+
+
+def _load_floorplan_counter():
+    """Import OpenCV floorplan helpers after Modal image files are available."""
+    import importlib.util
+    import sys
+
+    module_path = "/app/mscd_demo/src/neurosym/floorplan_counter.py"
+    spec = importlib.util.spec_from_file_location("_modal_floorplan_counter", module_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load floorplan_counter from {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return (
+        module.FloorplanCounter,
+        module.FloorplanCountResult,
+        module.merge_position_context,
+    )
 
 
 def apply_condition_mask(case: dict, condition: str,
@@ -435,9 +483,10 @@ def run_eval(
     # ── 0. Load config from baked-in files (single source of truth) ──────
     condition_configs = _load_condition_configs()   # from /app/profiles.yaml
     if not prompt_key:
-        prompt_key = "lora_system_g7" if "g7" in adapter_dir.lower() else "lora_system"
+        prompt_key = _infer_prompt_key(adapter_dir)
     system_prompt     = _load_system_prompt(prompt_key)       # from /app/constraints_extraction.yaml
     ConditionMask     = _load_condition_mask()      # from /app/condition_mask.py
+    FloorplanCounter, _, merge_position_context = _load_floorplan_counter()
     print(f"Loaded {len(condition_configs)} conditions from profiles.yaml")
     print(f"System prompt: {len(system_prompt)} chars ({prompt_key})")
 
@@ -474,8 +523,14 @@ def run_eval(
     # ── 3. Load cases ────────────────────────────────────────────────────
     if cases_file:
         data_path = cases_file
+        inferred_cases = _infer_cases_path(adapter_dir, prompt_key)
+        if inferred_cases != data_path:
+            print(
+                "[WARN] Explicit --cases does not match inferred adapter profile: "
+                f"using {data_path}, inferred {inferred_cases} for {prompt_key}."
+            )
     else:
-        data_path = "/data/ap_eval_g7.jsonl" if prompt_key == "lora_system_g7" else "/data/ap_eval.jsonl"
+        data_path = _infer_cases_path(adapter_dir, prompt_key)
     print(f"Loading cases from: {data_path}")
     cases = []
     with open(data_path) as f:
@@ -548,11 +603,14 @@ def run_eval(
                     return_tensors="pt",
                 ).to(model.device)
 
-            # Generate (greedy, short output — JSON only)
+            # Generate (greedy, short output — JSON only).
+            # G9 added size_cluster + richer spatial_relations; 256 truncated
+            # mid-JSON on 32/60 window/door cases. 384 gives ~50% headroom while
+            # keeping inference latency bounded (<1.5× over G8).
             with torch.no_grad():
                 output_ids = model.generate(
                     **inputs,
-                    max_new_tokens=256,
+                    max_new_tokens=512,
                     do_sample=False,
                     use_cache=True,
                 )
@@ -597,6 +655,7 @@ def run_eval(
                 "target_name_keyword": parsed.get("target_name_keyword"),
                 "neighbor_type": parsed.get("neighbor_type"),
                 "spatial_relations": parsed.get("spatial_relations", []),
+                "size_cluster": parsed.get("size_cluster"),
                 "position_context": final_position_context,
                 "position_context_confidence": pos_conf,
                 "position_context_source": pos_source,
@@ -707,17 +766,19 @@ def main(
                Use "/data/v05_test.jsonl" for v0.5 topology cases (69 cases).
                Use "/data/ap_eval.jsonl" for legacy LoRA6-v2 AP eval cases.
                Use "/data/ap_eval_g7.jsonl" for G7/G8 AP eval cases.
+               Use "/data/ap_eval_g9.jsonl" for G9 OpenCV+cluster AP eval cases.
                Use "/data/ap_eval_fpsite.jsonl" for FPSITE ablation (standard adapters).
                Use "/data/ap_eval_fpsite_g7.jsonl" for FPSITE ablation (G7/G8 adapters).
-               Default: G7 adapters use "/data/ap_eval_g7.jsonl"; others use "/data/ap_eval.jsonl".
+               Default: G9 adapters use "/data/ap_eval_g9.jsonl"; G7/G8 adapters use
+               "/data/ap_eval_g7.jsonl"; others use "/data/ap_eval.jsonl".
         prompt_key: System prompt key from constraints_extraction.yaml.
-                    Use "lora_system_g7" for G7/G8 adapters trained with G7 profile.
-                    Auto-detected from adapter_dir name ("g7" -> lora_system_g7) if not set.
+                    Use "lora_system_g9" for G9; "lora_system_g7" for G7/G8.
+                    Auto-detected from adapter_dir if not set.
     """
     if cases:
         cases_label = cases
     else:
-        cases_label = "/data/ap_eval_g7.jsonl" if "g7" in adapter_dir.lower() else "/data/ap_eval.jsonl"
+        cases_label = _infer_cases_path(adapter_dir, prompt_key)
     print("Launching MSCD LoRA evaluation on Modal...")
     print(f"  Adapter:  {adapter_dir}")
     print(f"  Cases:    {cases_label}")
@@ -774,7 +835,7 @@ def main(
     if cases:
         cases_hint = cases
     else:
-        cases_hint = "/data/ap_eval_g7.jsonl" if "g7" in adapter_dir.lower() else "/data/ap_eval.jsonl"
+        cases_hint = _infer_cases_path(adapter_dir, prompt_key)
     print(f"\nRun local pipeline:")
     print(f"  python script/run.py --profile v2_lora \\")
     print(f"    --cases {cases_hint} \\")

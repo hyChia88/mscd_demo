@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AEC Interpreter - Realistic BIM Topology</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        /* BIM Element Base Styles */
+        .bim-element { transition: all 0.2s ease; }
+        
+        /* Elements with mapped multimodal data */
+        .bim-element.has-data { fill: #e0f2fe; stroke: #38bdf8; stroke-width: 2px; cursor: pointer; }
+        
+        /* Elements without data (Passive background components) */
+        .bim-element.no-data { fill: #e2e8f0; stroke: #94a3b8; stroke-width: 1px; cursor: default; }
+        
+        /* Hover state */
+        .bim-element-hover { fill: #bae6fd !important; stroke: #0284c7 !important; stroke-width: 2.5px !important; }
+        
+        /* Clicked / Locked state */
+        .bim-element-locked { fill: #3b82f6 !important; stroke: #1e3a8a !important; stroke-width: 3px !important; filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.6)); z-index: 50; }
+        
+        /* Evidence Cards */
+        .evidence-card { transition: all 0.3s ease; border: 2px solid transparent; }
+        .evidence-card.highlight { border-color: #3b82f6; background-color: #eff6ff; box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.2); transform: translateY(-4px); }
+        .evidence-card.hidden-item { display: none; opacity: 0; }
+        .card-content-scroll { overflow-y: auto; overflow-x: hidden; }
+
+        /* Timeline Animations */
+        .timeline-container { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .rotate-180 { transform: rotate(180deg); }
+    </style>
+</head>
+<body class="bg-slate-50 p-6 font-sans text-slate-800 h-screen flex flex-col">
+
+    <header class="bg-white px-6 py-4 rounded-xl shadow-sm border border-slate-200 mb-6 flex justify-between items-center shrink-0">
+        <div>
+            <h1 class="text-xl font-bold text-slate-900">Neuro-Symbolic Alignment Engine</h1>
+            <p class="text-xs text-slate-500 font-mono mt-1">Project: CMU_Thesis_Demo | Phase: Traceability | Model: L2_Master.ifc</p>
+        </div>
+        <div class="flex items-center gap-4 text-sm font-semibold">
+            <span class="flex items-center gap-2 px-3 py-1 bg-green-50 text-green-700 rounded-md border border-green-200">
+                <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div> Interpreter Active
+            </span>
+        </div>
+    </header>
+
+    <main class="flex gap-6 flex-1 overflow-hidden">
+        
+        <section class="w-[40%] bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden relative">
+            <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center shrink-0 z-10">
+                <h2 id="panel-title" class="font-bold text-slate-800 flex items-center gap-2 text-sm">
+                    <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                    Multimodal Evidence Grid
+                </h2>
+                <span id="evidence-counter" class="text-[10px] bg-slate-200 text-slate-600 px-2 py-1 rounded-full font-bold uppercase tracking-wider"></span>
+            </div>
+            
+            <div id="evidence-container" class="flex-1 overflow-y-auto p-4 grid grid-cols-2 gap-4 content-start bg-slate-50 transition-opacity duration-300"></div>
+
+            <div id="timeline-container" class="absolute inset-0 top-[60px] bg-white p-6 overflow-y-auto hidden timeline-container z-0 border-t border-slate-200">
+                <div class="border-b pb-4 mb-6">
+                    <span id="ifc-class-badge" class="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded uppercase">IfcElement</span>
+                    <h1 id="timeline-guid-title" class="text-xl font-bold text-gray-900 mt-1 font-mono">GUID: ----</h1>
+                </div>
+                <div id="timeline-content" class="relative border-l-4 border-gray-200 ml-2 space-y-6 pb-8"></div>
+            </div>
+
+            <div id="traceability-toggle" class="hidden border-t border-slate-200 bg-blue-50 p-3 shrink-0 cursor-pointer hover:bg-blue-100 transition-colors z-20" onclick="toggleTimeline()">
+                <div class="flex justify-center items-center gap-2 text-blue-700 font-bold text-sm">
+                    <span id="toggle-text">View Traceability Passport</span>
+                    <svg id="toggle-arrow" class="w-5 h-5 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
+                </div>
+            </div>
+        </section>
+
+        <section class="w-[60%] bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col relative overflow-hidden">
+            <div class="p-4 border-b border-slate-200 flex justify-between items-center absolute w-full top-0 z-10 bg-white/90 backdrop-blur">
+                <div>
+                    <h2 class="font-bold text-slate-800 text-sm">Allocentric Spatial Graph</h2>
+                    <p class="text-[10px] text-slate-500">Interactive BIM Geometries - <span class="font-bold text-blue-600">Click highlighted elements to trace</span></p>
+                </div>
+                <div id="status-badge" class="text-xs font-mono text-slate-500 bg-slate-100 px-3 py-1 rounded border border-slate-200 transition-colors">
+                    Filter: OFF
+                </div>
+            </div>
+            
+            <div class="flex-1 bg-slate-100 flex items-center justify-center relative w-full h-full p-4 mt-12" id="canvas-container">
+                <svg id="bim-canvas" viewBox="0 0 800 600" class="w-full h-full drop-shadow-sm" preserveAspectRatio="xMidYMid meet">
+                    <g stroke="#cbd5e1" stroke-width="1" fill="#f8fafc">
+                        <rect x="80" y="80" width="640" height="440" fill="#f1f5f9" stroke="#94a3b8" stroke-width="2" />
+                        <line x1="100" y1="60" x2="100" y2="540" stroke-dasharray="4,4"/>
+                        <line x1="400" y1="60" x2="400" y2="540" stroke-dasharray="4,4"/>
+                        <line x1="700" y1="60" x2="700" y2="540" stroke-dasharray="4,4"/>
+                        <line x1="60" y1="100" x2="740" y2="100" stroke-dasharray="4,4"/>
+                        <line x1="60" y1="300" x2="740" y2="300" stroke-dasharray="4,4"/>
+                        <line x1="60" y1="500" x2="740" y2="500" stroke-dasharray="4,4"/>
+                    </g>
+                    <g id="node-layer"></g>
+                </svg>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        /**
+         * APPLICATION STATE
+         */
+        let lockedGuid = null; 
+        let isTimelineOpen = false;
+
+        /**
+         * MOCK DATA: Multimodal Pairs
+         */
+        const pairedEvidenceData = [
+            { id: 'ev1', guid: 'HVAC-BR-101', time: '10:42 AM', modalities: [
+                { type: 'Chat Text', content: '"Branch duct is clashing with the fire sprinkler pipe in room 101. Need an offset."' },
+                { type: 'Onsite Image', content: 'IMG_Clash_Room101.jpg' }
+            ]},
+            { id: 'ev2', guid: 'WALL-INT-A', time: '11:15 AM', modalities: [
+                { type: 'Floorplan Patch', content: 'PDF_Markup_Corridor.pdf' },
+                { type: 'Chat Text', content: '"Drywall team reporting alignment issues with the corridor partition framing."' }
+            ]},
+            { id: 'ev3', guid: 'DOOR-102', time: 'Yesterday', modalities: [
+                { type: 'Onsite Image', content: 'IMG_DoorFrame_Damage.jpg' },
+                { type: 'Chat Text', content: '"Frame dented during material delivery."' }
+            ]},
+            { id: 'ev4', guid: 'COL-C2', time: '09:00 AM', modalities: [
+                { type: 'Chat Text', content: '"Concrete pour looks good. Uploading verification photo."' },
+                { type: 'Onsite Image', content: 'IMG_Col_Verification.jpg' }
+            ]},
+            { id: 'ev5', guid: 'WIN-N1', time: 'Monday', modalities: [
+                { type: 'Floorplan Patch', content: 'Facade_Elevation.pdf' },
+                { type: 'Chat Text', content: '"Verify mullion spacing on the North elevation windows."' }
+            ]}
+        ];
+
+        /**
+         * MOCK DATA: Traceability Histories
+         */
+        const traceabilityHistories = {
+            'HVAC-BR-101': [
+                { date: 'Mar 10, 2026 • 08:30 AM', status: 'pass', title: 'Hangers Installed', desc: 'Ceiling mounts verified against IFC tolerances.', visual: '[PDF Spec]' },
+                { date: 'Today • 10:42 AM', status: 'error', title: 'MEP Clash Detected', desc: '"Branch duct is clashing with the fire sprinkler pipe in room 101."', visual: 'IMG_Clash_Room101.jpg' }
+            ],
+            'WALL-INT-A': [
+                { date: 'Mar 15, 2026 • 10:00 AM', status: 'warning', title: 'Framing Alignment Issue', desc: '"Drywall team reporting alignment issues with the corridor partition framing."', visual: 'PDF_Markup_Corridor.pdf' }
+            ],
+            'DOOR-102': [
+                { date: 'Yesterday • 14:00 PM', status: 'error', title: 'Material Damage', desc: '"Frame dented during material delivery."', visual: 'IMG_DoorFrame_Damage.jpg' }
+            ],
+            'COL-C2': [
+                { date: 'Today • 09:00 AM', status: 'pass', title: 'Inspection Passed', desc: '"Concrete pour looks good. Uploading verification photo."', visual: 'IMG_Col_Verification.jpg' }
+            ],
+            'WIN-N1': [
+                { date: 'Monday • 11:00 AM', status: 'warning', title: 'RFI: Dimension Verification', desc: '"Verify mullion spacing on the North elevation windows."', visual: 'Facade_Elevation.pdf' }
+            ]
+        };
+
+        /**
+         * REALISTIC BIM ELEMENTS TOPOLOGY
+         * Creating a schematic floorplan with exterior walls, a central corridor, 
+         * structural columns on a grid, and MEP systems.
+         */
+        const bimElements = [
+            // --- STRUCTURAL COLUMNS (Grid 100, 400, 700 / 100, 300, 500) ---
+            { id: 'COL-A1', label: 'IfcColumn', svgType: 'rect', hasData: false, attrs: { x: 90, y: 90, width: 20, height: 20 } },
+            { id: 'COL-B1', label: 'IfcColumn', svgType: 'rect', hasData: false, attrs: { x: 390, y: 90, width: 20, height: 20 } },
+            { id: 'COL-C1', label: 'IfcColumn', svgType: 'rect', hasData: false, attrs: { x: 690, y: 90, width: 20, height: 20 } },
+            { id: 'COL-A2', label: 'IfcColumn', svgType: 'rect', hasData: false, attrs: { x: 90, y: 290, width: 20, height: 20 } },
+            { id: 'COL-B2', label: 'IfcColumn', svgType: 'rect', hasData: false, attrs: { x: 390, y: 290, width: 20, height: 20 } },
+            { id: 'COL-C2', label: 'IfcColumn', svgType: 'rect', hasData: true,  attrs: { x: 690, y: 290, width: 20, height: 20 } }, // Has Data
+            { id: 'COL-A3', label: 'IfcColumn', svgType: 'rect', hasData: false, attrs: { x: 90, y: 490, width: 20, height: 20 } },
+            { id: 'COL-B3', label: 'IfcColumn', svgType: 'rect', hasData: false, attrs: { x: 390, y: 490, width: 20, height: 20 } },
+            { id: 'COL-C3', label: 'IfcColumn', svgType: 'rect', hasData: false, attrs: { x: 690, y: 490, width: 20, height: 20 } },
+
+            // --- EXTERIOR WALLS ---
+            { id: 'WALL-EXT-N', label: 'IfcWall', svgType: 'rect', hasData: false, attrs: { x: 100, y: 95, width: 600, height: 10 } },
+            { id: 'WALL-EXT-S', label: 'IfcWall', svgType: 'rect', hasData: false, attrs: { x: 100, y: 495, width: 600, height: 10 } },
+            { id: 'WALL-EXT-W', label: 'IfcWall', svgType: 'rect', hasData: false, attrs: { x: 95, y: 100, width: 10, height: 400 } },
+            { id: 'WALL-EXT-E', label: 'IfcWall', svgType: 'rect', hasData: false, attrs: { x: 695, y: 100, width: 10, height: 400 } },
+
+            // --- INTERIOR CORRIDOR WALLS & PARTITIONS ---
+            // North Corridor Wall (With a gap for Door 101)
+            { id: 'WALL-INT-A', label: 'IfcWallStandardCase', svgType: 'rect', hasData: true, attrs: { x: 100, y: 250, width: 180, height: 8 } }, // Has Data
+            { id: 'WALL-INT-B', label: 'IfcWallStandardCase', svgType: 'rect', hasData: false, attrs: { x: 320, y: 250, width: 380, height: 8 } },
+            // South Corridor Wall (With a gap for Door 102)
+            { id: 'WALL-INT-C', label: 'IfcWallStandardCase', svgType: 'rect', hasData: false, attrs: { x: 100, y: 350, width: 400, height: 8 } },
+            { id: 'WALL-INT-D', label: 'IfcWallStandardCase', svgType: 'rect', hasData: false, attrs: { x: 540, y: 350, width: 160, height: 8 } },
+            // Vertical Room Dividers
+            { id: 'WALL-DIV-1', label: 'IfcWallStandardCase', svgType: 'rect', hasData: false, attrs: { x: 400, y: 105, width: 8, height: 145 } },
+            { id: 'WALL-DIV-2', label: 'IfcWallStandardCase', svgType: 'rect', hasData: false, attrs: { x: 400, y: 358, width: 8, height: 137 } },
+
+            // --- DOORS ---
+            { id: 'DOOR-101', label: 'IfcDoor', svgType: 'rect', hasData: false, attrs: { x: 280, y: 248, width: 40, height: 12, fill: '#fcd34d', stroke: '#d97706' } },
+            { id: 'DOOR-102', label: 'IfcDoor', svgType: 'rect', hasData: true,  attrs: { x: 500, y: 348, width: 40, height: 12, fill: '#fcd34d', stroke: '#d97706' } }, // Has Data
+
+            // --- WINDOWS (Inserted into exterior walls) ---
+            { id: 'WIN-N1', label: 'IfcWindow', svgType: 'rect', hasData: true,  attrs: { x: 200, y: 93, width: 80, height: 14, fill: '#bae6fd', stroke: '#0284c7' } }, // Has Data
+            { id: 'WIN-N2', label: 'IfcWindow', svgType: 'rect', hasData: false, attrs: { x: 500, y: 93, width: 80, height: 14, fill: '#bae6fd', stroke: '#0284c7' } },
+            { id: 'WIN-S1', label: 'IfcWindow', svgType: 'rect', hasData: false, attrs: { x: 350, y: 493, width: 100, height: 14, fill: '#bae6fd', stroke: '#0284c7' } },
+
+            // --- MEP SYSTEMS ---
+            // Main Corridor HVAC Duct
+            { id: 'HVAC-MAIN', label: 'IfcDuctSegment', svgType: 'rect', hasData: false, attrs: { x: 120, y: 275, width: 560, height: 24, rx: 5 } },
+            // Branch HVAC Duct going into Room 101
+            { id: 'HVAC-BR-101', label: 'IfcDuctSegment', svgType: 'rect', hasData: true, attrs: { x: 200, y: 150, width: 20, height: 125, rx: 2 } }, // Has Data
+            // Plumbing Main Line
+            { id: 'PIPE-MAIN', label: 'IfcPipeSegment', svgType: 'rect', hasData: false, attrs: { x: 120, y: 315, width: 560, height: 6, rx: 3, fill: '#93c5fd' } },
+            // Fire Sprinkler Branch (causing the clash)
+            { id: 'PIPE-SPR-101', label: 'IfcPipeSegment', svgType: 'rect', hasData: false, attrs: { x: 150, y: 180, width: 120, height: 4, rx: 2, fill: '#fca5a5', stroke: '#dc2626' } }
+        ];
+
+        function getModalityStyle(type) {
+            const styles = {
+                'Chat Text': 'bg-green-100 text-green-700 border-green-200',
+                'Onsite Image': 'bg-blue-100 text-blue-700 border-blue-200',
+                'Floorplan Patch': 'bg-orange-100 text-orange-700 border-orange-200'
+            };
+            return styles[type] || 'bg-gray-100 text-gray-700';
+        }
+
+        // ==========================================
+        // UI RENDERING
+        // ==========================================
+
+        function renderEvidenceList() {
+            const container = document.getElementById('evidence-container');
+            container.innerHTML = ''; 
+            let visibleCount = 0;
+
+            pairedEvidenceData.forEach(event => {
+                const isHidden = lockedGuid && event.guid !== lockedGuid;
+                const isHighlight = lockedGuid && event.guid === lockedGuid;
+                if (!isHidden) visibleCount++;
+
+                let modalitiesHtml = '';
+                event.modalities.forEach(mod => {
+                    const style = getModalityStyle(mod.type);
+                    if (mod.type === 'Chat Text') {
+                        modalitiesHtml += `
+                            <div class="mb-3">
+                                <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${style}">${mod.type}</span>
+                                <p class="text-xs text-slate-700 mt-1 italic pl-1 border-l-2 border-slate-300">${mod.content}</p>
+                            </div>
+                        `;
+                    } else {
+                        modalitiesHtml += `
+                            <div class="mb-3">
+                                <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${style}">${mod.type}</span>
+                                <div class="w-full h-16 bg-slate-100 border border-dashed border-slate-300 rounded mt-1 flex flex-col items-center justify-center text-[10px] text-slate-400">
+                                    ${mod.content}
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+
+                const html = `
+                    <div class="bg-white p-4 rounded-xl shadow-sm evidence-card aspect-square flex flex-col relative group ${isHidden ? 'hidden-item' : ''} ${isHighlight ? 'highlight' : ''}">
+                        <div class="flex justify-between items-start mb-2 shrink-0">
+                            <span class="text-[9px] text-slate-400 font-mono">${event.time}</span>
+                            <span class="text-[10px] font-mono font-bold text-blue-600 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded shadow-sm">${event.guid}</span>
+                        </div>
+                        <div class="flex-1 card-content-scroll pr-1 mt-1">${modalitiesHtml}</div>
+                    </div>
+                `;
+                container.innerHTML += html;
+            });
+            document.getElementById('evidence-counter').innerText = `${visibleCount} Records`;
+
+            const toggle = document.getElementById('traceability-toggle');
+            if (lockedGuid) {
+                toggle.classList.remove('hidden');
+                renderTimeline(lockedGuid); 
+            } else {
+                toggle.classList.add('hidden');
+                if(isTimelineOpen) toggleTimeline(); 
+            }
+        }
+
+        function renderTimeline(guid) {
+            document.getElementById('timeline-guid-title').innerText = `GUID: ${guid}`;
+            
+            // Extract the IFC Class from the bimElements array to show dynamically
+            const elementData = bimElements.find(el => el.id === guid);
+            if(elementData) {
+                document.getElementById('ifc-class-badge').innerText = elementData.label.split(':')[0];
+            }
+
+            const container = document.getElementById('timeline-content');
+            container.innerHTML = '';
+            
+            const history = traceabilityHistories[guid] || [];
+            
+            if (history.length === 0) {
+                container.innerHTML = `<p class="text-sm text-gray-500 pl-6">No historical records found for this GUID.</p>`;
+                return;
+            }
+
+            history.forEach(node => {
+                let dotColor = 'bg-gray-400';
+                let boxStyle = 'bg-gray-50 border-gray-200';
+                let textStyle = 'text-gray-800';
+                let tagStyle = 'text-gray-500';
+
+                if (node.status === 'error') {
+                    dotColor = 'bg-red-500 animate-pulse';
+                    boxStyle = 'bg-red-50 border-red-200';
+                    textStyle = 'text-red-800';
+                    tagStyle = 'text-red-600';
+                } else if (node.status === 'pass') {
+                    dotColor = 'bg-green-500';
+                    boxStyle = 'bg-green-50 border-green-200';
+                    textStyle = 'text-green-800';
+                    tagStyle = 'text-green-600';
+                } else if (node.status === 'warning') {
+                    dotColor = 'bg-orange-500';
+                    boxStyle = 'bg-orange-50 border-orange-200';
+                    textStyle = 'text-orange-800';
+                    tagStyle = 'text-orange-600';
+                }
+
+                let visualHtml = '';
+                if(node.visual) {
+                    visualHtml = `<div class="mt-2 text-sm text-gray-600 flex items-center gap-3">
+                                    <div class="px-3 py-2 bg-white rounded flex items-center justify-center text-xs border border-gray-200 text-gray-400 font-mono shadow-sm">${node.visual}</div>
+                                  </div>`;
+                }
+
+                const html = `
+                    <div class="relative pl-6">
+                        <div class="absolute w-3 h-3 ${dotColor} rounded-full -left-[7px] top-1.5 border-2 border-white shadow"></div>
+                        <div class="${boxStyle} border rounded-lg p-3 shadow-sm">
+                            <span class="text-[10px] font-bold ${tagStyle} uppercase tracking-wider">${node.date}</span>
+                            <h3 class="font-bold ${textStyle} text-sm mt-0.5">${node.title}</h3>
+                            <p class="text-xs text-gray-600 mt-1">${node.desc}</p>
+                            ${visualHtml}
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += html;
+            });
+        }
+
+        // ==========================================
+        // INTERACTIONS
+        // ==========================================
+
+        function toggleTimeline() {
+            const evidenceGrid = document.getElementById('evidence-container');
+            const timeline = document.getElementById('timeline-container');
+            const arrow = document.getElementById('toggle-arrow');
+            const text = document.getElementById('toggle-text');
+            const panelTitle = document.getElementById('panel-title');
+
+            isTimelineOpen = !isTimelineOpen;
+
+            if (isTimelineOpen) {
+                evidenceGrid.classList.add('opacity-0');
+                setTimeout(() => {
+                    evidenceGrid.classList.add('hidden');
+                    timeline.classList.remove('hidden');
+                    arrow.classList.add('rotate-180');
+                    text.innerText = "Back to Current Evidence";
+                    panelTitle.innerHTML = `<svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Traceability History`;
+                }, 150);
+            } else {
+                timeline.classList.add('hidden');
+                evidenceGrid.classList.remove('hidden');
+                setTimeout(() => {
+                    evidenceGrid.classList.remove('opacity-0');
+                    arrow.classList.remove('rotate-180');
+                    text.innerText = "View Traceability Passport";
+                    panelTitle.innerHTML = `<svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg> Multimodal Evidence Grid`;
+                }, 50);
+            }
+        }
+
+        function updateStatusBadge() {
+            const badge = document.getElementById('status-badge');
+            if (lockedGuid) {
+                badge.innerHTML = `Locked to: <span class="font-bold">${lockedGuid}</span>`;
+                badge.className = "text-xs font-mono text-blue-700 bg-blue-100 px-3 py-1 rounded border border-blue-200 transition-colors";
+            } else {
+                badge.innerHTML = "Filter: OFF (Showing All)";
+                badge.className = "text-xs font-mono text-slate-500 bg-slate-100 px-3 py-1 rounded border border-slate-200 transition-colors";
+            }
+        }
+
+        function renderBimElements() {
+            const layer = document.getElementById('node-layer');
+            layer.innerHTML = '';
+
+            bimElements.forEach(el => {
+                const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                
+                // Visible Geometry
+                const geometry = document.createElementNS("http://www.w3.org/2000/svg", el.svgType);
+                for (const [key, value] of Object.entries(el.attrs)) { geometry.setAttribute(key, value); }
+                const baseClass = el.hasData ? "bim-element has-data" : "bim-element no-data";
+                
+                // Allow custom fills defined in attrs to override the base class fill
+                if(el.attrs.fill) {
+                    geometry.style.fill = el.attrs.fill;
+                }
+                if(el.attrs.stroke) {
+                    geometry.style.stroke = el.attrs.stroke;
+                }
+
+                geometry.setAttribute("class", baseClass);
+                geometry.setAttribute("id", `geom-${el.id}`);
+
+                // Invisible Hitbox
+                const hitbox = document.createElementNS("http://www.w3.org/2000/svg", el.svgType);
+                for (const [key, value] of Object.entries(el.attrs)) { hitbox.setAttribute(key, value); }
+                hitbox.setAttribute("fill", "transparent");
+                hitbox.setAttribute("stroke", "transparent");
+                hitbox.setAttribute("stroke-width", "20"); 
+                
+                // Tooltip Label
+                const textX = Number(el.attrs.x) + (Number(el.attrs.width) || 0) / 2;
+                const textY = Number(el.attrs.y) - 10;
+                
+                const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                label.setAttribute("x", textX);
+                label.setAttribute("y", textY);
+                label.setAttribute("text-anchor", "middle");
+                label.setAttribute("font-size", "10");
+                label.setAttribute("fill", "#1e40af");
+                label.setAttribute("font-family", "monospace");
+                label.setAttribute("font-weight", "bold");
+                label.setAttribute("class", "pointer-events-none transition-opacity duration-200 opacity-0 bg-white");
+                label.textContent = el.id;
+
+                group.appendChild(geometry);
+                group.appendChild(hitbox);
+                group.appendChild(label);
+
+                if (el.hasData) {
+                    group.addEventListener('mouseenter', () => {
+                        label.classList.remove('opacity-0');
+                        label.classList.add('opacity-100');
+                        if (lockedGuid !== el.id) {
+                            geometry.classList.add('bim-element-hover');
+                        }
+                    });
+
+                    group.addEventListener('mouseleave', () => {
+                        label.classList.remove('opacity-100');
+                        label.classList.add('opacity-0');
+                        geometry.classList.remove('bim-element-hover');
+                    });
+
+                    group.addEventListener('click', (e) => {
+                        e.stopPropagation(); 
+                        document.querySelectorAll('.bim-element').forEach(node => {
+                            node.classList.remove('bim-element-locked');
+                        });
+
+                        if (lockedGuid === el.id) {
+                            lockedGuid = null;
+                        } else {
+                            lockedGuid = el.id;
+                            geometry.classList.add('bim-element-locked');
+                        }
+
+                        updateStatusBadge();
+                        renderEvidenceList();
+                    });
+                }
+
+                layer.appendChild(group);
+            });
+
+            document.getElementById('canvas-container').addEventListener('click', () => {
+                if (lockedGuid) {
+                    lockedGuid = null;
+                    document.querySelectorAll('.bim-element').forEach(node => {
+                        node.classList.remove('bim-element-locked');
+                    });
+                    updateStatusBadge();
+                    renderEvidenceList();
+                }
+            });
+        }
+
+        window.onload = () => {
+            renderEvidenceList(); 
+            renderBimElements();     
+        };
+
+    </script>
+</body>
+</html>

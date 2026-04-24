@@ -14,6 +14,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+from phase4_plot_style import COLORS as PHASE4_COLORS
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 PLOTS_DIR = PROJECT_ROOT / "docs" / "plots" / "phase4_lora6_main"
@@ -28,10 +30,10 @@ DISPLAY = {
     "gemini_ap_v2": "Gemini AP v2",
 }
 COLORS = {
-    "g3_fullaug_r32": "#D32F2F",
-    "g4_ultimate": "#B71C1C",
-    "g7_position_context": "#6A1B9A",
-    "gemini_ap_v2": "#1565C0",
+    "g3_fullaug_r32": PHASE4_COLORS["g3_fullaug_r32"],
+    "g4_ultimate": PHASE4_COLORS["g4_ultimate"],
+    "g7_position_context": PHASE4_COLORS["g7_position_context"],
+    "gemini_ap_v2": PHASE4_COLORS["gemini_ap_v2"],
 }
 
 

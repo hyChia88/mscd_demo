@@ -23,6 +23,7 @@ GROUP_DISPLAY = {
     "g4_ultimate": "G4 Ultimate",
     "g7_position_context": "G7 Position Context",
     "g8_posctx_dim": "G8 PosCtx+Dim",
+    "g9_opencv_cluster": "G9 OpenCV+SizeCluster",
     "g6_baseline": "G6 Baseline",
     "gemini_ap": "Gemini AP",
     "gemini_ap_v2": "Gemini AP v2",
@@ -39,6 +40,7 @@ TRACK_A_ORDER = [
     "g3_fullaug_r32",
     "g4_ultimate",
     "g7_position_context",
+    "g9_opencv_cluster",
     "g6_baseline",
     "gemini_ap",
 ]
@@ -60,6 +62,7 @@ TRACK_B2_ORDER = [
     "g4_ultimate",
     "g7_position_context",
     "g8_posctx_dim",
+    "g9_opencv_cluster",
     "g6_baseline",
     "gemini_ap",
     "gemini_ap_v2",
@@ -80,6 +83,7 @@ TRACK_A_ADAPTERS = {
     "g3_fullaug_r32": ADAPTER_ROOT / "g3_fullaug_r32" / "best",
     "g4_ultimate": ADAPTER_ROOT / "g4_ultimate" / "best",
     "g7_position_context": ADAPTER_ROOT / "g7_position_context" / "best",
+    "g9_opencv_cluster": ADAPTER_ROOT / "g9_opencv_cluster" / "best",
     "g6_baseline": ADAPTER_ROOT / "g6_baseline" / "checkpoint-20",
 }
 
@@ -92,6 +96,7 @@ UNIFIED_REMOTE_ADAPTERS = {
     "g3_fullaug_r32": "/mscd-lora-v6-g3-fullaug-r32/best",
     "g4_ultimate": "/mscd-lora-v6-g4-ultimate/best",
     "g7_position_context": "/mscd-lora-v6-g7-position-context/best",
+    "g9_opencv_cluster": "/mscd-lora-v6-g9-opencv-cluster/best",
     "g6_baseline": "/mscd-lora-v6-g6-baseline/checkpoint-20",
     "lora5_r16_unified": "/mscd-unified-eval/v5_complex_lora_qwen",
     "lora5_r32_unified": "/mscd-unified-eval/v5_lora_qwen_r32",

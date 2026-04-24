@@ -193,6 +193,14 @@ def score_group(
     parse_fail_ids: List[str] = []
     missing_ids: List[str] = []
 
+    # G9 field accuracy — size_cluster + position_context
+    n_size_cluster_gt = 0
+    n_size_cluster_pred = 0
+    n_size_cluster_match = 0
+    n_position_context_gt = 0
+    n_position_context_pred = 0
+    n_position_context_match = 0
+
     for case_id in gt_order:
         gt_row = gt_by_case[case_id]
         gt = gt_row["label"]
@@ -285,6 +293,26 @@ def score_group(
             if pred_rels:
                 n_false_positive += 1
 
+        # G9 per-field accuracy — size_cluster (IfcWindow/IfcDoor classification)
+        gt_sc = gt.get("size_cluster")
+        pred_sc = parsed.get("size_cluster") if parsed else None
+        if gt_sc:
+            n_size_cluster_gt += 1
+            if gt_sc == pred_sc:
+                n_size_cluster_match += 1
+        if pred_sc:
+            n_size_cluster_pred += 1
+
+        # G9 per-field accuracy — position_context (exact string match)
+        gt_pc = gt.get("position_context")
+        pred_pc = parsed.get("position_context") if parsed else None
+        if gt_pc:
+            n_position_context_gt += 1
+            if gt_pc == pred_pc:
+                n_position_context_match += 1
+        if pred_pc:
+            n_position_context_pred += 1
+
     per_predicate = {}
     for pred_name in sorted(per_pred_total):
         total = per_pred_total[pred_name]
@@ -326,6 +354,10 @@ def score_group(
         "over_pred_rate": _safe_ratio(n_over_pred, n_predicted_total),
         "under_pred_rate": _safe_ratio(n_under_pred, n_pred_total),
         "legacy_fp_rate": _safe_ratio(n_false_positive, n_attr_only),
+        "size_cluster_acc": _safe_ratio(n_size_cluster_match, n_size_cluster_gt),
+        "size_cluster_emit_rate": _safe_ratio(n_size_cluster_pred, n_total),
+        "position_context_acc": _safe_ratio(n_position_context_match, n_position_context_gt),
+        "position_context_emit_rate": _safe_ratio(n_position_context_pred, n_total),
         "counts": {
             "valid_json": n_valid_json,
             "class_match": n_class_match,
@@ -343,6 +375,12 @@ def score_group(
             "under_pred": n_under_pred,
             "attr_only_cases": n_attr_only,
             "attr_only_false_positive": n_false_positive,
+            "size_cluster_gt": n_size_cluster_gt,
+            "size_cluster_pred": n_size_cluster_pred,
+            "size_cluster_match": n_size_cluster_match,
+            "position_context_gt": n_position_context_gt,
+            "position_context_pred": n_position_context_pred,
+            "position_context_match": n_position_context_match,
         },
         "per_predicate": per_predicate,
         "per_storey": per_storey_summary,

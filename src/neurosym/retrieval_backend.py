@@ -811,17 +811,23 @@ class RetrievalBackend:
                 cypher_params["target_wall_child_total"] = int(params["position_total"])
                 where_parts.append("coalesce(target.wall_child_total, -1) = $target_wall_child_total")
 
-        # Fix 3: physical dimension filter for IfcWindow/IfcDoor (±50mm tolerance)
-        if params.get("target_width_mm") is not None:
-            cypher_params["target_width_mm"] = float(params["target_width_mm"])
-            where_parts.append(
-                "abs(coalesce(target.width_mm, -9999) - $target_width_mm) <= 50"
-            )
-        if params.get("target_height_mm") is not None:
-            cypher_params["target_height_mm"] = float(params["target_height_mm"])
-            where_parts.append(
-                "abs(coalesce(target.height_mm, -9999) - $target_height_mm) <= 50"
-            )
+        # Dimension filter for IfcWindow/IfcDoor.
+        # G9: prefer cluster-equality (set by planner when LoRA emits `size_cluster`);
+        # fall back to legacy ±50mm tolerance for G7/G8 traces.
+        if params.get("target_size_cluster"):
+            cypher_params["target_size_cluster"] = str(params["target_size_cluster"])
+            where_parts.append("target.size_cluster = $target_size_cluster")
+        else:
+            if params.get("target_width_mm") is not None:
+                cypher_params["target_width_mm"] = float(params["target_width_mm"])
+                where_parts.append(
+                    "abs(coalesce(target.width_mm, -9999) - $target_width_mm) <= 50"
+                )
+            if params.get("target_height_mm") is not None:
+                cypher_params["target_height_mm"] = float(params["target_height_mm"])
+                where_parts.append(
+                    "abs(coalesce(target.height_mm, -9999) - $target_height_mm) <= 50"
+                )
 
         match_str = "\n    ".join(match_lines)
         where_str = "\n      AND ".join(where_parts)
