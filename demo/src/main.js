@@ -2,14 +2,19 @@ import * as OBC from "@thatopen/components";
 import * as THREE from "three";
 
 // Config injected by Python into window.VIEWER_CONFIG before this module loads.
-// { ifc_url, target_guid, gt_guid, guid_match, static_base, pool_guids }
+// {
+//   ifc_url, target_guid, gt_guid, guid_match, static_base,
+//   pool_guids, enable_click_select
+// }
 const cfg         = window.VIEWER_CONFIG || {};
 const IFC_URL     = cfg.ifc_url     || "";
-const TARGET_GUID = cfg.target_guid || "";
-const GT_GUID     = cfg.gt_guid     || "";
-const GUID_MATCH  = cfg.guid_match  || false;
 const STATIC_BASE = cfg.static_base || "";
 const POOL_GUIDS  = Array.isArray(cfg.pool_guids) ? cfg.pool_guids : [];  // candidate pool
+const ENABLE_CLICK_SELECT = cfg.enable_click_select === true;
+
+let targetGuid = cfg.target_guid || "";
+let gtGuid = cfg.gt_guid || "";
+let guidMatch = cfg.guid_match || false;
 
 // Colors
 const COLOR_GHOST = new THREE.Color(0x475569);  // slate-600  — ghost
@@ -20,6 +25,27 @@ const COLOR_BLUE  = new THREE.Color(0x3b82f6);  // blue-500   — ground truth
 
 // Worker URL — served alongside web-ifc.wasm in demo/static/
 const WORKER_URL = STATIC_BASE + "/worker.mjs";
+const selectableGuids = new Set(
+  [...POOL_GUIDS, targetGuid, gtGuid].filter(Boolean),
+);
+
+function getPointerNdc(event, dom) {
+  const rect = dom.getBoundingClientRect();
+  return new THREE.Vector2(
+    ((event.clientX - rect.left) / rect.width) * 2 - 1,
+    -(((event.clientY - rect.top) / rect.height) * 2 - 1),
+  );
+}
+
+function isPrimaryClick(event) {
+  return event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey;
+}
+
+function postToParent(payload) {
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage(payload, "*");
+  }
+}
 
 
 async function main() {
@@ -85,57 +111,95 @@ async function main() {
   progressEl.style.width = "88%";
   labelEl.textContent = "Highlighting…";
 
-  // ── Ghost mode: all elements gray + semi-transparent ─────────────────────
-  await model.setColor(undefined, COLOR_GHOST);
-  await model.setOpacity(undefined, 0.15);
-
-  // ── Highlight candidate pool (amber, 70% opacity) ────────────────────────
-  // Applied before target/GT so target always renders on top.
+  const viewerDom = world.renderer.three.domElement;
   let poolBox = null;
-  if (POOL_GUIDS.length > 0) {
-    const poolLocalIds = (await model.getLocalIdsByGuids(POOL_GUIDS)).filter(id => id != null);
+  let currentFocusBox = null;
+  let poolLocalIds = [];
+  let pointerDown = null;
+
+  function syncFocusButton() {
+    const btnFocus = document.getElementById("btn-focus");
+    if (!btnFocus) return;
+    const hasFocus = currentFocusBox && !currentFocusBox.isEmpty();
+    btnFocus.style.display = hasFocus ? "inline-block" : "none";
+  }
+
+  async function applySelection({ focus = true } = {}) {
+    await model.setColor(undefined, COLOR_GHOST);
+    await model.setOpacity(undefined, 0.15);
+
+    poolBox = null;
     if (poolLocalIds.length > 0) {
       await model.setOpacity(poolLocalIds, 0.7);
       await model.setColor(poolLocalIds, COLOR_POOL);
       try { poolBox = await model.getMergedBox(poolLocalIds); } catch (_) {}
     }
-  }
 
-  // ── Highlight predicted element (overrides pool color) ────────────────────
-  let targetBox = null;
-  if (TARGET_GUID) {
-    const ids = await model.getLocalIdsByGuids([TARGET_GUID]);
-    const localId = ids[0];
-    if (localId != null) {
-      const targetIds = [localId];
-      const color = GUID_MATCH ? COLOR_GREEN : COLOR_RED;
-      await model.resetOpacity(targetIds);
-      await model.setColor(targetIds, color);
-      try { targetBox = await model.getMergedBox(targetIds); } catch (_) {}
-    }
-  }
-
-  // ── Highlight GT in blue when prediction differs ──────────────────────────
-  if (GT_GUID && GT_GUID !== TARGET_GUID) {
-    const gtIds = await model.getLocalIdsByGuids([GT_GUID]);
-    const gtLocalId = gtIds[0];
-    if (gtLocalId != null) {
-      await model.resetOpacity([gtLocalId]);
-      await model.setColor([gtLocalId], COLOR_BLUE);
-      if (!targetBox) {
-        try { targetBox = await model.getMergedBox([gtLocalId]); } catch (_) {}
+    let nextFocusBox = null;
+    if (targetGuid) {
+      const ids = await model.getLocalIdsByGuids([targetGuid]);
+      const localId = ids[0];
+      if (localId != null) {
+        const targetIds = [localId];
+        const color = guidMatch ? COLOR_GREEN : COLOR_RED;
+        await model.resetOpacity(targetIds);
+        await model.setColor(targetIds, color);
+        try { nextFocusBox = await model.getMergedBox(targetIds); } catch (_) {}
       }
     }
+
+    if (gtGuid && gtGuid !== targetGuid) {
+      const gtIds = await model.getLocalIdsByGuids([gtGuid]);
+      const gtLocalId = gtIds[0];
+      if (gtLocalId != null) {
+        await model.resetOpacity([gtLocalId]);
+        await model.setColor([gtLocalId], COLOR_BLUE);
+        if (!nextFocusBox) {
+          try { nextFocusBox = await model.getMergedBox([gtLocalId]); } catch (_) {}
+        }
+      }
+    }
+
+    currentFocusBox = nextFocusBox || poolBox || null;
+    syncFocusButton();
+
+    if (focus && currentFocusBox && !currentFocusBox.isEmpty()) {
+      await world.camera.controls.fitToBox(currentFocusBox, true);
+    }
+  }
+
+  async function setSelection({
+    targetGuid: nextTargetGuid,
+    gtGuid: nextGtGuid,
+    guidMatch: nextGuidMatch,
+    focus = true,
+  } = {}) {
+    if (nextTargetGuid !== undefined) {
+      targetGuid = nextTargetGuid || "";
+      if (targetGuid) selectableGuids.add(targetGuid);
+    }
+    if (nextGtGuid !== undefined) {
+      gtGuid = nextGtGuid || "";
+      if (gtGuid) selectableGuids.add(gtGuid);
+    }
+    if (nextGuidMatch !== undefined) {
+      guidMatch = !!nextGuidMatch;
+    }
+    await applySelection({ focus });
   }
 
   // ── Camera: overview → zoom to focus ─────────────────────────────────────
-  // Priority: targetBox (predicted/GT) > poolBox (pool-only view) > nothing
-  const focusBox = targetBox || poolBox || null;
+  // Priority: target/GT > pool-only view > nothing
+  if (POOL_GUIDS.length > 0) {
+    poolLocalIds = (await model.getLocalIdsByGuids(POOL_GUIDS)).filter((id) => id != null);
+  }
+  await applySelection({ focus: false });
+
   const modelBox = model.box;
   if (modelBox && !modelBox.isEmpty()) {
     await world.camera.controls.fitToBox(modelBox, false);   // instant overview
-    if (focusBox && !focusBox.isEmpty()) {
-      await world.camera.controls.fitToBox(focusBox, true);  // animated zoom
+    if (currentFocusBox && !currentFocusBox.isEmpty()) {
+      await world.camera.controls.fitToBox(currentFocusBox, true);  // animated zoom
     }
   }
 
@@ -154,12 +218,59 @@ async function main() {
   });
 
   const btnFocus = document.getElementById("btn-focus");
-  if (focusBox && !focusBox.isEmpty()) {
-    btnFocus.style.display = "inline-block";
-    btnFocus.addEventListener("click", () => {
-      world.camera.controls.fitToBox(focusBox, true);
+  syncFocusButton();
+  btnFocus.addEventListener("click", () => {
+    if (currentFocusBox && !currentFocusBox.isEmpty()) {
+      world.camera.controls.fitToBox(currentFocusBox, true);
+    }
+  });
+
+  if (ENABLE_CLICK_SELECT) {
+    viewerDom.addEventListener("pointerdown", (event) => {
+      pointerDown = {
+        x: event.clientX,
+        y: event.clientY,
+        t: performance.now(),
+      };
+    });
+
+    viewerDom.addEventListener("pointerup", async (event) => {
+      if (!isPrimaryClick(event) || !pointerDown) return;
+      const moved = Math.hypot(event.clientX - pointerDown.x, event.clientY - pointerDown.y);
+      const elapsed = performance.now() - pointerDown.t;
+      pointerDown = null;
+      if (moved > 6 || elapsed > 700) return;
+
+      const hit = await model.raycast({
+        camera: world.camera.three,
+        mouse: getPointerNdc(event, viewerDom),
+        dom: viewerDom,
+      });
+      if (!hit || hit.localId == null) return;
+
+      const [guid] = await model.getGuidsByLocalIds([hit.localId]);
+      if (!guid || !selectableGuids.has(guid)) return;
+
+      await setSelection({
+        targetGuid: guid,
+        gtGuid: guid,
+        guidMatch: true,
+        focus: false,
+      });
+      postToParent({ type: "viewer-guid-click", guid });
     });
   }
+
+  window.addEventListener("message", (event) => {
+    const data = event.data || {};
+    if (data.type !== "viewer-set-selection") return;
+    void setSelection({
+      targetGuid: data.target_guid,
+      gtGuid: data.gt_guid,
+      guidMatch: data.guid_match,
+      focus: data.focus !== false,
+    });
+  });
 }
 
 main().catch(err => {

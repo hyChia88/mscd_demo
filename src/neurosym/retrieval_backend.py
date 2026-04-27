@@ -69,6 +69,14 @@ class RetrievalBackend:
         else:
             candidates = self._execute_memory(plan)
 
+        raw_pool_size = len(candidates)
+        if plan.strategy in ("spatial_triplet", "continuous_span"):
+            actual = self._strategy_actually_used or plan.strategy
+            # Treat topology→attribute demotions as zero raw-topology hits so the
+            # demo can show the pure P0 pool before the P1 safety-net kicks in.
+            if actual in ("storey+type", "type_only"):
+                raw_pool_size = 0
+
         # Step 1b: P0 strategy — controls how spatial queries interact with P1
         #   p0_only:          keep P0 result as-is (original behavior)
         #   p1_only:          discard P0, use storey+type instead
@@ -128,6 +136,7 @@ class RetrievalBackend:
         return RetrievalResult(
             candidates=candidates,
             pool_size=len(candidates),
+            raw_pool_size=raw_pool_size,
             query_plan_used=plan,
             backend=backend_name,
             rerank_applied=rerank_applied,

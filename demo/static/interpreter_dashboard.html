@@ -1,0 +1,1703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MSCD Dashboard</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --panel: #ffffff;
+      --border: #dde3ec;
+      --text: #162033;
+      --muted: #66748b;
+      --blue: #2563eb;
+      --blue-soft: #f8fafc;
+      --red: #dc2626;
+      --amber: #d97706;
+      --green: #15803d;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .page {
+      width: 100%;
+      max-width: none;
+      margin: 0;
+      padding: 14px 18px 18px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .header,
+    .panel {
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+    }
+
+    .header {
+      padding: 0 0 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h1, h2, h3, p {
+      margin: 0;
+    }
+
+    .title h1 {
+      font-size: 20px;
+    }
+
+    .title p {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tab {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .tab.active {
+      background: #fff;
+      border-color: #cbd5e1;
+      color: var(--text);
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.3fr 0.9fr;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .panel {
+      padding: 0;
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .panel-head h2 {
+      font-size: 15px;
+    }
+
+    .panel-head-inline {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .panel-head-sep {
+      color: #cbd5e1;
+      font-size: 13px;
+    }
+
+    .panel-head p,
+    .muted {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #fff;
+      color: #475569;
+      border: 1px solid var(--border);
+    }
+
+    .floorplan-wrap {
+      position: relative;
+      width: fit-content;
+      max-width: 100%;
+      margin: 0 auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .floorplan-wrap img {
+      display: block;
+      max-width: 100%;
+      max-height: calc(100vh - 220px);
+      width: auto;
+      height: auto;
+    }
+
+    .viewer-wrap {
+      position: relative;
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #0f172a;
+      min-height: 560px;
+    }
+
+    .viewer-wrap iframe {
+      display: block;
+      width: 100%;
+      min-height: 560px;
+      border: 0;
+      background: #0f172a;
+    }
+
+    .viewer-note {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 2;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.9);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+    }
+
+    .pin {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      margin-left: -8px;
+      margin-top: -8px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      background: var(--blue);
+      box-shadow: 0 0 0 1px rgba(22, 32, 51, 0.18);
+      cursor: pointer;
+    }
+
+    .pin.active {
+      transform: scale(1.4);
+      background: var(--red);
+      z-index: 2;
+    }
+
+    .pin.heatmap {
+      width: 18px;
+      height: 18px;
+      margin-left: -9px;
+      margin-top: -9px;
+      border-width: 1px;
+    }
+
+    .surface-bar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin: 0 0 12px 0;
+    }
+
+    .surface-bar .metric-tabs {
+      padding-left: 10px;
+      margin-left: 4px;
+      border-left: 1px solid var(--border);
+    }
+
+    .metric-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .metric-tab {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .metric-tab.active {
+      background: var(--blue-soft);
+      border-color: #bfd4ff;
+      color: var(--blue);
+    }
+
+    .surface-toggle {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .surface-btn {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .surface-btn.active {
+      background: var(--blue-soft);
+      border-color: #bfd4ff;
+      color: var(--blue);
+    }
+
+    .layout.grounding-mode {
+      grid-template-columns: 0.95fr 1.35fr;
+    }
+
+    .layout.grounding-mode > .panel:first-child {
+      order: 2;
+    }
+
+    .layout.grounding-mode > .side {
+      order: 1;
+    }
+
+    .surface-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .side {
+      display: grid;
+      gap: 16px;
+      align-content: start;
+      max-height: 900px;
+      overflow: auto;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 0 0;
+      background: transparent;
+    }
+
+    .card h3 {
+      font-size: 14px;
+      margin-bottom: 10px;
+      padding: 0 0 0 2px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .summary-item {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 13px;
+      background: #fff;
+    }
+
+    .summary-item strong {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 4px;
+      letter-spacing: 0.03em;
+    }
+
+    .evidence {
+      display: grid;
+      gap: 10px;
+    }
+
+    .evidence img {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      display: block;
+    }
+
+    .timeline,
+    .steps {
+      display: grid;
+      gap: 10px;
+    }
+
+    .item {
+      border-left: 3px solid var(--blue);
+      padding: 2px 0 2px 10px;
+      font-size: 13px;
+    }
+
+    .item strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .passport-shell {
+      display: grid;
+      gap: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    .passport-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .passport-guid {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .passport-timeline {
+      position: relative;
+      display: grid;
+      gap: 14px;
+      padding-left: 18px;
+      margin-left: 4px;
+      border-left: 3px solid #dbe4f0;
+    }
+
+    .passport-node {
+      position: relative;
+    }
+
+    .passport-dot {
+      position: absolute;
+      left: -26px;
+      top: 7px;
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 1px rgba(22, 32, 51, 0.08);
+    }
+
+    .passport-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .passport-meta {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .passport-card h4 {
+      margin: 0;
+      font-size: 14px;
+    }
+
+    .passport-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .passport-visual {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #f8fafc;
+      font-size: 12px;
+      color: var(--muted);
+      width: fit-content;
+      max-width: 100%;
+      word-break: break-word;
+    }
+
+    .passport-card.status-pass {
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+    }
+
+    .passport-card.status-pass .passport-meta,
+    .passport-card.status-pass h4 {
+      color: #166534;
+    }
+
+    .passport-card.status-warning {
+      background: #fff7ed;
+      border-color: #fed7aa;
+    }
+
+    .passport-card.status-warning .passport-meta,
+    .passport-card.status-warning h4 {
+      color: #c2410c;
+    }
+
+    .passport-card.status-error {
+      background: #fef2f2;
+      border-color: #fecaca;
+    }
+
+    .passport-card.status-error .passport-meta,
+    .passport-card.status-error h4 {
+      color: #b91c1c;
+    }
+
+    .empty {
+      color: var(--muted);
+      font-size: 13px;
+      padding: 20px;
+      text-align: center;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    .evidence-shell {
+      display: grid;
+      gap: 14px;
+      border-top: 1px solid var(--border);
+      padding-top: 14px;
+    }
+
+    .evidence-shell-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .modality-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .modality-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      background: #fff;
+    }
+
+    .modality-pill.is-muted {
+      opacity: 0.48;
+    }
+
+    .tone-chat {
+      background: #ecfdf5;
+      border-color: #bbf7d0;
+      color: var(--green);
+    }
+
+    .tone-image {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+      color: var(--blue);
+    }
+
+    .tone-plan {
+      background: #fff7ed;
+      border-color: #fed7aa;
+      color: var(--amber);
+    }
+
+    .tone-floorplan {
+      background: #eef2ff;
+      border-color: #c7d2fe;
+      color: #4338ca;
+    }
+
+    .tone-context {
+      background: #f8fafc;
+      border-color: #dbe4f0;
+      color: #475569;
+    }
+
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .gallery-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      background: #fff;
+      min-height: 230px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .gallery-card-head {
+      padding: 12px;
+      border-bottom: 1px solid #edf2f7;
+      display: grid;
+      gap: 6px;
+      background: #fcfdff;
+    }
+
+    .gallery-card-head strong {
+      font-size: 13px;
+    }
+
+    .gallery-card-body {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      flex: 1;
+    }
+
+    .gallery-preview {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .gallery-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .gallery-caption {
+      color: var(--muted);
+      font-size: 12px;
+      word-break: break-word;
+    }
+
+    .gallery-text {
+      font-size: 13px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+    }
+
+    .gallery-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .gallery-meta div {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fbfcff;
+      padding: 10px;
+      font-size: 12px;
+    }
+
+    .gallery-meta strong {
+      display: block;
+      font-size: 10px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 4px;
+      letter-spacing: 0.03em;
+    }
+
+    .case-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .case-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      cursor: pointer;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+    }
+
+    .case-card:hover {
+      border-color: #bfd4ff;
+      box-shadow: 0 10px 24px rgba(37, 99, 235, 0.08);
+      transform: translateY(-1px);
+    }
+
+    .case-card.is-focused {
+      border-color: #93c5fd;
+      box-shadow: 0 12px 28px rgba(37, 99, 235, 0.14);
+    }
+
+    .case-card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .case-card-title {
+      display: grid;
+      gap: 4px;
+    }
+
+    .case-card-title strong {
+      font-size: 14px;
+    }
+
+    .case-card-subtitle {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .case-evidence-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .case-preview-tile img {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      display: block;
+      background: #f8fafc;
+    }
+
+    .case-query {
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text);
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .case-context {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .case-context code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11.5px;
+      color: var(--text);
+      background: #f3f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .case-context .sep {
+      color: #cbd5e1;
+    }
+
+    .case-guid {
+      margin-top: 2px;
+    }
+
+    .case-guid code {
+      display: block;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11.5px;
+      color: var(--muted);
+      background: #f3f5f9;
+      padding: 5px 8px;
+      border-radius: 6px;
+      word-break: break-all;
+      line-height: 1.35;
+    }
+
+    .panel-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .ghost-btn {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--muted);
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .ghost-btn:hover {
+      border-color: #bfd4ff;
+      color: var(--blue);
+    }
+
+    .flat-section {
+      display: grid;
+      gap: 12px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    .flat-section.is-first {
+      padding-top: 0;
+      border-top: 0;
+    }
+
+    .flat-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 1120px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .side {
+        max-height: none;
+      }
+
+      .gallery,
+      .gallery-meta,
+      .case-grid,
+      .case-evidence-strip,
+      .case-context {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="header">
+      <div class="tabs">
+        <button class="tab active" data-mode="grounding">Grounding Hub</button>
+        <button class="tab" data-mode="handoff">Trace Story</button>
+      </div>
+    </section>
+
+    <section class="layout">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-head-inline">
+            <h2 id="left-title">Grounding Hub</h2>
+            <span class="panel-head-sep">·</span>
+            <p id="left-text">Select a pin or case.</p>
+          </div>
+          <span class="badge" id="count-badge">0 mapped cases</span>
+        </div>
+
+        <div class="surface-bar">
+          <div id="surface-toggle" class="surface-toggle"></div>
+          <div id="metric-tabs" class="metric-tabs" style="display:none;">
+            <button class="metric-tab active" data-metric="defect">Defect density</button>
+            <button class="metric-tab" data-metric="conflict">Trade conflict</button>
+            <button class="metric-tab" data-metric="blindspot">Regulatory blindspot</button>
+          </div>
+        </div>
+
+        <div id="floorplan-area" class="empty">Loading floorplan data…</div>
+      </div>
+
+      <div class="panel side" id="detail-area"></div>
+    </section>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const requestedGuid = params.get("guid") || "";
+    const requestedCase = params.get("case_id") || "";
+    const requestedMode = params.get("mode") || "grounding";
+    const requestedIfc = params.get("ifc") || "/data/ifc/AdvancedProject/IFC/AdvancedProject.ifc";
+    const requestedSurface = params.get("surface") || "";
+
+    const PATHS = {
+      data: "/demo/static/dashboard_first_floor_cases.json",
+      passports: "/demo/static/dashboard_traceability_passports.jsonl",
+      floorplan: "/demo/static/AP_storey_1_first_floor.png",
+      ifc: requestedIfc,
+    };
+
+    // Cases excluded from the dashboard due to known data-quality issues
+    // (label/anchor/render problems flagged during curation review).
+    const EXCLUDED_CASE_IDS = new Set([
+      "AP_SK_052",
+      "AP_SK_053",
+      "AP_SK_055",
+      "AP_SK_057",
+      "AP_SK_059",
+      "AP_SK_060",
+    ]);
+
+    const state = {
+      mode: ["grounding", "handoff"].includes(requestedMode) ? requestedMode : "grounding",
+      metric: "defect",
+      cases: [],
+      selectedId: "",
+      focusedId: "",
+      surface: ["viewer", "floorplan"].includes(requestedSurface)
+        ? requestedSurface
+        : (requestedIfc ? "viewer" : "floorplan"),
+      selectionSource: "ui",
+      viewerBound: false,
+      viewerLoaded: false,
+      passports: {},
+    };
+
+    function hashScore(input, offset) {
+      let hash = 0;
+      const text = String(input || "");
+      for (let i = 0; i < text.length; i += 1) {
+        hash = ((hash << 5) - hash) + text.charCodeAt(i);
+        hash |= 0;
+      }
+      const normalized = Math.abs(hash + offset) % 100;
+      return 0.2 + (normalized / 100) * 0.75;
+    }
+
+    function uniqueStrings(values) {
+      return [...new Set(values.filter(Boolean))];
+    }
+
+    function computeGridPosition(index, total) {
+      const columns = 4;
+      const rows = Math.max(1, Math.ceil(total / columns));
+      const col = index % columns;
+      const row = Math.floor(index / columns);
+      return {
+        x: 10 + ((col + 0.5) / columns) * 80,
+        y: 10 + ((row + 0.5) / rows) * 80,
+      };
+    }
+
+    function staticBaseUrl() {
+      return `${window.location.origin}/demo/static`;
+    }
+
+    function activeFloorplan() {
+      return selectedCase()?.floorplan_image || PATHS.floorplan;
+    }
+
+    function visibleCases() {
+      const floorplan = activeFloorplan();
+      return state.cases.filter((item) => (item.floorplan_image || PATHS.floorplan) === floorplan);
+    }
+
+    function effectiveSurface() {
+      if (!PATHS.ifc) return "floorplan";
+      return state.surface;
+    }
+
+    function resolvedPoint(item, fallbackIndex = 0, fallbackTotal = 1) {
+      if (item.point && Number.isFinite(item.point.x) && Number.isFinite(item.point.y)) {
+        return item.point;
+      }
+      return computeGridPosition(fallbackIndex, fallbackTotal);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function assetName(path) {
+      return String(path || "").split("/").filter(Boolean).pop() || "asset";
+    }
+
+    function normalizeEvidencePath(rawPath) {
+      const path = String(rawPath || "").trim();
+      if (!path) return "";
+      if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("/")) {
+        return path;
+      }
+      if (path.startsWith("data_curation/")) {
+        return `/${path}`;
+      }
+      if (path.startsWith("datasets/")) {
+        return `/data_curation/${path}`;
+      }
+      return `/${path}`;
+    }
+
+    async function loadEvidenceIndex() {
+      const text = await fetch("/evaluation/cases/cases_ap_heldout_e2e.jsonl").then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status} while loading evidence index`);
+        }
+        return res.text();
+      });
+
+      return text.split(/\n+/).filter(Boolean).reduce((acc, line) => {
+        try {
+          const entry = JSON.parse(line);
+          if (entry.case_id) acc[entry.case_id] = entry;
+        } catch (error) {
+          console.warn("Skipping malformed evidence row", error);
+        }
+        return acc;
+      }, {});
+    }
+
+    async function loadPassportIndex() {
+      const text = await fetch(`${PATHS.passports}?v=${Date.now()}`).then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status} while loading passport index`);
+        }
+        return res.text();
+      });
+
+      return text.split(/\n+/).filter(Boolean).reduce((acc, line) => {
+        try {
+          const entry = JSON.parse(line);
+          if (entry.case_id) acc[entry.case_id] = entry;
+        } catch (error) {
+          console.warn("Skipping malformed passport row", error);
+        }
+        return acc;
+      }, {});
+    }
+
+    async function loadCases() {
+      const cacheBust = `v=${Date.now()}`;
+      const [payload, evidenceIndex, passportIndex] = await Promise.all([
+        fetch(`${PATHS.data}?${cacheBust}`).then((res) => {
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status} while loading dashboard dataset`);
+          }
+          return res.json();
+        }),
+        loadEvidenceIndex().catch((error) => {
+          console.warn("Evidence index unavailable:", error);
+          return {};
+        }),
+        loadPassportIndex().catch((error) => {
+          console.warn("Passport index unavailable:", error);
+          return {};
+        }),
+      ]);
+
+      state.passports = passportIndex;
+      state.cases = (payload.cases || [])
+        .filter((item) => !EXCLUDED_CASE_IDS.has(item.case_id))
+        .map((item) => ({
+        ...item,
+        evidence: (() => {
+          const seeded = item.evidence || {};
+          const raw = evidenceIndex[item.case_id] || {};
+          const inputs = raw.inputs || {};
+          return {
+            chat_history: seeded.chat_history || inputs.chat_history || [],
+            chat_quality: seeded.chat_quality || inputs.chat_quality || "",
+            project_context: seeded.project_context || inputs.project_context || {},
+            images: (seeded.images || inputs.images || []).map(normalizeEvidencePath),
+            floorplan_patch: normalizeEvidencePath(seeded.floorplan_patch || inputs.floorplan_patch),
+          };
+        })(),
+        metrics: item.metrics || {
+          defect: hashScore(item.target_guid, 13),
+          conflict: hashScore(item.case_id, 29),
+          blindspot: hashScore(item.target_name, 47),
+        },
+      }));
+
+      const preferred = state.cases.find((item) =>
+        item.target_guid === requestedGuid || item.case_id === requestedCase
+      );
+      state.selectedId = preferred ? preferred.case_id : (state.cases[0]?.case_id || "");
+      state.focusedId = requestedGuid && preferred ? preferred.case_id : "";
+    }
+
+    function focusedCase() {
+      if (!state.focusedId) return null;
+      return state.cases.find((item) => item.case_id === state.focusedId) || null;
+    }
+
+    function selectedCase() {
+      return focusedCase()
+        || state.cases.find((item) => item.case_id === state.selectedId)
+        || state.cases[0]
+        || null;
+    }
+
+    function casesForGuid(guid) {
+      return state.cases.filter((item) => item.target_guid === guid);
+    }
+
+    function pickCaseForGuid(guid) {
+      const matches = casesForGuid(guid);
+      if (!matches.length) return null;
+      return matches.find((item) => item.case_id === state.selectedId) || matches[0];
+    }
+
+    function metricColor(metric, value) {
+      const alpha = 0.25 + value * 0.7;
+      if (metric === "defect") return `rgba(220, 38, 38, ${alpha})`;
+      if (metric === "conflict") return `rgba(217, 119, 6, ${alpha})`;
+      return `rgba(37, 99, 235, ${alpha})`;
+    }
+
+    function buildViewerSrc() {
+      const viewerParams = new URLSearchParams({
+        ifc: PATHS.ifc,
+        base: staticBaseUrl(),
+        pool: uniqueStrings(state.cases.map((item) => item.target_guid)).join(","),
+        select: "1",
+      });
+      return `/demo/static/test_viewer.html?${viewerParams.toString()}`;
+    }
+
+    function postViewerSelection(focus = (state.selectionSource !== "viewer")) {
+      const item = selectedCase();
+      const frame = document.getElementById("dashboard-viewer");
+      if (!frame || !frame.contentWindow || !state.viewerLoaded) return;
+      frame.contentWindow.postMessage({
+        type: "viewer-set-selection",
+        target_guid: state.focusedId && item ? item.target_guid : "",
+        gt_guid: state.focusedId && item ? item.target_guid : "",
+        guid_match: !!state.focusedId,
+        focus,
+      }, "*");
+      state.selectionSource = "ui";
+    }
+
+    function bindViewerMessages() {
+      if (state.viewerBound) return;
+      state.viewerBound = true;
+      window.addEventListener("message", (event) => {
+        const data = event.data || {};
+        if (data.type !== "viewer-guid-click" || !data.guid) return;
+        const match = pickCaseForGuid(data.guid);
+        if (!match) return;
+        state.selectedId = match.case_id;
+        state.selectionSource = "viewer";
+        render();
+      });
+    }
+
+    function renderTabs() {
+      document.querySelectorAll(".tab").forEach((button) => {
+        button.classList.toggle("active", button.dataset.mode === state.mode);
+      });
+
+      const countBadge = document.getElementById("count-badge");
+      const visible = visibleCases();
+      countBadge.textContent = state.focusedId
+        ? `1 focused trace · ${state.cases.length} total`
+        : `${visible.length} mapped cases`;
+
+      const metricTabs = document.getElementById("metric-tabs");
+      const showMetrics = state.mode === "grounding" && effectiveSurface() === "floorplan";
+      metricTabs.style.display = showMetrics ? "flex" : "none";
+    }
+
+    function renderSurfaceToggle() {
+      const wrap = document.getElementById("surface-toggle");
+      const viewerEnabled = !!PATHS.ifc;
+      const active = effectiveSurface();
+      wrap.innerHTML = `
+        <button class="surface-btn ${active === "viewer" ? "active" : ""}" data-surface="viewer" ${viewerEnabled ? "" : "disabled"}>3D BIM Surface</button>
+        <button class="surface-btn ${active === "floorplan" ? "active" : ""}" data-surface="floorplan">2D Plan Surface</button>
+      `;
+      wrap.querySelectorAll(".surface-btn").forEach((button) => {
+        button.onclick = () => {
+          if (button.disabled) return;
+          state.surface = button.dataset.surface;
+          state.selectionSource = "ui";
+          render();
+        };
+      });
+    }
+
+    function renderPins(heatmapMode = false) {
+      const selected = focusedCase();
+      const visible = visibleCases();
+      const unresolved = visible.filter((item) => !item.point);
+      return visible.map((item) => {
+        const cls = `pin ${heatmapMode ? "heatmap" : ""} ${selected && item.case_id === selected.case_id ? "active" : ""}`;
+        const background = heatmapMode ? metricColor(state.metric, item.metrics[state.metric]) : "";
+        const fallbackIndex = unresolved.findIndex((candidate) => candidate.case_id === item.case_id);
+        const point = resolvedPoint(item, fallbackIndex, Math.max(unresolved.length, 1));
+        const style = [
+          `left:${point.x}%`,
+          `top:${point.y}%`,
+          background ? `background:${background}` : "",
+        ].filter(Boolean).join(";");
+        return `<button class="${cls}" data-case="${item.case_id}" style="${style}" title="${item.case_id}"></button>`;
+      }).join("");
+    }
+
+    function bindPins() {
+      document.querySelectorAll(".pin").forEach((pin) => {
+        pin.addEventListener("click", () => {
+          const nextId = pin.dataset.case;
+          state.selectedId = nextId;
+          state.focusedId = state.focusedId === nextId ? "" : nextId;
+          state.selectionSource = "ui";
+          render();
+        });
+      });
+    }
+
+    function renderFloorplan() {
+      const selected = selectedCase();
+      const area = document.getElementById("floorplan-area");
+      state.viewerLoaded = false;
+      if (!selected) {
+        area.className = "empty";
+        area.textContent = "No first-floor cases found.";
+        return;
+      }
+
+      area.className = "floorplan-wrap";
+      const floorplan = activeFloorplan();
+      area.innerHTML = `
+        <img src="${floorplan}" alt="Storey floorplan">
+        ${renderPins(state.mode === "grounding" && effectiveSurface() === "floorplan")}
+      `;
+      bindPins();
+    }
+
+    function renderViewer() {
+      const selected = selectedCase();
+      const area = document.getElementById("floorplan-area");
+      if (!selected || !PATHS.ifc) {
+        renderFloorplan();
+        return;
+      }
+
+      const nextSrc = buildViewerSrc();
+      const currentFrame = document.getElementById("dashboard-viewer");
+      const currentSig = currentFrame?.dataset.signature || "";
+      if (currentSig !== nextSrc) {
+        state.viewerLoaded = false;
+        area.className = "viewer-wrap";
+        area.innerHTML = `
+          <div class="viewer-note">Click a highlighted BIM element to sync the evidence panel.</div>
+          <iframe id="dashboard-viewer" data-signature="${nextSrc}" src="${nextSrc}" title="3D BIM grounding viewer" loading="lazy"></iframe>
+        `;
+        document.getElementById("dashboard-viewer").addEventListener("load", () => {
+          state.viewerLoaded = true;
+          postViewerSelection(true);
+        });
+        return;
+      }
+
+      area.className = "viewer-wrap";
+      postViewerSelection();
+    }
+
+    function renderViewport() {
+      if (effectiveSurface() === "viewer") {
+        renderViewer();
+      } else {
+        renderFloorplan();
+      }
+    }
+
+    function summaryCard(item) {
+      const linkedCases = casesForGuid(item.target_guid).map((candidate) => candidate.case_id);
+      return `
+        <section class="flat-section is-first">
+          <div class="flat-title">
+            <h3>${item.case_id}</h3>
+          </div>
+          <div class="summary-grid">
+            <div class="summary-item"><strong>GUID</strong>${item.target_guid}</div>
+            <div class="summary-item"><strong>Type</strong>${item.target_ifc_class}</div>
+            <div class="summary-item"><strong>Name</strong>${item.target_name}</div>
+            <div class="summary-item"><strong>Storey</strong>${item.target_storey}</div>
+            <div class="summary-item"><strong>Pin source</strong>${item.projection_status || "grid_fallback"}</div>
+            <div class="summary-item"><strong>Floorplan</strong>${(item.floorplan_image || PATHS.floorplan).split("/").pop()}</div>
+            <div class="summary-item"><strong>Shared GUID cases</strong>${linkedCases.join(", ")}</div>
+            <div class="summary-item"><strong>View mode</strong>${effectiveSurface() === "viewer" ? "3D BIM grounding" : "2D floorplan overlay"}</div>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderCasePreviewTile(src) {
+      if (!src) return "";
+      return `
+        <div class="case-preview-tile"><img src="${escapeHtml(src)}" alt="Case evidence" loading="lazy"></div>
+      `;
+    }
+
+    function renderModalityPill(label, tone, active = true) {
+      return `<span class="modality-pill ${tone} ${active ? "" : "is-muted"}">${escapeHtml(label)}</span>`;
+    }
+
+    function modalitySummary(item) {
+      const evidence = item.evidence || {};
+      const hasChat = (evidence.chat_history || []).length > 0 || !!item.query_text;
+      const hasSite = (evidence.images || []).length > 0;
+      const hasPatch = !!evidence.floorplan_patch;
+      const hasFloorplan = !!(item.floorplan_image || PATHS.floorplan);
+      const has4d = Object.keys(evidence.project_context || {}).length > 0;
+      return [
+        renderModalityPill("Chat Text", "tone-chat", hasChat),
+        renderModalityPill("Site Photo", "tone-image", hasSite),
+        renderModalityPill("Floorplan Patch", "tone-plan", hasPatch),
+        renderModalityPill("Full Floorplan", "tone-floorplan", hasFloorplan),
+        renderModalityPill("4D Context", "tone-context", has4d),
+      ].join("");
+    }
+
+    function renderTextCard(title, label, body, description, tone) {
+      return `
+        <article class="gallery-card">
+          <div class="gallery-card-head">
+            <span class="modality-pill ${tone}">${escapeHtml(label)}</span>
+            <strong>${escapeHtml(title)}</strong>
+            <span class="gallery-caption">${escapeHtml(description)}</span>
+          </div>
+          <div class="gallery-card-body">
+            <div class="gallery-text">${escapeHtml(body)}</div>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderImageCard(title, label, src, description, tone) {
+      return `
+        <article class="gallery-card">
+          <div class="gallery-card-head">
+            <span class="modality-pill ${tone}">${escapeHtml(label)}</span>
+            <strong>${escapeHtml(title)}</strong>
+            <span class="gallery-caption">${escapeHtml(description)}</span>
+          </div>
+          <div class="gallery-card-body">
+            <div class="gallery-preview">
+              <img src="${escapeHtml(src)}" alt="${escapeHtml(title)}" loading="lazy">
+            </div>
+            <div class="gallery-caption">${escapeHtml(assetName(src))}</div>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderMetaCard(title, label, metadata, description, tone) {
+      const rows = Object.entries(metadata).map(([key, value]) => `
+        <div>
+          <strong>${escapeHtml(String(key).replaceAll("_", " "))}</strong>
+          <span>${escapeHtml(value)}</span>
+        </div>
+      `).join("");
+
+      return `
+        <article class="gallery-card">
+          <div class="gallery-card-head">
+            <span class="modality-pill ${tone}">${escapeHtml(label)}</span>
+            <strong>${escapeHtml(title)}</strong>
+            <span class="gallery-caption">${escapeHtml(description)}</span>
+          </div>
+          <div class="gallery-card-body">
+            <div class="gallery-meta">${rows}</div>
+          </div>
+        </article>
+      `;
+    }
+
+    function buildEvidenceCards(item) {
+      const evidence = item.evidence || {};
+      const cards = [];
+      const chatHistory = evidence.chat_history || [];
+      const fieldText = chatHistory.length
+        ? chatHistory.map((entry) => `${entry.role || "User"}: ${entry.text || ""}`).join("\n\n")
+        : (item.query_text || "");
+      const projectContext = {
+        ...(evidence.project_context || {}),
+      };
+
+      if (fieldText) {
+        cards.push(renderTextCard(
+          "Field Request",
+          "Chat Text",
+          fieldText,
+          "Natural-language cue captured from the frontline request.",
+          "tone-chat",
+        ));
+      }
+
+      (evidence.images || []).forEach((src, index) => {
+        cards.push(renderImageCard(
+          `Site Photo ${index + 1}`,
+          "Site Photo",
+          src,
+          "Egocentric evidence captured on site.",
+          "tone-image",
+        ));
+      });
+
+      if (evidence.floorplan_patch) {
+        cards.push(renderImageCard(
+          "Floorplan Patch",
+          "Floorplan Patch",
+          evidence.floorplan_patch,
+          "Local allocentric crop paired with the same case.",
+          "tone-plan",
+        ));
+      }
+
+      cards.push(renderImageCard(
+        "Full Floorplan Context",
+        "Full Floorplan",
+        item.floorplan_image || PATHS.floorplan,
+        "Macro-level context used by the grounding surface.",
+        "tone-floorplan",
+      ));
+
+      if (evidence.chat_quality) {
+        projectContext.chat_quality = evidence.chat_quality;
+      }
+      if (item.modality) {
+        projectContext.input_regime = item.modality;
+      }
+
+      if (Object.keys(projectContext).length) {
+        cards.push(renderMetaCard(
+          "4D / Project Context",
+          "4D Context",
+          projectContext,
+          "Supplementary metadata that travels with the case.",
+          "tone-context",
+        ));
+      }
+
+      return cards;
+    }
+
+    function renderEvidenceCaseCard(item, focused = false) {
+      const evidence = item.evidence || {};
+      const siteImage = (evidence.images || [])[0] || "";
+      const floorplanPatch = evidence.floorplan_patch || "";
+      const projectContext = evidence.project_context || {};
+      const phase = projectContext.project_phase || "";
+      const rawTask = projectContext["4d_task_status"] || projectContext.task_status || "";
+      const task = rawTask && rawTask !== "Traceability context" ? rawTask : "";
+      const metaParts = [
+        item.target_storey ? `<span>${escapeHtml(item.target_storey)}</span>` : "",
+        phase ? `<span>${escapeHtml(phase)}</span>` : "",
+        task ? `<span>${escapeHtml(task)}</span>` : "",
+      ].filter(Boolean);
+      const metaLine = metaParts.join('<span class="sep">·</span>');
+      const guidLine = item.target_guid
+        ? `<div class="case-guid"><code>${escapeHtml(item.target_guid)}</code></div>`
+        : "";
+
+      return `
+        <article class="case-card ${focused ? "is-focused" : ""}" data-case-focus="${escapeHtml(item.case_id)}">
+          <div class="case-card-head">
+            <div class="case-card-title">
+              <strong>${escapeHtml(item.case_id)}</strong>
+              <span class="case-card-subtitle">${escapeHtml(item.target_ifc_class)} · ${escapeHtml(item.predicate)}</span>
+            </div>
+            <span class="badge">${focused ? "Focused" : "Open Trace"}</span>
+          </div>
+          <div class="case-query">${escapeHtml(item.query_text || "No field request recorded.")}</div>
+          <div class="case-evidence-strip">
+            ${renderCasePreviewTile(siteImage)}
+            ${renderCasePreviewTile(floorplanPatch)}
+          </div>
+          <div class="case-context">${metaLine}</div>
+          ${guidLine}
+        </article>
+      `;
+    }
+
+    function passportTone(status) {
+      if (status === "pass") {
+        return { dot: "#22c55e", card: "status-pass", label: "Verified" };
+      }
+      if (status === "warning") {
+        return { dot: "#f59e0b", card: "status-warning", label: "Review" };
+      }
+      if (status === "error") {
+        return { dot: "#ef4444", card: "status-error", label: "Issue" };
+      }
+      return { dot: "#94a3b8", card: "", label: "Log" };
+    }
+
+    function renderPassportNode(node) {
+      const tone = passportTone(node.status);
+      const visual = node.visual
+        ? `<div class="passport-visual"><strong>${escapeHtml(node.source || "Artifact")}:</strong> <span>${escapeHtml(node.visual)}</span></div>`
+        : "";
+
+      return `
+        <article class="passport-node">
+          <span class="passport-dot" style="background:${tone.dot};"></span>
+          <div class="passport-card ${tone.card}">
+            <div class="passport-meta">${escapeHtml(node.date || "")} • ${escapeHtml(tone.label)}</div>
+            <h4>${escapeHtml(node.title || "Traceability event")}</h4>
+            <p>${escapeHtml(node.desc || "")}</p>
+            ${visual}
+          </div>
+        </article>
+      `;
+    }
+
+    function renderPassportTimeline(item, history, extractionText, groundingText) {
+      if (history.length) {
+        return history.map((node) => renderPassportNode(node)).join("");
+      }
+
+      return [
+        {
+          date: "Current selection",
+          status: "warning",
+          title: "Evidence Captured",
+          desc: item.query_text || "Eval case prompt available.",
+          visual: assetName((item.evidence || {}).floorplan_patch || ""),
+          source: "Field Capture",
+        },
+        {
+          date: "Current selection",
+          status: "warning",
+          title: "Interpreter Extraction",
+          desc: extractionText,
+          visual: assetName(((item.evidence || {}).images || [])[0] || ""),
+          source: "Interpreter",
+        },
+        {
+          date: "Current selection",
+          status: "pass",
+          title: "BIM Grounding",
+          desc: groundingText,
+          visual: assetName(item.floorplan_image || ""),
+          source: "Dashboard",
+        },
+      ].map((node) => renderPassportNode(node)).join("");
+    }
+
+    function bindCaseFocusCards() {
+      document.querySelectorAll("[data-case-focus]").forEach((card) => {
+        card.addEventListener("click", () => {
+          const nextId = card.getAttribute("data-case-focus") || "";
+          state.selectedId = nextId || state.selectedId;
+          state.focusedId = state.focusedId === nextId ? "" : nextId;
+          state.selectionSource = "ui";
+          render();
+        });
+      });
+      const clearBtn = document.getElementById("clear-focus-btn");
+      if (clearBtn) {
+        clearBtn.addEventListener("click", () => {
+          state.focusedId = "";
+          state.selectionSource = "ui";
+          render();
+        });
+      }
+    }
+
+    function renderGroundingOverview() {
+      const visible = visibleCases();
+      document.getElementById("left-title").textContent = "Grounding Hub";
+      document.getElementById("left-text").textContent = effectiveSurface() === "viewer"
+        ? "Select a BIM element, pin, or case."
+        : "Select a pin or case.";
+
+      document.getElementById("detail-area").innerHTML = `
+        <section class="evidence-shell">
+          <div class="evidence-shell-header">
+            <div>
+              <h3>Mapped Case Library</h3>
+              <p class="muted">${visible.length} cases</p>
+            </div>
+            <span class="badge">${visible.length} mapped cases</span>
+          </div>
+          <div class="case-grid">
+            ${visible.map((item) => renderEvidenceCaseCard(item)).join("")}
+          </div>
+        </section>
+      `;
+      bindCaseFocusCards();
+    }
+
+    function renderGrounding(item) {
+      if (!item) {
+        renderGroundingOverview();
+        return;
+      }
+
+      const relation = (item.parsed.spatial_relations || [])[0];
+      const relationText = relation ? `${relation.predicate} ${relation.object_type}` : "No spatial relation recorded";
+      const extractionText = relation
+        ? `${item.parsed.ifc_class || item.target_ifc_class || "IfcElement"} on storey ${item.parsed.storey_name || item.target_storey || "—"} with relation ${relationText}.`
+        : `${item.parsed.ifc_class || item.target_ifc_class || "IfcElement"} on storey ${item.parsed.storey_name || item.target_storey || "—"}.`;
+      const groundingText = effectiveSurface() === "viewer"
+        ? `GUID ${item.target_guid} is highlighted in the clickable BIM viewer.`
+        : `GUID ${item.target_guid} is anchored through the floorplan overlay.`;
+      const passport = state.passports[item.case_id] || { history: [] };
+
+      document.getElementById("left-title").textContent = "Grounding Hub";
+      document.getElementById("left-text").textContent = effectiveSurface() === "viewer"
+        ? "Synced to the selected BIM element."
+        : "Synced to the selected plan point.";
+
+      document.getElementById("detail-area").innerHTML = `
+        <section class="evidence-shell">
+          <div class="evidence-shell-header">
+            <div>
+              <h3>Focused Evidence Bundle</h3>
+              <p class="muted">${escapeHtml(item.case_id)}</p>
+            </div>
+            <div class="panel-actions">
+              <span class="badge">1 focused trace</span>
+              <button id="clear-focus-btn" class="ghost-btn" type="button">Show All Cases</button>
+            </div>
+          </div>
+          ${renderEvidenceCaseCard(item, true)}
+        </section>
+        <section class="passport-shell">
+          <div class="passport-head">
+            <div>
+              <h3>Traceability Passport</h3>
+              <div class="passport-guid">GUID: ${escapeHtml(item.target_guid)}</div>
+            </div>
+            <span class="badge">${escapeHtml(item.target_ifc_class)}</span>
+          </div>
+          <div class="passport-timeline">
+            ${renderPassportTimeline(item, passport.history || [], extractionText, groundingText)}
+          </div>
+        </section>
+      `;
+      bindCaseFocusCards();
+    }
+
+    function renderHandoff(item) {
+      document.getElementById("left-title").textContent = "Trace Story";
+      document.getElementById("left-text").textContent = effectiveSurface() === "viewer"
+        ? "Single-case trace."
+        : "Single-case trace.";
+
+      const relation = (item.parsed.spatial_relations || [])[0];
+      const interpreterLine = relation
+        ? `${item.parsed.ifc_class || item.target_ifc_class} ${relation.predicate} ${relation.object_type}`
+        : `${item.parsed.ifc_class || item.target_ifc_class} on ${item.target_storey}`;
+
+      document.getElementById("detail-area").innerHTML = `
+        ${summaryCard(item)}
+        <section class="flat-section">
+          <h3>Communication flow</h3>
+          <div class="steps">
+            <div class="item"><strong>Field message</strong>${item.query_text || "Please inspect this first-floor issue."}</div>
+            <div class="item"><strong>Interpreter</strong>Suggested target GUID: ${item.target_guid}. Parsed cue: ${interpreterLine}.</div>
+            <div class="item"><strong>Office response</strong>Understood. I can see the first-floor target and will coordinate follow-up using ${item.case_id}.</div>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderMetricTabs() {
+      document.querySelectorAll(".metric-tab").forEach((button) => {
+        button.classList.toggle("active", button.dataset.metric === state.metric);
+        button.onclick = () => {
+          state.metric = button.dataset.metric;
+          render();
+        };
+      });
+    }
+
+    function render() {
+      document.querySelector(".layout").classList.toggle("grounding-mode", state.mode === "grounding");
+      renderTabs();
+      renderSurfaceToggle();
+      renderMetricTabs();
+      renderViewport();
+
+      const item = selectedCase();
+      if (!item) return;
+
+      if (state.mode === "handoff") {
+        renderHandoff(item);
+      } else {
+        renderGrounding(focusedCase());
+      }
+    }
+
+    document.querySelectorAll(".tab").forEach((button) => {
+      button.onclick = () => {
+        state.mode = button.dataset.mode;
+        state.selectionSource = "ui";
+        render();
+      };
+    });
+
+    bindViewerMessages();
+
+    loadCases()
+      .then(render)
+      .catch((error) => {
+        document.getElementById("floorplan-area").className = "empty";
+        document.getElementById("floorplan-area").textContent = `Failed to load dashboard data: ${error.message}`;
+        document.getElementById("detail-area").innerHTML = "";
+      });
+  </script>
+</body>
+</html>

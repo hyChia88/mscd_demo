@@ -91,6 +91,7 @@ class RetrievalResult(BaseModel):
 
     candidates: List[Dict[str, Any]]
     pool_size: int
+    raw_pool_size: Optional[int] = None
     query_plan_used: QueryPlan
     backend: str  # "memory", "neo4j", "memory+clip", "neo4j+clip"
     rerank_applied: bool = False

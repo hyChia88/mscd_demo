@@ -1,0 +1,401 @@
+<mxfile host="65bd71144e">
+  <diagram name="Fig 1.1 v2 — Architecture (Phase 6.1)" id="fig11_v2">
+    <mxGraphModel dx="2713" dy="1451" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- ============================================================
+             ZONE A — OFFLINE: IFC → Enriched Neo4j Graph
+             ============================================================ -->
+        <mxCell id="zoneA_bg" value="" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=none;fillColor=#F1F9F0;" vertex="1" parent="1">
+          <mxGeometry x="200" y="20" width="1700" height="180" as="geometry"/>
+        </mxCell>
+        <mxCell id="zoneA_label" value="A · Offline — IFC → Knowledge Graph" style="text;html=1;align=left;verticalAlign=middle;fontSize=18;fontStyle=1;fontColor=#4D9900;" vertex="1" parent="1">
+          <mxGeometry x="210" y="25" width="500" height="28" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="A_ifc" value="Project IFC&#10;(ifcopenshell)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="240" y="80" width="170" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="A_engine" value="ifc_engine.py&#10;(offline enrichment)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#82b366;fontSize=11;align=center;fontStyle=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="470" y="95" width="180" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="A_arrow1" style="endArrow=classic;html=1;strokeColor=#82b366;strokeWidth=3;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="A_ifc" target="A_engine">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="A_graph" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="710" y="60" width="650" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="A_graph_title" value="Enriched IFC Graph (Neo4j)" style="text;html=1;align=center;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="710" y="64" width="650" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="A_graph_nodes" value="Nodes: IfcElement, IfcStorey, IfcSpace" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#82B366;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="725" y="92" width="310" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="A_graph_props" value="Props: guid, ifc_type, storey, material, size_cluster, pos_idx" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#82B366;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="725" y="118" width="310" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="A_graph_rel1" value="CONTAINS  (storey/space)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#82B366;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="1045" y="92" width="155" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="A_graph_rel2" value="FILLS  (door/window→wall)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#82B366;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="1205" y="92" width="150" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="A_graph_rel3" value="ADJACENT_TO {dist 100–1500mm}" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#82B366;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="1045" y="118" width="180" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="A_graph_rel4" value="CONTINUOUS  (multi-storey)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#82B366;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="1230" y="118" width="125" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="A_graph_legend" value="Predicates implemented in src/ifc_engine.py · src/neurosym/retrieval_backend.py" style="text;html=1;align=center;fontSize=9;fontColor=#666666;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="710" y="148" width="650" height="20" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="A_arrow2" style="endArrow=classic;html=1;strokeColor=#82b366;strokeWidth=3;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="A_engine" target="A_graph">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ============================================================
+             ZONE B — OFFLINE: Training pipeline
+             ============================================================ -->
+        <mxCell id="zoneB_bg" value="" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=none;fillColor=#FFF5EB;" vertex="1" parent="1">
+          <mxGeometry x="200" y="220" width="1700" height="200" as="geometry"/>
+        </mxCell>
+        <mxCell id="zoneB_label" value="B · Offline — Training Data Pipeline → G9 LoRA" style="text;html=1;align=left;verticalAlign=middle;fontSize=18;fontStyle=1;fontColor=#CC6600;" vertex="1" parent="1">
+          <mxGeometry x="210" y="225" width="600" height="28" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="B_step1" value="① Topology Skeleton Mining&#10;&lt;font color='#999999' style='font-size:9px'&gt;hunt_skeletons.py&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D79B00;fontSize=10;align=center;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="240" y="290" width="180" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="B_step2" value="② Skin Generation&#10;&lt;font color='#999999' style='font-size:9px'&gt;Gemini renders + LLM-as-Judge&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D79B00;fontSize=10;align=center;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="450" y="290" width="180" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="B_step3" value="③ Tier 1/2/3 Labels&#10;&lt;font color='#999999' style='font-size:9px'&gt;~200 spatial + ~900 attr-only + new topology&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D79B00;fontSize=10;align=center;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="660" y="290" width="200" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="B_step4" value="④ Inject Inputs / Outputs&#10;&lt;font color='#999999' style='font-size:9px'&gt;[OpenCV Counting] block (F4 oracle) + size_cluster label&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=10;align=center;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="890" y="285" width="240" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="B_step5" value="⑤ G9 LoRA Adapter&#10;&lt;font color='#999999' style='font-size:9px'&gt;train_lora6.py · Modal&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=10;align=center;fontStyle=1;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1170" y="290" width="190" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="B_arr1" style="endArrow=classic;html=1;strokeColor=#D79B00;strokeWidth=1.5;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="B_step1" target="B_step2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="B_arr2" style="endArrow=classic;html=1;strokeColor=#D79B00;strokeWidth=1.5;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="B_step2" target="B_step3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="B_arr3" style="endArrow=classic;html=1;strokeColor=#D79B00;strokeWidth=1.5;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="B_step3" target="B_step4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="B_arr4" style="endArrow=classic;html=1;strokeColor=#D79B00;strokeWidth=3;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="B_step4" target="B_step5"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="B_note" value="Note · mm regression fields (target_width_mm / target_height_mm) deprecated post-G9 — replaced by classification target size_cluster" style="text;html=1;align=left;fontSize=10;fontColor=#666666;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="240" y="370" width="1120" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- ============================================================
+             ZONE C — ONLINE INFERENCE (3 swimlanes)
+             ============================================================ -->
+        <mxCell id="zoneC_bg" value="" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=none;fillColor=#EEF4FB;" vertex="1" parent="1">
+          <mxGeometry x="200" y="440" width="1700" height="380" as="geometry"/>
+        </mxCell>
+        <mxCell id="zoneC_label" value="C · Online — Neuro-Symbolic Inference (mixture of specialists)" style="text;html=1;align=left;verticalAlign=middle;fontSize=18;fontStyle=1;fontColor=#1F5A99;" vertex="1" parent="1">
+          <mxGeometry x="210" y="445" width="900" height="28" as="geometry"/>
+        </mxCell>
+
+        <!-- Multimodal input column (left) -->
+        <mxCell id="C_input_box" value="① Multimodal Input" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCCCC;strokeColor=#B85450;fontStyle=1;fontSize=12;verticalAlign=top;spacingTop=6;align=center;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="240" y="490" width="200" height="290" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_input_a" value="Site Photo (JPEG/PNG)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B85450;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="252" y="525" width="176" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_input_b" value="Full-storey Floorplan (PNG)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B85450;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="252" y="555" width="176" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_input_c" value="Floorplan Patch (target)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B85450;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="252" y="585" width="176" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_input_d" value="Chat / Defect Note" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B85450;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="252" y="615" width="176" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_input_note" value="Reporter specifies floor + element type verbally;&#10;disambiguation is the hard part" style="text;html=1;fontSize=9;fontColor=#B85450;fontStyle=2;align=center;" vertex="1" parent="1">
+          <mxGeometry x="252" y="660" width="176" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- Lane labels (left of swimlanes) -->
+        <mxCell id="C_lane_label_S" value="Vision&#10;Specialists" style="text;html=1;fontSize=11;fontStyle=1;fontColor=#996600;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="465" y="498" width="80" height="76" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_lane_label_V" value="Neural&#10;(VLM)" style="text;html=1;fontSize=11;fontStyle=1;fontColor=#1F5A99;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="465" y="600" width="80" height="76" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_lane_label_X" value="Symbolic&#10;(Cypher)" style="text;html=1;fontSize=11;fontStyle=1;fontColor=#4D9900;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="465" y="700" width="80" height="76" as="geometry"/>
+        </mxCell>
+
+        <!-- Swimlane A: Vision Specialists (top) -->
+        <mxCell id="C_lane_S_bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E1;strokeColor=#D6B656;strokeWidth=1;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="555" y="490" width="940" height="92" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_S_opencv" value="OpenCV Counter (F3 default · F4 oracle)&#10;&lt;font color='#666666' style='font-size:9px'&gt;floorplan_counter.py&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D6B656;fontSize=10;align=center;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="575" y="510" width="240" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_S_resnet" value="ResNet-18 size_cluster Classifier (Phase 6.1)&#10;&lt;font color='#666666' style='font-size:9px'&gt;cluster_classifier.py · 192×192 crop&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D6B656;fontSize=10;align=center;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="845" y="510" width="270" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_S_inject" value="Post-hoc Override&#10;inject_floorplan_counts.py · inject_size_cluster.py" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D6B656;fontSize=10;align=center;strokeWidth=1.5;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="1145" y="510" width="330" height="56" as="geometry"/>
+        </mxCell>
+
+        <!-- Swimlane B: VLM (middle) -->
+        <mxCell id="C_lane_V_bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF1FB;strokeColor=#6C8EBF;strokeWidth=1;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="555" y="592" width="940" height="92" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_V_vlm" value="② Neural — Qwen2.5-VL-7B + G9 LoRA&#10;&lt;font color='#666666' style='font-size:9px'&gt;constraints_extractor_lora.py · baseline = Gemini 2.5 Flash&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=10;align=center;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="575" y="612" width="380" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_V_constraints" value="Constraints JSON&#10;storey · ifc_class · space · keyword · spatial_relations · position_context · size_cluster" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=10;align=center;strokeWidth=1.5;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="985" y="612" width="490" height="56" as="geometry"/>
+        </mxCell>
+
+        <!-- Swimlane C: Symbolic (bottom) -->
+        <mxCell id="C_lane_X_bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EFF7E8;strokeColor=#82B366;strokeWidth=1;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="555" y="694" width="940" height="92" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_X_planner" value="③ Query Planner&#10;&lt;font color='#666666' style='font-size:9px'&gt;constraints_to_query.py · priority cascade 0/1/2/4/5/6/8&#10;P0 spatial_triplet ∪ P1 space+type → post-filter by name keyword&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#82B366;fontSize=10;align=center;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="575" y="710" width="320" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_X_pool" value="Top-K Pool&#10;Cypher over Neo4j" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#82B366;fontSize=10;align=center;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="920" y="714" width="160" height="52" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_X_rerank" value="④ Graph-RAG Rerank&#10;&lt;font color='#666666' style='font-size:9px'&gt;single-shot (default) · CoT (ablation)&#10;evidence_block = OpenCV facts + cluster bonus&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#82B366;fontSize=10;align=center;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="1105" y="710" width="370" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- Output column (right) -->
+        <mxCell id="C_output_box" value="⑤ BIM-link Output" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6C8EBF;fontStyle=1;fontSize=12;verticalAlign=top;spacingTop=6;align=center;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1515" y="490" width="370" height="290" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_out_a" value="GUID Top-K (ranked)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="1530" y="525" width="340" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_out_b" value="BCF 2.1 package + evidence links" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="1530" y="555" width="340" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_out_c" value="JSON record + Cypher audit trail" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="1530" y="585" width="340" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_out_hil" value="Human-in-loop · &quot;Is this the element?&quot;&#10;accept/reject → next-gen training labels" style="text;html=1;fontSize=10;fontColor=#1F5A99;fontStyle=2;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1530" y="630" width="340" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- Inference flow arrows (thick = primary data flow) -->
+        <mxCell id="C_flow_in_to_vlm" style="endArrow=classic;html=1;strokeColor=#1F5A99;strokeWidth=3;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="C_input_box" target="C_V_vlm">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_flow_in_to_specialists" style="endArrow=classic;html=1;strokeColor=#996600;strokeWidth=1.5;exitX=1;exitY=0.2;entryX=0;entryY=0.5;" edge="1" parent="1" source="C_input_box" target="C_S_opencv">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_flow_specialists_chain" style="endArrow=classic;html=1;strokeColor=#996600;strokeWidth=1.5;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="C_S_opencv" target="C_S_resnet">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_flow_resnet_to_inject" style="endArrow=classic;html=1;strokeColor=#996600;strokeWidth=1.5;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="C_S_resnet" target="C_S_inject">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- specialists override into VLM constraints (post-hoc rewrite) -->
+        <mxCell id="C_flow_inject_into_constraints" style="endArrow=classic;html=1;strokeColor=#996600;strokeWidth=1.5;dashed=1;dashPattern=4 4;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="C_S_inject" target="C_V_constraints">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_flow_inject_into_constraints_lbl" value="post-hoc JSONL rewrite" style="edgeLabel;html=1;fontSize=9;fontColor=#996600;fontStyle=2;" vertex="1" connectable="0" parent="C_flow_inject_into_constraints">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="0" y="-6" as="offset"/></mxGeometry>
+        </mxCell>
+
+        <!-- OpenCV evidence into rerank evidence_block -->
+        <mxCell id="C_flow_opencv_to_rerank" style="endArrow=classic;html=1;strokeColor=#996600;strokeWidth=1.5;dashed=1;dashPattern=4 4;exitX=0.5;exitY=1;entryX=0.4;entryY=0;" edge="1" parent="1" source="C_S_opencv" target="C_X_rerank">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="695" y="690"/><mxPoint x="1253" y="690"/></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="C_flow_opencv_to_rerank_lbl" value="OpenCV facts → evidence_block" style="edgeLabel;html=1;fontSize=9;fontColor=#996600;fontStyle=2;" vertex="1" connectable="0" parent="C_flow_opencv_to_rerank">
+          <mxGeometry x="-0.3" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <!-- VLM → constraints → planner -->
+        <mxCell id="C_flow_vlm_to_constraints" style="endArrow=classic;html=1;strokeColor=#1F5A99;strokeWidth=3;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="C_V_vlm" target="C_V_constraints">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_flow_constraints_to_planner" style="endArrow=classic;html=1;strokeColor=#4D9900;strokeWidth=3;exitX=0.3;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="C_V_constraints" target="C_X_planner">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_flow_planner_to_pool" style="endArrow=classic;html=1;strokeColor=#4D9900;strokeWidth=3;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="C_X_planner" target="C_X_pool">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_flow_pool_to_rerank" style="endArrow=classic;html=1;strokeColor=#4D9900;strokeWidth=3;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="C_X_pool" target="C_X_rerank">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_flow_rerank_to_output" style="endArrow=classic;html=1;strokeColor=#1F5A99;strokeWidth=3;exitX=1;exitY=0.5;entryX=0;entryY=0.7;" edge="1" parent="1" source="C_X_rerank" target="C_output_box">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Cypher into Neo4j (Zone A → Zone C symbolic lane) -->
+        <mxCell id="C_flow_neo4j_planner" style="endArrow=classic;startArrow=classic;html=1;strokeColor=#82b366;strokeWidth=1.5;dashed=1;dashPattern=4 4;exitX=0.4;exitY=1;entryX=0.4;entryY=0;" edge="1" parent="1" source="A_graph" target="C_X_planner">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_flow_neo4j_planner_lbl" value="Cypher ↕ candidate pool" style="edgeLabel;html=1;fontSize=9;fontColor=#82B366;" vertex="1" connectable="0" parent="C_flow_neo4j_planner">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="0" y="0" as="offset"/></mxGeometry>
+        </mxCell>
+        <mxCell id="C_flow_neo4j_rerank" style="endArrow=classic;startArrow=classic;html=1;strokeColor=#82b366;strokeWidth=1.5;dashed=1;dashPattern=4 4;exitX=0.7;exitY=1;entryX=0.7;entryY=0;" edge="1" parent="1" source="A_graph" target="C_X_rerank">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="C_flow_neo4j_rerank_lbl" value="graph context per candidate" style="edgeLabel;html=1;fontSize=9;fontColor=#82B366;" vertex="1" connectable="0" parent="C_flow_neo4j_rerank">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="0" y="0" as="offset"/></mxGeometry>
+        </mxCell>
+
+        <!-- Feedback loop: output back to training labels (Zone B) -->
+        <mxCell id="C_feedback" style="endArrow=classic;html=1;strokeColor=#CC6600;strokeWidth=2;dashed=1;dashPattern=6 4;exitX=0.5;exitY=0;entryX=1;entryY=0.5;" edge="1" parent="1" source="C_output_box" target="B_step5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="1700" y="450"/><mxPoint x="1700" y="320"/></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="C_feedback_lbl" value="Feedback loop · accept/reject → next-gen labels" style="edgeLabel;html=1;fontSize=10;fontColor=#CC6600;fontStyle=1;" vertex="1" connectable="0" parent="C_feedback">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="-90" y="0" as="offset"/></mxGeometry>
+        </mxCell>
+
+        <!-- ============================================================
+             ZONE D — WORKFLOW INTEGRATION
+             ============================================================ -->
+        <mxCell id="zoneD_bg" value="" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=none;fillColor=#FAFAFA;" vertex="1" parent="1">
+          <mxGeometry x="200" y="840" width="1700" height="320" as="geometry"/>
+        </mxCell>
+        <mxCell id="zoneD_label" value="D · Workflow Integration — Physical site ⇄ MSCD ⇄ Digital BIM cloud" style="text;html=1;align=left;verticalAlign=middle;fontSize=18;fontStyle=1;fontColor=#444444;" vertex="1" parent="1">
+          <mxGeometry x="210" y="845" width="900" height="28" as="geometry"/>
+        </mxCell>
+
+        <!-- Physical (left) -->
+        <mxCell id="D_phys" value="Physical: On-Site" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCCCC;strokeColor=#B85450;fontStyle=1;fontSize=14;verticalAlign=top;spacingTop=8;align=center;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="240" y="900" width="380" height="240" as="geometry"/>
+        </mxCell>
+        <mxCell id="D_phys_user" value="Construction Managers / Subcontractors" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="260" y="940" width="340" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="D_phys_inputs" value="• On-site images&#10;• Annotated floorplans&#10;• Chat logs / WhatsApp&#10;• Defect issue forms / notes" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B3B3B3;fontSize=10;align=left;spacingLeft=10;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="260" y="978" width="340" height="76" as="geometry"/>
+        </mxCell>
+        <mxCell id="D_phys_questions" value="★ Q1 Where? (BIM GUID) ← thesis focus&#10;Q2 What happened? (classification)&#10;Q3 How to respond? (recommendation)" style="text;html=1;fontSize=10;fontColor=#B85450;fontStyle=1;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="260" y="1062" width="340" height="56" as="geometry"/>
+        </mxCell>
+
+        <!-- MSCD middleware (center) -->
+        <mxCell id="D_mscd" value="MSCD · Neuro-Symbolic Interpreter" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontStyle=1;fontSize=14;verticalAlign=top;spacingTop=8;align=center;strokeWidth=2;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="660" y="900" width="380" height="240" as="geometry"/>
+        </mxCell>
+        <mxCell id="D_mscd_inner" value="Specialists + Neural + Symbolic + Rerank&#10;(see Zone C above)&#10;&#10;Inputs: unstructured site evidence&#10;Outputs: GUID + BCF + audit JSON" style="text;html=1;fontSize=11;align=center;verticalAlign=middle;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="675" y="945" width="350" height="180" as="geometry"/>
+        </mxCell>
+
+        <!-- Digital BIM cloud (right) -->
+        <mxCell id="D_digi" value="Digital: CDE / BIM Cloud" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontStyle=1;fontSize=14;verticalAlign=top;spacingTop=8;align=center;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="900" width="380" height="240" as="geometry"/>
+        </mxCell>
+        <mxCell id="D_digi_repos" value="IFC Repository · Submission Portal · BCF Issue Tracker" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=10;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="940" width="340" height="32" as="geometry"/>
+        </mxCell>
+        <mxCell id="D_digi_payload" value="Per-issue payload:&#10;• Location → BIM GUID&#10;• Status → QC Report&#10;• How → Schedule plan" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=10;align=left;spacingLeft=10;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="980" width="340" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="D_digi_users" value="Architects · BIM Coordinator · Developer / Consultant" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#666666;fontSize=11;align=center;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="1070" width="340" height="50" as="geometry"/>
+        </mxCell>
+
+        <!-- Workflow arrows -->
+        <mxCell id="D_arr_phys_mscd" style="endArrow=classic;html=1;strokeColor=#B85450;strokeWidth=3;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="D_phys" target="D_mscd">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="D_arr_phys_mscd_lbl" value="Natural-language search&#10;+ unstructured evidence" style="edgeLabel;html=1;fontSize=10;fontColor=#B85450;fontStyle=1;" vertex="1" connectable="0" parent="D_arr_phys_mscd">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="0" y="-12" as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="D_arr_mscd_digi" style="endArrow=classic;html=1;strokeColor=#6C8EBF;strokeWidth=3;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="D_mscd" target="D_digi">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="D_arr_mscd_digi_lbl" value="GUID / BCF / JSON" style="edgeLabel;html=1;fontSize=10;fontColor=#1F5A99;fontStyle=1;" vertex="1" connectable="0" parent="D_arr_mscd_digi">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="0" y="-10" as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="D_arr_digi_mscd" style="endArrow=classic;html=1;strokeColor=#6C8EBF;strokeWidth=1.5;dashed=1;dashPattern=4 4;exitX=0;exitY=0.7;entryX=1;entryY=0.7;" edge="1" parent="1" source="D_digi" target="D_mscd">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="D_arr_digi_mscd_lbl" value="design data / model views back to MSCD context" style="edgeLabel;html=1;fontSize=9;fontColor=#666666;fontStyle=2;" vertex="1" connectable="0" parent="D_arr_digi_mscd">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="0" y="10" as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="D_arr_mscd_phys" style="endArrow=classic;html=1;strokeColor=#B85450;strokeWidth=1.5;dashed=1;dashPattern=4 4;exitX=0;exitY=0.7;entryX=1;entryY=0.7;" edge="1" parent="1" source="D_mscd" target="D_phys">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="D_arr_mscd_phys_lbl" value="confirmation / accept-reject loop" style="edgeLabel;html=1;fontSize=9;fontColor=#666666;fontStyle=2;" vertex="1" connectable="0" parent="D_arr_mscd_phys">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="0" y="10" as="offset"/></mxGeometry>
+        </mxCell>
+
+        <!-- ============================================================
+             LEGEND (right side of Zone D)
+             ============================================================ -->
+        <mxCell id="legend_box" value="Legend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#999999;fontStyle=1;fontSize=12;verticalAlign=top;spacingTop=6;align=center;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="1500" y="900" width="380" height="240" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend_arrow_thick" style="endArrow=classic;html=1;strokeColor=#444444;strokeWidth=3;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1518" y="940" as="sourcePoint"/>
+            <mxPoint x="1578" y="940" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend_arrow_thick_lbl" value="primary data flow" style="text;html=1;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="1590" y="930" width="280" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend_arrow_thin" style="endArrow=classic;html=1;strokeColor=#444444;strokeWidth=1.5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1518" y="970" as="sourcePoint"/>
+            <mxPoint x="1578" y="970" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend_arrow_thin_lbl" value="sub-component wiring" style="text;html=1;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="1590" y="960" width="280" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend_arrow_dashed" style="endArrow=classic;html=1;strokeColor=#444444;strokeWidth=1.5;dashed=1;dashPattern=4 4;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1518" y="1000" as="sourcePoint"/>
+            <mxPoint x="1578" y="1000" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend_arrow_dashed_lbl" value="feedback / training-only / override" style="text;html=1;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="1590" y="990" width="280" height="22" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="legend_swatch_S" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E1;strokeColor=#D6B656;" vertex="1" parent="1">
+          <mxGeometry x="1518" y="1030" width="20" height="14" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend_swatch_S_lbl" value="Vision specialists (OpenCV · ResNet)" style="text;html=1;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="1545" y="1027" width="320" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend_swatch_V" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF1FB;strokeColor=#6C8EBF;" vertex="1" parent="1">
+          <mxGeometry x="1518" y="1054" width="20" height="14" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend_swatch_V_lbl" value="Neural layer (G9 LoRA on Qwen2.5-VL)" style="text;html=1;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="1545" y="1051" width="320" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend_swatch_X" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EFF7E8;strokeColor=#82B366;" vertex="1" parent="1">
+          <mxGeometry x="1518" y="1078" width="20" height="14" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend_swatch_X_lbl" value="Symbolic layer (Cypher planner + rerank)" style="text;html=1;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="1545" y="1075" width="320" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend_predicates" value="Predicates: CONTAINS · FILLS · ADJACENT_TO · CONTINUOUS" style="text;html=1;fontSize=10;align=left;fontStyle=2;fontColor=#4D9900;" vertex="1" parent="1">
+          <mxGeometry x="1518" y="1102" width="350" height="22" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

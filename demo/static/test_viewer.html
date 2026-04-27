@@ -78,6 +78,7 @@
     // pool = comma-separated candidate GUIDs from ?pool=GUID1,GUID2,...
     const poolParam = p.get("pool") || "";
     const poolGuids = poolParam ? poolParam.split(",").filter(Boolean) : [];
+    const enableClickSelect = p.get("select") === "1";
 
     window.VIEWER_CONFIG = {
       ifc_url:     decodeURIComponent(p.get("ifc")    || ""),
@@ -86,6 +87,7 @@
       guid_match:  p.get("match")  === "1",
       static_base: staticBase,
       pool_guids:  poolGuids,
+      enable_click_select: enableClickSelect,
     };
 
     // ── Build legend from params ─────────────────────────────────────────
@@ -107,6 +109,9 @@
     if (hasGT) {
       legendHTML += `<span class="dot" style="background:#3b82f6"></span>Ground truth`;
     }
+    if (enableClickSelect) {
+      legendHTML += `${legendHTML ? "<br>" : ""}Click highlighted elements to inspect cases`;
+    }
     legend.innerHTML = legendHTML;
 
     // ── Show errors in the bottom strip ─────────────────────────────────
@@ -127,7 +132,7 @@
     // ── Show legend when viewer finishes loading ─────────────────────────
     const check = setInterval(() => {
       if (document.getElementById("progress-wrap").style.display === "none") {
-        if (hasTgt || hasPool) legend.style.display = "block";
+        if (hasTgt || hasPool || enableClickSelect) legend.style.display = "block";
         clearInterval(check);
       }
     }, 500);

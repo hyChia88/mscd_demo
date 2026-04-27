@@ -6,32 +6,48 @@ Tab 3 — Result Visualisation
 import urllib.parse
 import streamlit as st
 from pathlib import Path
+from demo.demo_dashboard import build_dashboard_url
 from demo.loader import get_ifc_path, get_ifc_url
 
 
-def render(trace: dict, static_base_url: str) -> None:
-    predicted_guid = _get_predicted_guid(trace)
+def render(trace: dict, static_base_url: str, approved_guid: str | None = None) -> None:
+    predicted_guid = _get_effective_guid(trace, approved_guid=approved_guid)
     gt_guid        = _get_gt_guid(trace)
-    guid_match     = trace.get("guid_match", False)
+    guid_match     = (predicted_guid == gt_guid) if gt_guid else True
     case_id        = trace.get("scenario_id") or (trace.get("scenario") or {}).get("id", "")
+    target_label   = "Approved element" if approved_guid else "Predicted element"
 
     left, right = st.columns([1, 1], gap="medium")
 
     # ── LEFT: IFC STEP text ───────────────────────────────────────────────
     with left:
-        _render_ifc_text(predicted_guid, gt_guid, guid_match, case_id)
+        _render_ifc_text(predicted_guid, gt_guid, guid_match, case_id, target_label=target_label)
 
     # ── RIGHT: 3D viewer ─────────────────────────────────────────────────
     with right:
-        _render_3d_viewer(predicted_guid, gt_guid, guid_match, static_base_url, case_id)
+        _render_3d_viewer(
+            predicted_guid,
+            gt_guid,
+            guid_match,
+            static_base_url,
+            case_id,
+            target_label=target_label,
+        )
 
 
-def _render_ifc_text(predicted_guid: str, gt_guid: str, guid_match: bool, case_id: str = "") -> None:
+def _render_ifc_text(
+    predicted_guid: str,
+    gt_guid: str,
+    guid_match: bool,
+    case_id: str = "",
+    *,
+    target_label: str = "Predicted element",
+) -> None:
     st.markdown("**IFC STEP Text**")
     ifc_path = get_ifc_path(case_id)
 
     if predicted_guid:
-        label = "Predicted element" + (" ✓" if guid_match else " ✗")
+        label = target_label + (" ✓" if guid_match else " ✗")
         st.caption(label)
         step = _get_step(ifc_path, predicted_guid)
         st.code(step, language=None)
@@ -51,6 +67,8 @@ def _render_3d_viewer(
     guid_match: bool,
     static_base_url: str,
     case_id: str = "",
+    *,
+    target_label: str = "Predicted",
 ) -> None:
     st.markdown("**3D BIM Viewer**")
 
@@ -75,7 +93,7 @@ def _render_3d_viewer(
         st.markdown(
             f'<span style="font-family:monospace;font-size:0.82em;">'
             f'<span style="color:{color}">{icon}</span> '
-            f'Predicted &nbsp;<code>{target_guid}</code></span>',
+            f'{target_label} &nbsp;<code>{target_guid}</code></span>',
             unsafe_allow_html=True,
         )
     if gt_param:
@@ -86,15 +104,12 @@ def _render_3d_viewer(
             unsafe_allow_html=True,
         )
 
-    # Open-in-new-tab button
-    st.markdown(
-        f'<a href="{viewer_url}" target="_blank" style="text-decoration:none;">'
-        f'<button style="'
-        f'margin-top:12px;padding:8px 18px;background:#1e293b;color:#e2e8f0;'
-        f'border:1px solid #334155;border-radius:6px;font-family:monospace;'
-        f'font-size:13px;cursor:pointer;">'
-        f'&#9881; Open 3D Viewer &#8599;</button></a>',
-        unsafe_allow_html=True,
+    btn_col1, btn_col2 = st.columns(2)
+    btn_col1.link_button("Open 3D Viewer", viewer_url, use_container_width=True)
+    btn_col2.link_button(
+        "Open Dashboard",
+        build_dashboard_url(static_base_url, case_id=case_id, guid=target_guid, mode="grounding"),
+        use_container_width=True,
     )
 
 
@@ -133,6 +148,14 @@ def _get_predicted_guid(trace: dict) -> str:
 
     pred = trace.get("prediction") or {}
     return pred.get("element_guid", "")
+
+
+def _get_effective_guid(trace: dict, approved_guid: str | None = None) -> str:
+    """Use approved GUID from live demo when present, otherwise fall back to prediction."""
+    explicit_guid = (approved_guid or "").strip()
+    if explicit_guid:
+        return explicit_guid
+    return _get_predicted_guid(trace)
 
 
 def _get_gt_guid(trace: dict) -> str:
