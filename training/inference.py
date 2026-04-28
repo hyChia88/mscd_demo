@@ -86,7 +86,8 @@ BASE_MODEL = "unsloth/Qwen2.5-VL-7B-Instruct-bnb-4bit"
         "/model_cache": model_cache,
         "/checkpoints": checkpoint_vol,
     },
-    container_idle_timeout=300,  # keep warm for 5 min between calls
+    container_idle_timeout=1800,  # keep warm for 30 min between calls
+    # min_containers=1,           # uncomment for zero-cold-start demos (~24h A100 cost)
 )
 class LoRA3Predictor:
     """Persistent inference class — model stays loaded between calls."""
@@ -294,7 +295,7 @@ class LoRA3Predictor:
 
         with torch.no_grad():
             output_ids = self.model.generate(
-                **inputs, max_new_tokens=512, do_sample=False, use_cache=True
+                **inputs, max_new_tokens=320, do_sample=False, use_cache=True
             )
 
         trimmed = output_ids[0][len(inputs.input_ids[0]):]
@@ -322,7 +323,8 @@ class LoRA3Predictor:
         "/model_cache": model_cache,
         "/checkpoints": checkpoint_vol,
     },
-    container_idle_timeout=300,
+    container_idle_timeout=1800,  # keep warm for 30 min between calls
+    # min_containers=1,           # uncomment for zero-cold-start demos (~24h A100 cost)
 )
 class G8Predictor:
     """LoRA_6 G4-Ultimate predictor — Track A winner (Hop-1=86.7%).
@@ -438,7 +440,7 @@ class G8Predictor:
         inputs = self.processor(**proc_kwargs).to(self.model.device)
         with torch.no_grad():
             output_ids = self.model.generate(
-                **inputs, max_new_tokens=512, do_sample=False, use_cache=True
+                **inputs, max_new_tokens=320, do_sample=False, use_cache=True
             )
         trimmed = output_ids[0][len(inputs.input_ids[0]):]
         raw_output = self.processor.decode(trimmed, skip_special_tokens=True).strip()
@@ -457,7 +459,8 @@ class G8Predictor:
         "/model_cache": model_cache,
         "/checkpoints": checkpoint_vol,
     },
-    container_idle_timeout=300,
+    container_idle_timeout=1800,  # keep warm for 30 min between calls
+    # min_containers=1,           # uncomment for zero-cold-start demos (~24h A100 cost)
 )
 class G8ModelPredictor:
     """LoRA_6 G8 position-context predictor.
@@ -517,7 +520,7 @@ class G8ModelPredictor:
         inputs = self.processor(**proc_kwargs).to(self.model.device)
         with torch.no_grad():
             output_ids = self.model.generate(
-                **inputs, max_new_tokens=512, do_sample=False, use_cache=True
+                **inputs, max_new_tokens=320, do_sample=False, use_cache=True
             )
         trimmed = output_ids[0][len(inputs.input_ids[0]):]
         raw_output = self.processor.decode(trimmed, skip_special_tokens=True).strip()

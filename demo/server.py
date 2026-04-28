@@ -49,6 +49,16 @@ def start(root: str, port: int = 8502) -> str:
 
                 return super().translate_path(path)
 
+            def end_headers(self):
+                # Disable HTML caching so dashboard/viewer edits show up immediately.
+                # IFC / wasm / JS bundles still cache normally — they're large and stable.
+                clean = urlsplit(self.path).path
+                if clean.endswith(".html"):
+                    self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+                    self.send_header("Pragma", "no-cache")
+                    self.send_header("Expires", "0")
+                super().end_headers()
+
             def log_message(self, *_):
                 pass
 

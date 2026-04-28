@@ -189,8 +189,490 @@ def _render_backend_panel(vlm_result: dict, retrieval_result: dict | None) -> No
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Main render
+# Live inference layout — chat thread (left) · stepper + canvas + drawer (right)
 # ══════════════════════════════════════════════════════════════════════════════
+
+def _stepper_chip(num: int, title: str, value_html: str, status: str = "idle") -> str:
+    """Single chip in the top stepper strip."""
+    palette = {
+        "idle":   {"border": "#e2e8f0", "bg": "#f8fafc", "title": "#94a3b8"},
+        "active": {"border": "#3b82f6", "bg": "#eff6ff", "title": "#0f172a"},
+        "winner": {"border": "#15803d", "bg": "#f0fdf4", "title": "#0f172a"},
+        "empty":  {"border": "#dc2626", "bg": "#fef2f2", "title": "#0f172a"},
+    }.get(status, {"border": "#e2e8f0", "bg": "#f8fafc", "title": "#94a3b8"})
+    return (
+        f"<div style='flex:1;border:1px solid {palette['border']};background:{palette['bg']};"
+        f"border-radius:8px;padding:10px 12px;min-height:78px;'>"
+        f"<div style='font-size:11px;font-weight:600;text-transform:uppercase;"
+        f"letter-spacing:0.4px;color:#64748b;margin-bottom:6px;display:flex;align-items:center;'>"
+        f"<span style='display:inline-flex;align-items:center;justify-content:center;"
+        f"width:18px;height:18px;border-radius:50%;background:{palette['border']};color:#fff;"
+        f"font-size:0.7em;font-weight:700;margin-right:8px;'>{num}</span>{title}</div>"
+        f"<div style='font-size:0.88em;color:{palette['title']};line-height:1.4;'>{value_html}</div>"
+        f"</div>"
+    )
+
+
+def _render_stepper(vlm_result: dict | None, retrieval_result: dict | None) -> None:
+    """Top horizontal stepper: Constraints → Cypher → Pool. Always visible."""
+    parsed = (vlm_result or {}).get("parsed") or {}
+    plans = (retrieval_result or {}).get("plans") or []
+    results = (retrieval_result or {}).get("results") or []
+    winning_idx = (retrieval_result or {}).get("winning_index")
+
+    # Step 1 — Constraints
+    if vlm_result is None:
+        c1 = _stepper_chip(1, "Constraints", "<span style='color:#94a3b8;'>—</span>", "idle")
+    else:
+        rels = parsed.get("spatial_relations") or []
+        ifc_class = parsed.get("ifc_class") or "?"
+        storey = parsed.get("storey_name") or "?"
+        rel_summary = (
+            f"<code>{rels[0].get('predicate', '?')}</code> {rels[0].get('object_type', '?')}"
+            if rels else "<i style='color:#94a3b8;'>attribute-only</i>"
+        )
+        c1 = _stepper_chip(
+            1, "Constraints",
+            f"<code>{ifc_class}</code> · {storey}<br>{rel_summary}",
+            "active",
+        )
+
+    # Step 2 — Cypher
+    if not plans:
+        c2 = _stepper_chip(2, "Cypher", "<span style='color:#94a3b8;'>—</span>", "idle")
+    elif winning_idx is not None and winning_idx < len(plans):
+        win_plan = plans[winning_idx]
+        c2 = _stepper_chip(
+            2, "Cypher",
+            f"<code>P{win_plan.get('priority', '?')}</code> · {win_plan.get('strategy', '?')}<br>"
+            f"<span style='color:#15803d;font-weight:600;'>winner</span> · {len(plans)} plans tried",
+            "winner",
+        )
+    else:
+        c2 = _stepper_chip(
+            2, "Cypher",
+            f"{len(plans)} plans · <span style='color:#dc2626;'>no winner</span>",
+            "empty",
+        )
+
+    # Step 3 — Pool
+    if winning_idx is not None and winning_idx < len(results):
+        win = results[winning_idx]
+        pool_size = win.get("pool_size", 0)
+        raw = win.get("raw_pool_size")
+        latency = (retrieval_result or {}).get("_latency_ms", 0)
+        if raw is not None and raw != pool_size:
+            pool_text = f"<code>{raw}</code> → <code style='color:#15803d;font-weight:700;'>{pool_size}</code>"
+        else:
+            pool_text = f"<code style='color:#15803d;font-weight:700;'>{pool_size}</code> candidates"
+        c3 = _stepper_chip(
+            3, "Pool",
+            f"{pool_text}<br><span style='color:#64748b;'>{latency} ms</span>",
+            "winner",
+        )
+    elif retrieval_result is not None:
+        c3 = _stepper_chip(3, "Pool", "<span style='color:#dc2626;'>0 candidates</span>", "empty")
+    else:
+        c3 = _stepper_chip(3, "Pool", "<span style='color:#94a3b8;'>—</span>", "idle")
+
+    st.markdown(
+        f"<div style='display:flex;gap:10px;margin-bottom:14px;'>{c1}{c2}{c3}</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def _render_canvas(
+    vlm_result: dict | None,
+    retrieval_result: dict | None,
+    *,
+    static_base_url: str = "",
+) -> None:
+    """Hero 3D canvas with the grounded element + pool highlighted."""
+    approved_guid = st.session_state.get("approved_guid", "")
+    if not approved_guid:
+        approved_guid = _top_candidate_guid(retrieval_result)
+
+    if not approved_guid:
+        st.markdown(
+            "<div style='border:1px dashed #cbd5e1;border-radius:8px;"
+            "padding:140px 20px;text-align:center;color:#94a3b8;background:#f8fafc;"
+            "margin-bottom:14px;'>"
+            "<div style='font-size:0.95em;font-weight:600;color:#64748b;'>3D Canvas</div>"
+            "<div style='font-size:0.82em;margin-top:8px;'>Send a message to ground a result.</div>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        return
+
+    pool_guids = list((retrieval_result or {}).get("pool_guids") or [])
+    viewer_pool = [g for g in pool_guids if g and g != approved_guid]
+    gt_guid = (retrieval_result or {}).get("gt_guid", "")
+    viewer_url = _build_viewer_url(
+        static_base_url,
+        viewer_pool,
+        target_guid=approved_guid,
+        gt_guid=gt_guid,
+        guid_match=bool(gt_guid and approved_guid == gt_guid) if gt_guid else True,
+        ifc_model_code=(retrieval_result or {}).get("ifc_model_code", "AP"),
+    )
+    components.iframe(viewer_url, height=480, scrolling=False)
+
+
+def _render_symbolic_graph_panel(
+    vlm_result: dict | None, retrieval_result: dict | None
+) -> None:
+    """Live Cytoscape.js panel: 4-stage JSON → Cypher → Graph → Answer animation."""
+    if vlm_result is None:
+        st.caption("Run inference to populate the graph animation.")
+        return
+
+    parsed = (vlm_result or {}).get("parsed") or {}
+    plans = (retrieval_result or {}).get("plans") or []
+    results = (retrieval_result or {}).get("results") or []
+    winning_idx = (retrieval_result or {}).get("winning_index")
+    snapshot = (retrieval_result or {}).get("graph_snapshot") or {}
+    subgraph = (retrieval_result or {}).get("subgraph") or {}
+    pool_guids = (retrieval_result or {}).get("pool_guids") or []
+
+    # Pull the winning Cypher for stage 2.
+    cypher_text = ""
+    win_priority = ""
+    win_strategy = ""
+    if (
+        isinstance(winning_idx, int)
+        and 0 <= winning_idx < len(results)
+        and 0 <= winning_idx < len(plans)
+    ):
+        win_result = results[winning_idx] or {}
+        win_plan = plans[winning_idx] or {}
+        queries = win_result.get("executed_queries") or []
+        cypher_text = queries[0] if queries else ""
+        win_priority = win_plan.get("priority", "")
+        win_strategy = win_plan.get("strategy", "")
+
+    payload = {
+        "parsed": parsed,
+        "cypher": cypher_text,
+        "winningPlan": {"priority": win_priority, "strategy": win_strategy},
+        "snapshot": {
+            "nodes": snapshot.get("nodes") or [],
+            "edges": snapshot.get("edges") or [],
+        },
+        "subgraph": {
+            "anchor_guid": subgraph.get("anchor_guid", ""),
+            "nodes": subgraph.get("nodes") or [],
+            "edges": subgraph.get("edges") or [],
+        },
+        "anchor_guid": pool_guids[0] if pool_guids else "",
+        "pool_guids": pool_guids[:30],
+        "ifc_class": parsed.get("ifc_class") or "",
+        "storey_name": parsed.get("storey_name") or "",
+    }
+
+    html = _SYMBOLIC_GRAPH_HTML_TEMPLATE.replace(
+        "__PAYLOAD__", json.dumps(payload, ensure_ascii=True)
+    )
+    components.html(html, height=560, scrolling=False)
+
+
+def _render_drawer(vlm_result: dict | None, retrieval_result: dict | None) -> None:
+    """Bottom drawer: raw JSON · Cypher · Symbolic Graph (placeholder). Collapsed by default."""
+    label = "Process details — JSON · Cypher · Symbolic Graph"
+    with st.expander(label, expanded=False):
+        if vlm_result is None:
+            st.caption("Run inference to populate details.")
+            return
+
+        tabs = st.tabs(["Parsed JSON", "Cypher", "Symbolic Graph"])
+        parsed = (vlm_result or {}).get("parsed") or {}
+        query_payloads = _collect_backend_queries(retrieval_result)
+
+        with tabs[0]:
+            st.code(json.dumps(parsed, indent=2, ensure_ascii=True), language="json")
+
+        with tabs[1]:
+            if not query_payloads:
+                st.info("No captured Cypher yet.")
+            else:
+                for payload in query_payloads:
+                    winner_suffix = " · winner" if payload["is_winner"] else ""
+                    with st.expander(
+                        f"P{payload['priority']} · {payload['strategy']} · {payload['pool_size']} candidates{winner_suffix}",
+                        expanded=payload["is_winner"],
+                    ):
+                        for q_idx, query in enumerate(payload["queries"], 1):
+                            if len(payload["queries"]) > 1:
+                                st.caption(f"Query {q_idx}")
+                            st.code(query, language="cypher")
+
+        with tabs[2]:
+            _render_symbolic_graph_panel(vlm_result, retrieval_result)
+
+
+def _render_user_bubble(live_inputs: dict) -> None:
+    """User chat bubble: query text + attached images shown large for visibility."""
+    photo_paths = live_inputs.get("photo_paths") or []
+    chat_text = (live_inputs.get("chat_text") or "").strip()
+    with st.chat_message("user", avatar="👷"):
+        if photo_paths:
+            visible = [p for p in photo_paths if Path(p).exists()][:4]
+            if len(visible) == 1:
+                st.image(visible[0], use_container_width=True)
+            elif visible:
+                cols = st.columns(2)
+                for i, p in enumerate(visible):
+                    cols[i % 2].image(p, use_container_width=True)
+        if chat_text:
+            st.markdown(chat_text)
+
+
+def _render_assistant_bubble(
+    vlm_result: dict, retrieval_result: dict | None, *, case_id: str
+) -> None:
+    """Assistant chat bubble: top match + alternatives + see-process pointer."""
+    rows = _candidate_rows(retrieval_result, limit=None)
+    with st.chat_message("assistant"):
+        if not vlm_result.get("valid_json", False):
+            st.error("VLM returned invalid JSON. Try rephrasing the message.")
+            return
+        if not rows:
+            st.warning("No candidates returned. Try adjusting the query or settings.")
+            return
+
+        top = rows[0]
+        approved_guid = st.session_state.get("approved_guid", top["guid"])
+        is_top_approved = approved_guid == top["guid"]
+
+        approved_row = next((r for r in rows if r["guid"] == approved_guid), top)
+        st.markdown(
+            f"**Suggested item:** `{approved_row['guid']}`  \n"
+            f"<span style='color:#475569;font-size:0.9em;'>"
+            f"{approved_row.get('name') or 'Unnamed'} · {approved_row.get('type') or '—'} · {approved_row.get('storey') or '—'}"
+            f"</span>",
+            unsafe_allow_html=True,
+        )
+        if approved_row.get("gt"):
+            st.success("Matches ground truth.")
+        elif (retrieval_result or {}).get("gt_guid"):
+            st.caption("Does not match ground truth — pick an alternative below.")
+
+        if len(rows) > 1:
+            visible_count_key = _live_flow_state_key("live", case_id, "candidate_visible_count")
+            visible_count = int(st.session_state.get(visible_count_key, 5) or 5)
+            visible_count = max(5, min(visible_count, len(rows)))
+            st.session_state[visible_count_key] = visible_count
+
+            with st.expander(f"{len(rows) - 1} alternatives", expanded=False):
+                approve_prefix = _live_flow_state_key("live", case_id, "approve")
+                for row in rows[1:visible_count]:
+                    guid = row["guid"]
+                    cols = st.columns([0.4, 2.4, 1.2, 1.2, 0.9], gap="small")
+                    cols[0].markdown(f"**{row['rank']}**")
+                    cols[1].markdown(
+                        (row.get("name") or "Unnamed")
+                        + (" · ✓ GT" if row.get("gt") else "")
+                    )
+                    cols[2].markdown(row.get("type") or "—")
+                    cols[3].markdown(row.get("storey") or "—")
+                    if guid == approved_guid:
+                        cols[4].markdown(
+                            "<span style='color:#15803d;font-weight:600;'>✓</span>",
+                            unsafe_allow_html=True,
+                        )
+                    elif cols[4].button("–", key=f"{approve_prefix}_{guid}", use_container_width=True, help="Select this candidate"):
+                        st.session_state["approved_guid"] = guid
+                        st.session_state["approval_candidate_guid"] = guid
+                        st.rerun()
+
+                if visible_count < len(rows):
+                    if st.button(
+                        f"Show next 5 ({visible_count}/{len(rows)})",
+                        key=_live_flow_state_key("live", case_id, "show_next_candidates"),
+                    ):
+                        st.session_state[visible_count_key] = min(visible_count + 5, len(rows))
+                        st.rerun()
+
+        st.caption("See process ▾ — open the *Process details* drawer below for parsed JSON, Cypher, and the symbolic graph.")
+
+
+def _render_chat_history(*, case_id: str) -> None:
+    """Render the most recent user→assistant exchange (or an empty hint)."""
+    vlm_result = st.session_state.get("last_inference")
+    retrieval_result = st.session_state.get("last_retrieval")
+    live_inputs = st.session_state.get("last_live_inputs") or {}
+
+    if vlm_result is None:
+        st.markdown(
+            "<div style='border:1px dashed #cbd5e1;border-radius:8px;"
+            "padding:32px 16px;text-align:center;color:#94a3b8;background:#f8fafc;"
+            "margin-bottom:10px;'>"
+            "Send a message to start a query."
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        return
+
+    _render_user_bubble(live_inputs)
+    _render_assistant_bubble(vlm_result, retrieval_result, case_id=case_id)
+
+
+def _render_composer(*, case_id: str, trace: dict | None) -> None:
+    """Bottom composer: large attached thumbnails · text · attach (+) · send · settings."""
+    # Nonce-rotated keys so the composer renders truly fresh after each submit
+    # — popping or assigning '' to widget state is unreliable for text_area and
+    # outright forbidden for file_uploader. Rotating the key forces Streamlit
+    # to mount brand-new widgets with no carried-over input.
+    nonce = st.session_state.get("composer_nonce", 0)
+    chat_key = f"inference_chat_{nonce}"
+    images_key = f"inference_images_{nonce}"
+    send_key = f"run_pipeline_{nonce}"
+
+    with st.container(border=True):
+        # Show currently-attached thumbnails large, above the text area.
+        existing_files = list(st.session_state.get(images_key) or [])[:4]
+        if existing_files:
+            if len(existing_files) == 1:
+                st.image(existing_files[0], use_container_width=True)
+            else:
+                cols = st.columns(2)
+                for i, f in enumerate(existing_files):
+                    cols[i % 2].image(f, use_container_width=True)
+
+        chat_text = st.text_area(
+            "Field message",
+            height=90,
+            key=chat_key,
+            placeholder="Describe the element you need to locate…",
+            label_visibility="collapsed",
+        )
+
+        # Compact action row: [ + ]  [        Send        ]
+        attach_col, send_col = st.columns([0.7, 4.3], gap="small")
+        with attach_col.popover("＋", use_container_width=True, help="Attach photo or floorplan"):
+            st.file_uploader(
+                "Attach images",
+                type=["png", "jpg", "jpeg"],
+                accept_multiple_files=True,
+                key=images_key,
+                label_visibility="collapsed",
+            )
+        run_btn = send_col.button(
+            "Send", type="primary", use_container_width=True, key=send_key
+        )
+
+        # Files persist in session_state via the file_uploader key.
+        uploaded_files = st.session_state.get(images_key) or []
+
+        with st.expander("Settings", expanded=False):
+            st.selectbox(
+                "VLM Model",
+                [
+                    "G8 — Full Topology",
+                    "G8 — P1 + Rerank",
+                    "G4-Ultimate — Full Topology",
+                    "G4-Ultimate — P1 + Rerank",
+                ],
+                key="inf_model_variant",
+            )
+            st.selectbox(
+                "IFC Model",
+                ["AP (AdvancedProject)", "BH (BasicHouse)", "DXA (Duplex)"],
+                key="inf_ifc_model",
+            )
+            st.radio(
+                "Ground truth (dev)",
+                ["None", "Sidebar case", "Direct GUID"],
+                horizontal=True,
+                key="inf_gt_source_mode",
+            )
+            if st.session_state.get("inf_gt_source_mode") == "Direct GUID":
+                st.text_input(
+                    "Target GUID",
+                    value=st.session_state.get("inf_gt_guid_manual", ""),
+                    placeholder="e.g. 2BLn4xX2vF_gM9G5wfbU5X",
+                    key="inf_gt_guid_manual",
+                )
+
+    if not run_btn:
+        return
+
+    if not (chat_text or "").strip():
+        st.warning("Please enter a message.")
+        return
+
+    mv = st.session_state.get("inf_model_variant", "")
+    skip_p0 = "P1 + Rerank" in mv
+    use_g8 = mv.startswith("G8")
+    model_code = (st.session_state.get("inf_ifc_model") or "AP").split(" ", 1)[0].strip()
+
+    gt_mode = st.session_state.get("inf_gt_source_mode", "None")
+    if gt_mode == "Sidebar case" and case_id:
+        gt_guid = _extract_gt_guid(trace, case_id=case_id, allow_trace_fallback=True)
+    elif gt_mode == "Direct GUID":
+        gt_guid = (st.session_state.get("inf_gt_guid_manual") or "").strip()
+    else:
+        gt_guid = ""
+
+    metadata_text = f"[IFC Model] {model_code}"
+    all_image_bytes = [f.getvalue() for f in (uploaded_files or [])]
+
+    model_label = "G8" if use_g8 else "G4-Ultimate"
+    t0 = time.time()
+    with st.spinner(f"Stage 1/3 — VLM inference ({model_label}) on Modal A100..."):
+        vlm_result = _call_modal_inference(
+            all_image_bytes, chat_text, metadata_text, use_g8=use_g8
+        )
+    if vlm_result is None:
+        return
+
+    vlm_result["_latency_ms"] = int((time.time() - t0) * 1000)
+    vlm_result["_model_variant"] = mv
+
+    st.session_state["last_live_inputs"] = _persist_live_inputs(
+        uploaded_files=uploaded_files or [],
+        chat_text=chat_text,
+        model_code=model_code,
+        storey="",
+        phase="",
+        task_status="",
+        case_id=case_id,
+        gt_guid=gt_guid,
+    )
+
+    retrieval_result = None
+    if vlm_result.get("valid_json") and vlm_result.get("parsed"):
+        t1 = time.time()
+        with st.spinner("Stage 2-3 — Query planning + Neo4j retrieval..."):
+            retrieval_result = _run_retrieval(
+                vlm_result["parsed"],
+                model_code=model_code,
+                gt_guid=gt_guid,
+                skip_p0=skip_p0,
+            )
+        if retrieval_result:
+            retrieval_result["_latency_ms"] = int((time.time() - t1) * 1000)
+            default_guid = _top_candidate_guid(retrieval_result)
+            if default_guid:
+                st.session_state["approved_guid"] = default_guid
+                st.session_state["approval_candidate_guid"] = default_guid
+            else:
+                st.session_state.pop("approved_guid", None)
+                st.session_state.pop("approval_candidate_guid", None)
+            st.session_state["rejected_candidate_guids"] = []
+            st.session_state[
+                _live_flow_state_key("live", case_id, "candidate_visible_count")
+            ] = 5
+
+    st.session_state["last_inference"] = vlm_result
+    st.session_state["last_retrieval"] = retrieval_result
+
+    # Bump the composer nonce so text_area / file_uploader remount fresh on
+    # the next render. The submitted text and images are preserved in the
+    # user chat bubble above via session_state["last_live_inputs"].
+    st.session_state["composer_nonce"] = st.session_state.get("composer_nonce", 0) + 1
+
+    st.rerun()
+
 
 def render(
     *,
@@ -198,218 +680,38 @@ def render(
     trace: dict | None = None,
     case_id: str = "",
 ) -> None:
+    """Live inference: chat thread (left) · stepper + 3D canvas + drawer (right)."""
     # Reset stale results when sidebar case changes.
     if st.session_state.get("live_case_id") != case_id:
         old_case_id = st.session_state.get("live_case_id", "")
-        st.session_state.pop("last_inference", None)
-        st.session_state.pop("last_retrieval", None)
-        st.session_state.pop("last_live_inputs", None)
-        st.session_state.pop("approved_guid", None)
-        st.session_state.pop("approval_candidate_guid", None)
-        st.session_state.pop("rejected_candidate_guids", None)
-        st.session_state.pop("live_candidate_visible_count", None)
+        for k in (
+            "last_inference", "last_retrieval", "last_live_inputs",
+            "approved_guid", "approval_candidate_guid",
+            "rejected_candidate_guids", "live_candidate_visible_count",
+        ):
+            st.session_state.pop(k, None)
         for flow_scope in ("live", "trace"):
             st.session_state.pop(
                 _live_flow_state_key(flow_scope, old_case_id, "candidate_visible_count"),
                 None,
             )
+        # Bump composer nonce so widgets remount fresh for the new case.
+        st.session_state["composer_nonce"] = st.session_state.get("composer_nonce", 0) + 1
         st.session_state["live_case_id"] = case_id
 
-    # ── Two-column layout ─────────────────────────────────────────────────
-    #   LEFT  (1): compact multimodal evidence input
-    #   RIGHT (2): live demo flow
-    left_col, right_col = st.columns([1, 2], gap="medium")
+    left_col, right_col = st.columns([1, 1.6], gap="medium")
 
-    # ═════════════════════════════════════════════════════════════════════
-    # LEFT — Evidence input
-    # ═════════════════════════════════════════════════════════════════════
     with left_col:
-        with st.container(border=True):
-            chat_text = st.text_area(
-                "Field message",
-                value="",
-                height=120,
-                key="inference_chat",
-                placeholder="Describe what the field team is seeing and what element they need help locating.",
-            )
+        _render_chat_history(case_id=case_id)
+        _render_composer(case_id=case_id, trace=trace)
 
-            uploaded_files = st.file_uploader(
-                "Images",
-                type=["png", "jpg", "jpeg"],
-                accept_multiple_files=True,
-                key="inference_images",
-                help="Site photos, floorplans, or any visual evidence.",
-            )
-            if uploaded_files:
-                thumb_cols = st.columns(min(len(uploaded_files), 4))
-                for i, f in enumerate(uploaded_files):
-                    thumb_cols[i % 4].image(f, caption=f.name, width=90)
-
-            run_btn = st.button("Run Pipeline", type="primary", use_container_width=True)
-
-            with st.expander("Settings", expanded=False):
-                model_variant = st.selectbox(
-                    "VLM Model",
-                    [
-                        "G8 — Full Topology (P0 spatial + P1…)",
-                        "G8 — P1 + Rerank (skip spatial, storey+type first)",
-                        "G4-Ultimate — Full Topology (P0 spatial + P1…)",
-                        "G4-Ultimate — P1 + Rerank (skip spatial, storey+type first)",
-                    ],
-                    key="inf_model_variant",
-                )
-                ifc_model = st.selectbox(
-                    "IFC Model",
-                    ["AP (AdvancedProject)", "BH (BasicHouse)", "DXA (Duplex)"],
-                    key="inf_ifc_model",
-                )
-            model_code = (st.session_state.get("inf_ifc_model") or "AP").split(" ", 1)[0].strip()
-
-            with st.expander("4D Metadata", expanded=False):
-                meta_c1, meta_c2 = st.columns(2)
-                meta_c1.text_input("Storey", value="", key="inf_storey")
-                meta_c2.text_input("Phase", value="", key="inf_phase")
-                meta_c1.selectbox(
-                    "Task Status",
-                    ["", "IN_PROGRESS", "PENDING_INSPECTION", "REVIEW_REQUIRED", "ON_HOLD"],
-                    key="inf_status",
-                )
-
-            storey      = st.session_state.get("inf_storey",  "")
-            phase       = st.session_state.get("inf_phase",   "")
-            task_status = st.session_state.get("inf_status",  "")
-
-            with st.expander("Ground Truth (optional)", expanded=False):
-                gt_mode_widget = st.radio(
-                    "GT source",
-                    ["None", "Sidebar case", "Case ID", "Direct GUID"],
-                    horizontal=True,
-                    key="inf_gt_source_mode",
-                )
-                if gt_mode_widget == "Sidebar case" and case_id:
-                    st.caption(f"Using: `{case_id}`")
-                elif gt_mode_widget == "Case ID":
-                    st.text_input(
-                        "Case ID",
-                        value=st.session_state.get("inf_gt_case_manual", ""),
-                        placeholder="e.g. AP_SK_282  or  SYNTH_V3_002_SK_002",
-                        key="inf_gt_case_manual",
-                    )
-                elif gt_mode_widget == "Direct GUID":
-                    st.text_input(
-                        "Target GUID",
-                        value=st.session_state.get("inf_gt_guid_manual", ""),
-                        placeholder="e.g. 2BLn4xX2vF_gM9G5wfbU5X",
-                        key="inf_gt_guid_manual",
-                    )
-
-            gt_mode = st.session_state.get("inf_gt_source_mode", "None")
-            if gt_mode == "Sidebar case":
-                gt_case_id = case_id
-            elif gt_mode == "Case ID":
-                gt_case_id = st.session_state.get("inf_gt_case_manual", "").strip()
-            else:
-                gt_case_id = ""
-
-            if gt_mode == "Direct GUID":
-                gt_guid = st.session_state.get("inf_gt_guid_manual", "").strip()
-            else:
-                allow_trace_fallback = (gt_mode == "Sidebar case")
-                gt_guid = _extract_gt_guid(
-                    trace, case_id=gt_case_id, allow_trace_fallback=allow_trace_fallback,
-                )
-
-            metadata_text = (
-                f"[4D Task Status] TASK_0001: Inspection — {task_status}\n"
-                f"[Project Phase] {phase}\n"
-                f"[Location] {storey}\n"
-                f"[IFC Model] {model_code}"
-            )
-
-        vlm_result      = st.session_state.get("last_inference")
-        retrieval_result = st.session_state.get("last_retrieval")
-        if vlm_result is not None and not vlm_result.get("valid_json", False):
-            st.error("VLM returned invalid JSON")
-
-    # ── Handle run (outside columns to avoid nested widget issues) ────────
-    if run_btn:
-        if not chat_text.strip():
-            st.warning("Please enter a chat message.")
-        else:
-            all_image_bytes = [f.getvalue() for f in (uploaded_files or [])]
-
-            # Resolve model variant from session state (widget is inside left_col scope)
-            _mv = st.session_state.get("inf_model_variant", "")
-            _skip_p0 = "P1 + Rerank" in _mv  # True for p1+rerank mode
-            _use_g8 = _mv.startswith("G8")    # True → route to G8ModelPredictor
-
-            _model_label = "G8" if _use_g8 else "G4-Ultimate"
-            t0 = time.time()
-            with st.spinner(f"Stage 1/3 — VLM inference ({_model_label}) on Modal A100..."):
-                vlm_result = _call_modal_inference(all_image_bytes, chat_text, metadata_text, use_g8=_use_g8)
-            vlm_ms = int((time.time() - t0) * 1000)
-
-            if vlm_result is not None:
-                vlm_result["_latency_ms"] = vlm_ms
-                vlm_result["_model_variant"] = _mv
-                st.session_state["last_live_inputs"] = _persist_live_inputs(
-                    uploaded_files=uploaded_files or [],
-                    chat_text=chat_text,
-                    model_code=model_code,
-                    storey=storey,
-                    phase=phase,
-                    task_status=task_status,
-                    case_id=case_id,
-                    gt_guid=gt_guid,
-                )
-                retrieval_result = None
-                if vlm_result.get("valid_json") and vlm_result.get("parsed"):
-                    t1 = time.time()
-                    with st.spinner("Stage 2-3 — Query planning + Neo4j retrieval..."):
-                        retrieval_result = _run_retrieval(
-                            vlm_result["parsed"],
-                            model_code=model_code,
-                            gt_guid=gt_guid,
-                            skip_p0=_skip_p0,
-                        )
-                    if retrieval_result:
-                        retrieval_result["_latency_ms"] = int((time.time() - t1) * 1000)
-                        default_guid = _top_candidate_guid(retrieval_result)
-                        if default_guid:
-                            st.session_state["approved_guid"] = default_guid
-                            st.session_state["approval_candidate_guid"] = default_guid
-                        else:
-                            st.session_state.pop("approved_guid", None)
-                            st.session_state.pop("approval_candidate_guid", None)
-                        st.session_state["rejected_candidate_guids"] = []
-                        st.session_state[
-                            _live_flow_state_key("live", case_id, "candidate_visible_count")
-                        ] = 15
-
-                st.session_state["last_inference"]  = vlm_result
-                st.session_state["last_retrieval"]  = retrieval_result
-                st.rerun()
-
-    # Re-read after potential rerun
-    vlm_result       = st.session_state.get("last_inference")
+    vlm_result = st.session_state.get("last_inference")
     retrieval_result = st.session_state.get("last_retrieval")
 
-    # ═════════════════════════════════════════════════════════════════════
-    # RIGHT — Live demo flow
-    # ═════════════════════════════════════════════════════════════════════
     with right_col:
-        if vlm_result is None:
-            st.info(
-                "Run the pipeline to inspect the inference flow and grounded result."
-            )
-        else:
-            _render_live_flow(
-                vlm_result,
-                retrieval_result,
-                static_base_url=static_base_url,
-                case_id=case_id,
-                flow_scope="live",
-            )
+        _render_stepper(vlm_result, retrieval_result)
+        _render_canvas(vlm_result, retrieval_result, static_base_url=static_base_url)
+        _render_drawer(vlm_result, retrieval_result)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1423,3 +1725,359 @@ def _build_viewer_url(
         "base": static_base_url + "/demo/static",
     }
     return viewer_base + "?" + urlencode(params)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Symbolic graph panel — Cytoscape.js HTML template
+# ══════════════════════════════════════════════════════════════════════════════
+_SYMBOLIC_GRAPH_HTML_TEMPLATE = r"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+  body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:0;background:#f8fafc;color:#0f172a;}
+  .root{padding:10px;height:540px;display:flex;flex-direction:column;}
+  .bar{display:flex;gap:4px;margin-bottom:10px;align-items:center;}
+  .sb{flex:1;padding:7px 10px;font-size:11px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;border-radius:6px;color:#64748b;font-weight:600;font-family:inherit;}
+  .sb.active{background:#3b82f6;color:#fff;border-color:#3b82f6;}
+  .sb:hover:not(.active){border-color:#93c5fd;color:#0f172a;}
+  .play{padding:7px 14px;font-size:11px;border-radius:6px;background:#15803d;color:#fff;border:none;cursor:pointer;font-weight:600;font-family:inherit;}
+  .play:hover{background:#166534;}
+  .content{flex:1;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px;overflow:hidden;display:flex;flex-direction:column;}
+  pre.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.55;margin:0;white-space:pre-wrap;word-break:break-word;}
+  .hl-ifc{background:#dbeafe;color:#1e40af;padding:1px 5px;border-radius:3px;font-weight:600;}
+  .hl-storey{background:#dcfce7;color:#166534;padding:1px 5px;border-radius:3px;font-weight:600;}
+  .hl-kw{background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:3px;font-weight:600;}
+  .hl-pred{background:#fce7f3;color:#9d174d;padding:1px 5px;border-radius:3px;font-weight:600;}
+  .hl-obj{background:#f3e8ff;color:#6b21a8;padding:1px 5px;border-radius:3px;font-weight:600;}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:14px;flex:1;overflow:hidden;}
+  .split>div{overflow:auto;}
+  .col-label{font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;margin-bottom:6px;font-weight:600;}
+  .stage-hint{font-size:11px;color:#64748b;margin-bottom:8px;}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;font-size:10px;color:#64748b;padding-top:6px;}
+  .legend span{display:inline-flex;align-items:center;gap:4px;}
+  .legend i{width:9px;height:9px;border-radius:50%;display:inline-block;}
+  .step-bar{display:flex;gap:6px;margin-bottom:6px;align-items:center;font-size:10px;}
+  .step{padding:3px 9px;font-size:10px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;border-radius:5px;color:#475569;font-weight:600;font-family:inherit;}
+  .step:hover{border-color:#3b82f6;color:#3b82f6;}
+  .step.done{background:#f0fdf4;border-color:#86efac;color:#15803d;}
+  #cy{width:100%;height:100%;background:#fafafa;border-radius:6px;}
+  .empty-note{font-size:10px;color:#94a3b8;font-style:italic;margin-left:auto;}
+  .synth-banner{background:#fef3c7;border:1px solid #fbbf24;color:#92400e;font-size:11px;padding:7px 11px;border-radius:6px;margin-bottom:10px;font-weight:600;display:flex;align-items:center;gap:8px;line-height:1.4;}
+  .synth-banner .icon{font-size:14px;}
+  .synth-banner .body{flex:1;}
+  .synth-banner b{color:#7c2d12;letter-spacing:0.4px;}
+  .synth-banner em{font-style:normal;color:#a16207;font-weight:400;}
+  .cy-wrap{position:relative;height:100%;}
+  .cy-wrap.synth::after{content:"SYNTHETIC DEMO";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-22deg);font-size:54px;font-weight:900;color:rgba(251,191,36,0.22);pointer-events:none;z-index:1;letter-spacing:8px;font-family:inherit;white-space:nowrap;}
+</style></head><body><div class="root">
+  <div class="bar">
+    <button class="sb" data-stage="1">1 · JSON</button>
+    <button class="sb" data-stage="2">2 · JSON → Cypher</button>
+    <button class="sb" data-stage="3">3 · Cypher on Graph</button>
+    <button class="sb" data-stage="4">4 · Answer</button>
+    <button class="play" id="play">▶ Play</button>
+  </div>
+  <div class="content" id="content"></div>
+</div>
+<script src="https://unpkg.com/cytoscape@3.30.0/dist/cytoscape.min.js"></script>
+<script>
+const PAYLOAD = __PAYLOAD__;
+const SYNTH = (PAYLOAD.snapshot.nodes || []).length === 0;
+let stage = 1, cy = null, playTimer = null;
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function escRe(s){return String(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+
+function jsonHtml(){
+  const p = PAYLOAD.parsed || {};
+  const L = ['{'];
+  if (p.ifc_class) L.push('  "ifc_class": <span class="hl-ifc">"'+esc(p.ifc_class)+'"</span>,');
+  if (p.storey_name) L.push('  "storey_name": <span class="hl-storey">"'+esc(p.storey_name)+'"</span>,');
+  if (p.target_name_keyword) L.push('  "target_name_keyword": <span class="hl-kw">"'+esc(p.target_name_keyword)+'"</span>,');
+  if (p.space_name) L.push('  "space_name": "'+esc(p.space_name)+'",');
+  const rels = p.spatial_relations || [];
+  if (rels.length){
+    L.push('  "spatial_relations": [');
+    rels.forEach((r,i)=>{
+      L.push('    {');
+      L.push('      "predicate": <span class="hl-pred">"'+esc(r.predicate||'')+'"</span>,');
+      L.push('      "object_type": <span class="hl-obj">"'+esc(r.object_type||'')+'"</span>'+(r.object_material?',':''));
+      if (r.object_material) L.push('      "object_material": "'+esc(r.object_material)+'"');
+      L.push('    }'+(i<rels.length-1?',':''));
+    });
+    L.push('  ]');
+  } else {
+    L.push('  "spatial_relations": []');
+  }
+  L.push('}');
+  return L.join('\n');
+}
+
+function cypherHtml(){
+  let txt = esc(PAYLOAD.cypher || '// No Cypher captured for this run.');
+  const p = PAYLOAD.parsed || {};
+  const terms = [
+    [p.ifc_class, 'hl-ifc'],
+    [p.storey_name, 'hl-storey'],
+    [p.target_name_keyword, 'hl-kw'],
+  ];
+  (p.spatial_relations || []).forEach(r=>{
+    terms.push([r.predicate, 'hl-pred']);
+    terms.push([r.object_type, 'hl-obj']);
+  });
+  terms.forEach(([term, cls])=>{
+    if (!term) return;
+    const re = new RegExp('('+escRe(String(term))+')', 'g');
+    txt = txt.replace(re, '<span class="'+cls+'">$1</span>');
+  });
+  return txt;
+}
+
+function renderS1(){
+  return ''
+    + '<div class="stage-hint">Stage 1 — extracted constraint fields highlighted by role.</div>'
+    + '<div style="flex:1;overflow:auto;"><pre class="code">'+jsonHtml()+'</pre></div>'
+    + '<div class="legend">'
+    + '<span><i style="background:#dbeafe;"></i>ifc_class</span>'
+    + '<span><i style="background:#dcfce7;"></i>storey</span>'
+    + '<span><i style="background:#fef3c7;"></i>name keyword</span>'
+    + '<span><i style="background:#fce7f3;"></i>predicate</span>'
+    + '<span><i style="background:#f3e8ff;"></i>object_type</span>'
+    + '</div>';
+}
+
+function renderS2(){
+  const wp = PAYLOAD.winningPlan || {};
+  const planTag = wp.priority!=='' ? ('P'+esc(wp.priority)+' · '+esc(wp.strategy||'')) : 'no plan';
+  const noCypher = !PAYLOAD.cypher;
+  const banner = noCypher
+    ? '<div class="synth-banner"><span class="icon">⚠</span><div class="body"><b>NO CYPHER CAPTURED</b> &nbsp;<em>Neo4j was unavailable for this run — the Cypher pane below shows placeholder text only, not a real query.</em></div></div>'
+    : '';
+  return ''
+    + banner
+    + '<div class="stage-hint">Stage 2 — each highlighted JSON field maps to its <code>WHERE</code> / <code>MATCH</code> clause.</div>'
+    + '<div class="split">'
+    +   '<div><div class="col-label">JSON (constraints)</div><pre class="code">'+jsonHtml()+'</pre></div>'
+    +   '<div><div class="col-label">Cypher · '+planTag+'</div><pre class="code">'+cypherHtml()+'</pre></div>'
+    + '</div>';
+}
+
+function renderS3(){
+  const banner = SYNTH
+    ? '<div class="synth-banner"><span class="icon">⚠</span><div class="body"><b>SYNTHETIC GRAPH</b> &nbsp;<em>graph_snapshot is empty (Neo4j unavailable). The 13-node graph below is illustrative only — it is NOT loaded from your IFC.</em></div></div>'
+    : '';
+  const wrapClass = SYNTH ? 'cy-wrap synth' : 'cy-wrap';
+  return ''
+    + banner
+    + '<div class="step-bar">'
+    +   '<span style="color:#64748b;">Stage 3 — apply filters in order:</span>'
+    +   '<button class="step" data-step="storey">① storey filter</button>'
+    +   '<button class="step" data-step="type">② type filter</button>'
+    +   '<button class="step" data-step="edges">③ predicate edges</button>'
+    +   '<button class="step" data-step="reset">reset</button>'
+    + '</div>'
+    + '<div style="flex:1;"><div class="'+wrapClass+'"><div id="cy"></div></div></div>'
+    + '<div class="legend">'
+    + '<span><i style="background:#cbd5e1;"></i>dim</span>'
+    + '<span><i style="background:#22c55e;"></i>storey match</span>'
+    + '<span><i style="background:#3b82f6;"></i>type match</span>'
+    + '<span><i style="background:#ef4444;"></i>candidate</span>'
+    + '<span><i style="background:#f59e0b;"></i>★ target (anchor)</span>'
+    + '<span><i style="background:#f59e0b;height:2px;border-radius:0;"></i>predicate edge</span>'
+    + '</div>';
+}
+
+function renderS4(){
+  const sub = PAYLOAD.subgraph || {};
+  const empty = (sub.nodes || []).length === 0;
+  const banner = empty
+    ? '<div class="synth-banner"><span class="icon">⚠</span><div class="body"><b>SYNTHETIC SUBGRAPH</b> &nbsp;<em>1-hop subgraph is empty (Neo4j unavailable). The anchor and neighbors below are illustrative only — they are NOT loaded from your IFC.</em></div></div>'
+    : '';
+  const wrapClass = empty ? 'cy-wrap synth' : 'cy-wrap';
+  return ''
+    + banner
+    + '<div class="stage-hint">Stage 4 — anchor + 1-hop neighbors. Satisfying edges (FILLS / ADJACENT_TO / CONTINUOUS) drawn solid green.</div>'
+    + '<div style="flex:1;"><div class="'+wrapClass+'"><div id="cy"></div></div></div>';
+}
+
+function buildSnapshotElements(){
+  const nodes = (PAYLOAD.snapshot.nodes || []).map(n=>({
+    data:{id:n.guid, label:(n.name||n.type||n.guid.slice(0,6)).slice(0,18), type:n.type||'IFCElement', guid:n.guid}
+  }));
+  const edges = (PAYLOAD.snapshot.edges || []).map(e=>({
+    data:{id:e.source_guid+'>'+e.rel_type+'>'+e.target_guid, source:e.source_guid, target:e.target_guid, rel:e.rel_type}
+  }));
+  if (nodes.length > 0) return {nodes, edges};
+  // synth demo — anchor + 12 distractors
+  const anchor = PAYLOAD.anchor_guid || 'synth_anchor';
+  const ifc = PAYLOAD.ifc_class || 'IfcElement';
+  const sn = [{data:{id:anchor, label:'target', type:ifc, guid:anchor}}];
+  for (let i = 0; i < 12; i++){
+    const id = 'synth_'+i;
+    const t = i % 3 === 0 ? ifc : (i % 3 === 1 ? 'IfcWall' : 'IfcSpace');
+    sn.push({data:{id, label:t.replace('Ifc','')+(i), type:t, guid:id}});
+  }
+  const se = [
+    {data:{id:'se1', source:'synth_0', target:anchor, rel:'ADJACENT_TO'}},
+    {data:{id:'se2', source:anchor, target:'synth_3', rel:'FILLS'}},
+    {data:{id:'se3', source:'synth_6', target:'synth_3', rel:'CONTAINS'}},
+    {data:{id:'se4', source:'synth_9', target:anchor, rel:'ADJACENT_TO'}},
+    {data:{id:'se5', source:'synth_1', target:'synth_4', rel:'CONTAINS'}},
+  ];
+  return {nodes:sn, edges:se};
+}
+
+function buildSubgraphElements(){
+  const sub = PAYLOAD.subgraph || {};
+  const nodes = (sub.nodes || []).map(n=>({
+    data:{id:n.guid, label:(n.name||n.type||n.guid.slice(0,6)).slice(0,20), type:n.type||'IFCElement', guid:n.guid}
+  }));
+  const edges = (sub.edges || []).map(e=>({
+    data:{id:e.source_guid+'>'+e.rel_type+'>'+e.target_guid, source:e.source_guid, target:e.target_guid, rel:e.rel_type}
+  }));
+  if (nodes.length > 0) return {nodes, edges};
+  const anchor = PAYLOAD.anchor_guid || 'synth_anchor';
+  const ifc = PAYLOAD.ifc_class || 'IfcElement';
+  return {
+    nodes:[
+      {data:{id:anchor, label:ifc.replace('Ifc',''), type:ifc, guid:anchor}},
+      {data:{id:'demo_wall', label:'Wall', type:'IfcWallStandardCase', guid:'demo_wall'}},
+      {data:{id:'demo_space', label:'Space', type:'IfcSpace', guid:'demo_space'}},
+    ],
+    edges:[
+      {data:{id:'de1', source:anchor, target:'demo_wall', rel:'FILLS'}},
+      {data:{id:'de2', source:anchor, target:'demo_space', rel:'ADJACENT_TO'}},
+    ],
+  };
+}
+
+function initS3(){
+  const {nodes, edges} = buildSnapshotElements();
+  cy = cytoscape({
+    container: document.getElementById('cy'),
+    elements: [...nodes, ...edges],
+    style: [
+      {selector:'node', style:{'background-color':'#cbd5e1','label':'data(label)','font-size':8,'color':'#94a3b8','width':16,'height':16,'text-valign':'bottom','text-margin-y':3,'text-max-width':80,'text-wrap':'ellipsis'}},
+      {selector:'edge', style:{'line-color':'#e2e8f0','width':1,'curve-style':'bezier','target-arrow-shape':'triangle','target-arrow-color':'#e2e8f0','arrow-scale':0.5}},
+      {selector:'node.storey', style:{'background-color':'#22c55e','color':'#15803d'}},
+      {selector:'node.type', style:{'background-color':'#3b82f6','color':'#1e40af','width':20,'height':20}},
+      {selector:'node.cand', style:{'background-color':'#ef4444','width':24,'height':24,'color':'#991b1b'}},
+      {selector:'node.anchor', style:{'background-color':'#f59e0b','width':38,'height':38,'border-width':3,'border-color':'#92400e','color':'#92400e','font-size':10,'font-weight':'bold','z-index':99}},
+      {selector:'edge.pred', style:{'line-color':'#f59e0b','width':2.4,'target-arrow-color':'#f59e0b','arrow-scale':0.9}},
+    ],
+    layout: {name:'cose', animate:false, idealEdgeLength:55, nodeRepulsion:3500, fit:true, padding:20},
+  });
+
+  // Pre-highlight the target so the audience can locate it before any filter runs.
+  const a0 = PAYLOAD.anchor_guid ? cy.getElementById(PAYLOAD.anchor_guid) : null;
+  if (a0 && a0.length) {
+    a0.data('label', '★ TARGET');
+    a0.addClass('anchor');
+    // Gentle pulse to draw the eye.
+    (function pulse(){
+      a0.animate({style:{'border-width':6}}, {duration:600})
+        .animate({style:{'border-width':3}}, {duration:600, complete:pulse});
+    })();
+    cy.center(a0);
+  }
+
+  const stepBtns = document.querySelectorAll('.step');
+  function markDone(name){
+    stepBtns.forEach(b => { if (b.dataset.step === name) b.classList.add('done'); });
+  }
+
+  document.querySelector('.step[data-step="storey"]').onclick = () => {
+    const target = (PAYLOAD.storey_name || '').toLowerCase();
+    cy.batch(() => {
+      cy.nodes().forEach((n, i) => {
+        // Real storey property if present; otherwise heuristic by index
+        const ns = (n.data('storey') || '').toLowerCase();
+        const pick = target ? (ns && ns.includes(target.split(' ').pop())) : (i % 3 === 0);
+        if (pick || (!target && i % 3 === 0)) n.addClass('storey');
+      });
+    });
+    markDone('storey');
+  };
+  document.querySelector('.step[data-step="type"]').onclick = () => {
+    const ifc = (PAYLOAD.ifc_class || '').toLowerCase();
+    cy.batch(() => {
+      cy.nodes().forEach(n => {
+        const t = (n.data('type') || '').toLowerCase();
+        if (ifc && t && t.indexOf(ifc) === 0) n.addClass('type');
+      });
+    });
+    markDone('type');
+  };
+  document.querySelector('.step[data-step="edges"]').onclick = () => {
+    const pool = new Set(PAYLOAD.pool_guids || []);
+    cy.batch(() => {
+      cy.nodes().forEach(n => {
+        if (pool.has(n.data('guid'))) n.addClass('cand');
+      });
+      const a = PAYLOAD.anchor_guid && cy.getElementById(PAYLOAD.anchor_guid);
+      if (a && a.length) a.addClass('anchor');
+      cy.edges().forEach(e => {
+        const r = e.data('rel');
+        if (r === 'FILLS' || r === 'ADJACENT_TO' || r === 'CONTINUOUS') e.addClass('pred');
+      });
+    });
+    markDone('edges');
+  };
+  document.querySelector('.step[data-step="reset"]').onclick = () => {
+    cy.batch(() => {
+      cy.nodes().removeClass('storey type cand anchor');
+      cy.edges().removeClass('pred');
+    });
+    stepBtns.forEach(b => b.classList.remove('done'));
+  };
+}
+
+function initS4(){
+  const {nodes, edges} = buildSubgraphElements();
+  const anchorId = PAYLOAD.anchor_guid || (nodes[0] && nodes[0].data.id) || '';
+  cy = cytoscape({
+    container: document.getElementById('cy'),
+    elements: [...nodes, ...edges],
+    style: [
+      {selector:'node', style:{'background-color':'#3b82f6','label':'data(label)','font-size':10,'color':'#0f172a','width':28,'height':28,'text-valign':'bottom','text-margin-y':4,'text-max-width':120,'text-wrap':'ellipsis'}},
+      {selector:'node[guid = "'+anchorId+'"]', style:{'background-color':'#f59e0b','width':44,'height':44,'border-width':3,'border-color':'#92400e','font-size':11,'font-weight':'bold'}},
+      {selector:'edge', style:{'line-color':'#94a3b8','width':1.5,'curve-style':'bezier','target-arrow-shape':'triangle','target-arrow-color':'#94a3b8','arrow-scale':0.7,'label':'data(rel)','font-size':9,'color':'#475569','text-background-color':'#fff','text-background-opacity':0.85,'text-background-padding':2}},
+      {selector:'edge[rel = "FILLS"], edge[rel = "ADJACENT_TO"], edge[rel = "CONTINUOUS"]', style:{'line-color':'#15803d','target-arrow-color':'#15803d','width':3,'color':'#15803d'}},
+    ],
+    layout: {name:'cose', animate:false, idealEdgeLength:90, nodeRepulsion:9000, fit:true, padding:30},
+  });
+}
+
+function setStage(s){
+  stage = s;
+  document.querySelectorAll('.sb[data-stage]').forEach(b => {
+    b.classList.toggle('active', Number(b.dataset.stage) === s);
+  });
+  const c = document.getElementById('content');
+  if (s === 1) c.innerHTML = renderS1();
+  else if (s === 2) c.innerHTML = renderS2();
+  else if (s === 3) { c.innerHTML = renderS3(); setTimeout(initS3, 30); }
+  else if (s === 4) { c.innerHTML = renderS4(); setTimeout(initS4, 30); }
+}
+
+document.querySelectorAll('.sb[data-stage]').forEach(b => {
+  b.onclick = () => setStage(Number(b.dataset.stage));
+});
+
+document.getElementById('play').onclick = () => {
+  const btn = document.getElementById('play');
+  if (playTimer) {
+    clearInterval(playTimer);
+    playTimer = null;
+    btn.textContent = '▶ Play';
+    return;
+  }
+  btn.textContent = '⏸ Stop';
+  let s = stage;
+  playTimer = setInterval(() => {
+    s = s >= 4 ? 1 : s + 1;
+    setStage(s);
+  }, 2400);
+};
+
+setStage(1);
+</script></body></html>
+"""

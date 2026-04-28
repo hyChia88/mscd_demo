@@ -656,9 +656,22 @@
     }
 
     .case-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .case-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      border-radius: 8px;
+    }
+
+    .case-group.is-multi {
+      border: 1px solid var(--border);
+      padding: 6px;
     }
 
     .case-card {
@@ -681,6 +694,64 @@
     .case-card.is-focused {
       border-color: #93c5fd;
       box-shadow: 0 12px 28px rgba(37, 99, 235, 0.14);
+    }
+
+    /* Gallery (default) tile — image-first, no chrome */
+    .case-card.is-gallery {
+      border: none;
+      background: transparent;
+      padding: 0;
+      gap: 0;
+      width: 88px;
+      flex: 0 0 auto;
+    }
+    .case-card.is-gallery:hover {
+      border-color: transparent;
+      box-shadow: none;
+      transform: none;
+    }
+    .case-tile-img {
+      position: relative;
+      aspect-ratio: 1 / 1;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #f8fafc;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+    .case-tile-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.2s ease;
+    }
+    .case-card.is-gallery:hover .case-tile-img {
+      border-color: #93c5fd;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.10);
+    }
+    .case-card.is-gallery:hover .case-tile-img img {
+      transform: scale(1.04);
+    }
+    .case-tile-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--muted);
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      padding: 8px;
+      text-align: center;
+    }
+    .case-tile-tag {
+      font-size: 10.5px;
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: center;
     }
 
     .case-card-head {
@@ -1436,6 +1507,22 @@
       const evidence = item.evidence || {};
       const siteImage = (evidence.images || [])[0] || "";
       const floorplanPatch = evidence.floorplan_patch || "";
+
+      if (!focused) {
+        // Gallery mode — image only. Click reveals details.
+        const previewSrc = siteImage || floorplanPatch || "";
+        const titleAttr = `${item.case_id} — ${item.target_ifc_class} · ${item.predicate}`;
+        const tile = previewSrc
+          ? `<img src="${escapeHtml(previewSrc)}" alt="${escapeHtml(item.case_id)}" loading="lazy">`
+          : `<div class="case-tile-empty">${escapeHtml(item.case_id)}</div>`;
+        return `
+          <article class="case-card is-gallery" data-case-focus="${escapeHtml(item.case_id)}" title="${escapeHtml(titleAttr)}">
+            <div class="case-tile-img">${tile}</div>
+          </article>
+        `;
+      }
+
+      // Focused — full details revealed.
       const projectContext = evidence.project_context || {};
       const phase = projectContext.project_phase || "";
       const rawTask = projectContext["4d_task_status"] || projectContext.task_status || "";
@@ -1451,13 +1538,13 @@
         : "";
 
       return `
-        <article class="case-card ${focused ? "is-focused" : ""}" data-case-focus="${escapeHtml(item.case_id)}">
+        <article class="case-card is-focused" data-case-focus="${escapeHtml(item.case_id)}">
           <div class="case-card-head">
             <div class="case-card-title">
               <strong>${escapeHtml(item.case_id)}</strong>
               <span class="case-card-subtitle">${escapeHtml(item.target_ifc_class)} · ${escapeHtml(item.predicate)}</span>
             </div>
-            <span class="badge">${focused ? "Focused" : "Open Trace"}</span>
+            <span class="badge">Focused</span>
           </div>
           <div class="case-query">${escapeHtml(item.query_text || "No field request recorded.")}</div>
           <div class="case-evidence-strip">
@@ -1562,17 +1649,41 @@
         ? "Select a BIM element, pin, or case."
         : "Select a pin or case.";
 
+      // Group cases that share a target_guid; preserve first-seen order.
+      const groupOrder = [];
+      const groups = new Map();
+      for (const item of visible) {
+        const key = item.target_guid || `case:${item.case_id}`;
+        if (!groups.has(key)) {
+          groups.set(key, []);
+          groupOrder.push(key);
+        }
+        groups.get(key).push(item);
+      }
+
+      const groupsHtml = groupOrder.map((key) => {
+        const items = groups.get(key);
+        const isMulti = items.length > 1;
+        const tiles = items.map((item) =>
+          renderEvidenceCaseCard(item, item.case_id === state.focusedId)
+        ).join("");
+        return `<div class="case-group ${isMulti ? "is-multi" : ""}">${tiles}</div>`;
+      }).join("");
+
+      const groupsCount = groupOrder.length;
+      const subtitle = `${visible.length} cases · ${groupsCount} grouped by GUID`;
+
       document.getElementById("detail-area").innerHTML = `
         <section class="evidence-shell">
           <div class="evidence-shell-header">
             <div>
               <h3>Mapped Case Library</h3>
-              <p class="muted">${visible.length} cases</p>
+              <p class="muted">${subtitle}</p>
             </div>
             <span class="badge">${visible.length} mapped cases</span>
           </div>
           <div class="case-grid">
-            ${visible.map((item) => renderEvidenceCaseCard(item)).join("")}
+            ${groupsHtml}
           </div>
         </section>
       `;
