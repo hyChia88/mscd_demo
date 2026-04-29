@@ -60,14 +60,23 @@ DEFAULT_MODEL = "gemini-2.5-flash"
 DEFAULT_TOP_K = 10
 PROMPTS_PATH = "prompts/graphrag_rerank.yaml"
 
-MODE_BASE_LABELS = {
-    "g7_pipeline": "Full-topology (G7)",
-    "p1_only": "P1-only (G7 coarse)",
-}
-MODE_RERANK_LABELS = {
-    "g7_pipeline": "Full-topology (G7) + Graph-RAG rerank",
-    "p1_only": "P1-only (G7 coarse) + Graph-RAG rerank",
-}
+DEFAULT_SYSTEM_LABEL = "G7"
+
+
+def _build_mode_labels(system_label: str) -> tuple[Dict[str, str], Dict[str, str]]:
+    base = {
+        "full_topology": f"Full-topology ({system_label})",
+        "p1_only": f"P1-only ({system_label} coarse)",
+    }
+    rerank = {
+        "full_topology": f"Full-topology ({system_label}) + Graph-RAG rerank",
+        "p1_only": f"P1-only ({system_label} coarse) + Graph-RAG rerank",
+    }
+    return base, rerank
+
+
+# Default labels (back-compat for callers that don't pass --label).
+MODE_BASE_LABELS, MODE_RERANK_LABELS = _build_mode_labels(DEFAULT_SYSTEM_LABEL)
 
 REFERENCE_ROWS = [
     {"system": "G7 Position Context", "top10": 23.3, "top1": 3.3, "mrr10": 0.0681},
@@ -414,6 +423,7 @@ def _query_candidate_contexts(graph: Any, guids: Sequence[str]) -> Dict[str, dic
            t.storey AS storey,
            t.name AS name,
            t.object_type AS object_type,
+           t.size_cluster AS size_cluster,
            t.wall_position_index AS wall_position_index,
            t.wall_child_total AS wall_child_total,
            host,
@@ -482,13 +492,98 @@ def _compact_neighbor(label: str, neighbors: Sequence[dict]) -> str:
     return f"{label}: " + "; ".join(names)
 
 
-def _format_candidate_description(letter: str, ctx: dict, fallback: dict) -> str:
+_POSITION_RE = re.compile(r"(\d+)\s*(?:st|nd|rd|th)?\s*of\s*(\d+)", re.IGNORECASE)
+
+
+def _parse_position_context(value) -> Optional[tuple]:
+    """Extract (index_1based, total) from "Nth of M openings…" — None if absent."""
+    if not value:
+        return None
+    m = _POSITION_RE.search(str(value))
+    if not m:
+        return None
+    return int(m.group(1)), int(m.group(2))
+
+
+def _candidate_match_signals(ctx: dict, fallback: dict, constraints: dict) -> dict:
+    """Compute per-signal match flags + a fusion score for one candidate.
+
+    Returns dict with:
+      band_match (bool|None), band_score (0..1)
+      slot_match (bool|None), slot_score (0..1)
+      fusion_score: weighted sum over evidence the constraints actually carry.
+
+    Each signal is weighted by the upstream confidence (ResNet for size_band,
+    F4 for position_context). When a signal is absent from constraints, its
+    weight drops out of the average — so candidates aren't penalised for an
+    evidence dimension we have no opinion on.
+    """
+    band_score = 0.0
+    band_weight = 0.0
+    band_match: Optional[bool] = None
+    band = constraints.get("size_band")
+    band_conf = constraints.get("size_band_confidence")
+    cand_size_cluster = ctx.get("size_cluster") or fallback.get("size_cluster")
+    if band:
+        if cand_size_cluster:
+            band_match = str(cand_size_cluster).startswith(f"{band}_")
+            band_score = 1.0 if band_match else 0.0
+        else:
+            band_match = None  # candidate has no size_cluster → unknown match
+            band_score = 0.5
+        # weight: ResNet conf (default 0.7 if missing) — band signal counts
+        try:
+            band_weight = max(float(band_conf), 0.0) if band_conf is not None else 0.7
+        except (TypeError, ValueError):
+            band_weight = 0.7
+
+    slot_score = 0.0
+    slot_weight = 0.0
+    slot_match: Optional[bool] = None
+    parsed = _parse_position_context(constraints.get("position_context"))
+    pos_conf = constraints.get("position_context_confidence")
+    cand_pos_idx = ctx.get("wall_position_index")
+    cand_total = ctx.get("wall_child_total")
+    if parsed is not None:
+        target_idx_1, target_total = parsed
+        # candidate.wall_position_index is 0-indexed in Neo4j; +1 to compare
+        if cand_pos_idx is not None:
+            cand_idx_1 = int(cand_pos_idx) + 1
+            slot_match = (cand_idx_1 == target_idx_1)
+            # Stricter: also require total match if both present
+            if slot_match and cand_total is not None and target_total is not None:
+                slot_match = (int(cand_total) == int(target_total))
+            slot_score = 1.0 if slot_match else 0.0
+        else:
+            slot_match = None
+            slot_score = 0.3
+        try:
+            slot_weight = max(float(pos_conf), 0.0) if pos_conf is not None else 0.8
+        except (TypeError, ValueError):
+            slot_weight = 0.8
+
+    total_weight = band_weight + slot_weight
+    fusion = ((band_score * band_weight) + (slot_score * slot_weight)) / total_weight if total_weight > 0 else 0.0
+
+    return {
+        "band_match": band_match,
+        "band_score": band_score,
+        "band_weight": band_weight,
+        "slot_match": slot_match,
+        "slot_score": slot_score,
+        "slot_weight": slot_weight,
+        "fusion_score": round(fusion, 3),
+    }
+
+
+def _format_candidate_description(letter: str, ctx: dict, fallback: dict, signals: Optional[dict] = None) -> str:
     ifc_type = str(ctx.get("ifc_type") or fallback.get("type") or fallback.get("ref_type") or "?")
     storey = str(ctx.get("storey") or fallback.get("storey") or fallback.get("ref_storey") or "?")
     hint = _name_hint(str(ctx.get("name") or fallback.get("name") or ""))
     host = ctx.get("host") or {}
     host_hint = _name_hint(str(host.get("name") or ""))
     slot = _slot_text(ctx)
+    size_cluster = ctx.get("size_cluster") or fallback.get("size_cluster")
 
     left = [row for row in (ctx.get("next_neighbors") or []) if row.get("direction") == "left"]
     right = [row for row in (ctx.get("next_neighbors") or []) if row.get("direction") == "right"]
@@ -498,6 +593,10 @@ def _format_candidate_description(letter: str, ctx: dict, fallback: dict) -> str
     fields: List[str] = [f"{letter}. {ifc_type} on {storey}"]
     if hint:
         fields.append(hint)
+    # 6.1.1: surface candidate's size_cluster so Gemini can match against the
+    # evidence `size_cluster:` field directly (overrides the cypher's soft bias).
+    if size_cluster:
+        fields.append(f"size: {size_cluster}")
     if host_hint:
         host_type = str(host.get("ifc_type") or "")
         host_text = f"{host_type} ({host_hint})" if host_type else host_hint
@@ -512,6 +611,20 @@ def _format_candidate_description(letter: str, ctx: dict, fallback: dict) -> str
         fields.append(_compact_neighbor("connects", connects))
     if not left and not right and not connects and adjacent:
         fields.append(_compact_neighbor("adjacent", adjacent))
+
+    # Fix 2 (2026-04-29): pre-computed per-signal match + fusion score —
+    # gives Gemini a deterministic, weighted multi-signal summary instead of
+    # asking it to compute matches from raw text.
+    if signals:
+        match_bits: List[str] = []
+        if signals.get("band_match") is not None:
+            match_bits.append(f"band={'✓' if signals['band_match'] else '✗'}")
+        if signals.get("slot_match") is not None:
+            match_bits.append(f"slot={'✓' if signals['slot_match'] else '✗'}")
+        if match_bits or signals.get("fusion_score"):
+            fields.append(
+                f"match: {' '.join(match_bits)} → fusion={signals.get('fusion_score', 0.0):.2f}"
+            )
     return "; ".join(x for x in fields if x)
 
 
@@ -535,16 +648,72 @@ def _relation_hint_text(constraints: dict) -> str:
     return "; ".join(parts)
 
 
+def _fmt_evidence(label: str, value, conf=None, source=None) -> str:
+    """Render `- label: value (conf=…, src=…)` with annotations only when non-null."""
+    if value in (None, ""):
+        return f"- {label}: N/A"
+    base = f"- {label}: {value}"
+    annot: List[str] = []
+    if conf is not None:
+        try:
+            annot.append(f"conf={float(conf):.2f}")
+        except (TypeError, ValueError):
+            pass
+    if source:
+        annot.append(f"src={source}")
+    return base + (f" ({', '.join(annot)})" if annot else "")
+
+
 def _structured_evidence(case: dict, constraints: Optional[dict]) -> str:
     constraints = constraints or {}
+    # 6.1.0/6.1.1: conditional rendering. Avoid emitting "N/A" lines for the
+    # post-hoc soft-signal fields (descriptor, size_cluster, space) — empty
+    # placeholders destabilised one ADJACENT_TO case in the G8 trial run.
+    # Fix 1 (2026-04-29): surface confidence + source on perception-derived
+    # fields so the reranker can weight them against each other.
     lines = [
         f"- query_text: {case.get('query_text') or _flatten_chat(case.get('inputs') or {}) or 'N/A'}",
         f"- extracted_storey: {constraints.get('storey_name') or 'N/A'}",
         f"- extracted_ifc_class: {constraints.get('ifc_class') or 'N/A'}",
-        f"- position_context: {constraints.get('position_context') or 'N/A'}",
-        f"- spatial_relations: {_relation_hint_text(constraints)}",
     ]
+    if constraints.get('space_name'):
+        lines.append(f"- extracted_space: {constraints['space_name']}")
+    if constraints.get('target_name_keyword'):
+        lines.append(f"- target_description: {constraints['target_name_keyword']}")
+    if constraints.get('size_cluster'):
+        lines.append(f"- size_cluster: {constraints['size_cluster']}")
+    if constraints.get('size_band'):
+        lines.append(_fmt_evidence(
+            "size_band",
+            constraints["size_band"],
+            constraints.get("size_band_confidence"),
+            constraints.get("size_band_source"),
+        ))
+    lines.append(_fmt_evidence(
+        "position_context",
+        constraints.get("position_context"),
+        constraints.get("position_context_confidence"),
+        constraints.get("position_context_source"),
+    ))
+    lines.append(f"- spatial_relations: {_relation_hint_text(constraints)}")
     return "\n".join(lines)
+
+
+def _has_descriptor_signal(constraints: Optional[dict]) -> bool:
+    constraints = constraints or {}
+    return bool(
+        constraints.get('target_name_keyword')
+        or constraints.get('size_cluster')
+        or constraints.get('space_name')
+    )
+
+
+_DESCRIPTOR_INSTRUCTION = (
+    " The `target_description` and `size_cluster` hints are human-vocabulary"
+    " descriptors (e.g. \"floor-to-ceiling window\", \"bathroom window\","
+    " \"window_M_1480x1380\"); bridge them semantically to each candidate's"
+    " IFC name (e.g. \"BALANS 30M FLOOR (SH = 0)\", \"BALANS 10M BATHROOM\")."
+)
 
 
 def _build_prompt(
@@ -560,6 +729,7 @@ def _build_prompt(
     example = " ".join(letters[: min(len(letters), 8)])
     evidence_block = _structured_evidence(case, constraints)
     candidate_block = "\n".join(descriptions)
+    descriptor_instruction = _DESCRIPTOR_INSTRUCTION if _has_descriptor_signal(constraints) else ""
 
     if prompt_mode == "single_shot":
         return RERANK_PROMPTS.get("single_shot_user", "").format(
@@ -567,6 +737,7 @@ def _build_prompt(
             query_text=query_text,
             candidate_block=candidate_block,
             example=example,
+            descriptor_instruction=descriptor_instruction,
         )
 
     if prompt_mode != "cot":
@@ -577,6 +748,7 @@ def _build_prompt(
             evidence_block=evidence_block,
             query_text=query_text,
             candidate_block=candidate_block,
+            descriptor_instruction=descriptor_instruction,
         )
 
     return RERANK_PROMPTS.get("cot_rank_user", "").format(
@@ -679,7 +851,7 @@ def _family_rows(rows: Sequence[Dict[str, Any]], mode: str) -> List[Dict[str, An
     return out
 
 
-def _plot_comparison(path: Path, rows: Sequence[Dict[str, Any]], top_k: int) -> None:
+def _plot_comparison(path: Path, rows: Sequence[Dict[str, Any]], top_k: int, system_label: str = DEFAULT_SYSTEM_LABEL) -> None:
     systems = [row["system"] for row in rows]
     top10 = [row["top10"] for row in rows]
     top1 = [row["top1"] for row in rows]
@@ -708,7 +880,7 @@ def _plot_comparison(path: Path, rows: Sequence[Dict[str, Any]], top_k: int) -> 
             )
         ax.grid(axis="y", alpha=0.25)
 
-    fig.suptitle(f"Graph-RAG reranking at top-{top_k} vs G7 / P1 / Oracle")
+    fig.suptitle(f"Graph-RAG reranking at top-{top_k} vs {system_label} / P1 / Oracle")
     fig.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=200, bbox_inches="tight")
@@ -739,7 +911,7 @@ def _run_mode(
         gt_guid = str(case.get("ground_truth", {}).get("target_guid") or "")
         base_pool = _trace_candidates(trace)
         storey_name, ifc_class, coarse_source = _coarse_fields(trace, case)
-        if mode == "g7_pipeline":
+        if mode == "full_topology":
             pool = list(base_pool)
         elif mode == "p1_only":
             pool = _query_p1_pool(graph, storey_name, ifc_class)
@@ -751,17 +923,28 @@ def _run_mode(
         gt_in_pool = gt_guid in ordered_guids
         base_rank = _rank_of(gt_guid, ordered_guids)
 
-        topk_guids = ordered_guids[:top_k]
-        contexts = _query_candidate_contexts(graph, topk_guids)
+        # Fix 2 (2026-04-29): per-candidate fusion score over (band, slot)
+        # signals weighted by upstream confidence. Sort top-K by fusion DESC,
+        # tie-break by original pool order. Letters A,B,C are then assigned
+        # to the *fused* ordering so Gemini sees a pre-ranked shortlist.
+        trace_constraints = _trace_constraints(trace)
+        prelim_topk_guids = ordered_guids[:top_k]
+        contexts = _query_candidate_contexts(graph, prelim_topk_guids)
+        constraints_for_match = trace_constraints or {}
+        scored: List[tuple] = []  # (fusion_desc, original_idx, guid, ctx, fallback, signals)
+        for orig_idx, guid in enumerate(prelim_topk_guids):
+            ctx = contexts.get(guid, {})
+            fallback = next((row for row in pool if row.get("guid") == guid), {})
+            signals = _candidate_match_signals(ctx, fallback, constraints_for_match)
+            scored.append((-signals["fusion_score"], orig_idx, guid, ctx, fallback, signals))
+        scored.sort()  # ascending on (-fusion, orig_idx) → descending fusion, stable original order
+        topk_guids = [t[2] for t in scored]
         letters = [chr(ord("A") + i) for i in range(len(topk_guids))]
         letter_to_guid = dict(zip(letters, topk_guids))
         guid_to_letter = {guid: letter for letter, guid in letter_to_guid.items()}
-        descriptions = []
-        for guid in topk_guids:
-            letter = guid_to_letter[guid]
-            ctx = contexts.get(guid, {})
-            fallback = next((row for row in pool if row.get("guid") == guid), {})
-            descriptions.append(_format_candidate_description(letter, ctx, fallback))
+        descriptions: List[str] = []
+        for letter, (_neg_fus, _orig_idx, guid, ctx, fallback, signals) in zip(letters, scored):
+            descriptions.append(_format_candidate_description(letter, ctx, fallback, signals))
 
         query_text = case.get("query_text") or _flatten_chat(case.get("inputs") or {})
         input_images = [
@@ -773,7 +956,6 @@ def _run_mode(
             if path is not None
         ]
         floorplan_path = _resolve_asset_path((case.get("inputs") or {}).get("floorplan_patch"))
-        trace_constraints = _trace_constraints(trace)
 
         raw_output = ""
         prompt_text = ""
@@ -893,7 +1075,7 @@ def _build_summary(rows: Sequence[Dict[str, Any]], top_k: int) -> Dict[str, Any]
         "subsets": {},
         "families": {},
     }
-    for mode in ("g7_pipeline", "p1_only"):
+    for mode in ("full_topology", "p1_only"):
         mode_rows = [row for row in rows if row.get("mode") == mode]
         summary["modes"][mode] = {
             "baseline": _metrics(mode_rows, "base_rank"),
@@ -902,16 +1084,16 @@ def _build_summary(rows: Sequence[Dict[str, Any]], top_k: int) -> Dict[str, Any]
             "improved_cases": sum(1 for row in mode_rows if row.get("improved")),
             "became_top1_cases": sum(1 for row in mode_rows if row.get("became_top1")),
         }
-        if mode == "g7_pipeline":
+        if mode == "full_topology":
             subset_rows = _subset_rows(rows, mode, "topk_not_top1_before", top_k)
-            summary["subsets"]["g7_topk_not_top1_before"] = {
+            summary["subsets"]["full_topology_topk_not_top1"] = {
                 "baseline": _metrics(subset_rows, "base_rank"),
                 "reranked": _metrics(subset_rows, "reranked_rank"),
                 "n": len(subset_rows),
             }
         if mode == "p1_only":
             subset_rows = _subset_rows(rows, mode, "topk_not_top1_before", top_k)
-            summary["subsets"]["p1_topk_not_top1_before"] = {
+            summary["subsets"]["p1_topk_not_top1"] = {
                 "baseline": _metrics(subset_rows, "base_rank"),
                 "reranked": _metrics(subset_rows, "reranked_rank"),
                 "n": len(subset_rows),
@@ -920,7 +1102,7 @@ def _build_summary(rows: Sequence[Dict[str, Any]], top_k: int) -> Dict[str, Any]
     return summary
 
 
-def _write_summary_md(path: Path, summary: Dict[str, Any], comparison_rows: Sequence[Dict[str, Any]], top_k: int) -> None:
+def _write_summary_md(path: Path, summary: Dict[str, Any], comparison_rows: Sequence[Dict[str, Any]], top_k: int, system_label: str = DEFAULT_SYSTEM_LABEL) -> None:
     lines = [
         "# Graph-RAG Rerank Summary",
         "",
@@ -934,11 +1116,11 @@ def _write_summary_md(path: Path, summary: Dict[str, Any], comparison_rows: Sequ
             f"| {row['system']} | {row['top10']:.1f}% | {row['top1']:.1f}% | {row['mrr10']:.4f} |"
         )
 
-    subset = summary.get("subsets", {}).get("g7_topk_not_top1_before", {})
+    subset = summary.get("subsets", {}).get("full_topology_topk_not_top1", {})
     lines.extend(
         [
             "",
-            f"## Target Subset: Full-topology (G7) Top-{top_k} But Not Top-1",
+            f"## Target Subset: Full-topology ({system_label}) Top-{top_k} But Not Top-1",
             "",
             f"- Cases: {subset.get('n', 0)}",
             f"- Baseline Top-1: {subset.get('baseline', {}).get('top1_pct', 0.0):.1f}%",
@@ -946,13 +1128,13 @@ def _write_summary_md(path: Path, summary: Dict[str, Any], comparison_rows: Sequ
             f"- Baseline MRR@10: {subset.get('baseline', {}).get('mrr10', 0.0):.4f}",
             f"- Reranked MRR@10: {subset.get('reranked', {}).get('mrr10', 0.0):.4f}",
             "",
-            f"## Target Subset: P1-only (G7 coarse) Top-{top_k} But Not Top-1",
+            f"## Target Subset: P1-only ({system_label} coarse) Top-{top_k} But Not Top-1",
             "",
-            f"- Cases: {summary.get('subsets', {}).get('p1_topk_not_top1_before', {}).get('n', 0)}",
-            f"- Baseline Top-1: {summary.get('subsets', {}).get('p1_topk_not_top1_before', {}).get('baseline', {}).get('top1_pct', 0.0):.1f}%",
-            f"- Reranked Top-1: {summary.get('subsets', {}).get('p1_topk_not_top1_before', {}).get('reranked', {}).get('top1_pct', 0.0):.1f}%",
-            f"- Baseline MRR@10: {summary.get('subsets', {}).get('p1_topk_not_top1_before', {}).get('baseline', {}).get('mrr10', 0.0):.4f}",
-            f"- Reranked MRR@10: {summary.get('subsets', {}).get('p1_topk_not_top1_before', {}).get('reranked', {}).get('mrr10', 0.0):.4f}",
+            f"- Cases: {summary.get('subsets', {}).get('p1_topk_not_top1', {}).get('n', 0)}",
+            f"- Baseline Top-1: {summary.get('subsets', {}).get('p1_topk_not_top1', {}).get('baseline', {}).get('top1_pct', 0.0):.1f}%",
+            f"- Reranked Top-1: {summary.get('subsets', {}).get('p1_topk_not_top1', {}).get('reranked', {}).get('top1_pct', 0.0):.1f}%",
+            f"- Baseline MRR@10: {summary.get('subsets', {}).get('p1_topk_not_top1', {}).get('baseline', {}).get('mrr10', 0.0):.4f}",
+            f"- Reranked MRR@10: {summary.get('subsets', {}).get('p1_topk_not_top1', {}).get('reranked', {}).get('mrr10', 0.0):.4f}",
             "",
             "## Per-Family Breakdown",
             "",
@@ -977,7 +1159,7 @@ def main() -> None:
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--top-k", type=int, default=DEFAULT_TOP_K)
-    parser.add_argument("--mode", choices=["all", "g7_pipeline", "p1_only"], default="all")
+    parser.add_argument("--mode", choices=["all", "full_topology", "p1_only"], default="all")
     parser.add_argument("--prompt-mode", choices=["single_shot", "cot"], default="single_shot")
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--sleep-seconds", type=float, default=0.5)
@@ -987,7 +1169,13 @@ def main() -> None:
         type=Path,
         default=PROJECT_ROOT / "output" / "lora6_v2_ap_20260331" / "graph_rag_rerank" / _date_tag(),
     )
+    parser.add_argument(
+        "--label",
+        default=DEFAULT_SYSTEM_LABEL,
+        help="System label used in plot/summary headings (e.g. G7, G8, G9). Defaults to G7 for back-compat.",
+    )
     args = parser.parse_args()
+    base_labels, rerank_labels = _build_mode_labels(args.label)
 
     trace_rows = _load_jsonl(args.trace_jsonl)
     trace_rows = [row for row in trace_rows if _case_id_from_trace(row)]
@@ -995,7 +1183,7 @@ def main() -> None:
     graph = _connect_graph(args.config)
     gemini_model = None if args.skip_gemini else _init_gemini(args.model)
 
-    modes = ["g7_pipeline", "p1_only"] if args.mode == "all" else [args.mode]
+    modes = ["full_topology", "p1_only"] if args.mode == "all" else [args.mode]
     all_rows: List[Dict[str, Any]] = []
     for mode in modes:
         all_rows.extend(
@@ -1016,25 +1204,25 @@ def main() -> None:
     summary = _build_summary(all_rows, args.top_k)
     comparison_rows = [
         {
-            "system": MODE_BASE_LABELS["g7_pipeline"],
-            "top10": summary.get("modes", {}).get("g7_pipeline", {}).get("baseline", {}).get("top10_pct", 0.0),
-            "top1": summary.get("modes", {}).get("g7_pipeline", {}).get("baseline", {}).get("top1_pct", 0.0),
-            "mrr10": summary.get("modes", {}).get("g7_pipeline", {}).get("baseline", {}).get("mrr10", 0.0),
+            "system": base_labels["full_topology"],
+            "top10": summary.get("modes", {}).get("full_topology", {}).get("baseline", {}).get("top10_pct", 0.0),
+            "top1": summary.get("modes", {}).get("full_topology", {}).get("baseline", {}).get("top1_pct", 0.0),
+            "mrr10": summary.get("modes", {}).get("full_topology", {}).get("baseline", {}).get("mrr10", 0.0),
         },
         {
-            "system": MODE_RERANK_LABELS["g7_pipeline"],
-            "top10": summary.get("modes", {}).get("g7_pipeline", {}).get("reranked", {}).get("top10_pct", 0.0),
-            "top1": summary.get("modes", {}).get("g7_pipeline", {}).get("reranked", {}).get("top1_pct", 0.0),
-            "mrr10": summary.get("modes", {}).get("g7_pipeline", {}).get("reranked", {}).get("mrr10", 0.0),
+            "system": rerank_labels["full_topology"],
+            "top10": summary.get("modes", {}).get("full_topology", {}).get("reranked", {}).get("top10_pct", 0.0),
+            "top1": summary.get("modes", {}).get("full_topology", {}).get("reranked", {}).get("top1_pct", 0.0),
+            "mrr10": summary.get("modes", {}).get("full_topology", {}).get("reranked", {}).get("mrr10", 0.0),
         },
         {
-            "system": MODE_BASE_LABELS["p1_only"],
+            "system": base_labels["p1_only"],
             "top10": summary.get("modes", {}).get("p1_only", {}).get("baseline", {}).get("top10_pct", 0.0),
             "top1": summary.get("modes", {}).get("p1_only", {}).get("baseline", {}).get("top1_pct", 0.0),
             "mrr10": summary.get("modes", {}).get("p1_only", {}).get("baseline", {}).get("mrr10", 0.0),
         },
         {
-            "system": MODE_RERANK_LABELS["p1_only"],
+            "system": rerank_labels["p1_only"],
             "top10": summary.get("modes", {}).get("p1_only", {}).get("reranked", {}).get("top10_pct", 0.0),
             "top1": summary.get("modes", {}).get("p1_only", {}).get("reranked", {}).get("top1_pct", 0.0),
             "mrr10": summary.get("modes", {}).get("p1_only", {}).get("reranked", {}).get("mrr10", 0.0),
@@ -1065,8 +1253,8 @@ def main() -> None:
     ]
     _write_csv(args.out_dir / "graph_rag_rerank_results.csv", all_rows, csv_fields)
     _write_json(args.out_dir / "graph_rag_rerank_summary.json", summary)
-    _write_summary_md(args.out_dir / "graph_rag_rerank_summary.md", summary, comparison_rows, args.top_k)
-    _plot_comparison(args.out_dir / "graph_rag_rerank_comparison.png", comparison_rows, args.top_k)
+    _write_summary_md(args.out_dir / "graph_rag_rerank_summary.md", summary, comparison_rows, args.top_k, system_label=args.label)
+    _plot_comparison(args.out_dir / "graph_rag_rerank_comparison.png", comparison_rows, args.top_k, system_label=args.label)
 
     print(f"\nSaved results to: {args.out_dir}")
 

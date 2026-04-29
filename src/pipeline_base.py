@@ -133,6 +133,8 @@ class V2Pipeline(PipelineBase):
             visual_aligner=visual_aligner,
             use_clip=profile.get("use_clip", False),
             p0_strategy=config.get("p0_strategy", "p0_intersect_p1"),
+            size_cluster_mode=(config.get("retrieval", {}) or {}).get("size_cluster_mode", "soft"),
+            size_band_mode=(config.get("retrieval", {}) or {}).get("size_band_mode", "hard"),
         )
 
         # Build centralized image parser (VLM-based)

@@ -7,7 +7,7 @@ system_instruction: |
 single_shot_user: |
   Match the construction-site evidence to the best BIM candidate.
 
-  Use the site photo, floorplan patch, query text, and structured hints. Prefer candidates whose type, storey, host wall, slot position, and left/right neighbors best match the evidence.
+  Use the site photo, floorplan patch, query text, and structured hints. Prefer candidates whose type, storey, host wall, slot position, and left/right neighbors best match the evidence. Each evidence field is annotated with `(conf=…, src=…)` — higher confidence means more trustworthy. Each candidate carries a deterministic `match: band=… slot=… → fusion=…` summary; candidates are listed in fusion order (highest first). When fusion margins are wide, lean toward the top of the list; when they are tight, use the site photo and neighbor context to break ties.{descriptor_instruction}
 
   Structured hints:
   {evidence_block}
@@ -25,7 +25,7 @@ single_shot_user: |
 cot_reasoning_user: |
   You are doing a careful BIM rerank in two steps.
 
-  Use the site photo, floorplan patch, query text, and structured hints. Work through the shortlist before ranking it.
+  Use the site photo, floorplan patch, query text, and structured hints. Work through the shortlist before ranking it.{descriptor_instruction}
 
   Structured hints:
   {evidence_block}
@@ -41,7 +41,8 @@ cot_reasoning_user: |
   Q2. Which candidates share the most compatible host wall context?
   Q3. If the evidence contains position or counting cues, which candidates best match slot position? If not, say there is no reliable position cue.
   Q4. Which candidates best match left/right neighbor, connects-to, or adjacent context?
-  Q5. Based on the answers above, which 2-3 candidates are strongest, and why?
+  Q5. If `target_description` or `size_cluster` is present, which candidates' IFC name (e.g. "BALANS 30M FLOOR (SH = 0)" ↔ "floor-to-ceiling window") best match? If not, say there is no descriptor cue.
+  Q6. Based on the answers above, which 2-3 candidates are strongest, and why?
   Keep the answer concise. Do not rank all letters yet.
 
 cot_rank_user: |

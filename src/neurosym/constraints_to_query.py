@@ -75,20 +75,10 @@ class QueryPlanner:
                        sp.name as space
             """
         },
-        {
-            "priority": 2,
-            "strategy": "name_keyword",
-            "requires": ["target_name_keyword"],
-            "description": "Equipment brand/ID fuzzy name match (~1-3 candidates)",
-            "template_memory": "search_by_name_keyword",
-            "template_cypher": """
-                MATCH (e:IFCElement)
-                WHERE toLower(e.name) CONTAINS toLower($name_keyword)
-                  AND e.ifc_model = $model
-                RETURN e.guid as guid, e.name as name, e.ifc_type as type
-                LIMIT 20
-            """
-        },
+        # 6.1.0: priority-2 `name_keyword` strategy removed. Vocabulary mismatch
+        # (GT-label ↔ IFC-name CONTAINS = 0/31) made it signal-dead. Field is
+        # now rerank-only descriptor; see `_structured_evidence` in
+        # graph_rag_rerank_ap.py.
         # ── Original rules (renumbered 1-5 → 4-8) ───────────────────────────
         {
             "priority": 4,
@@ -254,8 +244,7 @@ class QueryPlanner:
         if "space_name" in required_fields:
             params["space_name"] = constraints.space_name
 
-        if "target_name_keyword" in required_fields:
-            params["name_keyword"] = constraints.target_name_keyword
+        # 6.1.0: target_name_keyword no longer routed to any retrieval strategy.
 
         # Phase 5: spatial_triplet — extract predicate data from the first triplet
         if "spatial_relations" in required_fields and constraints.spatial_relations:
@@ -310,20 +299,17 @@ class QueryPlanner:
         else:
             params["fingerprint_level_requested"] = "attribute_only"
 
-        # T1.1: Always propagate target_name_keyword for post-filtering P0 results.
-        # This applies AFTER Cypher returns candidates (Python-side filter).
-        if constraints.target_name_keyword:
-            params["target_name_keyword"] = constraints.target_name_keyword
-
-        # Dimension routing (G9): prefer size_cluster equality. Fall back to
-        # ±50mm tolerance only when size_cluster is absent (legacy G7/G8 traces).
+        # 6.1.0: target_name_keyword is no longer routed into retrieval params
+        # (signal-dead post-filter; consumed only by the graph-RAG reranker).
+        # 6.1.1: size_cluster is propagated, but the backend's behaviour is
+        # mode-controlled (off/soft/hard) via config — see `size_cluster_mode`.
         if constraints.size_cluster:
             params["target_size_cluster"] = constraints.size_cluster
-        else:
-            if constraints.target_width_mm is not None:
-                params["target_width_mm"] = constraints.target_width_mm
-            if constraints.target_height_mm is not None:
-                params["target_height_mm"] = constraints.target_height_mm
+        # 6.1.6: size_band is propagated alongside; backend uses STARTS WITH
+        # against target.size_cluster on the candidate side. Mode-controlled
+        # via `size_band_mode` (off/soft/hard) parallel to size_cluster_mode.
+        if constraints.size_band:
+            params["target_size_band"] = constraints.size_band
 
         return params
 

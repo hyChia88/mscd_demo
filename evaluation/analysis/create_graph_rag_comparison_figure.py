@@ -43,16 +43,29 @@ VARIANT_HATCHES = {
 }
 
 
+def _normalise_modes_key(d: Dict[str, Any]) -> Dict[str, Any]:
+    """Renamed g7_pipeline → full_topology; tolerate legacy summary JSONs."""
+    modes = d.get("modes")
+    if isinstance(modes, dict) and "g7_pipeline" in modes and "full_topology" not in modes:
+        modes["full_topology"] = modes.pop("g7_pipeline")
+    return d
+
+
 def _load_json(path: Path) -> Dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    return _normalise_modes_key(json.loads(path.read_text(encoding="utf-8")))
 
 
 def _load_jsonl(path: Path) -> List[Dict[str, Any]]:
     with path.open("r", encoding="utf-8") as f:
-        return [json.loads(line) for line in f if line.strip()]
+        rows = [json.loads(line) for line in f if line.strip()]
+    # Row-level mode field also gets normalised so historical CSV/JSONLs work.
+    for r in rows:
+        if r.get("mode") == "g7_pipeline":
+            r["mode"] = "full_topology"
+    return rows
 
 
-def _subset_stats(rows: List[Dict[str, Any]], top_k: int, mode: str = "g7_pipeline") -> Dict[str, int]:
+def _subset_stats(rows: List[Dict[str, Any]], top_k: int, mode: str = "full_topology") -> Dict[str, int]:
     subset = [
         r
         for r in rows
@@ -111,15 +124,15 @@ def build_rows(
     rows = [
         {
             "system": g7_label,
-            "top10": g7_summary["modes"]["g7_pipeline"]["baseline"]["top10_pct"],
-            "top1": g7_summary["modes"]["g7_pipeline"]["baseline"]["top1_pct"],
-            "mrr10": g7_summary["modes"]["g7_pipeline"]["baseline"]["mrr10"],
+            "top10": g7_summary["modes"]["full_topology"]["baseline"]["top10_pct"],
+            "top1": g7_summary["modes"]["full_topology"]["baseline"]["top1_pct"],
+            "mrr10": g7_summary["modes"]["full_topology"]["baseline"]["mrr10"],
         },
         {
             "system": g7_rerank_label,
-            "top10": g7_summary["modes"]["g7_pipeline"]["reranked"]["top10_pct"],
-            "top1": g7_summary["modes"]["g7_pipeline"]["reranked"]["top1_pct"],
-            "mrr10": g7_summary["modes"]["g7_pipeline"]["reranked"]["mrr10"],
+            "top10": g7_summary["modes"]["full_topology"]["reranked"]["top10_pct"],
+            "top1": g7_summary["modes"]["full_topology"]["reranked"]["top1_pct"],
+            "mrr10": g7_summary["modes"]["full_topology"]["reranked"]["mrr10"],
         },
         {
             "system": p1_label,
@@ -134,8 +147,8 @@ def build_rows(
             "mrr10": p1["reranked"]["mrr10"],
         },
     ]
-    g7_baseline = g7_summary["modes"]["g7_pipeline"]["baseline"]
-    g8_baseline = g8_summary["modes"]["g7_pipeline"]["baseline"]
+    g7_baseline = g7_summary["modes"]["full_topology"]["baseline"]
+    g8_baseline = g8_summary["modes"]["full_topology"]["baseline"]
     if g8_label and (
         g8_label != g7_label
         or g8_baseline["top10_pct"] != g7_baseline["top10_pct"]
@@ -152,9 +165,9 @@ def build_rows(
                 },
                 {
                     "system": g8_rerank_label,
-                    "top10": g8_summary["modes"]["g7_pipeline"]["reranked"]["top10_pct"],
-                    "top1": g8_summary["modes"]["g7_pipeline"]["reranked"]["top1_pct"],
-                    "mrr10": g8_summary["modes"]["g7_pipeline"]["reranked"]["mrr10"],
+                    "top10": g8_summary["modes"]["full_topology"]["reranked"]["top10_pct"],
+                    "top1": g8_summary["modes"]["full_topology"]["reranked"]["top1_pct"],
+                    "mrr10": g8_summary["modes"]["full_topology"]["reranked"]["mrr10"],
                 },
             ]
         )
@@ -162,9 +175,9 @@ def build_rows(
         rows.append(
             {
                 "system": g8_rerank_label,
-                "top10": g8_summary["modes"]["g7_pipeline"]["reranked"]["top10_pct"],
-                "top1": g8_summary["modes"]["g7_pipeline"]["reranked"]["top1_pct"],
-                "mrr10": g8_summary["modes"]["g7_pipeline"]["reranked"]["mrr10"],
+                "top10": g8_summary["modes"]["full_topology"]["reranked"]["top10_pct"],
+                "top1": g8_summary["modes"]["full_topology"]["reranked"]["top1_pct"],
+                "mrr10": g8_summary["modes"]["full_topology"]["reranked"]["mrr10"],
             }
         )
     if p1_g8_rerank_label:
@@ -496,11 +509,11 @@ def main() -> None:
         p1_g8_rerank_label=args.p1_g8_rerank_label,
         oracle_label=args.oracle_label,
     )
-    g7_subset = _subset_stats(g7_rows, args.top_k, mode="g7_pipeline")
+    g7_subset = _subset_stats(g7_rows, args.top_k, mode="full_topology")
     p1_subset = _subset_stats(g7_rows, args.top_k, mode="p1_only")
     changed_rows = (
-        _changed_cases(g7_rows, "g7_pipeline", args.g7_rerank_label)
-        + _changed_cases(g8_rows, "g7_pipeline", args.g8_rerank_label)
+        _changed_cases(g7_rows, "full_topology", args.g7_rerank_label)
+        + _changed_cases(g8_rows, "full_topology", args.g8_rerank_label)
         + _changed_cases(g7_rows, "p1_only", args.p1_rerank_label)
         + _changed_cases(g8_rows, "p1_only", args.p1_g8_rerank_label or "P1-only second reranker")
     )

@@ -1399,7 +1399,7 @@ DEFAULT_GEMINI_TRACES   = (
     / "ap_e2e_phase5_g8" / "gemini_ap_v2"
     / "traces_20260407_235044_v2_lora_p0_union_p1.jsonl"
 )
-# Combined rerank file (phase5, G8): mode='g7_pipeline' = G8 full-topo + GR rerank
+# Combined rerank file (phase5, G8): mode='full_topology' = G8 full-topo + GR rerank
 #                                     mode='p1_only'     = P1-only coarse + GR rerank
 DEFAULT_G8_RERANK_JSONL = (
     PROJECT_ROOT / "output" / "lora6_v2_ap_20260331"
@@ -1674,7 +1674,7 @@ def generate_eval_gallery(
     g8_eval     = _load_by_id(g8_eval_jsonl)
     gemini_eval = _load_by_id(gemini_eval_jsonl)
     # G8 rerank JSONL contains both modes in one file
-    g8_rerank   = _load_by_id_mode(g8_rerank_jsonl, mode_val="g7_pipeline")
+    g8_rerank   = _load_by_id_mode(g8_rerank_jsonl, mode_val="full_topology")
     p1_rerank   = _load_by_id_mode(g8_rerank_jsonl, mode_val="p1_only")
     eval_msgs   = _load_by_id(DEFAULT_EVAL_JSONL, key="id")
 

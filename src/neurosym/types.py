@@ -57,20 +57,30 @@ class Constraints(BaseModel):
     storey_name: Optional[str] = None  # e.g., "6 - Sixth Floor", "Level 1"
     ifc_class: Optional[str] = None  # e.g., "IfcWindow", "IfcWall", "IfcDoor"
     space_name: Optional[str] = None  # room/space name (e.g. "Living Room"); NOT storey
-    target_name_keyword: Optional[str] = None  # equipment ID (e.g. "AHU-03"); null for generic types
+    # Phase 6.1.0: rerank-only descriptor. Vocab mismatch with IFC names made
+    # the retrieval post-filter signal-dead (0/31 GT-label↔IFC-name). Now
+    # consumed solely by graph_rag_rerank_ap.py:_structured_evidence as
+    # natural-language bridge ("floor-to-ceiling window" → "BALANS 30M FLOOR").
+    target_name_keyword: Optional[str] = None
     position_context: Optional[str] = None  # e.g. "3rd of 17 openings on the same wall"
     position_context_confidence: Optional[float] = None
     position_context_source: Optional[str] = None
     spatial_relations: List[SpatialTriplet] = Field(default_factory=list)
-    # G9 (Phase 6): size cluster classification label (replaces ±50mm regression).
-    # Vocabulary: mscd_demo/prompts/size_cluster_taxonomy.json — e.g.
-    # "window_M_1480x1380", "door_S_760x2030". Retrieval filter is equality.
+    # Phase 6.1.1: size_cluster is rerank-only soft signal. Hard-equality filter
+    # in G9 was net-negative (32% precision → −14 cases vs G8). Vocabulary:
+    # mscd_demo/prompts/size_cluster_taxonomy.json (e.g. "window_M_1480x1380").
     size_cluster: Optional[str] = None
-    # Deprecated since G9. mm fields are kept on the schema for backward-compat
-    # with G7/G8 traces. No retrieval branch consumes them when size_cluster
-    # is present (the planner prefers size_cluster).
-    target_width_mm: Optional[float] = None   # deprecated G9
-    target_height_mm: Optional[float] = None  # deprecated G9
+    # Phase 6.1.6: size_band is the 6-way collapse of size_cluster predicted by
+    # the ResNet-18 classifier. Retrieval matches via STARTS WITH on the
+    # candidate's own size_cluster (e.g. size_band="window_M" matches all
+    # window_M_*). Vocabulary: {door_L, door_M, window_S, window_M, window_L, window_XL}.
+    size_band: Optional[str] = None
+    size_band_confidence: Optional[float] = None
+    size_band_source: Optional[str] = None  # "resnet_oracle_centroid" | "resnet_opencv" | …
+    # Deprecated, retained only for back-compat deserialization of G7/G8 traces.
+    # No code path reads these.
+    target_width_mm: Optional[float] = None
+    target_height_mm: Optional[float] = None
 
     # Diagnostics
     confidence: float = 0.0  # Confidence score (0.0-1.0)

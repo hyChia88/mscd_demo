@@ -1867,7 +1867,7 @@ def plot_multimodal_weak_proof(out_path: Path) -> None:
         print(f"[SKIP] rerank file not found: {rerank_f}")
         return
     rows  = [json.loads(l) for l in rerank_f.open()]
-    g7    = {r["case_id"]: r for r in rows if r["mode"] == "g7_pipeline"}
+    g7    = {r["case_id"]: r for r in rows if r["mode"] in ("full_topology", "g7_pipeline")}
     p1    = {r["case_id"]: r for r in rows if r["mode"] == "p1_only"}
     common = sorted(set(g7) & set(p1))
     n      = len(common)

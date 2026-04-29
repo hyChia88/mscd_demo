@@ -146,8 +146,8 @@ def init_registry_llm(config: Dict[str, Any]):
     - gemini-2.5-flash is a thinking model; LangChain's wrapper returns empty .content
     - google.generativeai provides reliable sync text generation
 
-    Registry model defaults to gemini-2.0-flash (fast, cheap, no thinking overhead).
-    Override with llm.registry_model in config.yaml if needed.
+    Registry model defaults to gemini-3.1-flash-lite-preview (gemini-2.0-flash
+    was retired April 2026). Override with llm.registry_model in config.yaml if needed.
 
     Returns:
         Object with .complete(prompt: str) -> str interface,
@@ -164,7 +164,7 @@ def init_registry_llm(config: Dict[str, Any]):
 
     genai.configure(api_key=api_key)
     llm_cfg = config.get("llm", {})
-    model_name = llm_cfg.get("registry_model", "gemini-2.0-flash")
+    model_name = llm_cfg.get("registry_model", "gemini-3.1-flash-lite-preview")
 
     class _RegistryClient:
         def __init__(self, m):

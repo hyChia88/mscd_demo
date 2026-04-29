@@ -23,6 +23,8 @@ class RetrievalBackend:
         visual_aligner: Optional[Any] = None,  # VisualAligner from v1
         use_clip: bool = False,
         p0_strategy: str = "p0_union_p1",  # retrieval strategy for P0
+        size_cluster_mode: str = "soft",  # "off" | "soft" | "hard"
+        size_band_mode: str = "hard",     # "off" | "soft" | "hard" — matches via STARTS WITH
     ):
         """
         Initialize retrieval backend.
@@ -37,12 +39,22 @@ class RetrievalBackend:
                 "p1_only"          — Skip P0, always use storey+type
                 "p0_intersect_p1"  — P0 ∩ P1 intersection (aggressive)
                 "p0_union_p1"      — P0 ∪ P1 union (default — best recall+ranking)
+            size_cluster_mode: How target.size_cluster influences spatial_triplet:
+                "off"  — ignore (rerank consumes it)
+                "soft" — ORDER BY match DESC, pos (preference, never excludes)
+                "hard" — WHERE target.size_cluster = $val (only safe at ≥70% precision)
         """
         self.engine = engine
         self.retrieval_mode = retrieval_mode
         self.visual_aligner = visual_aligner
         self.use_clip = use_clip and (visual_aligner is not None)
         self.p0_strategy = p0_strategy
+        if size_cluster_mode not in ("off", "soft", "hard"):
+            raise ValueError(f"size_cluster_mode must be off/soft/hard, got {size_cluster_mode!r}")
+        if size_band_mode not in ("off", "soft", "hard"):
+            raise ValueError(f"size_band_mode must be off/soft/hard, got {size_band_mode!r}")
+        self.size_cluster_mode = size_cluster_mode
+        self.size_band_mode = size_band_mode
 
     async def execute_plan(
         self,
@@ -204,11 +216,6 @@ class RetrievalBackend:
             filtered = [r for r in results if r.get("type") == target_type]
             # Graceful degradation: room found but type filter removes all → return unfiltered
             return filtered if filtered else results
-
-        elif strategy == "name_keyword":
-            # Equipment brand/ID fuzzy name match
-            keyword = params.get("name_keyword") or ""
-            return self.engine.query_elements_by_name_keyword(keyword)
 
         elif strategy == "neighbor+type":
             # Topology requires graph — memory mode has no adjacency data.
@@ -392,22 +399,45 @@ class RetrievalBackend:
                         self._fallback_triggered = True
                         self._strategy_actually_used = f"{plan.strategy}[relaxed]"
             else:
-                # Single-hop Cypher (original behavior, unchanged)
-                # Fix 3: build optional dimension clauses for single-hop
-                single_hop_dim_clause = ""
-                single_hop_dim_params: Dict[str, Any] = {}
-                if params.get("target_width_mm") is not None:
-                    single_hop_dim_params["target_width_mm"] = float(params["target_width_mm"])
-                    single_hop_dim_clause += (
-                        "\n                      AND abs(coalesce(target.width_mm, -9999)"
-                        " - $target_width_mm) <= 50"
-                    )
-                if params.get("target_height_mm") is not None:
-                    single_hop_dim_params["target_height_mm"] = float(params["target_height_mm"])
-                    single_hop_dim_clause += (
-                        "\n                      AND abs(coalesce(target.height_mm, -9999)"
-                        " - $target_height_mm) <= 50"
-                    )
+                # 6.1.1: size_cluster handling is mode-controlled.
+                #   off  → ignore (no clause)
+                #   soft → ORDER BY match DESC, pos
+                #   hard → WHERE target.size_cluster = $val (legacy G9 mode)
+                # 6.1.6: size_band uses STARTS WITH on the candidate's
+                # full size_cluster property (no Neo4j migration needed).
+                # When BOTH size_band and size_cluster are set, size_band
+                # is preferred (broader, ResNet-derived) and size_cluster
+                # is ignored to avoid double-narrowing.
+                # NOTE: ORDER BY must reference projected aliases under
+                # RETURN DISTINCT — Cypher rejects bare variable refs there.
+                size_cluster_val = params.get("target_size_cluster")
+                size_band_val = params.get("target_size_band")
+                size_where = ""
+                size_order = "ORDER BY pos"
+                size_params: Dict[str, Any] = {}
+                if size_band_val and self.size_band_mode != "off":
+                    # Prefix-match against candidate's size_cluster (band_<dims>).
+                    size_params["target_size_band_prefix"] = f"{size_band_val}_"
+                    if self.size_band_mode == "hard":
+                        size_where = (
+                            "\n                      AND target.size_cluster"
+                            " STARTS WITH $target_size_band_prefix"
+                        )
+                    else:  # soft
+                        size_order = (
+                            "ORDER BY CASE WHEN size_cluster STARTS WITH"
+                            " $target_size_band_prefix THEN 0 ELSE 1 END, pos"
+                        )
+                elif size_cluster_val and self.size_cluster_mode != "off":
+                    size_params["target_size_cluster"] = str(size_cluster_val)
+                    if self.size_cluster_mode == "hard":
+                        size_where = "\n                      AND target.size_cluster = $target_size_cluster"
+                    else:  # soft
+                        size_order = (
+                            "ORDER BY CASE WHEN size_cluster = $target_size_cluster"
+                            " THEN 0 ELSE 1 END, pos"
+                        )
+
                 cypher = f"""
                     MATCH (target:IFCElement)-[:{predicate}]->(ref:IFCElement)
                     WHERE (target.ifc_type = $subject_type
@@ -418,10 +448,13 @@ class RetrievalBackend:
                       AND (size($storey_list) = 0
                            OR ANY(s IN $storey_list WHERE toLower(target.storey) CONTAINS s))
                       AND ($object_material = ''
-                           OR toLower(ref.material) CONTAINS toLower($object_material)){single_hop_dim_clause}
+                           OR toLower(ref.material) CONTAINS toLower($object_material)){size_where}
                     RETURN DISTINCT target.guid as guid, target.name as name,
                            target.ifc_type as type,
-                           ref.ifc_type as ref_type, ref.storey as ref_storey
+                           target.size_cluster as size_cluster,
+                           ref.ifc_type as ref_type, ref.storey as ref_storey,
+                           coalesce(target.wall_position_index, 999999) as pos
+                    {size_order}
                 """
                 result = self.engine.neo4j_conn.run(
                     cypher,
@@ -430,7 +463,7 @@ class RetrievalBackend:
                     storey_list=storey_siblings,
                     object_material=object_material,
                     model=model_key,
-                    **single_hop_dim_params,
+                    **size_params,
                 )
                 candidates = [dict(r) for r in result]
 
@@ -444,10 +477,13 @@ class RetrievalBackend:
                                OR ref.ifc_type STARTS WITH $object_type)
                           AND target.ifc_model = $model
                           AND ($object_material = ''
-                               OR toLower(ref.material) CONTAINS toLower($object_material)){single_hop_dim_clause}
+                               OR toLower(ref.material) CONTAINS toLower($object_material)){size_where}
                         RETURN DISTINCT target.guid as guid, target.name as name,
                                target.ifc_type as type,
-                               ref.ifc_type as ref_type, ref.storey as ref_storey
+                               target.size_cluster as size_cluster,
+                               ref.ifc_type as ref_type, ref.storey as ref_storey,
+                               coalesce(target.wall_position_index, 999999) as pos
+                        {size_order}
                     """
                     result2 = self.engine.neo4j_conn.run(
                         cypher_no_storey,
@@ -455,7 +491,7 @@ class RetrievalBackend:
                         object_type=object_type,
                         object_material=object_material,
                         model=model_key,
-                        **single_hop_dim_params,
+                        **size_params,
                     )
                     candidates = [dict(r) for r in result2]
 
@@ -474,8 +510,9 @@ class RetrievalBackend:
                     params=fallback_params,
                     expected_pool_size=fallback_pool
                 ))
-            # T1.1: Post-filter by target_name_keyword (e.g. BALANS 15M window subtype)
-            return self._post_filter_by_name_keyword(candidates, params)
+            # 6.1.0: target_name_keyword is now rerank-only (descriptor, not filter).
+            # GT-label vs IFC-name vocab overlap is 0/31 (audit 2026-04-28).
+            return candidates
 
         elif strategy == "continuous_span":
             # Property-filter for CONTINUOUS (is_continuous + top_constraint).
@@ -523,8 +560,8 @@ class RetrievalBackend:
                     params={"type": subject_type},
                     expected_pool_size=150
                 ))
-            # T1.1: Post-filter by target_name_keyword
-            return self._post_filter_by_name_keyword(candidates, params)
+            # 6.1.0: target_name_keyword is now rerank-only (descriptor, not filter).
+            return candidates
 
         # ── Phase 5B: new high-priority strategies (Neo4j graph queries) ──────
         elif strategy == "space+type":
@@ -532,11 +569,6 @@ class RetrievalBackend:
             space_name = params.get("space_name", "")
             target_type = params.get("type", "")
             return self.engine.query_elements_in_space(space_name, ifc_type=target_type)
-
-        elif strategy == "name_keyword":
-            # Fuzzy name match via Phase 1a method
-            keyword = params.get("name_keyword", "")
-            return self.engine.query_elements_by_name_keyword(keyword)
 
         # ── Original strategies ─────────────────────────────────────────────
         elif strategy == "storey+type":
@@ -820,22 +852,29 @@ class RetrievalBackend:
                 cypher_params["target_wall_child_total"] = int(params["position_total"])
                 where_parts.append("coalesce(target.wall_child_total, -1) = $target_wall_child_total")
 
-        # Dimension filter for IfcWindow/IfcDoor.
-        # G9: prefer cluster-equality (set by planner when LoRA emits `size_cluster`);
-        # fall back to legacy ±50mm tolerance for G7/G8 traces.
-        if params.get("target_size_cluster"):
-            cypher_params["target_size_cluster"] = str(params["target_size_cluster"])
-            where_parts.append("target.size_cluster = $target_size_cluster")
-        else:
-            if params.get("target_width_mm") is not None:
-                cypher_params["target_width_mm"] = float(params["target_width_mm"])
-                where_parts.append(
-                    "abs(coalesce(target.width_mm, -9999) - $target_width_mm) <= 50"
+        # 6.1.1 / 6.1.6: size_cluster + size_band, mode-controlled.
+        # ORDER BY must reference projected aliases under RETURN DISTINCT.
+        # When both fields are present, size_band wins (broader, ResNet-derived).
+        size_cluster_val = params.get("target_size_cluster")
+        size_band_val = params.get("target_size_band")
+        size_order = "ORDER BY pos"
+        if size_band_val and self.size_band_mode != "off":
+            cypher_params["target_size_band_prefix"] = f"{size_band_val}_"
+            if self.size_band_mode == "hard":
+                where_parts.append("target.size_cluster STARTS WITH $target_size_band_prefix")
+            else:  # soft
+                size_order = (
+                    "ORDER BY CASE WHEN size_cluster STARTS WITH"
+                    " $target_size_band_prefix THEN 0 ELSE 1 END, pos"
                 )
-            if params.get("target_height_mm") is not None:
-                cypher_params["target_height_mm"] = float(params["target_height_mm"])
-                where_parts.append(
-                    "abs(coalesce(target.height_mm, -9999) - $target_height_mm) <= 50"
+        elif size_cluster_val and self.size_cluster_mode != "off":
+            cypher_params["target_size_cluster"] = str(size_cluster_val)
+            if self.size_cluster_mode == "hard":
+                where_parts.append("target.size_cluster = $target_size_cluster")
+            else:  # soft
+                size_order = (
+                    "ORDER BY CASE WHEN size_cluster = $target_size_cluster"
+                    " THEN 0 ELSE 1 END, pos"
                 )
 
         match_str = "\n    ".join(match_lines)
@@ -847,9 +886,10 @@ class RetrievalBackend:
                target.ifc_type AS type,
                target.storey AS storey,
                target.object_type AS object_type,
+               target.size_cluster AS size_cluster,
                target.wall_child_total AS wall_child_total,
                target.wall_position_index AS pos
-        ORDER BY pos
+        {size_order}
         """
         try:
             return [dict(r) for r in self.engine.neo4j_conn.run(cypher, **cypher_params)]
@@ -939,39 +979,57 @@ class RetrievalBackend:
             return True
         return False
 
-    def _post_filter_by_name_keyword(
-        self,
-        candidates: List[Dict[str, Any]],
-        params: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
-        """
-        T1.1 — Post-filter P0 candidates by target_name_keyword.
-
-        Window ObjectType (e.g. BALANS 15M vs 10M) is discriminating (pool 42→~9).
-        Applied after Cypher returns candidates to avoid Cypher complexity.
-        Graceful: never filters to empty set; skips if pool already small.
-        """
-        keyword = params.get("target_name_keyword", "")
-        if not keyword or len(candidates) <= 3:
-            return candidates
-        kw_lower = keyword.lower()
-        filtered = [
-            c for c in candidates
-            if kw_lower in (c.get("name") or "").lower()
-        ]
-        # Graceful: don't filter to empty
-        return filtered if filtered else candidates
-
     def _get_storey_type_pool(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
         Run a storey+type query using the same params as the P0 plan.
         Used by the P0 ∩ P1 defensive intersection.
         Returns [] if storey or subject_type is missing.
+
+        6.1.6: when `target_size_band` (hard mode) or `target_size_cluster`
+        (hard mode) is in scope, filter P1 by the same constraint via Cypher.
+        Otherwise unfiltered P1 swamps band-filtered P0 in the p0_union_p1
+        path, washing out the band signal.
         """
         storey = params.get("storey", "")
         subject_type = params.get("subject_type", "")
         if not storey or not subject_type:
             return []
+
+        # Direct Cypher path when neo4j is up — needed to apply band/cluster
+        # filters that the legacy storey+type executor doesn't carry.
+        if self.retrieval_mode == "neo4j" and getattr(self.engine, "neo4j_conn", None):
+            storey_siblings = self._resolve_storey_siblings(storey)
+            cypher_params: Dict[str, Any] = {
+                "type": subject_type,
+                "storey_list": storey_siblings,
+                "model": getattr(self.engine, "model_key", "AP"),
+            }
+            size_where = ""
+            band_val = params.get("target_size_band")
+            cluster_val = params.get("target_size_cluster")
+            if band_val and self.size_band_mode == "hard":
+                cypher_params["target_size_band_prefix"] = f"{band_val}_"
+                size_where = "\n              AND e.size_cluster STARTS WITH $target_size_band_prefix"
+            elif cluster_val and self.size_cluster_mode == "hard":
+                cypher_params["target_size_cluster"] = str(cluster_val)
+                size_where = "\n              AND e.size_cluster = $target_size_cluster"
+            cypher = f"""
+                MATCH (s:IFCStorey)-[:CONTAINS]->(e:IFCElement)
+                WHERE (e.ifc_type = $type OR e.ifc_type STARTS WITH $type)
+                  AND e.ifc_model = $model
+                  AND (size($storey_list) = 0
+                       OR ANY(alias IN $storey_list WHERE toLower(s.name) CONTAINS alias)){size_where}
+                RETURN e.guid AS guid, e.name AS name, e.ifc_type AS type,
+                       e.size_cluster AS size_cluster, s.name AS storey,
+                       coalesce(e.wall_position_index, 999999) AS pos
+                ORDER BY pos
+            """
+            try:
+                return [dict(r) for r in self.engine.neo4j_conn.run(cypher, **cypher_params)]
+            except Exception:
+                pass  # fall through to legacy path
+
+        # Memory-mode / no-neo4j fallback (no band filter — kept for back-compat)
         p1_plan = QueryPlan(
             priority=4,
             strategy="storey+type",

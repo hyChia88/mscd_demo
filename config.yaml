@@ -29,6 +29,26 @@ neo4j:
   enabled: true
 
 # -----------------------------------------------------------------------------
+# Retrieval Backend Configuration
+# -----------------------------------------------------------------------------
+retrieval:
+  # bases on g9, How the extractor-emitted size_cluster influences spatial-triplet retrieval.
+  # Modes:
+  #   "off"  — ignore size_cluster in retrieval (rerank-only soft signal)
+  #   "soft" — ORDER BY size_cluster match (preference, never excludes GT)
+  #   "hard" — WHERE target.size_cluster = $val (exclusion; only safe at ≥70% precision)
+  # Default "soft" because G9 VLM precision is ~32%. Flip to "hard" once a
+  # higher-accuracy classifier replaces the field (Phase 6.1.5 ResNet target ≥70%).
+  size_cluster_mode: "soft"
+  # 6.1.6: size_band filter mode for the ResNet 6-way classifier prediction.
+  # Modes match size_cluster_mode (off/soft/hard) but match via prefix:
+  #   "soft" → ORDER BY (target.size_cluster STARTS WITH '<band>_') DESC, pos
+  #   "hard" → WHERE target.size_cluster STARTS WITH '<band>_'
+  # ResNet test accuracy on AP held-out is ~83% — "hard" is safe when
+  # confidence-gated (inject script default min_confidence=0.6).
+  size_band_mode: "hard"
+
+# -----------------------------------------------------------------------------
 # Ground Truth Test Configuration
 # -----------------------------------------------------------------------------
 ground_truth:

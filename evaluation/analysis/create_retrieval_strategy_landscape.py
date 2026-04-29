@@ -63,10 +63,18 @@ def _load_csv_rows(path: Path) -> List[Dict[str, str]]:
         return list(csv.DictReader(f))
 
 
+def _normalise_modes_key(d: dict) -> dict:
+    """Renamed g7_pipeline → full_topology; tolerate legacy summary JSONs."""
+    modes = d.get("modes")
+    if isinstance(modes, dict) and "g7_pipeline" in modes and "full_topology" not in modes:
+        modes["full_topology"] = modes.pop("g7_pipeline")
+    return d
+
+
 def _load_json(path: Path) -> dict:
     import json
 
-    return json.loads(path.read_text(encoding="utf-8"))
+    return _normalise_modes_key(json.loads(path.read_text(encoding="utf-8")))
 
 
 def _track_row(path: Path, group: str) -> Dict[str, str]:
@@ -111,18 +119,18 @@ def _build_rerank_rows() -> List[Dict[str, float | str]]:
     return [
         {
             "system": "Full-topology (G7)",
-            "top1": float(g7_15["modes"]["g7_pipeline"]["baseline"]["top1_pct"]),
-            "mrr10": float(g7_15["modes"]["g7_pipeline"]["baseline"]["mrr10"]),
+            "top1": float(g7_15["modes"]["full_topology"]["baseline"]["top1_pct"]),
+            "mrr10": float(g7_15["modes"]["full_topology"]["baseline"]["mrr10"]),
         },
         {
             "system": "Full-topology (G7) + rerank@10",
-            "top1": float(g7_10["modes"]["g7_pipeline"]["reranked"]["top1_pct"]),
-            "mrr10": float(g7_10["modes"]["g7_pipeline"]["reranked"]["mrr10"]),
+            "top1": float(g7_10["modes"]["full_topology"]["reranked"]["top1_pct"]),
+            "mrr10": float(g7_10["modes"]["full_topology"]["reranked"]["mrr10"]),
         },
         {
             "system": "Full-topology (G7) + rerank@15",
-            "top1": float(g7_15["modes"]["g7_pipeline"]["reranked"]["top1_pct"]),
-            "mrr10": float(g7_15["modes"]["g7_pipeline"]["reranked"]["mrr10"]),
+            "top1": float(g7_15["modes"]["full_topology"]["reranked"]["top1_pct"]),
+            "mrr10": float(g7_15["modes"]["full_topology"]["reranked"]["mrr10"]),
         },
         {
             "system": "P1-only (G7 coarse)",
