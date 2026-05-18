@@ -139,10 +139,15 @@
   </script>
 
   <script>
-    // Dynamically load bundle from the same static base
+    // Dynamically load bundle from the same static base. The cache-buster
+    // forces the browser to always fetch the latest bundle when it changes —
+    // without it, edits to viewer.bundle.js silently load the stale cached
+    // copy and the demo "appears stuck" until a hard refresh.
     const s = document.createElement("script");
     s.type = "module";
-    s.src  = staticBase + "/viewer.bundle.js";
+    const buster = (window.VIEWER_CONFIG && window.VIEWER_CONFIG.viewer_version)
+      || (Math.floor(Date.now() / 60000));   // 1-min granularity dev cache buster
+    s.src  = staticBase + "/viewer.bundle.js?v=" + encodeURIComponent(buster);
     document.body.appendChild(s);
   </script>
 </body>

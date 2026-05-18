@@ -124,14 +124,38 @@ async function main() {
     btnFocus.style.display = hasFocus ? "inline-block" : "none";
   }
 
-  async function applySelection({ focus = true } = {}) {
-    await model.setColor(undefined, COLOR_GHOST);
-    await model.setOpacity(undefined, 0.15);
+  // Highlight strategy:
+  //   • First applySelection() pays the O(n) global ghost cost ONCE — every
+  //     element gets dimmed to 15 % opacity + slate-gray. This restores the
+  //     "ghost everything else" visual the demo had before.
+  //   • Every subsequent applySelection() only re-ghosts the elements we
+  //     previously highlighted (typically 1–11 of them: target + GT + pool),
+  //     then re-paints the new selection. That keeps click-select snappy
+  //     without paying the O(n) cost on every interaction.
+  //   • Net effect: the *first* paint takes the same time as before, but
+  //     subsequent updates (Streamlit re-runs, viewer click-select, dashboard
+  //     case switches) drop from O(n) to O(|touched|).
+  let previousHighlights = [];
+  let globalGhostApplied = false;
 
+  async function applySelection({ focus = true } = {}) {
+    if (!globalGhostApplied) {
+      await model.setColor(undefined, COLOR_GHOST);
+      await model.setOpacity(undefined, 0.15);
+      globalGhostApplied = true;
+    } else if (previousHighlights.length > 0) {
+      // Re-ghost only the elements we previously coloured.
+      try { await model.setColor(previousHighlights, COLOR_GHOST); } catch (_) {}
+      try { await model.setOpacity(previousHighlights, 0.15); } catch (_) {}
+    }
+
+    const touchedIds = [];
     poolBox = null;
+
     if (poolLocalIds.length > 0) {
       await model.setOpacity(poolLocalIds, 0.7);
       await model.setColor(poolLocalIds, COLOR_POOL);
+      touchedIds.push(...poolLocalIds);
       try { poolBox = await model.getMergedBox(poolLocalIds); } catch (_) {}
     }
 
@@ -144,6 +168,7 @@ async function main() {
         const color = guidMatch ? COLOR_GREEN : COLOR_RED;
         await model.resetOpacity(targetIds);
         await model.setColor(targetIds, color);
+        touchedIds.push(localId);
         try { nextFocusBox = await model.getMergedBox(targetIds); } catch (_) {}
       }
     }
@@ -154,12 +179,14 @@ async function main() {
       if (gtLocalId != null) {
         await model.resetOpacity([gtLocalId]);
         await model.setColor([gtLocalId], COLOR_BLUE);
+        touchedIds.push(gtLocalId);
         if (!nextFocusBox) {
           try { nextFocusBox = await model.getMergedBox([gtLocalId]); } catch (_) {}
         }
       }
     }
 
+    previousHighlights = touchedIds;
     currentFocusBox = nextFocusBox || poolBox || null;
     syncFocusButton();
 

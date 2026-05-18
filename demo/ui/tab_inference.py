@@ -214,13 +214,15 @@ def _stepper_chip(num: int, title: str, value_html: str, status: str = "idle") -
 
 
 def _render_stepper(vlm_result: dict | None, retrieval_result: dict | None) -> None:
-    """Top horizontal stepper: Constraints → Cypher → Pool. Always visible."""
+    """Top horizontal stepper: Constraints → Cypher → Pool → Rerank. Always visible."""
     parsed = (vlm_result or {}).get("parsed") or {}
     plans = (retrieval_result or {}).get("plans") or []
     results = (retrieval_result or {}).get("results") or []
     winning_idx = (retrieval_result or {}).get("winning_index")
+    perception = (vlm_result or {}).get("perception") or {}
+    rerank = (retrieval_result or {}).get("rerank") or None
 
-    # Step 1 — Constraints
+    # Step 1 — Constraints (now also shows perception signals when present)
     if vlm_result is None:
         c1 = _stepper_chip(1, "Constraints", "<span style='color:#94a3b8;'>—</span>", "idle")
     else:
@@ -231,9 +233,17 @@ def _render_stepper(vlm_result: dict | None, retrieval_result: dict | None) -> N
             f"<code>{rels[0].get('predicate', '?')}</code> {rels[0].get('object_type', '?')}"
             if rels else "<i style='color:#94a3b8;'>attribute-only</i>"
         )
+        extra_bits: list[str] = []
+        if parsed.get("size_band"):
+            extra_bits.append(f"<span style='color:#0f766e;'>band {parsed['size_band']}</span>")
+        if parsed.get("position_context"):
+            pc = str(parsed["position_context"])
+            extra_bits.append(f"<span style='color:#7c3aed;'>{pc[:24]}{'…' if len(pc) > 24 else ''}</span>")
+        extra_html = (" · ".join(extra_bits)) if extra_bits else ""
         c1 = _stepper_chip(
             1, "Constraints",
-            f"<code>{ifc_class}</code> · {storey}<br>{rel_summary}",
+            f"<code>{ifc_class}</code> · {storey}<br>{rel_summary}"
+            + (f"<br>{extra_html}" if extra_html else ""),
             "active",
         )
 
@@ -255,19 +265,48 @@ def _render_stepper(vlm_result: dict | None, retrieval_result: dict | None) -> N
             "empty",
         )
 
-    # Step 3 — Pool
+    # Step 3 — Pool: show the relaxation ladder of plan pool sizes, ending
+    # with the winning plan's count and a P0∪P1 annotation when the backend
+    # appended P1-only candidates onto a strict P0 hit (raw < pool_size).
     if winning_idx is not None and winning_idx < len(results):
         win = results[winning_idx]
         pool_size = win.get("pool_size", 0)
         raw = win.get("raw_pool_size")
         latency = (retrieval_result or {}).get("_latency_ms", 0)
-        if raw is not None and raw != pool_size:
-            pool_text = f"<code>{raw}</code> → <code style='color:#15803d;font-weight:700;'>{pool_size}</code>"
+
+        # Build ladder up to the winner. Each rung = "P{priority}:{count}".
+        ladder_bits: list[str] = []
+        for i in range(winning_idx + 1):
+            plan_i = plans[i] if i < len(plans) else {}
+            res_i = results[i] if i < len(results) else {}
+            prio = plan_i.get("priority", "?")
+            count = (res_i or {}).get("pool_size", 0)
+            if i == winning_idx:
+                ladder_bits.append(
+                    f"<code style='color:#15803d;font-weight:700;'>P{prio}:{count}</code>"
+                )
+            else:
+                ladder_bits.append(
+                    f"<span style='color:#94a3b8;'><code>P{prio}:{count}</code></span>"
+                )
+        ladder_html = " → ".join(ladder_bits)
+
+        # Suffix: "(pool_size) P0∪P1" when the winner is a P0 strategy that
+        # was union-merged with P1; otherwise "(pool_size)".
+        win_strategy = (plans[winning_idx] or {}).get("strategy", "")
+        is_p0 = win_strategy in ("spatial_triplet", "continuous_span")
+        if is_p0 and raw is not None and raw != pool_size:
+            suffix_html = (
+                f"<span style='color:#0f172a;font-weight:600;'>({pool_size})</span> "
+                f"<span style='color:#7c3aed;font-weight:600;'>P0∪P1</span>"
+            )
         else:
-            pool_text = f"<code style='color:#15803d;font-weight:700;'>{pool_size}</code> candidates"
+            suffix_html = f"<span style='color:#0f172a;font-weight:600;'>({pool_size})</span>"
+
         c3 = _stepper_chip(
             3, "Pool",
-            f"{pool_text}<br><span style='color:#64748b;'>{latency} ms</span>",
+            f"{ladder_html}<br>{suffix_html} · "
+            f"<span style='color:#64748b;'>{latency} ms</span>",
             "winner",
         )
     elif retrieval_result is not None:
@@ -275,8 +314,38 @@ def _render_stepper(vlm_result: dict | None, retrieval_result: dict | None) -> N
     else:
         c3 = _stepper_chip(3, "Pool", "<span style='color:#94a3b8;'>—</span>", "idle")
 
+    # Step 4 — Rerank
+    if rerank is None:
+        if retrieval_result is not None:
+            c4 = _stepper_chip(
+                4, "Rerank",
+                "<span style='color:#94a3b8;'>off</span>",
+                "idle",
+            )
+        else:
+            c4 = _stepper_chip(4, "Rerank", "<span style='color:#94a3b8;'>—</span>", "idle")
+    elif rerank.get("failed"):
+        reason = str(rerank.get("reason") or "failed")[:32]
+        c4 = _stepper_chip(
+            4, "Rerank",
+            f"<span style='color:#dc2626;font-weight:600;'>failed</span><br>"
+            f"<span style='color:#64748b;'>{reason}</span>",
+            "empty",
+        )
+    else:
+        fusions = list((rerank.get("fusion_scores") or {}).values())
+        top_fusion = max(fusions) if fusions else 0.0
+        winner_guid = (rerank.get("winner_guid") or "")
+        winner_short = winner_guid[:10] + "…" if winner_guid else "—"
+        c4 = _stepper_chip(
+            4, "Rerank",
+            f"<span style='color:#15803d;font-weight:600;'>{winner_short}</span><br>"
+            f"fusion <code>{top_fusion:.2f}</code>",
+            "winner",
+        )
+
     st.markdown(
-        f"<div style='display:flex;gap:10px;margin-bottom:14px;'>{c1}{c2}{c3}</div>",
+        f"<div style='display:flex;gap:10px;margin-bottom:14px;'>{c1}{c2}{c3}{c4}</div>",
         unsafe_allow_html=True,
     )
 
@@ -334,6 +403,7 @@ def _render_symbolic_graph_panel(
     subgraph = (retrieval_result or {}).get("subgraph") or {}
     pool_guids = (retrieval_result or {}).get("pool_guids") or []
 
+
     # Pull the winning Cypher for stage 2.
     cypher_text = ""
     win_priority = ""
@@ -349,6 +419,37 @@ def _render_symbolic_graph_panel(
         cypher_text = queries[0] if queries else ""
         win_priority = win_plan.get("priority", "")
         win_strategy = win_plan.get("strategy", "")
+
+    # Per-stage candidate guids for the 6-stage animation.
+    _ATTR_STRATS = ("storey+type", "space+type", "storey_only", "type_only")
+    _TOPO_STRATS = ("spatial_triplet", "continuous_span")
+
+    def _result_guids(strats: tuple[str, ...], strict_topology: bool = False) -> list[str]:
+        """Return candidate guids for the first plan whose strategy matches.
+
+        When `strict_topology` is True and the matched plan is P0
+        (spatial_triplet/continuous_span), only the strict P0 hits are
+        returned — i.e. `candidates[:raw_pool_size]`. The retrieval backend
+        appends P1-only candidates *after* the strict P0 set when
+        `p0_strategy="p0_union_p1"` (the default), so this slice cleanly
+        isolates the exact-topology subset.
+        """
+        for idx, plan in enumerate(plans):
+            if plan.get("strategy") in strats:
+                res = results[idx] if idx < len(results) else None
+                if not res:
+                    continue
+                cands = res.get("candidates") or []
+                if strict_topology:
+                    raw = res.get("raw_pool_size")
+                    if isinstance(raw, int) and raw >= 0:
+                        cands = cands[:raw]
+                return [c.get("guid", "") for c in cands if c.get("guid")]
+        return []
+
+    attribute_pool_guids = _result_guids(_ATTR_STRATS)
+    # Stage 5 should show ONLY exact-topology matches, not P0∪P1.
+    topology_pool_guids = _result_guids(_TOPO_STRATS, strict_topology=True)
 
     payload = {
         "parsed": parsed,
@@ -367,6 +468,10 @@ def _render_symbolic_graph_panel(
         "pool_guids": pool_guids[:30],
         "ifc_class": parsed.get("ifc_class") or "",
         "storey_name": parsed.get("storey_name") or "",
+        "attribute_pool_guids": attribute_pool_guids[:60],
+        "attribute_pool_size": len(attribute_pool_guids),
+        "topology_pool_guids": topology_pool_guids[:30],
+        "topology_pool_size": len(topology_pool_guids),
     }
 
     html = _SYMBOLIC_GRAPH_HTML_TEMPLATE.replace(
@@ -375,15 +480,165 @@ def _render_symbolic_graph_panel(
     components.html(html, height=560, scrolling=False)
 
 
+def _render_perception_pill(vlm_result: dict | None) -> None:
+    """Single-glance pill: did OpenCV + ResNet run, what did they see?
+
+    Renders silently (returns) when the run was clearly not G9 — i.e. no
+    `perception` key in the VLM payload at all — so non-G9 sessions don't
+    see misleading 'off' badges.
+    """
+    if vlm_result is None or "perception" not in vlm_result:
+        return
+
+    perception = vlm_result.get("perception")
+
+    base_style = (
+        "display:inline-flex;align-items:center;gap:8px;"
+        "padding:6px 12px;border-radius:8px;font-size:0.84em;"
+        "font-family:-apple-system,sans-serif;margin:0 0 12px 0;"
+        "border:1px solid;"
+    )
+
+    if perception is None:
+        # G9 was selected but no floorplan was attached (predictor returned None).
+        st.markdown(
+            f"<div style='{base_style}background:#fef2f2;border-color:#fca5a5;color:#7f1d1d;'>"
+            f"<strong>Perception off</strong>"
+            f"<span style='color:#991b1b;'>· attach a floorplan via the “＋ plan” slot to enable OpenCV + ResNet</span>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        return
+
+    if perception.get("warning") and not perception.get("position_context"):
+        st.markdown(
+            f"<div style='{base_style}background:#fef3c7;border-color:#fcd34d;color:#78350f;'>"
+            f"<strong>Perception failed</strong>"
+            f"<span>· {perception['warning']}</span>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        return
+
+    chips: list[str] = []
+    storey = perception.get("storey_name") or "?"
+    scan = perception.get("scan_mode") or ""
+    scan_suffix = " · auto" if scan == "auto" else ""
+    chips.append(
+        f"<span style='color:#475569;'>storey</span> "
+        f"<code style='background:#f1f5f9;padding:1px 6px;border-radius:4px;'>{storey}</code>{scan_suffix}"
+    )
+
+    pc = perception.get("position_context")
+    if pc:
+        pc_conf = perception.get("position_context_confidence", 0.0)
+        match = perception.get("match_score")
+        match_suffix = f" / m={match:.2f}" if isinstance(match, (int, float)) else ""
+        chips.append(
+            f"<span style='color:#475569;'>OpenCV</span> "
+            f"<code style='background:#ecfdf5;color:#065f46;padding:1px 6px;border-radius:4px;'>"
+            f"{pc} · {pc_conf:.2f}{match_suffix}</code>"
+        )
+    else:
+        chips.append(
+            "<span style='color:#475569;'>OpenCV</span> "
+            "<span style='color:#dc2626;font-weight:600;'>n/a</span>"
+        )
+
+    band = perception.get("size_band")
+    if band:
+        band_conf = perception.get("size_band_confidence", 0.0)
+        chips.append(
+            f"<span style='color:#475569;'>ResNet</span> "
+            f"<code style='background:#eff6ff;color:#1e3a8a;padding:1px 6px;border-radius:4px;'>"
+            f"{band} · {band_conf:.2f}</code>"
+        )
+    elif perception.get("resnet_error"):
+        chips.append(
+            f"<span style='color:#475569;'>ResNet</span> "
+            f"<span style='color:#dc2626;font-weight:600;'>err</span>"
+        )
+    else:
+        chips.append(
+            "<span style='color:#475569;'>ResNet</span> "
+            "<span style='color:#94a3b8;'>—</span>"
+        )
+
+    body = " · ".join(chips)
+    st.markdown(
+        f"<div style='{base_style}background:#f8fafc;border-color:#e2e8f0;color:#0f172a;'>"
+        f"<strong style='color:#15803d;'>Perception</strong> · {body}"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def _render_rerank_panel(retrieval_result: dict | None) -> None:
+    """Live Graph-RAG rerank panel: fusion scores, prompt, Gemini ranking."""
+    if retrieval_result is None:
+        st.caption("Run inference with a rerank-enabled pipeline to populate this panel.")
+        return
+    rerank = (retrieval_result or {}).get("rerank")
+    if rerank is None:
+        st.info(
+            "Rerank is **off** for this run. Switch the pipeline to a "
+            "`+ Graph-RAG rerank` variant in **Settings** to enable it."
+        )
+        return
+
+    if rerank.get("failed"):
+        st.error(f"Rerank failed: {rerank.get('reason') or 'unknown'}")
+    else:
+        st.success(
+            f"Reranked top-{len(rerank.get('ordered_guids') or [])}. "
+            f"Winner: `{rerank.get('winner_guid') or '?'}`"
+        )
+
+    fusion_scores = rerank.get("fusion_scores") or {}
+    letter_to_guid = rerank.get("letter_to_guid") or {}
+    descriptions = rerank.get("descriptions") or []
+    ordered_guids = rerank.get("ordered_guids") or []
+
+    if descriptions:
+        st.markdown("**Candidate fingerprints (pre-rerank fusion order)**")
+        for desc in descriptions[:10]:
+            st.markdown(f"- {desc}")
+
+    if ordered_guids and fusion_scores:
+        st.markdown("**Reranked order (Gemini)**")
+        rows: list[str] = []
+        guid_to_letter = {g: l for l, g in letter_to_guid.items()}
+        for rank, guid in enumerate(ordered_guids[:10], 1):
+            letter = guid_to_letter.get(guid, "?")
+            fusion = fusion_scores.get(guid, 0.0)
+            rows.append(
+                f"{rank}. **{letter}** · `{guid}` · fusion `{fusion:.2f}`"
+            )
+        st.markdown("\n".join(rows))
+
+    cot = rerank.get("cot_reasoning")
+    if cot:
+        with st.expander("CoT reasoning", expanded=False):
+            st.markdown(cot)
+    raw = rerank.get("raw_output")
+    if raw:
+        with st.expander("Raw Gemini output", expanded=False):
+            st.code(raw)
+    prompt = rerank.get("prompt_text")
+    if prompt:
+        with st.expander("Final prompt", expanded=False):
+            st.code(prompt)
+
+
 def _render_drawer(vlm_result: dict | None, retrieval_result: dict | None) -> None:
-    """Bottom drawer: raw JSON · Cypher · Symbolic Graph (placeholder). Collapsed by default."""
-    label = "Process details — JSON · Cypher · Symbolic Graph"
+    """Bottom drawer: raw JSON · Cypher · Perception. Collapsed by default."""
+    label = "Process details — JSON · Cypher · Perception"
     with st.expander(label, expanded=False):
         if vlm_result is None:
             st.caption("Run inference to populate details.")
             return
 
-        tabs = st.tabs(["Parsed JSON", "Cypher", "Symbolic Graph"])
+        tabs = st.tabs(["Parsed JSON", "Cypher", "Perception"])
         parsed = (vlm_result or {}).get("parsed") or {}
         query_payloads = _collect_backend_queries(retrieval_result)
 
@@ -406,7 +661,12 @@ def _render_drawer(vlm_result: dict | None, retrieval_result: dict | None) -> No
                             st.code(query, language="cypher")
 
         with tabs[2]:
-            _render_symbolic_graph_panel(vlm_result, retrieval_result)
+            perception = (vlm_result or {}).get("perception")
+            if not perception:
+                st.caption("No server-side perception (G9 Modal predictor not used, "
+                           "or no floorplan patch / storey provided).")
+            else:
+                st.code(json.dumps(perception, indent=2, ensure_ascii=True), language="json")
 
 
 def _render_user_bubble(live_inputs: dict) -> None:
@@ -516,6 +776,31 @@ def _render_chat_history(*, case_id: str) -> None:
     _render_assistant_bubble(vlm_result, retrieval_result, case_id=case_id)
 
 
+_MODEL_VARIANTS = {
+    "G9 — OpenCV + ResNet · full topology": {
+        "predictor": "G9Predictor", "skip_p0": False, "rerank": False,
+    },
+    "G9 — OpenCV + ResNet · full topology + rerank": {
+        "predictor": "G9Predictor", "skip_p0": False, "rerank": True,
+    },
+    "G9 — OpenCV + ResNet · P1 + rerank": {
+        "predictor": "G9Predictor", "skip_p0": True, "rerank": True,
+    },
+    "G8 — full topology": {
+        "predictor": "G8ModelPredictor", "skip_p0": False, "rerank": False,
+    },
+    "G8 — P1 + rerank": {
+        "predictor": "G8ModelPredictor", "skip_p0": True, "rerank": True,
+    },
+    "G4-Ultimate — full topology": {
+        "predictor": "G8Predictor", "skip_p0": False, "rerank": False,
+    },
+    "G4-Ultimate — P1 + rerank": {
+        "predictor": "G8Predictor", "skip_p0": True, "rerank": True,
+    },
+}
+
+
 def _render_composer(*, case_id: str, trace: dict | None) -> None:
     """Bottom composer: large attached thumbnails · text · attach (+) · send · settings."""
     # Nonce-rotated keys so the composer renders truly fresh after each submit
@@ -525,7 +810,16 @@ def _render_composer(*, case_id: str, trace: dict | None) -> None:
     nonce = st.session_state.get("composer_nonce", 0)
     chat_key = f"inference_chat_{nonce}"
     images_key = f"inference_images_{nonce}"
+    floorplan_key = f"inference_floorplan_{nonce}"
     send_key = f"run_pipeline_{nonce}"
+
+    # Show the floorplan slot only when the selected pipeline actually uses it
+    # (G9 → server-side OpenCV + ResNet). For G8 / G4-Ultimate the slot is
+    # hidden so the composer collapses back to the original one-uploader UX.
+    selected_variant = st.session_state.get("inf_model_variant", "") or next(iter(_MODEL_VARIANTS))
+    show_floorplan_slot = (
+        _MODEL_VARIANTS.get(selected_variant, {}).get("predictor") == "G9Predictor"
+    )
 
     with st.container(border=True):
         # Show currently-attached thumbnails large, above the text area.
@@ -538,6 +832,18 @@ def _render_composer(*, case_id: str, trace: dict | None) -> None:
                 for i, f in enumerate(existing_files):
                     cols[i % 2].image(f, use_container_width=True)
 
+        # accept_multiple_files=False returns a single UploadedFile (or None),
+        # not a list — iterating it as a list feeds PIL the raw bytes.
+        floorplan_upload = st.session_state.get(floorplan_key)
+        if isinstance(floorplan_upload, list):
+            floorplan_upload = floorplan_upload[0] if floorplan_upload else None
+        if show_floorplan_slot and floorplan_upload is not None:
+            st.image(
+                floorplan_upload,
+                caption="Floorplan patch (G9 only)",
+                use_container_width=True,
+            )
+
         chat_text = st.text_area(
             "Field message",
             height=90,
@@ -546,38 +852,91 @@ def _render_composer(*, case_id: str, trace: dict | None) -> None:
             label_visibility="collapsed",
         )
 
-        # Compact action row: [ + ]  [        Send        ]
-        attach_col, send_col = st.columns([0.7, 4.3], gap="small")
-        with attach_col.popover("＋", use_container_width=True, help="Attach photo or floorplan"):
+        # Compact action row. Floorplan slot only appears when G9 is selected.
+        if show_floorplan_slot:
+            attach_col, plan_col, send_col = st.columns([0.7, 0.7, 3.6], gap="small")
+        else:
+            attach_col, send_col = st.columns([0.7, 4.3], gap="small")
+            plan_col = None
+        with attach_col.popover("＋", use_container_width=True, help="Attach site photo(s)"):
             st.file_uploader(
-                "Attach images",
+                "Attach site photos",
                 type=["png", "jpg", "jpeg"],
                 accept_multiple_files=True,
                 key=images_key,
                 label_visibility="collapsed",
             )
+        if plan_col is not None:
+            with plan_col.popover("＋ plan", use_container_width=True, help="Attach a floorplan patch (used by G9 OpenCV + ResNet)"):
+                st.file_uploader(
+                    "Attach floorplan patch",
+                    type=["png", "jpg", "jpeg"],
+                    accept_multiple_files=False,
+                    key=floorplan_key,
+                    label_visibility="collapsed",
+                )
         run_btn = send_col.button(
             "Send", type="primary", use_container_width=True, key=send_key
         )
 
         # Files persist in session_state via the file_uploader key.
         uploaded_files = st.session_state.get(images_key) or []
+        # Refresh after the popover may have set the value.
+        floorplan_upload = st.session_state.get(floorplan_key)
+        if isinstance(floorplan_upload, list):
+            floorplan_upload = floorplan_upload[0] if floorplan_upload else None
+        if not show_floorplan_slot:
+            # Don't forward a stale floorplan to a non-G9 predictor.
+            floorplan_upload = None
 
         with st.expander("Settings", expanded=False):
             st.selectbox(
-                "VLM Model",
-                [
-                    "G8 — Full Topology",
-                    "G8 — P1 + Rerank",
-                    "G4-Ultimate — Full Topology",
-                    "G4-Ultimate — P1 + Rerank",
-                ],
+                "Pipeline",
+                list(_MODEL_VARIANTS.keys()),
                 key="inf_model_variant",
             )
             st.selectbox(
                 "IFC Model",
                 ["AP (AdvancedProject)", "BH (BasicHouse)", "DXA (Duplex)"],
                 key="inf_ifc_model",
+            )
+            _storey_options = [
+                "1 - First Floor",
+                "2 - Second Floor",
+                "3 - Third Floor",
+                "4 - Fourth Floor",
+                "5 - Fifth Floor",
+                "6 - Sixth Floor",
+                "Level 1",
+                "Level 2",
+                "-1 - Garage",
+                "(auto-detect: scan all storeys)",
+            ]
+            st.selectbox(
+                "Storey (G9 perception)",
+                _storey_options,
+                index=0,
+                key="inf_storey",
+                help=(
+                    "Storey used to localise the floorplan patch + ResNet crop. "
+                    "'auto-detect' scans every calibrated storey and picks the "
+                    "highest OpenCV match score — costs ~0.5s extra."
+                ),
+            )
+            cols_modes = st.columns(2)
+            cols_modes[0].selectbox(
+                "size_band mode",
+                ["off", "soft", "hard"],
+                index=2,
+                key="inf_size_band_mode",
+                help="Cypher filter strength for the ResNet size_band signal.",
+            )
+            cols_modes[1].selectbox(
+                "size_cluster mode",
+                ["off", "soft", "hard"],
+                index=1,
+                key="inf_size_cluster_mode",
+                help="Cypher filter strength for the VLM size_cluster signal.",
             )
             st.radio(
                 "Ground truth (dev)",
@@ -601,9 +960,18 @@ def _render_composer(*, case_id: str, trace: dict | None) -> None:
         return
 
     mv = st.session_state.get("inf_model_variant", "")
-    skip_p0 = "P1 + Rerank" in mv
-    use_g8 = mv.startswith("G8")
+    variant_cfg = _MODEL_VARIANTS.get(mv) or next(iter(_MODEL_VARIANTS.values()))
+    predictor_name = variant_cfg["predictor"]
+    skip_p0 = bool(variant_cfg["skip_p0"])
+    enable_rerank = bool(variant_cfg["rerank"])
     model_code = (st.session_state.get("inf_ifc_model") or "AP").split(" ", 1)[0].strip()
+
+    storey_choice = st.session_state.get("inf_storey", "1 - First Floor")
+    # Empty string → G9 predictor scans every calibrated storey and picks
+    # the highest OpenCV match (auto-detect mode).
+    storey_for_perception = "" if storey_choice.startswith("(auto") else storey_choice
+    size_band_mode = st.session_state.get("inf_size_band_mode", "hard")
+    size_cluster_mode = st.session_state.get("inf_size_cluster_mode", "soft")
 
     gt_mode = st.session_state.get("inf_gt_source_mode", "None")
     if gt_mode == "Sidebar case" and case_id:
@@ -614,29 +982,43 @@ def _render_composer(*, case_id: str, trace: dict | None) -> None:
         gt_guid = ""
 
     metadata_text = f"[IFC Model] {model_code}"
+    if storey_for_perception:
+        metadata_text += f"\n[Location] {storey_for_perception}"
     all_image_bytes = [f.getvalue() for f in (uploaded_files or [])]
+    floorplan_bytes = floorplan_upload.getvalue() if floorplan_upload else None
 
-    model_label = "G8" if use_g8 else "G4-Ultimate"
+    pipeline_label = mv.split(" — ", 1)[0] if " — " in mv else mv
     t0 = time.time()
-    with st.spinner(f"Stage 1/3 — VLM inference ({model_label}) on Modal A100..."):
+    with st.spinner(f"Stage 1/3 — VLM inference ({pipeline_label}) on Modal A100..."):
         vlm_result = _call_modal_inference(
-            all_image_bytes, chat_text, metadata_text, use_g8=use_g8
+            all_image_bytes,
+            chat_text,
+            metadata_text,
+            predictor_name=predictor_name,
+            floorplan_patch_bytes=floorplan_bytes,
+            storey_name=storey_for_perception or None,
         )
     if vlm_result is None:
         return
 
     vlm_result["_latency_ms"] = int((time.time() - t0) * 1000)
     vlm_result["_model_variant"] = mv
+    vlm_result["_predictor"] = predictor_name
+
+    floorplan_path_persist = ""
+    if floorplan_upload is not None:
+        floorplan_path_persist = "<live floorplan patch>"
 
     st.session_state["last_live_inputs"] = _persist_live_inputs(
         uploaded_files=uploaded_files or [],
         chat_text=chat_text,
         model_code=model_code,
-        storey="",
+        storey=storey_for_perception,
         phase="",
         task_status="",
         case_id=case_id,
         gt_guid=gt_guid,
+        floorplan_upload=floorplan_upload,
     )
 
     retrieval_result = None
@@ -648,6 +1030,12 @@ def _render_composer(*, case_id: str, trace: dict | None) -> None:
                 model_code=model_code,
                 gt_guid=gt_guid,
                 skip_p0=skip_p0,
+                size_band_mode=size_band_mode,
+                size_cluster_mode=size_cluster_mode,
+                enable_rerank=enable_rerank,
+                query_text=chat_text,
+                site_image_bytes=all_image_bytes,
+                floorplan_bytes=floorplan_bytes,
             )
         if retrieval_result:
             retrieval_result["_latency_ms"] = int((time.time() - t1) * 1000)
@@ -710,7 +1098,14 @@ def render(
 
     with right_col:
         _render_stepper(vlm_result, retrieval_result)
-        _render_canvas(vlm_result, retrieval_result, static_base_url=static_base_url)
+        _render_perception_pill(vlm_result)
+        view_tabs = st.tabs(["Symbolic Graph", "3D Canvas", "Rerank"])
+        with view_tabs[0]:
+            _render_symbolic_graph_panel(vlm_result, retrieval_result)
+        with view_tabs[1]:
+            _render_canvas(vlm_result, retrieval_result, static_base_url=static_base_url)
+        with view_tabs[2]:
+            _render_rerank_panel(retrieval_result)
         _render_drawer(vlm_result, retrieval_result)
 
 
@@ -736,6 +1131,7 @@ def _persist_live_inputs(
     task_status: str,
     case_id: str,
     gt_guid: str,
+    floorplan_upload=None,
 ) -> dict:
     """Persist live demo inputs so the shared review tabs can render them."""
     base_dir = Path("/tmp/mscd_demo_live_inputs")
@@ -751,9 +1147,16 @@ def _persist_live_inputs(
         dest.write_bytes(upload.getvalue())
         photo_paths.append(str(dest))
 
+    floorplan_path = ""
+    if floorplan_upload is not None:
+        name = Path(getattr(floorplan_upload, "name", "floorplan.png")).name
+        dest = run_dir / f"floorplan_{name}"
+        dest.write_bytes(floorplan_upload.getvalue())
+        floorplan_path = str(dest)
+
     return {
         "photo_paths": photo_paths,
-        "floorplan_path": "",
+        "floorplan_path": floorplan_path,
         "chat_text": chat_text,
         "model_code": model_code,
         "storey": storey,
@@ -1114,31 +1517,38 @@ def _call_modal_inference(
     image_bytes_list: list[bytes],
     chat_text: str,
     metadata_text: str,
-    use_g8: bool = False,
+    *,
+    predictor_name: str = "G8Predictor",
+    floorplan_patch_bytes: bytes | None = None,
+    storey_name: str | None = None,
 ) -> dict | None:
     """Call the Modal VLM inference endpoint.
 
-    Routes to G8ModelPredictor (G8 adapter) or G8Predictor (G4-Ultimate adapter)
-    depending on use_g8. Both use lora_system_g7 prompt and base+PEFT two-step loading.
-    Strategy (full-topo vs P1+rerank) is controlled by skip_p0 in retrieval.
+    Routes to G9Predictor (G9 + OpenCV + ResNet), G8ModelPredictor
+    (G8 adapter), or G8Predictor (G4-Ultimate adapter). G9 additionally takes
+    a floorplan patch and storey name and runs the perception layer
+    server-side; G8/G4-Ultimate ignore those args. Strategy (full-topo vs
+    P1+rerank) is controlled by skip_p0 in retrieval.
     """
     try:
         import modal
-        cls_name = "G8ModelPredictor" if use_g8 else "G8Predictor"
-        predictor_cls = modal.Cls.from_name("mscd-vlm-lora3-inference", cls_name)
+        predictor_cls = modal.Cls.from_name("mscd-vlm-lora3-inference", predictor_name)
         predictor = predictor_cls()
-        result = predictor.predict.remote(
+        kwargs: dict = dict(
             image_bytes_list=image_bytes_list,
             chat_text=chat_text,
             metadata_text=metadata_text,
         )
+        if predictor_name == "G9Predictor":
+            kwargs["floorplan_patch_bytes"] = floorplan_patch_bytes
+            kwargs["storey_name"] = storey_name
+        result = predictor.predict.remote(**kwargs)
         return result
     except Exception as e:
         err_msg = str(e)
         if "NotFound" in err_msg or "not found" in err_msg.lower():
-            cls_name = "G8ModelPredictor" if use_g8 else "G8Predictor"
             st.error(
-                f"Modal app `mscd-vlm-lora3-inference` / `{cls_name}` not found. "
+                f"Modal app `mscd-vlm-lora3-inference` / `{predictor_name}` not found. "
                 "Deploy first:\n\n"
                 "```\nmodal deploy training/inference.py\n```"
             )
@@ -1251,6 +1661,13 @@ def _run_retrieval(
     model_code: str = "AP",
     gt_guid: str = "",
     skip_p0: bool = False,
+    *,
+    size_band_mode: str = "hard",
+    size_cluster_mode: str = "soft",
+    enable_rerank: bool = False,
+    query_text: str = "",
+    site_image_bytes: list[bytes] | None = None,
+    floorplan_bytes: bytes | None = None,
 ) -> dict | None:
     """Run the symbolic retrieval pipeline: Constraints → QueryPlanner → Neo4j."""
     try:
@@ -1269,10 +1686,17 @@ def _run_retrieval(
                 sr_raw = [r for r in rel_raw if isinstance(r, dict) and "predicate" in r]
         spatial_rels = []
         for rel in sr_raw:
+            direction = rel.get("direction")
+            if isinstance(direction, str):
+                direction = direction.lower().strip()
+            if direction not in {"left", "right"}:
+                direction = None
             spatial_rels.append(SpatialTriplet(
                 subject_type=parsed.get("ifc_class", ""),
                 predicate=rel.get("predicate", "ADJACENT_TO").upper(),
                 object_type=rel.get("object_type", ""),
+                object_subtype=rel.get("object_subtype"),
+                direction=direction,
                 object_material=rel.get("object_material"),
                 confidence=rel.get("confidence", 0.0),
             ))
@@ -1283,9 +1707,16 @@ def _run_retrieval(
             ifc_class=parsed.get("ifc_class"),
             space_name=parsed.get("space_name"),
             target_name_keyword=parsed.get("target_name_keyword"),
+            position_context=parsed.get("position_context"),
+            position_context_confidence=parsed.get("position_context_confidence"),
+            position_context_source=parsed.get("position_context_source"),
+            size_cluster=parsed.get("size_cluster"),
+            size_band=parsed.get("size_band"),
+            size_band_confidence=parsed.get("size_band_confidence"),
+            size_band_source=parsed.get("size_band_source"),
             spatial_relations=spatial_rels,
             confidence=conf,
-            source="lora3_live",
+            source="g9_live" if parsed.get("size_band") else "lora_live",
         )
 
         # Query planning
@@ -1309,6 +1740,8 @@ def _run_retrieval(
         backend = RetrievalBackend(
             engine=engine,
             retrieval_mode=retrieval_mode,
+            size_cluster_mode=size_cluster_mode,
+            size_band_mode=size_band_mode,
         )
 
         def _normalize_query(query: str) -> str:
@@ -1367,6 +1800,55 @@ def _run_retrieval(
         if winning_result:
             pool_guids = [c.get("guid", "") for c in winning_result["candidates"] if c.get("guid")]
 
+        # ── Optional Graph-RAG rerank on the live top-K shortlist ───────────────
+        rerank_payload: dict | None = None
+        if (
+            enable_rerank
+            and winning_result
+            and len(pool_guids) > 1
+            and retrieval_mode == "neo4j"
+            and getattr(engine, "neo4j_conn", None) is not None
+        ):
+            site_paths: list[str] = []
+            floorplan_path_for_rerank: str | None = None
+            if site_image_bytes or floorplan_bytes:
+                tmp_dir = Path("/tmp/mscd_demo_rerank") / str(int(time.time() * 1000))
+                tmp_dir.mkdir(parents=True, exist_ok=True)
+                for idx, blob in enumerate(site_image_bytes or []):
+                    p = tmp_dir / f"site_{idx}.png"
+                    p.write_bytes(blob)
+                    site_paths.append(str(p))
+                if floorplan_bytes:
+                    p = tmp_dir / "floorplan.png"
+                    p.write_bytes(floorplan_bytes)
+                    floorplan_path_for_rerank = str(p)
+            try:
+                from src.neurosym.graph_rag_rerank import rerank_topk
+                top_k = min(10, len(pool_guids))
+                rr = rerank_topk(
+                    graph=engine.neo4j_conn,
+                    candidate_guids=pool_guids[:top_k],
+                    candidate_fallbacks=winning_result["candidates"][:top_k],
+                    constraints=constraints.model_dump(mode="json"),
+                    query_text=query_text,
+                    site_image_paths=site_paths,
+                    floorplan_path=floorplan_path_for_rerank,
+                    top_k=top_k,
+                )
+                rerank_payload = rr.to_dict()
+                if not rr.failed and rr.ordered_guids:
+                    # Reorder the winning candidate list according to Gemini's ranking,
+                    # preserving the tail (rank > top_k) order.
+                    by_guid = {c.get("guid"): c for c in winning_result["candidates"]}
+                    head = [by_guid[g] for g in rr.ordered_guids if g in by_guid]
+                    seen = {g for g in rr.ordered_guids}
+                    tail = [c for c in winning_result["candidates"] if c.get("guid") not in seen]
+                    winning_result["candidates"] = head + tail
+                    pool_guids = [c.get("guid", "") for c in winning_result["candidates"] if c.get("guid")]
+                    winning_result["rerank_applied"] = True
+            except Exception as exc:
+                rerank_payload = {"failed": True, "reason": f"exception: {exc}"}
+
         # GT is explicit from UI case selection/manual case ID.
         gt_guid_final = (gt_guid or "").strip()
 
@@ -1395,6 +1877,8 @@ def _run_retrieval(
             "graph_snapshot": graph_snapshot,
             "gt_guid": gt_guid_final,
             "guid_match": guid_match,
+            "rerank": rerank_payload,
+            "constraints_used": constraints.model_dump(mode="json"),
         }
 
     except Exception as e:
@@ -1716,13 +2200,21 @@ def _build_viewer_url(
     viewer_base = static_base_url + "/demo/static/test_viewer.html"
     # Always pass GT GUID so viewer receives the true per-case target, even when GT == prediction.
     gt_param = gt_guid or ""
+    # Highlighting cost scales with pool size on web-ifc; cap to top-10 so
+    # the iframe paints fast. The full ranked shortlist still lives in the
+    # **Confirm match** table — this is just the visual pool.
+    # `_v` busts the browser cache when test_viewer.html or viewer.bundle.js
+    # is rebuilt — without it the iframe silently loads the stale cached
+    # copy and edits appear to do nothing.
+    import time as _time
     params = {
         "ifc": ifc_url,
         "target": target_guid,
         "gt": gt_param,
         "match": "1" if guid_match else "0",
-        "pool": ",".join(pool_guids[:60]),
+        "pool": ",".join(pool_guids[:10]),
         "base": static_base_url + "/demo/static",
+        "_v": str(int(_time.time() // 60)),
     }
     return viewer_base + "?" + urlencode(params)
 
@@ -1772,7 +2264,9 @@ _SYMBOLIC_GRAPH_HTML_TEMPLATE = r"""<!DOCTYPE html>
     <button class="sb" data-stage="1">1 · JSON</button>
     <button class="sb" data-stage="2">2 · JSON → Cypher</button>
     <button class="sb" data-stage="3">3 · Cypher on Graph</button>
-    <button class="sb" data-stage="4">4 · Answer</button>
+    <button class="sb" data-stage="4">4 · Attribute filter</button>
+    <button class="sb" data-stage="5">5 · Spatial topology</button>
+    <button class="sb" data-stage="6">6 · Answer</button>
     <button class="play" id="play">▶ Play</button>
   </div>
   <div class="content" id="content"></div>
@@ -1885,7 +2379,46 @@ function renderS3(){
     + '</div>';
 }
 
-function renderS4(){
+function renderS4Attr(){
+  const n = PAYLOAD.attribute_pool_size || 0;
+  const ifc = PAYLOAD.ifc_class || '?';
+  const storey = PAYLOAD.storey_name || '?';
+  const banner = SYNTH
+    ? '<div class="synth-banner"><span class="icon">⚠</span><div class="body"><b>SYNTHETIC GRAPH</b> &nbsp;<em>graph_snapshot is empty — the highlight below is illustrative only.</em></div></div>'
+    : '';
+  const wrapClass = SYNTH ? 'cy-wrap synth' : 'cy-wrap';
+  return ''
+    + banner
+    + '<div class="stage-hint">Stage 4 — attribute filter on graph: <span class="hl-storey">storey = '+esc(storey)+'</span> AND <span class="hl-ifc">ifc_class = '+esc(ifc)+'</span> &nbsp;→&nbsp; <strong style="color:#15803d;">'+n+' candidates</strong></div>'
+    + '<div style="flex:1;"><div class="'+wrapClass+'"><div id="cy"></div></div></div>'
+    + '<div class="legend">'
+    + '<span><i style="background:#cbd5e1;"></i>dim</span>'
+    + '<span><i style="background:#22c55e;"></i>storey + type match</span>'
+    + '</div>';
+}
+
+function renderS5Topo(){
+  const attrN = PAYLOAD.attribute_pool_size || 0;
+  const topoN = PAYLOAD.topology_pool_size || (PAYLOAD.pool_guids ? PAYLOAD.pool_guids.length : 0);
+  const rels = (PAYLOAD.parsed && PAYLOAD.parsed.spatial_relations) || [];
+  const r0 = rels[0] || {};
+  const relText = r0.predicate ? ('<span class="hl-pred">'+esc(r0.predicate)+'</span> → <span class="hl-obj">'+esc(r0.object_type||'?')+'</span>') : 'spatial relations';
+  const banner = SYNTH
+    ? '<div class="synth-banner"><span class="icon">⚠</span><div class="body"><b>SYNTHETIC GRAPH</b> &nbsp;<em>topology overlay is illustrative only.</em></div></div>'
+    : '';
+  const wrapClass = SYNTH ? 'cy-wrap synth' : 'cy-wrap';
+  return ''
+    + banner
+    + '<div class="stage-hint">Stage 5 — spatial topology compresses the attribute pool: '+attrN+' &nbsp;→&nbsp; <strong style="color:#dc2626;">'+topoN+'</strong> via '+relText+'</div>'
+    + '<div style="flex:1;"><div class="'+wrapClass+'"><div id="cy"></div></div></div>'
+    + '<div class="legend">'
+    + '<span><i style="background:#f59e0b;"></i>★ anchor (object_type)</span>'
+    + '<span><i style="background:#ef4444;"></i>topology candidate (strict P0)</span>'
+    + '<span><i style="background:#f59e0b;height:2px;border-radius:0;"></i>predicate edge</span>'
+    + '</div>';
+}
+
+function renderS6(){
   const sub = PAYLOAD.subgraph || {};
   const empty = (sub.nodes || []).length === 0;
   const banner = empty
@@ -1894,7 +2427,7 @@ function renderS4(){
   const wrapClass = empty ? 'cy-wrap synth' : 'cy-wrap';
   return ''
     + banner
-    + '<div class="stage-hint">Stage 4 — anchor + 1-hop neighbors. Satisfying edges (FILLS / ADJACENT_TO / CONTINUOUS) drawn solid green.</div>'
+    + '<div class="stage-hint">Stage 6 — answer: anchor + 1-hop neighbors. Satisfying edges (FILLS / ADJACENT_TO / CONTINUOUS) drawn solid green.</div>'
     + '<div style="flex:1;"><div class="'+wrapClass+'"><div id="cy"></div></div></div>';
 }
 
@@ -2030,7 +2563,105 @@ function initS3(){
   };
 }
 
-function initS4(){
+function initS4Attr(){
+  // Auto-animated attribute filter: dim the world, then pulse-highlight every
+  // node whose storey + type match the constraints. Runs without requiring
+  // the audience to click — the animation IS the explanation.
+  const {nodes, edges} = buildSnapshotElements();
+  cy = cytoscape({
+    container: document.getElementById('cy'),
+    elements: [...nodes, ...edges],
+    style: [
+      {selector:'node', style:{'background-color':'#cbd5e1','label':'data(label)','font-size':8,'color':'#94a3b8','width':16,'height':16,'text-valign':'bottom','text-margin-y':3,'text-max-width':80,'text-wrap':'ellipsis'}},
+      {selector:'edge', style:{'line-color':'#e2e8f0','width':1,'curve-style':'bezier','target-arrow-shape':'triangle','target-arrow-color':'#e2e8f0','arrow-scale':0.5}},
+      {selector:'node.attr', style:{'background-color':'#22c55e','color':'#15803d','width':22,'height':22,'border-width':2,'border-color':'#15803d'}},
+    ],
+    layout: {name:'cose', animate:false, idealEdgeLength:55, nodeRepulsion:3500, fit:true, padding:20},
+  });
+  const ifc = (PAYLOAD.ifc_class || '').toLowerCase();
+  const storey = (PAYLOAD.storey_name || '').toLowerCase();
+  const attrSet = new Set(PAYLOAD.attribute_pool_guids || []);
+  // Step in after a short delay so the audience sees the dim baseline first.
+  setTimeout(() => {
+    cy.batch(() => {
+      cy.nodes().forEach((n, i) => {
+        const guid = n.data('guid');
+        if (attrSet.size > 0) {
+          if (attrSet.has(guid)) n.addClass('attr');
+          return;
+        }
+        // Fallback heuristic when explicit attribute_pool_guids weren't sent.
+        const t = (n.data('type') || '').toLowerCase();
+        const ns = (n.data('storey') || '').toLowerCase();
+        const typeMatch = ifc && t && t.indexOf(ifc) === 0;
+        const storeyMatch = !storey || (ns && ns.includes(storey.split(' ').pop()));
+        if (typeMatch && storeyMatch) n.addClass('attr');
+        else if (!ifc && !storey && i % 3 === 0) n.addClass('attr');
+      });
+    });
+  }, 350);
+}
+
+function initS5Topo(){
+  // Stage 5 renders a *focused* subgraph: only the strict-P0 topology
+  // candidates plus a synthetic anchor node representing the spatial-relation
+  // object_type, with predicate edges from anchor → each candidate. The full
+  // building graph is intentionally hidden — the audience already saw the
+  // attribute pool in Stage 4.
+  const topoGuids = (PAYLOAD.topology_pool_guids || PAYLOAD.pool_guids || []).slice(0, 30);
+  const rels = (PAYLOAD.parsed && PAYLOAD.parsed.spatial_relations) || [];
+  const r0 = rels[0] || {};
+  const predicate = r0.predicate || 'TOPOLOGY';
+  const anchorType = r0.object_type || 'Anchor';
+  const anchorId = '__topology_anchor__';
+
+  // Look up each candidate's metadata from the snapshot — falls back to a
+  // generic label when the snapshot didn't include the node.
+  const snapshotById = new Map();
+  (PAYLOAD.snapshot.nodes || []).forEach(n => { snapshotById.set(n.guid, n); });
+
+  const subjectType = PAYLOAD.ifc_class || 'IfcElement';
+
+  const nodes = [
+    {data:{id:anchorId, label:'★ ' + anchorType, type:anchorType, guid:anchorId, role:'anchor'}},
+  ];
+  const edges = [];
+  if (topoGuids.length === 0) {
+    // No strict-topology hits — show a placeholder so the panel isn't empty.
+    nodes.push({data:{id:'__none__', label:'No exact topology matches', type:'note', guid:'__none__', role:'empty'}});
+    edges.push({data:{id:'e_none', source:anchorId, target:'__none__', rel:predicate}});
+  } else {
+    topoGuids.forEach((guid, idx) => {
+      const meta = snapshotById.get(guid) || {};
+      const label = (meta.name || meta.type || subjectType).slice(0, 20);
+      const type = meta.type || subjectType;
+      nodes.push({data:{id:guid, label:label, type:type, guid:guid, role:'cand'}});
+      edges.push({data:{id:'e_'+idx, source:anchorId, target:guid, rel:predicate}});
+    });
+  }
+
+  cy = cytoscape({
+    container: document.getElementById('cy'),
+    elements: [...nodes, ...edges],
+    style: [
+      {selector:'node', style:{'background-color':'#ef4444','label':'data(label)','font-size':10,'color':'#7f1d1d','width':30,'height':30,'text-valign':'bottom','text-margin-y':4,'text-max-width':140,'text-wrap':'ellipsis','border-width':2,'border-color':'#991b1b'}},
+      {selector:'node[role = "anchor"]', style:{'background-color':'#f59e0b','color':'#92400e','width':54,'height':54,'border-width':3,'border-color':'#92400e','font-size':12,'font-weight':'bold','z-index':99}},
+      {selector:'node[role = "empty"]', style:{'background-color':'#f1f5f9','color':'#64748b','width':140,'height':30,'shape':'roundrectangle','border-color':'#cbd5e1','font-size':10}},
+      {selector:'edge', style:{'line-color':'#f59e0b','width':2.4,'curve-style':'bezier','target-arrow-shape':'triangle','target-arrow-color':'#f59e0b','arrow-scale':0.9,'label':'data(rel)','font-size':9,'color':'#92400e','text-background-color':'#fff','text-background-opacity':0.9,'text-background-padding':2}},
+    ],
+    layout: {
+      name: 'concentric',
+      animate: false,
+      concentric: function(node) { return node.data('role') === 'anchor' ? 10 : 1; },
+      levelWidth: function() { return 1; },
+      minNodeSpacing: 35,
+      fit: true,
+      padding: 30,
+    },
+  });
+}
+
+function initS6(){
   const {nodes, edges} = buildSubgraphElements();
   const anchorId = PAYLOAD.anchor_guid || (nodes[0] && nodes[0].data.id) || '';
   cy = cytoscape({
@@ -2055,7 +2686,9 @@ function setStage(s){
   if (s === 1) c.innerHTML = renderS1();
   else if (s === 2) c.innerHTML = renderS2();
   else if (s === 3) { c.innerHTML = renderS3(); setTimeout(initS3, 30); }
-  else if (s === 4) { c.innerHTML = renderS4(); setTimeout(initS4, 30); }
+  else if (s === 4) { c.innerHTML = renderS4Attr(); setTimeout(initS4Attr, 30); }
+  else if (s === 5) { c.innerHTML = renderS5Topo(); setTimeout(initS5Topo, 30); }
+  else if (s === 6) { c.innerHTML = renderS6(); setTimeout(initS6, 30); }
 }
 
 document.querySelectorAll('.sb[data-stage]').forEach(b => {
@@ -2073,7 +2706,7 @@ document.getElementById('play').onclick = () => {
   btn.textContent = '⏸ Stop';
   let s = stage;
   playTimer = setInterval(() => {
-    s = s >= 4 ? 1 : s + 1;
+    s = s >= 6 ? 1 : s + 1;
     setStage(s);
   }, 2400);
 };

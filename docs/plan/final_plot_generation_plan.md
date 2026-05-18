@@ -25,9 +25,9 @@ Use these paths as the codebase reference points. Keep file paths configurable s
 - Main plot output directory already used in prior work:
   - `mscd_demo/docs/plots/phase4_lora6_main/`
 - Recommended new output directory for this final plotting task:
-  - `mscd_demo/docs/plots/final_ch7/`
+  - `mscd_demo/docs/plots/final/`
 - Recommended new data export directory:
-  - `mscd_demo/docs/plots/final_ch7/data/`
+  - `mscd_demo/docs/plots/final/data/`
 
 ### Phase 6 / final reranking references
 
@@ -36,10 +36,10 @@ Use these paths as the codebase reference points. Keep file paths configurable s
 - Graph-RAG prompt:
   - `mscd_demo/prompts/graphrag_rerank.yaml`
 - Phase 6 rerank artifacts:
-  - `mscd_demo/output/lora6_v2_ap_20260331/graph_rag_rerank/phase6_f4_{single_shot,cot,t2_comparison}/`
-  - `mscd_demo/docs/plots/phase4_lora6_main/fig11_phase6_f4_graph_rag_rerank_{comparison.png,summary.md,significant_cases.md}`
+  - `mscd_demo/output/lora6_v2_ap_20260331/graph_rag_rerank/phase6_1_g9_resnet_f4_fused/`
+  - `graph_rag_rerank_{comparison.png,summary.json,summary.md,results.csv,results.jsonl}`
 - Final Graph-RAG figure currently referenced in thesis:
-  - `figures/plots/phase6/graph_rag_prompt_modes.png`
+  - `figures/plots/final/fig05_graph_rag_evidence_dependent.png`
 
 ### OpenCV / deterministic visual heuristic references
 
@@ -115,7 +115,9 @@ Recommended font sizes:
 Output naming convention:
 
 ```text
-mscd_demo/docs/plots/final_ch7/
+mscd_demo/docs/plots/final/
+  fig00_symbolic_reasoning_trace.png
+  fig00_symbolic_reasoning_trace.pdf
   fig01_oracle_symbolic_ceiling.png
   fig01_oracle_symbolic_ceiling.pdf
   fig02_fingerprint_ladder.png
@@ -129,7 +131,9 @@ mscd_demo/docs/plots/final_ch7/
   fig06_summary_findings_table.png
   fig06_summary_findings_table.pdf
 
-mscd_demo/docs/plots/final_ch7/data/
+mscd_demo/docs/plots/final/data/
+  symbolic_reasoning_trace_counts.csv
+  symbolic_reasoning_trace_case.json
   oracle_symbolic_ceiling.csv
   fingerprint_ladder.csv
   lora_vs_gemini.csv
@@ -165,7 +169,160 @@ soft_rerank_gain    = improvement in top1/mrr10 after rerank without changing ca
 
 ## Required plots
 
-Generate the following six outputs.
+Generate the following seven outputs.
+
+The new `fig00` is the main slide-first proof for symbolic / graph reasoning.
+It is intentionally process-oriented rather than metric-only. `fig01` and `fig02`
+remain the quantitative follow-up visuals.
+
+---
+
+# 0. Symbolic / graph reasoning process trace
+
+## Output name
+
+`fig00_symbolic_reasoning_trace`
+
+## Purpose
+
+Show, with one real held-out case, how the symbolic backend turns typed language
+constraints into IFC-valid ranked candidates through an inspectable graph-planning
+process.
+
+## Thesis / slide claim
+
+> Symbolic retrieval is not a black-box search layer. It performs typed filtering,
+> topology-aware traversal, recall-preserving candidate union, and GUID-grounded
+> ranking.
+
+## Required data source
+
+Use one representative AP held-out case from:
+
+- `mscd_demo/evaluation/cases/cases_ap_heldout_e2e.jsonl`
+
+Join that case with the latest available symbolic retrieval traces:
+
+- extracted constraints / end-to-end prediction:
+  - `mscd_demo/output/lora6_v2_ap_20260331/g9_resnet_band_f4__ap_eval.jsonl`
+- internal retrieval trace with planner route and pool counts:
+  - `mscd_demo/output/lora6_v2_ap_20260331/ap_e2e_phase6_1_g9_resnet_band_v2/traces/**/*.trace.json`
+- optional rerank comparison for final Top-k ordering display:
+  - `mscd_demo/output/lora6_v2_ap_20260331/graph_rag_rerank/phase6_1_g9_resnet_f4_fused/graph_rag_rerank_results.jsonl`
+
+If the latest `phase6_1_g9_resnet_band_v2` trace for the chosen case is missing,
+fall back to another AP held-out case with:
+
+- parsed constraints present
+- `internals.query_plans` populated
+- `internals.retrieval_results` populated
+- a non-trivial candidate pool reduction
+
+## Metrics / fields to track
+
+For the selected case, capture:
+
+- `case_id`
+- `target_guid`
+- `input_text`
+- `storey_name`
+- `ifc_class`
+- `spatial_predicate`
+- `direction`
+- `host_guid` or host type if available
+- `planner_route`
+- `strategy_actually_used` or `query_plan_used`
+- `candidate_count_all`
+- `candidate_count_p1`
+- `candidate_count_p0`
+- `candidate_count_union`
+- `candidate_count_top10`
+- `gt_in_pool`
+- `gt_rank`
+- `top5_guid_list`
+
+Export:
+
+- `symbolic_reasoning_trace_counts.csv`
+- `symbolic_reasoning_trace_case.json`
+
+## Items to show in the figure
+
+The figure should include four left-to-right reasoning blocks:
+
+1. `Typed Constraints`
+   - storey
+   - class
+   - predicate
+   - direction
+   - host / subtype if present
+2. `Query Planner`
+   - `P1: storey + class`
+   - `P0: topology relation`
+   - `p0 ∪ p1 recall-preserving union`
+3. `Graph Traversal`
+   - containment
+   - type filtering
+   - topology edges
+   - enriched fingerprint matching
+4. `Ranked IFC Candidates`
+   - Top-5 GUIDs
+   - highlight GT if present
+
+Below the reasoning trace, add a compact candidate-count funnel:
+
+`All IFC elements -> Storey/Class -> Topology -> Fingerprint -> Top-10`
+
+Use real counts from the selected trace. Show counts under each stage.
+
+## Plot design
+
+Preferred design:
+
+- One combined figure for slides and thesis.
+- Main body: left-to-right reasoning trace with boxes and arrows.
+- Bottom inset: candidate compression funnel or waterfall.
+- Optional small thumbnail or short text snippet from the case on the far left.
+
+Do not render this as a plain performance bar chart. The emphasis is:
+
+- inspectable planner logic
+- schema-constrained retrieval
+- candidate pool compression
+- GUID-grounded output
+
+## Annotations
+
+Main annotation:
+
+`Symbolic retrieval constrains output to IFC-valid GUIDs and makes each filtering step inspectable.`
+
+Optional short slide callouts:
+
+- `Typed filters keep schema validity`
+- `Topology narrows the pool`
+- `Union preserves recall`
+- `Final output is an IFC GUID shortlist`
+
+## Logic to encode
+
+- The point is not that the graph alone solves all retrieval.
+- The point is that ontology-backed retrieval is inspectable and schema-valid.
+- The figure should make the planner route visible enough that a reviewer can
+  understand what information each stage adds.
+- If rerank output is shown, label it clearly as an optional final ordering step,
+  not as part of the symbolic filter core.
+
+## Figure caption draft
+
+```latex
+Reasoning trace for one AP held-out case. Typed constraints from the input are converted into query plans over the IFC graph, combining storey/class filtering with topology-aware retrieval and recall-preserving candidate union. Each stage remains inspectable and produces IFC-valid GUID candidates, while enriched graph fingerprints compress the candidate pool before final ranking.
+```
+
+## Slide role
+
+This is the strongest single visual proof for RQ2 in the main deck. Use it before
+the oracle ceiling and fingerprint compression plots.
 
 ---
 
@@ -590,83 +747,79 @@ Show that Graph-RAG is evidence-dependent rather than universally beneficial.
 
 ## Required data source
 
-Use final Graph-RAG prompt-mode outputs and create `graph_rag_evidence_dependent.csv`.
+Use the fused Graph-RAG summary at
+`mscd_demo/output/lora6_v2_ap_20260331/graph_rag_rerank/phase6_1_g9_resnet_f4_fused/graph_rag_rerank_summary.json`
+and create `graph_rag_evidence_dependent.csv`.
 
 Expected input schema:
 
-```csv
-condition,pool_type,has_opencv_ordinal,prompt_mode,top10,top1,mrr10,cost_level,notes
-G8 + OpenCV F4,topology_filtered,1,none,0.300,0.067,0.1126,none,baseline
-+ single-shot rerank,topology_filtered,1,single_shot,0.300,0.117,0.1612,low,best final rerank
-+ CoT rerank,topology_filtered,1,cot,0.300,0.083,0.1289,high,positive but weaker
-P1-only coarse,coarse,0,none,0.200,0.000,0.0321,none,coarse baseline
-P1-only + single-shot,coarse,0,single_shot,0.200,0.067,0.0970,low,coarse rerank gain
-P1-only + CoT,coarse,0,cot,0.200,0.033,0.0661,high,weaker than single-shot
+```json
+{
+  "modes": {
+    "full_topology": {
+      "baseline": {"n": 60, "top10_pct": 26.7, "top1_pct": 6.7, "mrr10": 0.1041, "avg_pool": 97.4},
+      "reranked": {"n": 60, "top10_pct": 26.7, "top1_pct": 8.3, "mrr10": 0.1244, "avg_pool": 97.4}
+    }
+  },
+  "subsets": {
+    "full_topology_topk_not_top1": {
+      "n": 12,
+      "baseline": {"top1_pct": 0.0, "mrr10": 0.1873},
+      "reranked": {"top1_pct": 25.0, "mrr10": 0.4135}
+    }
+  }
+}
 ```
 
-The known values above come from the final diagnostic note and should be checked against the current JSON/summary artifacts before plotting.
+The current fused trace is the authoritative source for this figure, even though
+the embedded mode labels still mention earlier G7 naming.
 
 ## Metrics to track
 
 - `top1`
 - `top10`
 - `mrr10`
-- `prompt_mode`
-- `has_opencv_ordinal`
-- `pool_type`
-- `cost_level`
+- `condition`
+- `n_cases`
+- `avg_pool`
+- `subset_top1`
+- `subset_mrr10`
 
 ## Items to track
 
 For each condition:
 
-- Whether the candidate pool is coarse or topology-filtered.
-- Whether OpenCV ordinal evidence is injected.
-- Prompt mode: none, single-shot, CoT.
+- Whether the row is baseline or fused reranked.
 - Whether Top-1 improves.
 - Whether MRR@10 improves.
 - Whether Top-10 is unchanged, which indicates reranking changes order, not candidate recall.
+- How the `Top-k but not Top-1` subset behaves after reranking.
 
 ## Plot design
 
 Preferred figure:
 
-- Grouped bars for `Top-1` and `MRR@10`.
-- Conditions on x-axis:
-  - `Baseline`
-  - `Single-shot`
-  - `CoT`
-- Use only the final G8 + OpenCV F4 topology-filtered comparison in the main figure.
-- Put P1-only coarse comparison in a small inset or backup figure only if needed.
-
-Alternative thesis figure:
-
 - Two panels:
-  - Panel A: topology-filtered G8 + OpenCV F4 conditions.
-  - Panel B: P1-only coarse control.
-
-Slide version:
-
-- Only Panel A.
-- Use three bars or dots.
+  - Panel A: `Top-10` and `Top-1` for `Baseline` vs `Fused reranked`.
+  - Panel B: `MRR@10` for `Baseline` vs `Fused reranked`.
+- Add a subset annotation using `subsets.full_topology_topk_not_top1`.
 
 ## Annotations
 
-- Above single-shot: `best Top-1 / MRR@10`.
-- Above CoT: `positive but weaker`.
-- Callout: `gain comes from new ordinal evidence, not CoT decomposition`.
+- Callout: `Top-10 unchanged: reranking changes order, not recall`.
+- Subset note: `Among 12 cases already in Top-10 but not Top-1, reranking rescues 3 to rank 1`.
 
 ## Logic to encode
 
 - Do not say Graph-RAG is always helpful.
-- Do not say CoT is the source of improvement.
-- The key insight is evidence availability.
+- Do not say chain-of-thought is the source of improvement.
+- The key insight is evidence availability plus better ordering within an already valid pool.
 - The figure supports filter-rerank decoupling.
 
 ## Figure caption draft
 
 ```latex
-Final Graph-RAG prompt-mode comparison on the AP held-out benchmark. With OpenCV-derived ordinal evidence injected into the reranking prompt, single-shot Graph-RAG improves G8 + OpenCV F4 from Top-1 6.7\% to 11.7\% and MRR@10 0.1126 to 0.1612. The CoT-decomposed variant improves less, reaching Top-1 8.3\% and MRR@10 0.1289. This indicates that the gain comes from additional discriminative evidence rather than chain-of-thought decomposition itself.
+Evidence-dependent Graph-RAG reranking on the AP held-out benchmark. On the latest fused rerank trace, Top-10 remains unchanged at 26.7\%, while Top-1 improves from 6.7\% to 8.3\% and MRR@10 rises from 0.1041 to 0.1244. The strongest effect appears on cases where the correct candidate is already in Top-10 but not yet ranked first, where reranking rescues 3 of 12 cases to Top-1. This indicates that the gain comes from better ordering within a valid pool rather than universal recall improvement.
 ```
 
 ## Thesis path replacement
@@ -680,16 +833,8 @@ figures/plots/[augmented_rerank_comparison].png
 with:
 
 ```latex
-figures/plots/final_ch7/fig05_graph_rag_evidence_dependent.png
+figures/plots/final/fig05_graph_rag_evidence_dependent.png
 ```
-
-Or copy the final file into:
-
-```text
-figures/plots/phase6/graph_rag_prompt_modes.png
-```
-
-if you want to avoid editing LaTeX paths.
 
 ---
 
@@ -964,14 +1109,14 @@ Generate a `plot_manifest.json` with this structure:
 ```json
 {
   "generated_at": "YYYY-MM-DDTHH:MM:SS",
-  "output_dir": "mscd_demo/docs/plots/final_ch7",
+  "output_dir": "mscd_demo/docs/plots/final",
   "source_cases": "mscd_demo/evaluation/cases/cases_ap_heldout_e2e.jsonl",
   "figures": [
     {
       "id": "fig01_oracle_symbolic_ceiling",
-      "png": "mscd_demo/docs/plots/final_ch7/fig01_oracle_symbolic_ceiling.png",
-      "pdf": "mscd_demo/docs/plots/final_ch7/fig01_oracle_symbolic_ceiling.pdf",
-      "data": "mscd_demo/docs/plots/final_ch7/data/oracle_symbolic_ceiling.csv",
+      "png": "mscd_demo/docs/plots/final/fig01_oracle_symbolic_ceiling.png",
+      "pdf": "mscd_demo/docs/plots/final/fig01_oracle_symbolic_ceiling.pdf",
+      "data": "mscd_demo/docs/plots/final/data/oracle_symbolic_ceiling.csv",
       "slide_use": true,
       "thesis_use": true,
       "rq": ["RQ2"],
@@ -981,33 +1126,26 @@ Generate a `plot_manifest.json` with this structure:
 }
 ```
 
-Include all six main figures plus any backup figures generated.
+Include all seven main figures plus any backup figures generated.
+Include all seven main figures plus any backup figures generated.
 
 ---
 
 ## Suggested script structure
 
-Create one plotting entry point and small helper modules.
+Create one plotting entry point under the existing analysis directory.
 
 ```text
-mscd_demo/evaluation/plots/final_ch7/
-  make_final_ch7_plots.py
-  plot_style.py
-  io_utils.py
-  plot_oracle_symbolic_ceiling.py
-  plot_fingerprint_ladder.py
-  plot_lora_vs_gemini.py
-  plot_multimodal_alignment_gain.py
-  plot_graph_rag_evidence_dependent.py
-  plot_summary_findings_table.py
+mscd_demo/evaluation/analysis/
+  generate_final_plot_suite.py
 ```
 
 Command:
 
 ```bash
-python -m mscd_demo.evaluation.plots.final_ch7.make_final_ch7_plots \
-  --output-dir mscd_demo/docs/plots/final_ch7 \
-  --data-dir mscd_demo/docs/plots/final_ch7/data
+python mscd_demo/evaluation/analysis/generate_final_plot_suite.py \
+  --output-dir mscd_demo/docs/plots/final \
+  --data-dir mscd_demo/docs/plots/final/data
 ```
 
 The script should:
@@ -1026,8 +1164,8 @@ Run these checks after generating figures.
 
 ### General checks
 
-- [ ] All six main plots exist as `.png` and `.pdf`.
-- [ ] All data CSVs exist.
+- [ ] All seven main plots exist as `.png` and `.pdf`.
+- [ ] All data CSVs exist, plus the `fig00` case JSON export.
 - [ ] `plot_manifest.json` exists.
 - [ ] No figure title contains `Phase 5` or `Phase 6`.
 - [ ] No figure claims `zero hallucination`.
@@ -1036,6 +1174,7 @@ Run these checks after generating figures.
 
 ### Logic checks
 
+- [ ] Symbolic reasoning trace answers RQ2: inspectable graph-planning process.
 - [ ] Oracle plot answers RQ2: graph backend capacity.
 - [ ] Fingerprint plot answers RQ2: enriched graph value.
 - [ ] LoRA vs Gemini plot answers RQ1: domain tuning for spatial extraction.
@@ -1058,13 +1197,14 @@ Run these checks after generating figures.
 Use these outputs in the defense slide result section:
 
 1. **Evaluation setup**: no metric plot; simple pipeline diagram.
-2. **Symbolic ceiling**: `fig01_oracle_symbolic_ceiling`
-3. **Enriched graph value**: `fig02_fingerprint_ladder`
-4. **Learned extraction**: `fig03_lora_vs_gemini`
-5. **Multimodal grounding**: `fig04_multimodal_alignment_gain`
-6. **Evidence-dependent reranking**: `fig05_graph_rag_evidence_dependent`
-7. **Key findings**: slide-condensed version of `fig06_summary_findings_table`
-8. **Limitations and future work**: no dense plot required; optionally use backup field heatmap in Q&A.
+2. **Symbolic graph reasoning**: `fig00_symbolic_reasoning_trace`
+3. **Symbolic ceiling**: `fig01_oracle_symbolic_ceiling`
+4. **Enriched graph value**: `fig02_fingerprint_ladder`
+5. **Learned extraction**: `fig03_lora_vs_gemini`
+6. **Multimodal grounding**: `fig04_multimodal_alignment_gain`
+7. **Evidence-dependent reranking**: `fig05_graph_rag_evidence_dependent`
+8. **Key findings**: slide-condensed version of `fig06_summary_findings_table`
+9. **Limitations and future work**: no dense plot required; optionally use backup field heatmap in Q&A.
 
 ---
 
@@ -1073,11 +1213,12 @@ Use these outputs in the defense slide result section:
 Recommended LaTeX paths:
 
 ```latex
-figures/plots/final_ch7/fig01_oracle_symbolic_ceiling.png
-figures/plots/final_ch7/fig02_fingerprint_ladder.png
-figures/plots/final_ch7/fig03_lora_vs_gemini.png
-figures/plots/final_ch7/fig04_multimodal_alignment_gain.png
-figures/plots/final_ch7/fig05_graph_rag_evidence_dependent.png
+figures/plots/final/fig00_symbolic_reasoning_trace.png
+figures/plots/final/fig01_oracle_symbolic_ceiling.png
+figures/plots/final/fig02_fingerprint_ladder.png
+figures/plots/final/fig03_lora_vs_gemini.png
+figures/plots/final/fig04_multimodal_alignment_gain.png
+figures/plots/final/fig05_graph_rag_evidence_dependent.png
 ```
 
 For the summary, prefer the LaTeX `longtable` version in Chapter 7 rather than a rendered image. Use the CSV as the source of truth.
@@ -1086,13 +1227,14 @@ For the summary, prefer the LaTeX `longtable` version in Chapter 7 rather than a
 
 ## Priority order for Codex
 
-1. Build data CSVs for the six main figures.
-2. Generate `fig05_graph_rag_evidence_dependent` first because it replaces current placeholder paths.
-3. Generate `fig04_multimodal_alignment_gain` to satisfy the thesis TODO.
-4. Generate `fig01` and `fig02` for graph/ontology proof.
-5. Generate `fig03` for learned extraction.
-6. Generate `fig06` table and slide-condensed version.
-7. Generate backup plots only if time remains.
+1. Build the representative-case exports for `fig00_symbolic_reasoning_trace`.
+2. Build data CSVs for the remaining six main figures.
+3. Generate `fig05_graph_rag_evidence_dependent` first because it replaces current placeholder paths.
+4. Generate `fig04_multimodal_alignment_gain` to satisfy the thesis TODO.
+5. Generate `fig00`, `fig01`, and `fig02` as the graph/ontology proof sequence.
+6. Generate `fig03` for learned extraction.
+7. Generate `fig06` table and slide-condensed version.
+8. Generate backup plots only if time remains.
 
 ---
 
@@ -1106,4 +1248,3 @@ Do not do the following in this task:
 - Do not generate a standalone ResNet main figure unless the user explicitly asks.
 - Do not include all intermediate development phases in the main slides.
 - Do not use the term `Phase 6` in final thesis/slides figure titles.
-

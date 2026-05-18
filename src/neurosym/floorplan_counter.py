@@ -22,7 +22,18 @@ import cv2
 import numpy as np
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
+# PROJECT_ROOT is only consulted by `_resolve_input_path` /
+# `_resolve_case_full_floorplan` (the case-driven entry point). Modal-baked
+# copies of this module live at /perception/floorplan_counter.py with fewer
+# than 4 ancestors — fall back to None there so module import does not crash.
+def _maybe_project_root() -> Optional[Path]:
+    try:
+        return Path(__file__).resolve().parents[3]
+    except IndexError:
+        return None
+
+
+PROJECT_ROOT = _maybe_project_root()
 _POSITION_CONTEXT_RE = re.compile(
     r"(?P<index>\d+)(?:st|nd|rd|th)\s+of\s+(?P<total>\d+)\s+openings",
     flags=re.IGNORECASE,
@@ -239,8 +250,9 @@ class FloorplanCounter:
             candidates.append(raw)
         else:
             candidates.append(raw)
-            candidates.append(PROJECT_ROOT / raw)
-            candidates.append(PROJECT_ROOT / "data_curation" / raw)
+            if PROJECT_ROOT is not None:
+                candidates.append(PROJECT_ROOT / raw)
+                candidates.append(PROJECT_ROOT / "data_curation" / raw)
             if self.image_dir is not None:
                 candidates.append(self.image_dir / raw)
                 parts = list(raw.parts)
@@ -269,9 +281,9 @@ class FloorplanCounter:
         if not dataset_name:
             return None
 
-        search_roots = [
-            PROJECT_ROOT / "data_curation" / "datasets",
-        ]
+        search_roots: List[Path] = []
+        if PROJECT_ROOT is not None:
+            search_roots.append(PROJECT_ROOT / "data_curation" / "datasets")
         if self.image_dir is not None:
             search_roots.extend(
                 [

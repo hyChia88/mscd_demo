@@ -50,10 +50,18 @@ def start(root: str, port: int = 8502) -> str:
                 return super().translate_path(path)
 
             def end_headers(self):
-                # Disable HTML caching so dashboard/viewer edits show up immediately.
-                # IFC / wasm / JS bundles still cache normally — they're large and stable.
-                clean = urlsplit(self.path).path
-                if clean.endswith(".html"):
+                # Disable HTTP caching for HTML *and* the viewer's JS/wasm/worker
+                # runtime + IFC payloads. Without this, a full or stale Chrome
+                # cache can pin the iframe at "Highlighting…" — the bundle's
+                # `?v=` cache-buster covers the entry script, but the worker,
+                # wasm, and IFC files have no buster, and Chrome's cache will
+                # serve a partial/corrupt entry instead of refetching when the
+                # cache is full. Forcing no-store sidesteps that whole class of
+                # bugs at the cost of re-downloading on every iframe mount,
+                # which is acceptable for a demo.
+                clean = urlsplit(self.path).path.lower()
+                no_cache_exts = (".html", ".js", ".mjs", ".wasm", ".ifc")
+                if clean.endswith(no_cache_exts):
                     self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
                     self.send_header("Pragma", "no-cache")
                     self.send_header("Expires", "0")
