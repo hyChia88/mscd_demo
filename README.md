@@ -1,7 +1,9 @@
-# MSCD: AI Interpreter for Construction Site Data
+# AEC Interpreter for Construction Site Data
 
-MSCD tries to link messy site evidence to the correct IFC/BIM element.
+AEC Interpreter tries to link messy site evidence to the correct IFC/BIM element.
 It takes floorplans, site photos, chat messages, and task metadata, turns them into structured constraints, and then searches the IFC model with a rule-based retrieval pipeline.
+
+📄 **[Thesis Paper (PDF)](docs/final_thesis_paper.pdf)** · 🖼️ **[Slides (PDF)](docs/final_slides.pdf)** · 🎬 **[Demo Video (MP4)](docs/screenshots/demo_v2.mp4)** · 🌐 **[Portfolio Write-up](docs/ai_aec_interpreter.html)**
 
 Full results, ablations, and threats-to-validity are in [`results.md`](results.md).
 
